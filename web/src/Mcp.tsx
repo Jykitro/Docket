@@ -5,6 +5,24 @@ import { type McpTool, api, fmtTime } from './api'
 import { Icon } from './icons'
 import { ConfirmButton, ErrorState, Skeleton, Toggle } from './ui'
 
+const BTN_LOOK = 'items-center gap-2 whitespace-nowrap rounded-lg border font-medium no-underline disabled:cursor-default disabled:opacity-50'
+const BTN_PRI = 'inline-flex h-[34px] px-3 text-[13.5px] border-ink bg-ink text-inkt hover:opacity-90 ' + BTN_LOOK
+const BTN_SM = 'inline-flex h-[30px] px-2.5 text-[13px] border-ln bg-sf text-tx hover:bg-sk ' + BTN_LOOK
+const BTN_SM_SQ = 'inline-flex size-[30px] justify-center p-0 text-[13px] border-ln bg-sf text-tx hover:bg-sk ' + BTN_LOOK
+const PANEL = 'overflow-hidden rounded-xl border border-ln bg-sf'
+const PH_ROW = 'flex items-center gap-3 px-5 pt-4'
+const PH_H2 = 'grow text-[16px] font-semibold tracking-[-.01em]'
+const LB = 'flex min-w-0 flex-col gap-1.5 text-[12.5px] font-medium text-t2'
+const FLD = 'flex h-[38px] min-w-0 items-center gap-2 rounded-lg border border-ln bg-sf2 pr-1.5 pl-3 text-[13px]'
+const HINT = 'text-[12px] font-normal text-t3'
+const ERR_PAD = 'px-5 pb-3.5 text-[13px] text-rd'
+const CK = 'flex flex-wrap items-center gap-3 border-t border-ln px-5 py-[11px]'
+const TL = 'flex items-center gap-3 border-t border-ln px-5 py-2.5'
+const LG = 'items-center gap-2.5 border-t border-ln px-[18px] py-[9px] text-[12.5px]'
+const SEG = 'inline-flex gap-0.5 rounded-lg border border-ln p-0.5 text-[12.5px]'
+const SEGBTN = 'rounded-md px-2.5 py-[3px] text-t3 disabled:cursor-default disabled:opacity-50 '
+const FC = 'inline-flex h-7 items-center gap-1.5 whitespace-nowrap rounded-full border border-ln bg-sf px-2.5 text-[12.5px] text-t2 hover:bg-sk aria-pressed:border-transparent aria-pressed:bg-acs aria-pressed:font-medium aria-pressed:text-act aria-pressed:hover:bg-sk'
+const MONO = 'font-mono text-[11.5px] text-t3'
 const CODE_TAB = ['Claude Code', 'Claude Desktop'] as const
 
 function copyText(text: string) {
@@ -65,154 +83,155 @@ export function Mcp() {
 
   return (
     <>
-      <header className="pagehead">
-        <span style={{ width: 40, height: 40, borderRadius: 11, background: 'var(--sk)', display: 'grid', placeItems: 'center' }}><Icon name="plug" size={20} sw={1.9} /></span>
-        <div className="stack">
-          <h1 style={{ fontSize: 24 }}>MCP</h1>
-          <span className="sub">Так Claude читает и ведёт задачи. Сервер работает внутри Docket, отдельно ничего ставить не нужно.</span>
+      <header className="flex flex-wrap items-center gap-3.5 border-b border-ln bg-sf px-8 pt-6 pb-[18px] max-[640px]:px-4">
+        <span className="grid size-10 place-items-center rounded-[11px] bg-sk"><Icon name="plug" size={20} sw={1.9} /></span>
+        <div className="flex min-w-0 flex-[1_1_260px] flex-col gap-0.5">
+          <h1 className="text-[24px] font-bold tracking-[-.02em]">MCP</h1>
+          <span className="text-[13.5px] text-t3">Так Claude читает и ведёт задачи. Сервер работает внутри Docket, отдельно ничего ставить не нужно.</span>
         </div>
         {st && (
-          <span className={'pill' + (online ? '' : ' bad')} role="status">
-            <span className="dot" style={{ background: online ? 'var(--dn)' : 'var(--rd)' }} />
+          <span className={'inline-flex h-[30px] items-center gap-2 rounded-full px-3 text-[13px] font-semibold ' + (online ? 'bg-dns text-dnt' : 'bg-rds text-rd')} role="status">
+            <span className={'inline-block size-2 shrink-0 rounded-full ' + (online ? 'bg-dn' : 'bg-rd')} />
             {online ? `Онлайн · ${result?.checks.find((c) => c.key === 'server')?.value ?? ''}` : 'Недоступен'}
           </span>
         )}
       </header>
 
-      <div className="mcpgrid">
-        <div className="col-main" style={{ flex: '999 1 540px', gap: 20 }}>
-          <section className="panel clip">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', padding: 20 }}>
-              <span style={{ width: 46, height: 46, borderRadius: '50%', display: 'grid', placeItems: 'center', flex: '0 0 46px', background: online || !result ? 'var(--dns)' : 'var(--rds)', color: online || !result ? 'var(--dnt)' : 'var(--rd)' }}>
+      <div className="flex flex-wrap items-start gap-6 px-8 pt-6 pb-10 max-[640px]:px-4 max-[640px]:py-4">
+        <div className="flex min-w-0 flex-[999_1_540px] flex-col gap-5">
+          <section className={PANEL}>
+            <div className="flex flex-wrap items-center gap-4 p-5">
+              <span className={'grid size-[46px] shrink-0 place-items-center rounded-full ' + (online || !result ? 'bg-dns text-dnt' : 'bg-rds text-rd')}>
                 <Icon name={online || !result ? 'check' : 'x'} size={22} sw={2.2} />
               </span>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: '1 1 220px', minWidth: 0 }}>
-                <span style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-.01em' }}>{!result ? 'Проверка…' : online ? 'Подключено' : 'Есть проблемы'}</span>
-                <span style={{ fontSize: 13, color: 'var(--t3)' }}>
-                  {st?.last_call_at ? <>Последний вызов от <b style={{ fontWeight: 600, color: 'var(--t2)' }}>claude</b> в {fmtTime(st.last_call_at)}. </> : 'Вызовов ещё не было. '}
+              <div className="flex min-w-0 flex-[1_1_220px] flex-col gap-0.5">
+                <span className="text-[19px] font-bold tracking-[-.01em]">{!result ? 'Проверка…' : online ? 'Подключено' : 'Есть проблемы'}</span>
+                <span className="text-[13px] text-t3">
+                  {st?.last_call_at ? <>Последний вызов от <b className="font-semibold text-t2">claude</b> в {fmtTime(st.last_call_at)}. </> : 'Вызовов ещё не было. '}
                   {result && `Проверка: ${checked ? 'только что' : fmtTime(result.at)}, ${result.checks.filter((c) => c.ok).length} из ${result.checks.length}.`}
                 </span>
               </div>
-              <button type="button" className="btn pri" disabled={check.isPending} onClick={() => check.mutate()}>
+              <button type="button" className={BTN_PRI} disabled={check.isPending} onClick={() => check.mutate()}>
                 <Icon name="clock" size={15} />{check.isPending ? 'Проверяю…' : checked ? 'Проверено только что' : 'Проверить соединение'}
               </button>
             </div>
             {status.isError && <ErrorState message={status.error.message} onRetry={() => status.refetch()} />}
-            {status.isPending && <div className="ck"><Skeleton w="70%" /></div>}
+            {status.isPending && <div className={CK}><Skeleton w="70%" /></div>}
             {result?.checks.map((c) => (
-              <div className="ck" key={c.key}>
-                <span className={'ckicon' + (c.ok ? '' : ' bad')}><Icon name={c.ok ? 'check' : 'x'} size={12} sw={3} /></span>
-                <span style={{ flex: '0 0 160px', fontWeight: 500, fontSize: 13.5 }}>{c.label}</span>
-                <span className="mono" style={{ flex: '1 1 180px', minWidth: 0, fontSize: 12, color: 'var(--t3)', overflowWrap: 'anywhere' }}>{c.detail}</span>
-                <span className="mono" style={{ fontSize: 12, color: 'var(--t2)' }}>{c.ok ? c.value || 'ок' : 'ошибка'}</span>
-                {!c.ok && c.hint && <span style={{ flexBasis: '100%', paddingLeft: 32, fontSize: 12.5, color: 'var(--rd)' }}>Что делать: {c.hint}</span>}
+              <div className={CK} key={c.key}>
+                <span className={'grid size-5 shrink-0 place-items-center rounded-full ' + (c.ok ? 'bg-dns text-dnt' : 'bg-rds text-rd')}><Icon name={c.ok ? 'check' : 'x'} size={12} sw={3} /></span>
+                <span className="flex-[0_0_160px] text-[13.5px] font-medium">{c.label}</span>
+                <span className="min-w-0 flex-[1_1_180px] font-mono text-[12px] text-t3 [overflow-wrap:anywhere]">{c.detail}</span>
+                <span className="font-mono text-[12px] text-t2">{c.ok ? c.value || 'ок' : 'ошибка'}</span>
+                {!c.ok && c.hint && <span className="basis-full pl-8 text-[12.5px] text-rd">Что делать: {c.hint}</span>}
               </div>
             ))}
-            {check.isError && <div className="errline" style={{ padding: '0 20px 14px' }} role="alert">{check.error.message}</div>}
+            {check.isError && <div className={ERR_PAD} role="alert">{check.error.message}</div>}
           </section>
 
-          <section className="panel clip">
-            <div className="ph row">
-              <h2 className="grow">Подключение</h2>
-              <span className="segmini" role="group" aria-label="Режим доступа">
+          <section className={PANEL}>
+            <div className={PH_ROW + ' pb-3'}>
+              <h2 className={PH_H2}>Подключение</h2>
+              <span className={SEG} role="group" aria-label="Режим доступа">
                 {([['rw', 'Чтение и запись'], ['ro', 'Только чтение']] as const).map(([k, n]) => (
-                  <button key={k} type="button" className={s?.access_mode === k ? 'on' : ''} aria-pressed={s?.access_mode === k} disabled={!s || patch.isPending} onClick={() => patch.mutate({ access_mode: k })}>{n}</button>
+                  <button key={k} type="button" className={SEGBTN + 'aria-pressed:bg-sk aria-pressed:font-semibold aria-pressed:text-tx'} aria-pressed={s?.access_mode === k} disabled={!s || patch.isPending} onClick={() => patch.mutate({ access_mode: k })}>{n}</button>
                 ))}
               </span>
             </div>
-            <div className="pb" style={{ paddingTop: 0, gap: 16 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
-                <div className="lb">Адрес сервера
-                  <div className="fld"><span className="mono">{address}</span>
-                    <button type="button" className="btn sm sq" aria-label="Копировать адрес" onClick={() => copyText(address)?.then(() => flash('addr'))}><Icon name={copied === 'addr' ? 'check' : 'link'} size={15} /></button>
+            <div className="flex flex-col gap-4 px-5 pb-5">
+              <div className="grid grid-cols-[repeat(auto-fit,minmax(260px,1fr))] gap-4">
+                <div className={LB}>Адрес сервера
+                  <div className={FLD}><span className="flex-1 truncate font-mono">{address}</span>
+                    <button type="button" className={BTN_SM_SQ} aria-label="Копировать адрес" onClick={() => copyText(address)?.then(() => flash('addr'))}><Icon name={copied === 'addr' ? 'check' : 'link'} size={15} /></button>
                   </div>
-                  <span className="hint">Транспорт: Streamable HTTP. Слушает только 127.0.0.1.</span>
+                  <span className={HINT}>Транспорт: Streamable HTTP. Слушает только 127.0.0.1.</span>
                 </div>
-                <div className="lb">Токен
-                  <div className="fld"><Icon name="key" size={15} /><span className="mono">{shownToken}</span>
-                    <button type="button" className="btn sm sq" aria-label={token ? 'Скрыть токен' : 'Показать токен'} onClick={() => (token ? setToken(null) : reveal.mutate())}><Icon name={token ? 'x' : 'search'} size={15} /></button>
-                    <button type="button" className="btn sm sq" aria-label="Копировать токен" onClick={async () => { await copyText(await fullToken()); flash('token') }}><Icon name={copied === 'token' ? 'check' : 'link'} size={15} /></button>
+                <div className={LB}>Токен
+                  <div className={FLD}><Icon name="key" size={15} /><span className="flex-1 truncate font-mono">{shownToken}</span>
+                    <button type="button" className={BTN_SM_SQ} aria-label={token ? 'Скрыть токен' : 'Показать токен'} onClick={() => (token ? setToken(null) : reveal.mutate())}><Icon name={token ? 'x' : 'search'} size={15} /></button>
+                    <button type="button" className={BTN_SM_SQ} aria-label="Копировать токен" onClick={async () => { await copyText(await fullToken()); flash('token') }}><Icon name={copied === 'token' ? 'check' : 'link'} size={15} /></button>
                   </div>
-                  <span className="hint">{s?.token_from_env ? 'Задан в .env как DOCKET_MCP_TOKEN: перевыпуск отключён.' : 'Хранится в базе. После перевыпуска обновите клиент.'}</span>
+                  <span className={HINT}>{s?.token_from_env ? 'Задан в .env как DOCKET_MCP_TOKEN: перевыпуск отключён.' : 'Хранится в базе. После перевыпуска обновите клиент.'}</span>
                 </div>
               </div>
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10, flexWrap: 'wrap' }}>
-                  <span className="segmini" role="tablist" aria-label="Клиент">
-                    {CODE_TAB.map((n, i) => <button key={n} type="button" role="tab" aria-selected={tab === i} className={tab === i ? 'on' : ''} onClick={() => setTab(i)}>{n}</button>)}
+                <div className="mb-2.5 flex flex-wrap items-center gap-3">
+                  <span className={SEG} role="tablist" aria-label="Клиент">
+                    {CODE_TAB.map((n, i) => <button key={n} type="button" role="tab" aria-selected={tab === i} className={SEGBTN + 'aria-selected:bg-sk aria-selected:font-semibold aria-selected:text-tx'} onClick={() => setTab(i)}>{n}</button>)}
                   </span>
                   <span className="grow" />
-                  <button type="button" className="btn sm" onClick={async () => { await copyText(config(tab, address, await fullToken())); flash('cfg') }}>
+                  <button type="button" className={BTN_SM} onClick={async () => { await copyText(config(tab, address, await fullToken())); flash('cfg') }}>
                     <Icon name={copied === 'cfg' ? 'check' : 'doc'} size={14} />{copied === 'cfg' ? 'Скопировано' : 'Скопировать конфиг'}
                   </button>
-                  <ConfirmButton className="btn sm" label="Перевыпустить токен" armed="Старый токен перестанет работать. Перевыпустить?" disabled={!s || s.token_from_env || rotate.isPending}
+                  <ConfirmButton className={BTN_SM + ' [&.warn]:border-rd [&.warn]:text-rd'} label="Перевыпустить токен" armed="Старый токен перестанет работать. Перевыпустить?" disabled={!s || s.token_from_env || rotate.isPending}
                     icon={<Icon name="clock" size={14} />} onConfirm={() => rotate.mutate()} />
                 </div>
-                {rotated && <div className="errline" style={{ color: 'var(--dgt)', marginBottom: 8 }} role="status">Токен перевыпущен. Обновите его в клиенте: скопируйте конфиг ниже.</div>}
-                <pre className="codeblock mono">{config(tab, address, shownToken)}</pre>
-                {rotate.isError && <div className="errline" role="alert">{rotate.error.message}</div>}
+                {rotated && <div className="mb-2 text-[13px] text-dgt" role="status">Токен перевыпущен. Обновите его в клиенте: скопируйте конфиг ниже.</div>}
+                <pre className="overflow-x-auto rounded-[10px] border border-ln bg-sf2 px-4 py-3.5 font-mono text-[12.5px] leading-[1.65] whitespace-pre text-t2">{config(tab, address, shownToken)}</pre>
+                {rotate.isError && <div className="text-[13px] text-rd" role="alert">{rotate.error.message}</div>}
               </div>
             </div>
           </section>
 
-          <section className="panel clip">
-            <div className="ph row"><h2 className="grow">Инструменты</h2><span style={{ fontSize: 13, color: 'var(--t3)' }}>{enabled} из {s?.tools.length ?? 0} включено</span></div>
+          <section className={PANEL}>
+            <div className={PH_ROW + ' pb-3'}><h2 className={PH_H2}>Инструменты</h2><span className="text-[13px] text-t3">{enabled} из {s?.tools.length ?? 0} включено</span></div>
             {settings.isError && <ErrorState message={settings.error.message} onRetry={() => settings.refetch()} />}
-            {settings.isPending && <div className="tl"><Skeleton w="70%" /></div>}
+            {settings.isPending && <div className={TL}><Skeleton w="70%" /></div>}
             {groups.map(([name, tools]) => (
               <div key={name}>
-                <div className="cap" style={{ padding: '8px 20px 6px', borderTop: '1px solid var(--ln)', background: 'var(--sf2)' }}>{name}{name === 'Запись' && readOnly && ' · недоступна в режиме «Только чтение»'}</div>
+                <div className="border-t border-ln bg-sf2 px-5 pt-2 pb-1.5 text-[11px] font-semibold tracking-[.06em] text-t3 uppercase">{name}{name === 'Запись' && readOnly && ' · недоступна в режиме «Только чтение»'}</div>
                 {tools.map((t) => {
                   const off = name === 'Запись' && readOnly
+                  const dim = off ? ' opacity-[.55]' : ''
                   return (
-                    <div className={'tl' + (off ? ' off' : '')} key={t.name}>
-                      <span className="mono name" style={{ flex: '0 0 150px', fontSize: 12.5, fontWeight: 500 }}>{t.name}</span>
-                      <span className="desc" style={{ flex: '1 1 200px', minWidth: 0, fontSize: 13, color: 'var(--t2)' }}>{t.description}</span>
-                      <span className="mono tabnum" style={{ fontSize: 12, color: 'var(--t3)', flex: '0 0 52px', textAlign: 'right' }} title="Вызовы за 7 дней">{t.calls_7d}</span>
+                    <div className={TL} key={t.name}>
+                      <span className={'flex-[0_0_150px] font-mono text-[12.5px] font-medium' + dim}>{t.name}</span>
+                      <span className={'min-w-0 flex-[1_1_200px] text-[13px] text-t2' + dim}>{t.description}</span>
+                      <span className="flex-[0_0_52px] text-right font-mono text-[12px] tabular-nums text-t3" title="Вызовы за 7 дней">{t.calls_7d}</span>
                       <Toggle on={t.enabled} disabled={off || patch.isPending} label={`Инструмент ${t.name}`} onChange={(v) => patch.mutate({ tools: { [t.name]: v } })} />
                     </div>
                   )
                 })}
               </div>
             ))}
-            <div style={{ padding: '12px 20px', borderTop: '1px solid var(--ln)', fontSize: 12.5, color: 'var(--t3)' }}>Число справа: вызовы за 7 дней. Выключенный инструмент пропадает из списка, который видит Claude.</div>
-            {patch.isError && <div className="errline" style={{ padding: '0 20px 14px' }} role="alert">{patch.error.message}</div>}
+            <div className="border-t border-ln px-5 py-3 text-[12.5px] text-t3">Число справа: вызовы за 7 дней. Выключенный инструмент пропадает из списка, который видит Claude.</div>
+            {patch.isError && <div className={ERR_PAD} role="alert">{patch.error.message}</div>}
           </section>
         </div>
 
-        <aside style={{ flex: '1 1 380px', maxWidth: 480, minWidth: 0 }}>
-          <section className="panel clip">
-            <div className="ph row" style={{ paddingBottom: 10 }}>
-              <h2 className="grow">Журнал вызовов</h2>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, font: "600 11px 'JetBrains Mono', monospace", color: 'var(--dnt)', letterSpacing: '.06em' }}><span className="dot" style={{ width: 7, height: 7, flexBasis: 7, background: 'var(--dn)' }} />LIVE</span>
+        <aside className="min-w-0 max-w-[480px] flex-[1_1_380px]">
+          <section className={PANEL}>
+            <div className={PH_ROW + ' pb-2.5'}>
+              <h2 className={PH_H2}>Журнал вызовов</h2>
+              <span className="inline-flex items-center gap-1.5 font-mono text-[11px] leading-[normal] font-semibold tracking-[.06em] text-dnt"><span className="inline-block size-[7px] shrink-0 rounded-full bg-dn" />LIVE</span>
             </div>
-            <div style={{ padding: '0 18px 12px', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <div className="flex flex-wrap items-center gap-2 px-[18px] pb-3">
               {([['all', 'Все'], ['write', 'Запись'], ['error', `Ошибки: ${errors.data?.length ?? 0}`]] as const).map(([k, n]) => (
-                <button key={k} type="button" className={'fc' + (filter === k ? ' on' : '')} aria-pressed={filter === k} onClick={() => setFilter(k)}>{n}</button>
+                <button key={k} type="button" className={FC} aria-pressed={filter === k} onClick={() => setFilter(k)}>{n}</button>
               ))}
               <span className="grow" />
-              {st && <span className="mono" style={{ fontSize: 11.5, color: 'var(--t3)' }}>{st.calls_today} сегодня · медиана {st.median_ms} мс</span>}
+              {st && <span className={MONO}>{st.calls_today} сегодня · медиана {st.median_ms} мс</span>}
             </div>
             {calls.isError && <ErrorState message={calls.error.message} onRetry={() => calls.refetch()} />}
-            {calls.isPending && <div className="lg"><Skeleton w={40} /><span /><Skeleton /><span /></div>}
-            {calls.isSuccess && calls.data.length === 0 && <div className="lg" style={{ display: 'block', color: 'var(--t3)' }}>Вызовов пока нет. Они появятся здесь, как только Claude обратится к Docket.</div>}
+            {calls.isPending && <div className={'grid grid-cols-[62px_20px_minmax(0,1fr)_auto] ' + LG}><Skeleton w={40} /><span /><Skeleton /><span /></div>}
+            {calls.isSuccess && calls.data.length === 0 && <div className={'block text-t3 ' + LG}>Вызовов пока нет. Они появятся здесь, как только Claude обратится к Docket.</div>}
             {calls.data?.map((c) => (
-              <div className="lg" key={c.id}>
-                <span className="mono" style={{ color: 'var(--t3)' }}>{new Date(c.at).toLocaleTimeString('ru-RU')}</span>
-                <span style={{ width: 20, height: 20, borderRadius: '50%', background: 'var(--acs)', color: 'var(--act)', display: 'grid', placeItems: 'center' }} title={c.actor}><Icon name="spark" size={11} sw={2.2} /></span>
-                <span style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
-                  <span className="mono" style={{ fontWeight: 500, fontSize: 12.5 }}>{c.tool}</span>
-                  <span className="mono" style={{ fontSize: 11.5, color: 'var(--t3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={c.args_summary}>{c.args_summary}</span>
+              <div className={'grid grid-cols-[62px_20px_minmax(0,1fr)_auto] ' + LG} key={c.id}>
+                <span className="font-mono text-t3">{new Date(c.at).toLocaleTimeString('ru-RU')}</span>
+                <span className="grid size-5 place-items-center rounded-full bg-acs text-act" title={c.actor}><Icon name="spark" size={11} sw={2.2} /></span>
+                <span className="flex min-w-0 flex-col gap-px">
+                  <span className="font-mono text-[12.5px] font-medium">{c.tool}</span>
+                  <span className={MONO + ' truncate'} title={c.args_summary}>{c.args_summary}</span>
                 </span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span className="mono" style={{ fontSize: 11.5, color: 'var(--t3)' }}>{c.duration_ms} мс</span>
-                  <span className={c.status === 'ok' ? 'okc' : 'erc'} title={c.error_code ?? undefined}>{c.status === 'ok' ? 'ok' : 'ошибка'}</span>
+                <span className="flex items-center gap-2">
+                  <span className={MONO}>{c.duration_ms} мс</span>
+                  <span className={'rounded-[5px] px-[7px] py-0.5 font-mono text-[11px] leading-[normal] font-semibold ' + (c.status === 'ok' ? 'bg-dns text-dnt' : 'bg-rds text-rd')} title={c.error_code ?? undefined}>{c.status === 'ok' ? 'ok' : 'ошибка'}</span>
                 </span>
               </div>
             ))}
-            <div style={{ padding: '12px 18px', borderTop: '1px solid var(--ln)', display: 'flex', alignItems: 'center', fontSize: 12.5, color: 'var(--t3)' }}>
+            <div className="flex items-center border-t border-ln px-[18px] py-3 text-[12.5px] text-t3">
               <span className="grow">Хранится 7 дней</span>
-              <ConfirmButton className="linkbtn" label="Очистить журнал" armed="Точно очистить?" disabled={clear.isPending || !calls.data?.length} onConfirm={() => clear.mutate()} />
+              <ConfirmButton className="p-0 text-[12.5px] text-t3 hover:text-tx" label="Очистить журнал" armed="Точно очистить?" disabled={clear.isPending || !calls.data?.length} onConfirm={() => clear.mutate()} />
             </div>
           </section>
         </aside>

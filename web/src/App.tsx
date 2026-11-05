@@ -13,14 +13,14 @@ import { TaskPanel } from './TaskPanel'
 import { useTheme } from './theme'
 import { Today } from './Today'
 import { Trash } from './Trash'
-import { EmptyState } from './ui'
+import { EmptyState, btn } from './ui'
 
 type NewTaskOpts = { project?: Project; date?: string; status?: string; title?: string }
 
 function Soon({ title, hint }: { title: string; hint: string }) {
   return (
-    <div className="content">
-      <div className="col-main panel"><EmptyState icon="spark" title={title} hint={hint} action={<Link to="/" className="btn">На главную</Link>} /></div>
+    <div className="px-8 pt-6 pb-8 flex gap-6 flex-wrap items-start max-[640px]:px-4">
+      <div className="flex-[999_1_520px] min-w-0 flex flex-col gap-[18px] bg-sf border border-ln rounded-xl"><EmptyState icon="spark" title={title} hint={hint} action={<Link to="/" className={btn}>На главную</Link>} /></div>
     </div>
   )
 }
@@ -74,9 +74,9 @@ export function App() {
     : proj ? (current ? current.name + (proj[2] ? ': настройки' : '') : 'Проект') : 'Docket'
   useEffect(() => { document.title = task ? `${task.toUpperCase()} · ${heading} · Docket` : heading === 'Docket' ? 'Docket' : `${heading} · Docket` }, [heading, task])
   return (
-    <div className="app" data-theme={theme.resolved}>
+    <div className="app min-h-screen flex flex-wrap items-stretch bg-bg text-tx" data-theme={theme.resolved}>
       <Sidebar path={path} view={params.get('view')} theme={theme.pref} onTheme={theme.set} onNewProject={() => setNewProject(true)} onSearch={() => setSearch(true)} />
-      <main className="main">{page}</main>
+      <main className="flex-[999_1_560px] min-w-0 flex flex-col">{page}</main>
       {task && <TaskPanel key={task} code={task} mode="drawer" />}
       {search && projects.data && (
         <SearchDialog projects={projects.data} current={current} onClose={() => setSearch(false)} onCreate={(title) => openNewTask({ title, project: current })} />

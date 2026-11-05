@@ -5,6 +5,12 @@ import { Icon, ProjectTile } from './icons'
 import { Link, hrefWith } from './router'
 import { EmptyState, ErrorState, SkeletonRows } from './ui'
 
+const MC = 'inline-flex items-center gap-[5px] text-[12px] text-t3'
+const ROW = 'flex items-center gap-3 min-h-[46px] px-4 py-1.5 border-ln no-underline hover:bg-sf2'
+const ROWMAIN = 'flex flex-1 items-center gap-3 min-w-0 self-stretch no-underline'
+const CODE = 'font-mono text-[11.5px] text-t3 w-[58px] flex-[0_0_58px]'
+const BTN = 'inline-flex items-center gap-2 h-[34px] px-3 rounded-lg border bg-sf text-[13.5px] font-medium no-underline whitespace-nowrap cursor-pointer hover:bg-sk disabled:opacity-50 disabled:cursor-default'
+
 export function Trash() {
   const qc = useQueryClient()
   const q = useQuery({ queryKey: ['trash'], queryFn: api.trash })
@@ -25,49 +31,49 @@ export function Trash() {
 
   return (
     <>
-      <header className="pagehead">
-        <div className="stack">
-          <h1>Корзина</h1>
-          <span className="sub">{total} {plural(total, 'элемент', 'элемента', 'элементов')} · удалённое можно восстановить</span>
+      <header className="flex flex-wrap items-center gap-3.5 px-8 pt-6 pb-[18px] border-b border-ln bg-sf max-[640px]:px-4">
+        <div className="flex flex-col gap-0.5 flex-[1_1_260px] min-w-0">
+          <h1 className="text-[26px] font-bold tracking-[-.02em]">Корзина</h1>
+          <span className="text-[13.5px] text-t3">{total} {plural(total, 'элемент', 'элемента', 'элементов')} · удалённое можно восстановить</span>
         </div>
-        <button type="button" className={'btn' + (confirm ? ' warn' : '')} disabled={total === 0 || purge.isPending}
+        <button type="button" className={BTN + (confirm ? ' border-rd text-rd' : ' border-ln text-tx')} disabled={total === 0 || purge.isPending}
           onClick={() => (confirm ? (setConfirm(false), purge.mutate()) : setConfirm(true))}>
           <Icon name="trash" size={15} />{confirm ? `Удалить навсегда (${total})?` : 'Очистить корзину'}
         </button>
       </header>
-      <div className="content">
-        <div className="col-main">
-          <section className="panel" style={{ overflow: 'hidden' }}>
+      <div className="flex flex-wrap items-start gap-6 px-8 pt-6 pb-8 max-[640px]:px-4">
+        <div className="flex flex-[999_1_520px] flex-col gap-[18px] min-w-0">
+          <section className="overflow-hidden bg-sf border border-ln rounded-xl">
             {q.isPending && <SkeletonRows n={4} />}
             {q.isError && <ErrorState message={q.error.message} onRetry={() => q.refetch()} />}
             {q.isSuccess && pq.isSuccess && total === 0 && <EmptyState icon="trash" title="Корзина пуста" hint="Сюда попадают удалённые задачи: из панели задачи или через MCP." />}
             {gone.map((p, i) => (
-              <div className="row" key={'p' + p.id} style={i === 0 ? { borderTop: 0 } : undefined}>
-                <span className="rowmain">
+              <div className={ROW + (i === 0 ? ' border-t-0' : ' border-t')} key={'p' + p.id}>
+                <span className={ROWMAIN}>
                   <ProjectTile icon={p.icon} color={p.color} size={22} radius={7} />
-                  <span className="code mono">{p.key}</span>
-                  <span className="title">{p.name} <span className="mc">· проект целиком</span></span>
-                  {p.deleted_at && <span className="mc">удалён {fmtStamp(p.deleted_at)}</span>}
+                  <span className={CODE}>{p.key}</span>
+                  <span className="flex-[1_1_200px] min-w-0 font-medium">{p.name} <span className={MC}>· проект целиком</span></span>
+                  {p.deleted_at && <span className={MC}>удалён {fmtStamp(p.deleted_at)}</span>}
                 </span>
-                <button type="button" className="btn" disabled={restoreP.isPending} onClick={() => restoreP.mutate(p.id)}>Восстановить</button>
+                <button type="button" className={BTN + ' border-ln text-tx'} disabled={restoreP.isPending} onClick={() => restoreP.mutate(p.id)}>Восстановить</button>
               </div>
             ))}
             {tasks.map((t, i) => {
               const p = projects.data?.find((x) => x.id === t.project_id)
               return (
-                <div className="row" key={t.id} style={i === 0 && gone.length === 0 ? { borderTop: 0 } : undefined}>
-                  <Link to={hrefWith('task', t.code)} className="rowmain">
-                    <span className="code mono">{t.code}</span>
-                    <span className="title" style={{ color: 'var(--t2)' }}>{t.title}</span>
-                    {p && <span className="mc"><ProjectTile icon={p.icon} color={p.color} size={16} radius={5} />{p.name}</span>}
-                    {t.deleted_at && <span className="mc">удалено {fmtStamp(t.deleted_at)}</span>}
+                <div className={ROW + (i === 0 && gone.length === 0 ? ' border-t-0' : ' border-t')} key={t.id}>
+                  <Link to={hrefWith('task', t.code)} className={ROWMAIN}>
+                    <span className={CODE}>{t.code}</span>
+                    <span className="flex-[1_1_200px] min-w-0 font-medium text-t2">{t.title}</span>
+                    {p && <span className={MC}><ProjectTile icon={p.icon} color={p.color} size={16} radius={5} />{p.name}</span>}
+                    {t.deleted_at && <span className={MC}>удалено {fmtStamp(t.deleted_at)}</span>}
                   </Link>
-                  <button type="button" className="btn" disabled={restore.isPending} onClick={() => restore.mutate(t.code)}>Восстановить</button>
+                  <button type="button" className={BTN + ' border-ln text-tx'} disabled={restore.isPending} onClick={() => restore.mutate(t.code)}>Восстановить</button>
                 </div>
               )
             })}
           </section>
-          {restore.isError && <div className="errline" role="alert">{restore.error.message}</div>}
+          {restore.isError && <div className="text-[13px] text-rd" role="alert">{restore.error.message}</div>}
         </div>
       </div>
     </>

@@ -28,6 +28,26 @@ const DATE_OPTS: [string, string][] = [['today', 'Сегодня'], ['overdue', 
 const AUTHOR_OPTS: [string, string][] = [['claude', 'Claude'], ['denis', 'Denis']]
 const DONE_LIMIT = 20
 
+// Shared utility strings (full literals so Tailwind can see them).
+const BTN = 'inline-flex items-center gap-2 rounded-lg border text-[13.5px] font-medium no-underline whitespace-nowrap cursor-pointer disabled:opacity-50 disabled:cursor-default'
+const BTN_PLAIN = BTN + ' px-3 border-ln bg-sf text-tx hover:bg-sk'
+const BTN_PRI = BTN + ' px-3 border-ink bg-ink text-inkt hover:opacity-90'
+const KBD_PRI = 'font-mono text-[11px] font-medium leading-[normal] border border-current rounded-[5px] px-[5px] py-px bg-transparent text-inkt opacity-70'
+const FC = 'inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full border text-[12.5px] whitespace-nowrap'
+const FC_OFF = ' border-ln bg-sf text-t2'
+const FC_ON = ' border-transparent bg-acs text-act font-medium'
+const FC_BTN = FC + ' cursor-pointer hover:bg-sk'
+const POP_HEAD = 'px-2 pt-1.5 pb-1 text-[11px] font-semibold tracking-[.06em] uppercase text-t3'
+const POP_ITEM = 'flex items-center gap-2 w-full h-[30px] px-2 border-0 rounded-md bg-transparent text-[13px] text-left cursor-pointer hover:bg-sk'
+const TAB = 'inline-flex items-center gap-2 h-[38px] px-0.5 mr-[18px] border-b-2 rounded-none bg-transparent no-underline font-medium text-[13.5px] cursor-pointer hover:text-tx'
+const MC = 'inline-flex items-center gap-[5px] text-[12px]'
+const COLBOX = 'flex flex-[1_0_270px] min-w-[270px] flex-col gap-2.5 rounded-[10px]'
+const ADDROW = 'flex items-center gap-2 w-full h-[34px] px-2.5 rounded-lg border-0 bg-transparent text-t3 text-[13px] text-left cursor-pointer hover:bg-sk hover:text-tx'
+const CONTENT = 'flex flex-wrap items-start gap-6 px-8 pt-6 pb-8 max-[640px]:px-4'
+const COL_MAIN = 'flex flex-[999_1_520px] flex-col gap-[18px] min-w-0 bg-sf border border-ln rounded-xl'
+const TH = 'text-left px-3 py-2 border-b border-ln'
+const TD = 'px-3 py-2.5 border-t border-ln align-middle group-hover:bg-sf2 group-hover:cursor-pointer'
+
 // ---- filtering, sorting, grouping ----
 
 function matches(t: Task, f: ViewFilter): boolean {
@@ -87,33 +107,35 @@ function TaskCard({ t, labels, fields, overlay }: { t: Task; labels: Label[]; fi
   const today = t.planned_for === todayStr()
   const late = !!t.planned_for && t.planned_for < todayStr() && !done
   if (!overlay && sortable.isDragging)
-    return <div ref={sortable.setNodeRef} style={{ transform: CSS.Transform.toString(sortable.transform), transition: sortable.transition }} className="ghost" />
+    return <div ref={sortable.setNodeRef} style={{ transform: CSS.Transform.toString(sortable.transform), transition: sortable.transition }} className="h-[92px] border-[1.5px] border-dashed border-ac rounded-[10px] bg-acs opacity-60" />
   return (
     <Link
       to={hrefWith('task', t.code)} draggable={false}
       ref={overlay ? undefined : sortable.setNodeRef}
       style={overlay ? undefined : { transform: CSS.Transform.toString(sortable.transform), transition: sortable.transition }}
-      className={'card' + (overlay ? ' drag' : '') + (fresh ? ' fresh' : '')}
+      className={'flex flex-col gap-2.5 w-full p-3 rounded-[10px] border bg-sf text-left no-underline touch-none ' + (overlay
+        ? 'border-ac shadow-pop rotate-[1.8deg] cursor-grabbing'
+        : 'border-ln cursor-grab hover:border-ln2' + (fresh ? ' shadow-[inset_0_0_0_2px_var(--ac)]' : ''))}
       {...(overlay ? {} : sortable.attributes)} {...(overlay ? {} : sortable.listeners)}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        {done && <span style={{ color: 'var(--dn)', display: 'inline-flex' }}><Icon name="check" size={15} sw={2.4} /></span>}
-        <span className="mono grow" style={{ fontSize: 11.5, color: 'var(--t3)' }}>{t.code}</span>
+      <div className="flex items-center gap-2">
+        {done && <span className="inline-flex text-dn"><Icon name="check" size={15} sw={2.4} /></span>}
+        <span className="font-mono grow text-[11.5px] text-t3">{t.code}</span>
         {t.created_by === 'claude' && <ClaudeBadge />}
         <PriorityChip p={t.priority} />
       </div>
-      <div className={'t' + (done ? ' done' : '')}>{t.title}</div>
-      <div className="meta">
+      <div className={'text-[14px] font-medium leading-[1.35] ' + (done ? 'text-t2' : '')}>{t.title}</div>
+      <div className="flex flex-wrap items-center gap-3">
         <AreaDot area={t.area} labels={labels} />
         {t.planned_for && (
-          <span className="mc" style={{ color: today ? 'var(--act)' : late ? 'var(--rd)' : undefined }}>
+          <span className={MC + (today ? ' text-act' : late ? ' text-rd' : ' text-t3')}>
             <Icon name="cal" size={13} sw={1.9} />{fmtDay(t.planned_for)}
           </span>
         )}
-        {t.subtask_count > 0 && <span className="mc tabnum"><Icon name="subtask" size={13} sw={1.9} />{t.subtask_done}/{t.subtask_count}</span>}
-        {t.description_md && <span className="mc" title="Есть описание"><Icon name="doc" size={13} sw={1.9} /></span>}
+        {t.subtask_count > 0 && <span className={MC + ' text-t3 tabular-nums'}><Icon name="subtask" size={13} sw={1.9} />{t.subtask_done}/{t.subtask_count}</span>}
+        {t.description_md && <span className={MC + ' text-t3'} title="Есть описание"><Icon name="doc" size={13} sw={1.9} /></span>}
         {fields.filter((f) => f.show_on_card && t.custom[String(f.id)] !== undefined).map((f) => (
-          <span key={f.id} className="mc">{f.name}: {String(t.custom[String(f.id)])}</span>
+          <span key={f.id} className={MC + ' text-t3'}>{f.name}: {String(t.custom[String(f.id)])}</span>
         ))}
       </div>
     </Link>
@@ -127,23 +149,23 @@ function Column({ col, meta, dnd, adding, onAdd, onStopAdd, onCreate, expanded, 
   const drop = useDroppable({ id: 'col:' + col.key, disabled: !dnd })
   const [title, setTitle] = useState('')
   return (
-    <div className={'colbox' + (drop.isOver ? ' over' : '')} ref={drop.setNodeRef}>
-      <div className="colhead">
-        <span className="dot" style={{ width: 9, height: 9, flexBasis: 9, background: col.color }} />
-        <b>{col.name}</b>
-        <span className="mono grow tabnum" style={{ fontSize: 12, color: 'var(--t3)' }}>{col.total}</span>
-        {col.canAdd && <button type="button" className="iconbtn" aria-label={`Добавить задачу в «${col.name}»`} onClick={onAdd}><Icon name="plus" size={15} sw={2} /></button>}
+    <div className={COLBOX + (drop.isOver ? ' bg-acs' : '')} ref={drop.setNodeRef}>
+      <div className="flex items-center gap-2 px-1 h-[26px]">
+        <span className="inline-block w-[9px] h-[9px] flex-[0_0_9px] rounded-full" style={{ background: col.color }} />
+        <b className="font-semibold text-[13.5px]">{col.name}</b>
+        <span className="font-mono grow tabular-nums text-[12px] text-t3">{col.total}</span>
+        {col.canAdd && <button type="button" className="inline-grid place-items-center w-6 h-6 p-0 border-0 rounded-md bg-transparent text-t3 cursor-pointer hover:bg-sk hover:text-tx" aria-label={`Добавить задачу в «${col.name}»`} onClick={onAdd}><Icon name="plus" size={15} sw={2} /></button>}
       </div>
       <SortableContext items={col.tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
-        <div className="colcards">
+        <div className="flex flex-col gap-2.5 min-h-2">
           {col.tasks.map((t) => <TaskCard key={t.id} t={t} labels={meta.labels} fields={meta.fields} />)}
         </div>
       </SortableContext>
       {col.category === 'done' && !expanded && col.total > DONE_LIMIT && (
-        <button type="button" className="addrow" onClick={onExpand}>Показать все {col.total}</button>
+        <button type="button" className={ADDROW} onClick={onExpand}>Показать все {col.total}</button>
       )}
       {col.canAdd && (adding ? (
-        <input className="inlineadd" autoFocus placeholder="Название, Enter — сохранить" aria-label={`Новая задача в «${col.name}»`} value={title}
+        <input className="w-full px-2.5 py-2 rounded-[10px] border border-ac bg-sf text-[14px] outline-0" autoFocus placeholder="Название, Enter — сохранить" aria-label={`Новая задача в «${col.name}»`} value={title}
           onChange={(e) => setTitle(e.target.value)} onBlur={() => !title.trim() && onStopAdd()}
           onKeyDown={(e) => {
             if (e.key === 'Escape') onStopAdd()
@@ -153,7 +175,7 @@ function Column({ col, meta, dnd, adding, onAdd, onStopAdd, onCreate, expanded, 
             }
           }} />
       ) : (
-        <button type="button" className="addrow" onClick={onAdd}><Icon name="plus" size={14} sw={2} />Добавить задачу</button>
+        <button type="button" className={ADDROW} onClick={onAdd}><Icon name="plus" size={14} sw={2} />Добавить задачу</button>
       ))}
     </div>
   )
@@ -190,7 +212,7 @@ function FilterBar({ filter, setFilter, group, setGroup, sort, setSort, meta, ta
     if (f) chips.push({ label: `${f.name}: ${vals.join(', ')}`, clear: () => { const fields = { ...filter.fields }; delete fields[id]; setFilter({ ...filter, fields }) } })
   }
   const item = (label: string, on: boolean, click: () => void, key?: string) => (
-    <button key={key ?? label} type="button" role="menuitemcheckbox" aria-checked={on} onClick={click}>{label}{on && <span className="chk"><Icon name="check" size={14} sw={2.2} /></span>}</button>
+    <button key={key ?? label} type="button" role="menuitemcheckbox" aria-checked={on} className={POP_ITEM} onClick={click}>{label}{on && <span className="ml-auto text-act"><Icon name="check" size={14} sw={2.2} /></span>}</button>
   )
   const [naming, setNaming] = useState('')
   const saveView = useMutation({
@@ -199,31 +221,31 @@ function FilterBar({ filter, setFilter, group, setGroup, sort, setSort, meta, ta
   })
 
   return (
-    <div className="filterbar">
-      <label className="qbox">
+    <div className="flex flex-wrap items-center gap-2 px-7 py-3.5 border-b border-ln">
+      <label className="flex items-center gap-2 h-[30px] w-[220px] px-2.5 border border-ln rounded-lg bg-sf text-t3 focus-within:border-ac focus-within:rounded-md focus-within:outline-2 focus-within:outline-ac focus-within:outline-offset-2">
         <Icon name="search" size={14} />
-        <input type="text" placeholder="Фильтр по названию" aria-label="Фильтр по названию" value={filter.q ?? ''}
+        <input className="w-full border-0 bg-transparent outline-0 text-[13px] text-tx" type="text" placeholder="Фильтр по названию" aria-label="Фильтр по названию" value={filter.q ?? ''}
           onChange={(e) => setFilter({ ...filter, q: e.target.value || undefined })} />
       </label>
       {chips.map((c) => (
-        <span key={c.label} className="fc on">{c.label}
-          <button type="button" className="x" aria-label={`Убрать фильтр: ${c.label}`} onClick={c.clear}><Icon name="x" size={12} sw={2.2} /></button>
+        <span key={c.label} className={FC + FC_ON}>{c.label}
+          <button type="button" className="inline-grid place-items-center cursor-pointer" aria-label={`Убрать фильтр: ${c.label}`} onClick={c.clear}><Icon name="x" size={12} sw={2.2} /></button>
         </span>
       ))}
-      <Menu className="fc dashed" label={<><Icon name="plus" size={12} sw={2.2} />Фильтр</>}>
+      <Menu className={FC_BTN + FC_OFF + ' border-dashed'} label={<><Icon name="plus" size={12} sw={2.2} />Фильтр</>}>
         {() => (
           <>
-            <div className="head cap">Приоритет</div>
+            <div className={POP_HEAD}>Приоритет</div>
             {['P0', 'P1', 'P2'].map((p) => item(p, !!filter.priority?.includes(p), () => toggle('priority', p)))}
-            {meta.labels.length > 0 && <div className="head cap">Область</div>}
+            {meta.labels.length > 0 && <div className={POP_HEAD}>Область</div>}
             {meta.labels.map((l) => item(l.name, !!filter.area?.includes(l.name), () => toggle('area', l.name), 'a' + l.id))}
-            <div className="head cap">Дата</div>
+            <div className={POP_HEAD}>Дата</div>
             {DATE_OPTS.map(([k, n]) => item(n, !!filter.date?.includes(k), () => toggle('date', k)))}
-            <div className="head cap">Автор</div>
+            <div className={POP_HEAD}>Автор</div>
             {AUTHOR_OPTS.map(([k, n]) => item(n, !!filter.author?.includes(k), () => toggle('author', k)))}
             {meta.fields.filter((f) => f.type === 'select').map((f) => (
               <div key={f.id}>
-                <div className="head cap">{f.name}</div>
+                <div className={POP_HEAD}>{f.name}</div>
                 {f.options.map((o) => item(o, !!filter.fields?.[String(f.id)]?.includes(o), () => toggleField(f.id, o), `f${f.id}${o}`))}
               </div>
             ))}
@@ -231,11 +253,11 @@ function FilterBar({ filter, setFilter, group, setGroup, sort, setSort, meta, ta
         )}
       </Menu>
       {(chips.length > 0 || filter.q) && (
-        <Menu className="fc" label={<><Icon name="funnel" size={12} sw={2} />Сохранить как вид</>}>
+        <Menu className={FC_BTN + FC_OFF} label={<><Icon name="funnel" size={12} sw={2} />Сохранить как вид</>}>
           {(close) => (
-            <form style={{ display: 'flex', gap: 6, padding: 4 }} onSubmit={(e) => { e.preventDefault(); if (naming.trim()) { saveView.mutate(naming.trim()); setNaming(''); close() } }}>
-              <input className="textin" style={{ height: 30 }} autoFocus placeholder="Название вида" aria-label="Название вида" value={naming} onChange={(e) => setNaming(e.target.value)} />
-              <button type="submit" className="btn pri" style={{ height: 30 }}>OK</button>
+            <form className="flex gap-1.5 p-1" onSubmit={(e) => { e.preventDefault(); if (naming.trim()) { saveView.mutate(naming.trim()); setNaming(''); close() } }}>
+              <input className="w-full h-[30px] px-2.5 border border-ln rounded-lg bg-sf text-[13.5px] text-tx focus:border-ac focus:outline-0" autoFocus placeholder="Название вида" aria-label="Название вида" value={naming} onChange={(e) => setNaming(e.target.value)} />
+              <button type="submit" className={BTN_PRI + ' h-[30px]'}>OK</button>
             </form>
           )}
         </Menu>
@@ -247,7 +269,7 @@ function FilterBar({ filter, setFilter, group, setGroup, sort, setSort, meta, ta
       <Menu right label={<>Сортировка: {SORTS.find((s) => s[0] === sort)![1]}<Icon name="chevD" size={12} sw={2} /></>}>
         {(close) => SORTS.map(([k, n]) => item(n, k === sort, () => { setSort(k); close() }))}
       </Menu>
-      <button type="button" className={'fc' + (filter.author?.includes('claude') ? ' on' : '')} aria-pressed={!!filter.author?.includes('claude')} onClick={() => toggle('author', 'claude')}>
+      <button type="button" className={FC_BTN + (filter.author?.includes('claude') ? FC_ON : FC_OFF)} aria-pressed={!!filter.author?.includes('claude')} onClick={() => toggle('author', 'claude')}>
         <Icon name="plug" size={13} sw={2} />Создано Claude: {claudeCount}
       </button>
     </div>
@@ -259,22 +281,22 @@ function FilterBar({ filter, setFilter, group, setGroup, sort, setSort, meta, ta
 function ListTable({ tasks, meta }: { tasks: Task[]; meta: Meta }) {
   const color = (s: Status | undefined) => (s ? statusColor(s.color) : 'var(--bk)')
   return (
-    <div style={{ padding: '18px 28px 28px', overflowX: 'auto' }}>
-      <table className="tbl panel" style={{ borderCollapse: 'separate', borderSpacing: 0 }}>
+    <div className="px-7 pt-[18px] pb-7 overflow-x-auto">
+      <table className="w-full border-separate border-spacing-0 text-[13.5px] bg-sf border border-ln rounded-xl">
         <thead>
-          <tr className="cap"><th>ID</th><th>Название</th><th>Статус</th><th>Приоритет</th><th>Область</th><th>Дата</th></tr>
+          <tr className="text-[11px] font-semibold tracking-[.06em] uppercase text-t3"><th className={TH}>ID</th><th className={TH}>Название</th><th className={TH}>Статус</th><th className={TH}>Приоритет</th><th className={TH}>Область</th><th className={TH}>Дата</th></tr>
         </thead>
         <tbody>
           {tasks.map((t) => {
             const st = meta.statuses.find((s) => s.key === t.status)
             return (
-              <tr key={t.id} className="rowlink">
-                <td className="mono" style={{ fontSize: 12, color: 'var(--t3)' }}><Link to={hrefWith('task', t.code)} style={{ textDecoration: 'none' }}>{t.code}</Link></td>
-                <td className="t"><Link to={hrefWith('task', t.code)} style={{ textDecoration: 'none' }}>{t.title}</Link>{t.created_by === 'claude' && <> <ClaudeBadge /></>}</td>
-                <td><span className="mc" style={{ color: 'var(--t2)', fontSize: 13 }}><span className="dot" style={{ background: color(st) }} />{t.status_name}</span></td>
-                <td><PriorityChip p={t.priority} /></td>
-                <td><AreaDot area={t.area} labels={meta.labels} /></td>
-                <td className="tabnum" style={{ color: 'var(--t2)' }}>{t.planned_for ? fmtDay(t.planned_for) : '—'}</td>
+              <tr key={t.id} className="group">
+                <td className={TD + ' font-mono text-[12px] text-t3 whitespace-nowrap'}><Link to={hrefWith('task', t.code)} className="no-underline">{t.code}</Link></td>
+                <td className={TD + ' font-medium'}><Link to={hrefWith('task', t.code)} className="no-underline">{t.title}</Link>{t.created_by === 'claude' && <> <ClaudeBadge /></>}</td>
+                <td className={TD + ' whitespace-nowrap'}><span className="inline-flex items-center gap-[5px] text-[13px] text-t2"><span className="inline-block w-2 h-2 flex-[0_0_8px] rounded-full" style={{ background: color(st) }} />{t.status_name}</span></td>
+                <td className={TD + ' whitespace-nowrap'}><PriorityChip p={t.priority} /></td>
+                <td className={TD + ' whitespace-nowrap'}><AreaDot area={t.area} labels={meta.labels} /></td>
+                <td className={TD + ' tabular-nums text-t2 whitespace-nowrap'}>{t.planned_for ? fmtDay(t.planned_for) : '—'}</td>
               </tr>
             )
           })}
@@ -289,11 +311,11 @@ function ListTable({ tasks, meta }: { tasks: Task[]; meta: Meta }) {
 export function Board({ slug, onNewTask }: { slug: string; onNewTask: (o: { project?: Project; status?: string }) => void }) {
   const projects = useProjects()
   const project = projects.data?.find((p) => p.slug === slug)
-  if (projects.isError) return <div className="content"><div className="col-main panel"><ErrorState message={projects.error.message} onRetry={() => projects.refetch()} /></div></div>
+  if (projects.isError) return <div className={CONTENT}><div className={COL_MAIN}><ErrorState message={projects.error.message} onRetry={() => projects.refetch()} /></div></div>
   if (!project) {
     return projects.isPending
-      ? <div className="content"><Skeleton w="40%" h={28} /></div>
-      : <div className="content"><div className="col-main panel"><EmptyState icon="board" title="Проект не найден" hint={`Нет проекта «${slug}». Возможно, он в архиве.`} /></div></div>
+      ? <div className={CONTENT}><Skeleton w="40%" h={28} /></div>
+      : <div className={CONTENT}><div className={COL_MAIN}><EmptyState icon="board" title="Проект не найден" hint={`Нет проекта «${slug}». Возможно, он в архиве.`} /></div></div>
   }
   return <ProjectBoard key={project.id} project={project} onNewTask={onNewTask} />
 }
@@ -384,7 +406,7 @@ function ProjectBoard({ project, onNewTask }: { project: Project; onNewTask: (o:
 
   const dragged = tasks.find((t) => t.id === dragId)
   const tab = (label: string, icon: string, on: boolean, click: () => void) => (
-    <button type="button" key={label} className={'tab' + (on ? ' on' : '')} aria-current={on ? 'page' : undefined} onClick={click}>
+    <button type="button" key={label} className={TAB + (on ? ' text-tx border-b-ac' : ' text-t3 border-b-transparent')} aria-current={on ? 'page' : undefined} onClick={click}>
       <Icon name={icon} size={15} />{label}
     </button>
   )
@@ -392,23 +414,23 @@ function ProjectBoard({ project, onNewTask }: { project: Project; onNewTask: (o:
 
   return (
     <>
-      <header className="projhead">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+      <header className="flex flex-col gap-3.5 px-7 pt-[22px] border-b border-ln bg-sf">
+        <div className="flex flex-wrap items-center gap-3.5">
           <ProjectTile icon={project.icon} color={project.color} size={40} radius={11} />
-          <div className="stack" style={{ flexBasis: 280 }}>
-            <h1>{project.name}</h1>
-            <span className="sub" style={{ fontSize: 13 }}>
-              {project.description && <>{project.description} · </>}ключ <span className="mono">{project.key}</span> · {project.open} открытых, показано {shown.length} из {tasks.length}
+          <div className="flex flex-col gap-0.5 flex-[1_1_280px] min-w-0">
+            <h1 className="text-[23px] font-bold tracking-[-.015em] text-balance">{project.name}</h1>
+            <span className="text-[13px] text-t3">
+              {project.description && <>{project.description} · </>}ключ <span className="font-mono">{project.key}</span> · {project.open} открытых, показано {shown.length} из {tasks.length}
             </span>
           </div>
-          <Link to={`/p/${project.slug}/settings`} className="btn" aria-label="Настройки проекта"><Icon name="sliders" size={16} />Настройки</Link>
-          <button type="button" className="btn pri" onClick={() => onNewTask({ project })}><Icon name="plus" size={16} sw={2} />Новая задача<span className="kbd">C</span></button>
+          <Link to={`/p/${project.slug}/settings`} className={BTN_PLAIN + ' h-[34px]'} aria-label="Настройки проекта"><Icon name="sliders" size={16} />Настройки</Link>
+          <button type="button" className={BTN_PRI + ' h-[34px]'} onClick={() => onNewTask({ project })}><Icon name="plus" size={16} sw={2} />Новая задача<span className={KBD_PRI}>C</span></button>
         </div>
-        <nav className="tabs" aria-label="Виды проекта">
+        <nav className="flex flex-wrap items-end" aria-label="Виды проекта">
           {tab('Доска', 'board', !viewId && layout === 'board', () => plain('board'))}
           {tab('Список', 'list', !viewId && layout === 'list', () => plain('list'))}
           {(vq.data ?? []).filter((v: View) => v.project_id === pid).map((v) => (
-            <Link key={v.id} to={`/p/${project.slug}?view=${v.id}`} className={'tab' + (viewId === String(v.id) ? ' on' : '')}><Icon name="funnel" size={14} />{v.name}</Link>
+            <Link key={v.id} to={`/p/${project.slug}?view=${v.id}`} className={TAB + (viewId === String(v.id) ? ' text-tx border-b-ac' : ' text-t3 border-b-transparent')}><Icon name="funnel" size={14} />{v.name}</Link>
           ))}
         </nav>
       </header>
@@ -416,22 +438,22 @@ function ProjectBoard({ project, onNewTask }: { project: Project; onNewTask: (o:
       <FilterBar filter={filter} setFilter={setFilter} group={group} setGroup={setGroup} sort={sort} setSort={setSort}
         meta={meta} tasks={tasks} project={project} layout={layout} />
 
-      {tq.isError && <div className="content"><div className="col-main panel"><ErrorState message={tq.error.message} onRetry={() => tq.refetch()} /></div></div>}
+      {tq.isError && <div className={CONTENT}><div className={COL_MAIN}><ErrorState message={tq.error.message} onRetry={() => tq.refetch()} /></div></div>}
       {tq.isPending && (
-        <div className="boardwrap"><div className="cols">{[0, 1, 2, 3].map((i) => (
-          <div key={i} className="colbox" aria-hidden="true"><Skeleton w="50%" h={18} /><Skeleton h={92} /><Skeleton h={92} /></div>
+        <div className="grow overflow-x-auto px-7 pt-[18px] pb-7"><div className="flex items-start gap-4">{[0, 1, 2, 3].map((i) => (
+          <div key={i} className={COLBOX} aria-hidden="true"><Skeleton w="50%" h={18} /><Skeleton h={92} /><Skeleton h={92} /></div>
         ))}</div></div>
       )}
       {tq.isSuccess && tasks.length === 0 && (
-        <div style={{ padding: '18px 28px 0' }}>
-          <div className="panel"><EmptyState icon="board" title="В проекте пока нет задач"
+        <div className="px-7 pt-[18px]">
+          <div className="bg-sf border border-ln rounded-xl"><EmptyState icon="board" title="В проекте пока нет задач"
             hint="Добавьте первую задачу в колонке ниже или попросите Claude создать их через MCP." /></div>
         </div>
       )}
       {tq.isSuccess && layout === 'board' && (
         <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={() => setDragId(null)}>
-          <section className="boardwrap">
-            <div className="cols">
+          <section className="grow overflow-x-auto px-7 pt-[18px] pb-7">
+            <div className="flex items-start gap-4">
               {cols.map((c) => (
                 <Column key={c.key} col={c} meta={meta} dnd={dnd} adding={adding === c.key} expanded={expanded.has(c.key)}
                   onAdd={() => setAdding(c.key)} onStopAdd={() => setAdding(null)}
