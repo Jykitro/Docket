@@ -1,0 +1,262 @@
+{
+  "projects": [
+    {
+      "slug": "tracker",
+      "name": "Huntly Tracker",
+      "key": "TRK",
+      "icon": "target",
+      "color": "#2D5CC9",
+      "description": "Переработка интерфейса, наполнения, API кампаний и лендинга"
+    },
+    {
+      "slug": "ads-clover",
+      "name": "ADS Clover",
+      "key": "ADS",
+      "icon": "clover",
+      "color": "#17784C",
+      "description": "Интеграция моделей API, базовые страницы и настройки"
+    }
+  ],
+  "tasks": [
+    {
+      "external_id": "ht-01",
+      "project": "tracker",
+      "title": "Аудит текущего UI: список экранов, что выкидываем / что переделываем",
+      "area": "UI",
+      "priority": "P0",
+      "status": "todo",
+      "planned_for": "2026-11-05",
+      "description_md": ""
+    },
+    {
+      "external_id": "ht-02",
+      "project": "tracker",
+      "title": "Новый layout: навигация, хедер, пустые/ошибочные/загрузочные состояния",
+      "area": "UI",
+      "priority": "P0",
+      "status": "todo",
+      "planned_for": "2026-11-05",
+      "description_md": ""
+    },
+    {
+      "external_id": "ht-03",
+      "project": "tracker",
+      "title": "Список кампаний: таблица, статусы, фильтры, пагинация",
+      "area": "UI",
+      "priority": "P0",
+      "status": "todo",
+      "planned_for": "2026-11-05",
+      "description_md": ""
+    },
+    {
+      "external_id": "ht-04",
+      "project": "tracker",
+      "title": "Форма создания кампании: поля, валидация, потоки/офферы/лендинги",
+      "area": "UI",
+      "priority": "P0",
+      "status": "todo",
+      "planned_for": "2026-11-05",
+      "description_md": ""
+    },
+    {
+      "external_id": "ht-05",
+      "project": "tracker",
+      "title": "Экран просмотра кампании: настройки, ссылки кампании, блок статистики",
+      "area": "UI",
+      "priority": "P1",
+      "status": "backlog",
+      "planned_for": null,
+      "description_md": ""
+    },
+    {
+      "external_id": "ht-06",
+      "project": "tracker",
+      "title": "Наполнение: тексты интерфейса + dev-seed с демо-кампаниями",
+      "area": "UI",
+      "priority": "P1",
+      "status": "backlog",
+      "planned_for": null,
+      "description_md": ""
+    },
+    {
+      "external_id": "ht-07",
+      "project": "tracker",
+      "title": "Контракт API кампаний (create / list / get / update) в OpenAPI до кода",
+      "area": "API",
+      "priority": "P0",
+      "status": "todo",
+      "planned_for": "2026-11-05",
+      "description_md": ""
+    },
+    {
+      "external_id": "ht-08",
+      "project": "tracker",
+      "title": "POST /campaigns: валидация, сервис, sqlx-репозиторий, тесты",
+      "area": "API",
+      "priority": "P0",
+      "status": "todo",
+      "planned_for": "2026-11-05",
+      "description_md": ""
+    },
+    {
+      "external_id": "ht-09",
+      "project": "tracker",
+      "title": "GET /campaigns + GET /campaigns/:id с фильтрами и пагинацией",
+      "area": "API",
+      "priority": "P0",
+      "status": "todo",
+      "planned_for": "2026-11-05",
+      "description_md": ""
+    },
+    {
+      "external_id": "ht-10",
+      "project": "tracker",
+      "title": "Подключить фронт к API: клиент, обработка ошибок, оптимистичные апдейты",
+      "area": "API",
+      "priority": "P1",
+      "status": "backlog",
+      "planned_for": null,
+      "description_md": ""
+    },
+    {
+      "external_id": "ht-11",
+      "project": "tracker",
+      "title": "Структура лендинга: hero, фичи, self-hosted, лицензия/цены, CTA",
+      "area": "Лендинг",
+      "priority": "P1",
+      "status": "backlog",
+      "planned_for": null,
+      "description_md": ""
+    },
+    {
+      "external_id": "ht-12",
+      "project": "tracker",
+      "title": "Верстка + деплой на Vercel: meta/OG, canonical, sitemap, аналитика",
+      "area": "Лендинг",
+      "priority": "P2",
+      "status": "backlog",
+      "planned_for": null,
+      "description_md": ""
+    },
+    {
+      "external_id": "ht-13",
+      "project": "tracker",
+      "title": "E2E: создать кампанию в UI → увидеть в списке → открыть детали",
+      "area": "Проверка",
+      "priority": "P0",
+      "status": "todo",
+      "planned_for": "2026-11-05",
+      "description_md": ""
+    },
+    {
+      "external_id": "ac-01",
+      "project": "ads-clover",
+      "title": "Инвентаризация API: все эндпоинты и сущности в один список",
+      "area": "Модели",
+      "priority": "P0",
+      "status": "todo",
+      "planned_for": "2026-11-05",
+      "description_md": ""
+    },
+    {
+      "external_id": "ac-02",
+      "project": "ads-clover",
+      "title": "Типы моделей из OpenAPI (генерация, не руками) + схемы валидации",
+      "area": "Модели",
+      "priority": "P0",
+      "status": "todo",
+      "planned_for": "2026-11-05",
+      "description_md": ""
+    },
+    {
+      "external_id": "ac-03",
+      "project": "ads-clover",
+      "title": "Базовый клиент: auth, обработка ошибок, refresh токена",
+      "area": "API-клиент",
+      "priority": "P0",
+      "status": "todo",
+      "planned_for": "2026-11-05",
+      "description_md": ""
+    },
+    {
+      "external_id": "ac-04",
+      "project": "ads-clover",
+      "title": "Query-хуки на каждую модель: list / detail / mutations",
+      "area": "API-клиент",
+      "priority": "P0",
+      "status": "todo",
+      "planned_for": "2026-11-05",
+      "description_md": ""
+    },
+    {
+      "external_id": "ac-05",
+      "project": "ads-clover",
+      "title": "Layout + роутинг базовых страниц, гарды по ролям",
+      "area": "Страницы",
+      "priority": "P0",
+      "status": "todo",
+      "planned_for": "2026-11-05",
+      "description_md": ""
+    },
+    {
+      "external_id": "ac-06",
+      "project": "ads-clover",
+      "title": "Дашборд: сводка по ключевым сущностям",
+      "area": "Страницы",
+      "priority": "P1",
+      "status": "backlog",
+      "planned_for": null,
+      "description_md": ""
+    },
+    {
+      "external_id": "ac-07",
+      "project": "ads-clover",
+      "title": "Страницы списков сущностей: таблицы, фильтры, пагинация",
+      "area": "Страницы",
+      "priority": "P0",
+      "status": "todo",
+      "planned_for": "2026-11-05",
+      "description_md": ""
+    },
+    {
+      "external_id": "ac-08",
+      "project": "ads-clover",
+      "title": "Страницы деталей сущностей + формы редактирования",
+      "area": "Страницы",
+      "priority": "P1",
+      "status": "backlog",
+      "planned_for": null,
+      "description_md": ""
+    },
+    {
+      "external_id": "ac-09",
+      "project": "ads-clover",
+      "title": "Настройки: профиль, workspace, участники/роли",
+      "area": "Настройки",
+      "priority": "P0",
+      "status": "todo",
+      "planned_for": "2026-11-05",
+      "description_md": ""
+    },
+    {
+      "external_id": "ac-10",
+      "project": "ads-clover",
+      "title": "Настройки интеграций и API-ключей (секреты не светить в UI)",
+      "area": "Настройки",
+      "priority": "P1",
+      "status": "backlog",
+      "planned_for": null,
+      "description_md": ""
+    },
+    {
+      "external_id": "ac-11",
+      "project": "ads-clover",
+      "title": "Smoke всех страниц против реального API, без моков",
+      "area": "Проверка",
+      "priority": "P0",
+      "status": "todo",
+      "planned_for": "2026-11-05",
+      "description_md": ""
+    }
+  ]
+}

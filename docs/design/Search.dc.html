@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Поиск</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+body{margin:0}
+.app{--bg:#F4F5F7;--sf:#FFFFFF;--sf2:#F8F9FB;--sk:#ECEEF2;--ln:#E3E6EB;--ln2:#CDD2DA;--tx:#14171F;--t2:#4B5362;--t3:#646C7D;--ac:#5A3DF0;--acs:#EEEBFF;--act:#4A2FD8;--ink:#14171F;--inkt:#FFFFFF;--td:#3B6FD9;--tds:#E6EEFC;--tdt:#2650A8;--dg:#C77700;--dgs:#FFF1D6;--dgt:#8A5200;--dn:#1E8E5A;--dns:#DDF3E7;--dnt:#176B43;--bk:#8A93A3;--bks:#ECEEF2;--bkt:#4B5362;--rd:#C9362B;--rds:#FDE7E4;--sh:0 1px 2px rgba(20,23,31,.06),0 24px 64px rgba(20,23,31,.28);--ov:rgba(20,23,31,.42);font-family:'Onest',system-ui,-apple-system,'Segoe UI',sans-serif;background:var(--bg);color:var(--tx);font-size:14px;line-height:1.4}
+.app[data-theme="dark"]{--bg:#0F1116;--sf:#171A21;--sf2:#1C2029;--sk:#222732;--ln:#262B36;--ln2:#363C49;--tx:#E8EAF0;--t2:#A9B0BE;--t3:#8B93A4;--ac:#8F7BFF;--acs:#25204A;--act:#B4A6FF;--ink:#E8EAF0;--inkt:#0F1116;--td:#6B9BFF;--tds:#17233F;--tdt:#9DBDFF;--dg:#E2A13B;--dgs:#33270E;--dgt:#F0BE6A;--dn:#4CC98A;--dns:#12301F;--dnt:#7FDDAB;--bk:#6F7889;--bks:#232833;--bkt:#A9B0BE;--rd:#FF7A6E;--rds:#3A1C19;--sh:0 1px 2px rgba(0,0,0,.4),0 24px 64px rgba(0,0,0,.6);--ov:rgba(0,0,0,.55)}
+.app *{box-sizing:border-box}
+.app button,.app input{font:inherit;color:inherit}
+.app :focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+.mono{font-family:'JetBrains Mono',ui-monospace,Menlo,monospace}
+.cap{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--t3)}
+.nv{display:flex;align-items:center;gap:10px;height:32px;padding:0 8px;border-radius:8px;color:var(--t2);text-decoration:none;font-size:13.5px}
+.nv.on{background:var(--sk);color:var(--tx);font-weight:600}
+.kbd{font:500 11px 'JetBrains Mono',monospace;color:var(--t3);border:1px solid var(--ln);border-radius:5px;padding:1px 5px;background:var(--sf);text-decoration:none}
+.sch{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 11px;border-radius:999px;border:1px solid var(--ln);background:var(--sf);font-size:12.5px;color:var(--t2)}
+.sch.on{background:var(--ink);border-color:var(--ink);color:var(--inkt);font-weight:500}
+.rs{display:flex;align-items:center;gap:12px;min-height:46px;padding:6px 12px;border-radius:9px;text-decoration:none;color:inherit}
+.rs:hover{background:var(--sk)}
+.rs.on{background:var(--acs)}
+.chip{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:6px;font-size:12px;font-weight:500}
+</style>
+</helmet>
+<div class="app" data-theme="{{theme}}" style="min-height:940px;display:flex;flex-wrap:wrap;align-items:stretch;position:relative;overflow:hidden">
+
+<aside style="flex:0 0 264px;max-width:100%;background:var(--sf);border-right:1px solid var(--ln);padding:16px 12px 14px;display:flex;flex-direction:column;gap:18px">
+  <div style="display:flex;align-items:center;gap:10px;padding:2px 6px">
+    <div style="width:28px;height:28px;border-radius:8px;background:var(--ink);color:var(--inkt);display:grid;place-items:center">
+      <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4h5a8 8 0 0 1 0 16H6zM9.5 12.2l2 2 3.2-4"></path></svg>
+    </div>
+    <span style="font-weight:700;font-size:16px;letter-spacing:-.01em;flex-grow:1">Docket</span>
+    <span class="mono" style="font-size:11px;color:var(--t3)">:7777</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;height:34px;padding:0 10px;border:1px solid var(--ac);border-radius:8px;background:var(--sf2);color:var(--t3);font-size:13px">
+    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4a7 7 0 1 0 0 14a7 7 0 0 0 0-14zM20 20l-4-4"></path></svg>
+    <span style="flex-grow:1">Поиск</span><span class="kbd">⌘K</span>
+  </div>
+  <nav style="display:flex;flex-direction:column;gap:2px" aria-label="Разделы">
+    <sc-for list="{{nav}}" as="n" hint-placeholder-count="4">
+      <a class="nv" href="{{n.h}}">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{n.i}}"></path></svg>
+        <span style="flex-grow:1">{{n.l}}</span>
+        <sc-if value="{{n.dot}}" hint-placeholder-val="{{false}}"><span style="width:7px;height:7px;border-radius:50%;background:var(--dn)"></span></sc-if>
+        <sc-if value="{{n.n}}" hint-placeholder-val="{{true}}"><span class="mono" style="font-size:11.5px;color:var(--t3)">{{n.n}}</span></sc-if>
+      </a>
+    </sc-for>
+  </nav>
+  <div style="display:flex;flex-direction:column;gap:2px">
+    <div style="display:flex;align-items:center;padding:0 8px 6px"><span class="cap" style="flex-grow:1">Проекты</span>
+      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="var(--t3)" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></div>
+    <sc-for list="{{proj}}" as="p" hint-placeholder-count="5">
+      <a class="nv" href="Main.dc.html">
+        <span style="width:20px;height:20px;border-radius:6px;display:grid;place-items:center;flex:0 0 20px;color:#fff;background:{{p.c}}"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{p.i}}"></path></svg></span>
+        <span style="flex-grow:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{p.name}}</span>
+        <span class="mono" style="font-size:11.5px;color:var(--t3)">{{p.n}}</span>
+      </a>
+    </sc-for>
+  </div>
+  <div style="flex-grow:1"></div>
+  <div style="display:flex;align-items:center;gap:10px;padding:10px 6px 0;border-top:1px solid var(--ln)">
+    <span style="width:26px;height:26px;border-radius:50%;background:var(--sk);display:grid;place-items:center;font-weight:600;font-size:12px">D</span>
+    <span style="flex-grow:1;display:flex;flex-direction:column;line-height:1.2"><span style="font-weight:600;font-size:13px">Denis</span><span style="font-size:11.5px;color:var(--t3)">локально · без входа</span></span>
+  </div>
+</aside>
+
+<main aria-hidden="true" style="flex:999 1 560px;min-width:0;display:flex;flex-direction:column">
+  <div style="padding:24px 32px 18px;display:flex;align-items:center;gap:14px;border-bottom:1px solid var(--ln);background:var(--sf)">
+    <span style="width:40px;height:40px;border-radius:11px;background:#2D5CC9"></span>
+    <span style="display:flex;flex-direction:column;gap:8px;flex-grow:1"><span style="height:14px;width:180px;border-radius:7px;background:var(--ln2)"></span><span style="height:9px;width:320px;max-width:100%;border-radius:5px;background:var(--ln)"></span></span>
+  </div>
+  <div style="padding:22px 32px;display:flex;gap:16px;overflow:hidden">
+    <sc-for list="{{skel}}" as="c" hint-placeholder-count="4">
+      <div style="flex:1 0 240px;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:center;gap:8px;height:24px"><span style="width:9px;height:9px;border-radius:50%;background:{{c.c}}"></span><span style="height:9px;width:80px;border-radius:5px;background:var(--ln2)"></span></div>
+        <sc-for list="{{c.cards}}" as="k" hint-placeholder-count="3">
+          <div style="background:var(--sf);border:1px solid var(--ln);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:10px">
+            <span style="height:8px;width:50px;border-radius:4px;background:var(--ln2)"></span>
+            <span style="height:11px;width:{{k.w}};border-radius:5px;background:var(--ln2)"></span>
+            <span style="height:11px;width:55%;border-radius:5px;background:var(--ln)"></span>
+          </div>
+        </sc-for>
+      </div>
+    </sc-for>
+  </div>
+</main>
+
+<div style="position:absolute;inset:0;background:var(--ov);display:flex;justify-content:center;align-items:flex-start;padding:112px 16px 24px">
+  <div role="dialog" aria-label="Поиск" style="width:680px;max-width:100%;background:var(--sf);border:1px solid var(--ln);border-radius:16px;box-shadow:var(--sh);overflow:hidden;display:flex;flex-direction:column">
+    <div style="display:flex;align-items:center;gap:12px;padding:0 16px;height:58px;border-bottom:1px solid var(--ln)">
+      <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="var(--t3)" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M11 4a7 7 0 1 0 0 14a7 7 0 0 0 0-14zM20 20l-4-4"></path></svg>
+      <input id="q" type="text" value="кампани" aria-label="Поиск по задачам, проектам и командам" style="flex:1;min-width:0;border:0;background:transparent;outline:0;font-size:17px;font-weight:500">
+      <a class="kbd" href="Main.dc.html" aria-label="Закрыть поиск">esc</a>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;padding:12px 16px 4px">
+      <span class="sch on">Все<span class="mono" style="font-size:11.5px;opacity:.7">9</span></span>
+      <span class="sch">Задачи<span class="mono" style="font-size:11.5px;color:var(--t3)">8</span></span>
+      <span class="sch">Проекты<span class="mono" style="font-size:11.5px;color:var(--t3)">0</span></span>
+      <span class="sch">Проект: Huntly Tracker</span>
+    </div>
+    <div style="padding:8px 8px 6px;display:flex;flex-direction:column;gap:2px">
+      <div class="cap" style="padding:8px 12px 4px">Задачи · по названию</div>
+      <sc-for list="{{hits}}" as="h" hint-placeholder-count="4">
+        <a class="{{h.cls}}" href="Task.dc.html">
+          <span style="width:22px;height:22px;border-radius:7px;display:grid;place-items:center;flex:0 0 22px;color:#fff;background:#2D5CC9"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4a8 8 0 1 0 0 16a8 8 0 0 0 0-16zM12 9a3 3 0 1 0 0 6a3 3 0 0 0 0-6zM12 2v3M12 19v3M2 12h3M19 12h3"></path></svg></span>
+          <span class="mono" style="font-size:11.5px;color:var(--t3);flex:0 0 52px">{{h.id}}</span>
+          <span style="flex:1 1 0;min-width:0;font-weight:500;font-size:14px;line-height:1.35"><sc-for list="{{h.parts}}" as="p" hint-placeholder-count="3"><span style="{{p.st}}">{{p.t}}</span></sc-for></span>
+          <span class="chip" style="background:{{h.sbg}};color:{{h.sfg}}">{{h.status}}</span>
+          <sc-if value="{{h.enter}}" hint-placeholder-val="{{false}}"><span class="kbd">↵</span></sc-if>
+        </a>
+      </sc-for>
+      <div class="cap" style="padding:12px 12px 4px">В описаниях</div>
+      <a class="rs" href="Task.dc.html">
+        <span style="width:22px;height:22px;border-radius:7px;display:grid;place-items:center;flex:0 0 22px;color:#fff;background:#2D5CC9"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4a8 8 0 1 0 0 16a8 8 0 0 0 0-16zM12 9a3 3 0 1 0 0 6a3 3 0 0 0 0-6zM12 2v3M12 19v3M2 12h3M19 12h3"></path></svg></span>
+        <span class="mono" style="font-size:11.5px;color:var(--t3);flex:0 0 52px">TRK-08</span>
+        <span style="flex:1 1 0;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-weight:500;font-size:14px">POST /campaigns: валидация, сервис, sqlx-репозиторий</span><span style="font-size:12.5px;color:var(--t3)">…Ручка создания <span style="background:var(--acs);color:var(--act);border-radius:3px">кампани</span>и с проверкой входных данных: название, домен, потоки…</span></span>
+        <span class="chip" style="background:var(--dgs);color:var(--dgt)">В работе</span>
+      </a>
+      <div class="cap" style="padding:12px 12px 4px">Действия</div>
+      <a class="rs" href="Main.dc.html">
+        <span style="width:22px;height:22px;border-radius:7px;display:grid;place-items:center;flex:0 0 22px;background:var(--ink);color:var(--inkt)"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></span>
+        <span style="flex:1;font-weight:500">Создать задачу «кампани»</span><span class="kbd">⌘↵</span>
+      </a>
+      <a class="rs" href="MCP.dc.html">
+        <span style="width:22px;height:22px;border-radius:7px;display:grid;place-items:center;flex:0 0 22px;background:var(--sk);color:var(--t2)"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3v5M15 3v5M6 8h12v3a6 6 0 0 1-12 0zM12 17v4"></path></svg></span>
+        <span style="flex:1;font-weight:500">Открыть MCP и журнал вызовов</span>
+      </a>
+    </div>
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:10px 16px;border-top:1px solid var(--ln);background:var(--sf2);font-size:12px;color:var(--t3)">
+      <span style="display:inline-flex;gap:6px;align-items:center"><span class="kbd">↑</span><span class="kbd">↓</span>выбрать</span>
+      <span style="display:inline-flex;gap:6px;align-items:center"><span class="kbd">↵</span>открыть</span>
+      <span style="display:inline-flex;gap:6px;align-items:center"><span class="kbd">⌘↵</span>создать</span>
+      <span style="flex-grow:1"></span>
+      <span class="mono" style="font-size:11.5px">9 результатов · 3 мс</span>
+    </div>
+  </div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark"],"default":"light","section":"Вид"},"$preview":{"width":1440,"height":940}}'>
+class Component extends DCLogic {
+renderVals() {
+const I = {
+  cal: 'M5 6h14a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1zM4 10h16M8 3v4M16 3v4',
+  clock: 'M12 4a8 8 0 1 0 0 16a8 8 0 0 0 0-16zM12 8v4l3 2',
+  plug: 'M9 3v5M15 3v5M6 8h12v3a6 6 0 0 1-12 0zM12 17v4',
+  trash: 'M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13M10 11v6M14 11v6',
+  target: 'M12 4a8 8 0 1 0 0 16a8 8 0 0 0 0-16zM12 9a3 3 0 1 0 0 6a3 3 0 0 0 0-6zM12 2v3M12 19v3M2 12h3M19 12h3',
+  clover: 'M12 12c-3-3-3-8 0-8s3 5 0 8zM12 12c3-3 8-3 8 0s-5 3-8 0zM12 12c3 3 3 8 0 8s-3-5 0-8zM12 12c-3 3-8 3-8 0s5-3 8 0z',
+  key: 'M14 10a4 4 0 1 1-8 0a4 4 0 0 1 8 0zM13 12l7 7M17 16l2-2M15 18l2-2',
+  stack: 'M4 6h16v4H4zM4 14h16v4H4zM7 8h.01M7 16h.01',
+  candle: 'M7 4v4M7 15v4M5 8h4v7H5zM17 3v3M17 14v5M15 6h4v8h-4z'
+};
+const nav = [
+  { l: 'Сегодня', i: I.cal, n: '9', h: 'Today.dc.html' },
+  { l: 'Просрочено', i: I.clock, n: '2', h: 'Today.dc.html' },
+  { l: 'MCP', i: I.plug, dot: true, h: 'MCP.dc.html' },
+  { l: 'Корзина', i: I.trash, n: '3', h: 'Main.dc.html' }
+];
+const proj = [
+  { name: 'Huntly Tracker', n: '10', c: '#2D5CC9', i: I.target },
+  { name: 'ADS Clover', n: '11', c: '#17784C', i: I.clover },
+  { name: 'Huntly Licensing', n: '6', c: '#B8620A', i: I.key },
+  { name: 'Clover Hub → Go', n: '9', c: '#0E7490', i: I.stack },
+  { name: 'Учебный терминал', n: '4', c: '#C0265F', i: I.candle }
+];
+const skel = [
+  { c: 'var(--bk)', cards: [{ w: '80%' }, { w: '65%' }, { w: '90%' }] },
+  { c: 'var(--td)', cards: [{ w: '85%' }, { w: '70%' }, { w: '78%' }] },
+  { c: 'var(--dg)', cards: [{ w: '72%' }, { w: '88%' }] },
+  { c: 'var(--dn)', cards: [{ w: '60%' }, { w: '82%' }] }
+];
+const M = 'background:var(--acs);color:var(--act);border-radius:3px';
+const N = '';
+const ST = {
+  todo: { status: 'К работе', sbg: 'var(--tds)', sfg: 'var(--tdt)' },
+  back: { status: 'Бэклог', sbg: 'var(--bks)', sfg: 'var(--bkt)' }
+};
+const hit = (id, parts, st, first) => ({
+  id, parts: parts.map(([t, m]) => ({ t, st: m ? M : N })),
+  ...ST[st], enter: !!first, cls: first ? 'rs on' : 'rs'
+});
+const hits = [
+  hit('TRK-07', [['Контракт API ', 0], ['кампани', 1], ['й (create, list, get, update) в OpenAPI', 0]], 'todo', true),
+  hit('TRK-03', [['Список ', 0], ['кампани', 1], ['й: таблица, статусы, фильтры, пагинация', 0]], 'todo'),
+  hit('TRK-14', [['Форма создания ', 0], ['кампани', 1], ['и: поля, валидация, потоки', 0]], 'back'),
+  hit('TRK-16', [['Тексты интерфейса и демо-', 0], ['кампани', 1], ['и', 0]], 'back')
+];
+return { theme: this.props.theme ?? 'light', nav, proj, skel, hits };
+}
+}
+</script>
+</body>
+</html>

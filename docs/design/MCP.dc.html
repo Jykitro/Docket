@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>MCP</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+body{margin:0}
+.app{--bg:#F4F5F7;--sf:#FFFFFF;--sf2:#F8F9FB;--sk:#ECEEF2;--ln:#E3E6EB;--ln2:#CDD2DA;--tx:#14171F;--t2:#4B5362;--t3:#646C7D;--ac:#5A3DF0;--acs:#EEEBFF;--act:#4A2FD8;--ink:#14171F;--inkt:#FFFFFF;--td:#3B6FD9;--tds:#E6EEFC;--tdt:#2650A8;--dg:#C77700;--dgs:#FFF1D6;--dgt:#8A5200;--dn:#1E8E5A;--dns:#DDF3E7;--dnt:#176B43;--bk:#8A93A3;--bks:#ECEEF2;--bkt:#4B5362;--rd:#C9362B;--rds:#FDE7E4;--sh:0 1px 2px rgba(20,23,31,.06),0 12px 28px rgba(20,23,31,.12);font-family:'Onest',system-ui,-apple-system,'Segoe UI',sans-serif;background:var(--bg);color:var(--tx);font-size:14px;line-height:1.4}
+.app[data-theme="dark"]{--bg:#0F1116;--sf:#171A21;--sf2:#1C2029;--sk:#222732;--ln:#262B36;--ln2:#363C49;--tx:#E8EAF0;--t2:#A9B0BE;--t3:#8B93A4;--ac:#8F7BFF;--acs:#25204A;--act:#B4A6FF;--ink:#E8EAF0;--inkt:#0F1116;--td:#6B9BFF;--tds:#17233F;--tdt:#9DBDFF;--dg:#E2A13B;--dgs:#33270E;--dgt:#F0BE6A;--dn:#4CC98A;--dns:#12301F;--dnt:#7FDDAB;--bk:#6F7889;--bks:#232833;--bkt:#A9B0BE;--rd:#FF7A6E;--rds:#3A1C19;--sh:0 1px 2px rgba(0,0,0,.4),0 12px 28px rgba(0,0,0,.5)}
+.app *{box-sizing:border-box}
+.app button,.app input,.app textarea{font:inherit;color:inherit}
+.app :focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+.mono{font-family:'JetBrains Mono',ui-monospace,Menlo,monospace}
+.cap{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--t3)}
+.nv{display:flex;align-items:center;gap:10px;height:32px;padding:0 8px;border-radius:8px;color:var(--t2);text-decoration:none;font-size:13.5px}
+.nv:hover{background:var(--sk)}
+.nv.on{background:var(--sk);color:var(--tx);font-weight:600}
+.btn{display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 12px;border-radius:8px;border:1px solid var(--ln);background:var(--sf);font-size:13.5px;font-weight:500;text-decoration:none;color:var(--tx);cursor:pointer}
+.btn:hover{background:var(--sk)}
+.btn.pri{background:var(--ink);color:var(--inkt);border-color:var(--ink)}
+.btn.pri:hover{opacity:.9;background:var(--ink)}
+.btn.sm{height:30px;padding:0 10px;font-size:13px}
+.btn.sq{width:30px;height:30px;padding:0;justify-content:center}
+.kbd{font:500 11px 'JetBrains Mono',monospace;color:var(--t3);border:1px solid var(--ln);border-radius:5px;padding:1px 5px;background:var(--sf)}
+.panel{background:var(--sf);border:1px solid var(--ln);border-radius:12px;overflow:hidden}
+.ph{padding:16px 20px 12px;display:flex;align-items:center;gap:12px}
+.ph h2{margin:0;font-size:16px;font-weight:600;letter-spacing:-.01em}
+.fld{display:flex;align-items:center;gap:8px;height:38px;padding:0 6px 0 12px;border:1px solid var(--ln);border-radius:8px;background:var(--sf2);font-size:13px;min-width:0}
+.lb{display:flex;flex-direction:column;gap:6px;font-size:12.5px;font-weight:500;color:var(--t2);min-width:0}
+.hint{font-size:12px;color:var(--t3);font-weight:400}
+.tg{width:34px;height:20px;border-radius:999px;background:var(--ln2);position:relative;flex:0 0 34px;display:block}
+.tg::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff}
+.tg.on{background:var(--ac)}
+.tg.on::after{left:16px}
+.seg{display:inline-flex;border:1px solid var(--ln);border-radius:9px;padding:2px;gap:2px;background:var(--sf2)}
+.seg span{padding:5px 12px;border-radius:7px;font-size:13px;color:var(--t3);font-weight:500}
+.seg span.on{background:var(--sf);color:var(--tx);box-shadow:0 0 0 1px var(--ln)}
+.tb{padding:7px 14px;border:0;border-radius:7px;background:transparent;font-size:13px;font-weight:500;color:var(--t3);cursor:pointer}
+.tb.on{background:var(--sf);color:var(--tx);box-shadow:0 0 0 1px var(--ln)}
+.ck{display:flex;align-items:center;gap:12px;padding:11px 20px;border-top:1px solid var(--ln)}
+.tl{display:flex;align-items:center;gap:12px;padding:10px 20px;border-top:1px solid var(--ln)}
+.lg{display:grid;grid-template-columns:62px 20px minmax(0,1fr) auto;align-items:center;gap:10px;padding:9px 18px;border-top:1px solid var(--ln);font-size:12.5px}
+.okc{font:600 11px 'JetBrains Mono',monospace;padding:2px 7px;border-radius:5px;background:var(--dns);color:var(--dnt)}
+.erc{font:600 11px 'JetBrains Mono',monospace;padding:2px 7px;border-radius:5px;background:var(--rds);color:var(--rd)}
+.fc{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:999px;border:1px solid var(--ln);background:var(--sf);font-size:12.5px;color:var(--t2)}
+.fc.on{background:var(--acs);border-color:transparent;color:var(--act);font-weight:500}
+</style>
+</helmet>
+<div class="app" data-theme="{{theme}}" style="min-height:1320px;display:flex;flex-wrap:wrap;align-items:stretch">
+
+<aside style="flex:0 0 264px;max-width:100%;background:var(--sf);border-right:1px solid var(--ln);padding:16px 12px 14px;display:flex;flex-direction:column;gap:18px">
+  <div style="display:flex;align-items:center;gap:10px;padding:2px 6px">
+    <div style="width:28px;height:28px;border-radius:8px;background:var(--ink);color:var(--inkt);display:grid;place-items:center">
+      <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4h5a8 8 0 0 1 0 16H6zM9.5 12.2l2 2 3.2-4"></path></svg>
+    </div>
+    <span style="font-weight:700;font-size:16px;letter-spacing:-.01em;flex-grow:1">Docket</span>
+    <span class="mono" style="font-size:11px;color:var(--t3)">:7777</span>
+  </div>
+  <a href="Search.dc.html" style="display:flex;align-items:center;gap:8px;height:34px;padding:0 10px;border:1px solid var(--ln);border-radius:8px;background:var(--sf2);color:var(--t3);font-size:13px;text-decoration:none">
+    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4a7 7 0 1 0 0 14a7 7 0 0 0 0-14zM20 20l-4-4"></path></svg>
+    <span style="flex-grow:1">Поиск</span><span class="kbd">⌘K</span>
+  </a>
+  <nav style="display:flex;flex-direction:column;gap:2px" aria-label="Разделы">
+    <sc-for list="{{nav}}" as="n" hint-placeholder-count="4">
+      <a class="{{n.cls}}" href="{{n.h}}">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{n.i}}"></path></svg>
+        <span style="flex-grow:1">{{n.l}}</span>
+        <sc-if value="{{n.dot}}" hint-placeholder-val="{{false}}"><span style="width:7px;height:7px;border-radius:50%;background:var(--dn)"></span></sc-if>
+        <sc-if value="{{n.n}}" hint-placeholder-val="{{true}}"><span class="mono" style="font-size:11.5px;color:var(--t3)">{{n.n}}</span></sc-if>
+      </a>
+    </sc-for>
+  </nav>
+  <div style="display:flex;flex-direction:column;gap:2px">
+    <div style="display:flex;align-items:center;padding:0 8px 6px"><span class="cap" style="flex-grow:1">Проекты</span>
+      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="var(--t3)" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></div>
+    <sc-for list="{{proj}}" as="p" hint-placeholder-count="5">
+      <a class="{{p.cls}}" href="{{p.h}}">
+        <span style="width:20px;height:20px;border-radius:6px;display:grid;place-items:center;flex:0 0 20px;color:#fff;background:{{p.c}}"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{p.i}}"></path></svg></span>
+        <span style="flex-grow:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{p.name}}</span>
+        <span class="mono" style="font-size:11.5px;color:var(--t3)">{{p.n}}</span>
+      </a>
+    </sc-for>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:2px">
+    <div class="cap" style="padding:0 8px 6px">Виды</div>
+    <sc-for list="{{views}}" as="v" hint-placeholder-count="3">
+      <a class="nv" href="Main.dc.html">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16l-6 8v6l-4-2v-4z"></path></svg>
+        <span style="flex-grow:1">{{v.l}}</span><span class="mono" style="font-size:11.5px;color:var(--t3)">{{v.n}}</span>
+      </a>
+    </sc-for>
+  </div>
+  <div style="flex-grow:1"></div>
+  <div style="display:flex;align-items:center;gap:10px;padding:10px 6px 0;border-top:1px solid var(--ln)">
+    <span style="width:26px;height:26px;border-radius:50%;background:var(--sk);display:grid;place-items:center;font-weight:600;font-size:12px">D</span>
+    <span style="flex-grow:1;display:flex;flex-direction:column;line-height:1.2"><span style="font-weight:600;font-size:13px">Denis</span><span style="font-size:11.5px;color:var(--t3)">локально · без входа</span></span>
+    <span style="display:inline-flex;border:1px solid var(--ln);border-radius:8px;padding:2px;gap:2px">
+      <span style="width:24px;height:22px;border-radius:6px;display:grid;place-items:center;color:var(--t3)"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 8a4 4 0 1 0 0 8a4 4 0 0 0 0-8zM12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg></span>
+      <span style="width:24px;height:22px;border-radius:6px;background:var(--sk);display:grid;place-items:center;color:var(--tx)"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"></path></svg></span>
+    </span>
+  </div>
+</aside>
+
+<main style="flex:999 1 560px;min-width:0;display:flex;flex-direction:column">
+  <header style="padding:24px 32px 18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;border-bottom:1px solid var(--ln);background:var(--sf)">
+    <span style="width:40px;height:40px;border-radius:11px;background:var(--sk);color:var(--tx);display:grid;place-items:center"><svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3v5M15 3v5M6 8h12v3a6 6 0 0 1-12 0zM12 17v4"></path></svg></span>
+    <div style="display:flex;flex-direction:column;gap:2px;flex:1 1 260px;min-width:0">
+      <h1 style="margin:0;font-size:24px;font-weight:700;letter-spacing:-.02em">MCP</h1>
+      <span style="font-size:13.5px;color:var(--t3)">Так Claude читает и ведёт задачи. Сервер работает внутри Docket, отдельно ничего ставить не нужно.</span>
+    </div>
+    <span style="display:inline-flex;align-items:center;gap:8px;height:30px;padding:0 12px;border-radius:999px;background:var(--dns);color:var(--dnt);font-size:13px;font-weight:600"><span style="width:8px;height:8px;border-radius:50%;background:var(--dn)"></span>Онлайн · 11 мс</span>
+  </header>
+
+  <div style="padding:24px 32px 40px;display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start">
+    <div style="flex:999 1 540px;min-width:0;display:flex;flex-direction:column;gap:20px">
+
+      <section class="panel">
+        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:20px">
+          <span style="width:46px;height:46px;border-radius:50%;background:var(--dns);color:var(--dnt);display:grid;place-items:center;flex:0 0 46px"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span>
+          <div style="display:flex;flex-direction:column;gap:2px;flex:1 1 220px;min-width:0">
+            <span style="font-size:19px;font-weight:700;letter-spacing:-.01em">Подключено</span>
+            <span style="font-size:13px;color:var(--t3)">Последний вызов от <b style="font-weight:600;color:var(--t2)">claude</b> в 17:04. Проверка: {{checkedAt}}, 5 из 5.</span>
+          </div>
+          <button class="btn pri" type="button" onClick="{{check}}"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.5-3.5L4 9M4 4v5h5M4 13a8 8 0 0 0 14.5 3.5L20 15M20 20v-5h-5"></path></svg>{{checkLabel}}</button>
+        </div>
+        <sc-for list="{{checks}}" as="c" hint-placeholder-count="5">
+          <div class="ck">
+            <span style="width:20px;height:20px;border-radius:50%;background:var(--dns);color:var(--dnt);display:grid;place-items:center;flex:0 0 20px"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span>
+            <span style="flex:0 0 160px;font-weight:500;font-size:13.5px">{{c.t}}</span>
+            <span class="mono" style="flex:1 1 180px;min-width:0;font-size:12px;color:var(--t3);overflow-wrap:anywhere">{{c.d}}</span>
+            <span class="mono" style="font-size:12px;color:var(--t2)">{{c.v}}</span>
+          </div>
+        </sc-for>
+      </section>
+
+      <section class="panel">
+        <div class="ph"><h2 style="flex-grow:1">Подключение</h2><span class="seg" aria-label="Режим доступа"><span class="on">Чтение и запись</span><span>Только чтение</span></span></div>
+        <div style="padding:0 20px 20px;display:flex;flex-direction:column;gap:16px">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px">
+            <div class="lb">Адрес сервера
+              <div class="fld"><span class="mono" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">http://localhost:7777/mcp</span><button class="btn sm sq" type="button" aria-label="Копировать адрес"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 8h11v12H8zM5 16V4h11"></path></svg></button></div>
+              <span class="hint">Транспорт: Streamable HTTP. Слушает только 127.0.0.1.</span>
+            </div>
+            <div class="lb">Токен
+              <div class="fld"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="var(--t3)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 11h12v9H6zM8 11V8a4 4 0 0 1 8 0v3"></path></svg><span class="mono" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">dkt_••••••••••••••••a41f</span><button class="btn sm sq" type="button" aria-label="Показать токен"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12zM12 9a3 3 0 1 0 0 6a3 3 0 0 0 0-6z"></path></svg></button><button class="btn sm sq" type="button" aria-label="Копировать токен"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 8h11v12H8zM5 16V4h11"></path></svg></button></div>
+              <span class="hint">Лежит в .env как DOCKET_MCP_TOKEN. После перевыпуска обновите клиент.</span>
+            </div>
+          </div>
+          <div>
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;flex-wrap:wrap">
+              <span class="seg" role="tablist" aria-label="Клиент">
+                <sc-for list="{{tabs}}" as="t" hint-placeholder-count="2"><button class="{{t.cls}}" type="button" role="tab" onClick="{{t.pick}}">{{t.l}}</button></sc-for>
+              </span>
+              <span style="flex-grow:1"></span>
+              <button class="btn sm" type="button"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 8h11v12H8zM5 16V4h11"></path></svg>Скопировать конфиг</button>
+              <button class="btn sm" type="button"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.5-3.5L4 9M4 4v5h5M4 13a8 8 0 0 0 14.5 3.5L20 15M20 20v-5h-5"></path></svg>Перевыпустить токен</button>
+            </div>
+            <pre class="mono" style="margin:0;padding:14px 16px;background:var(--sf2);border:1px solid var(--ln);border-radius:10px;font-size:12.5px;line-height:1.65;overflow-x:auto;color:var(--t2);white-space:pre">{{code}}</pre>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="ph"><h2 style="flex-grow:1">Инструменты</h2><span style="font-size:13px;color:var(--t3)">11 из 12 включено</span></div>
+        <sc-for list="{{groups}}" as="g" hint-placeholder-count="2">
+          <div style="padding:8px 20px 6px;border-top:1px solid var(--ln);background:var(--sf2)" class="cap">{{g.name}}</div>
+          <sc-for list="{{g.tools}}" as="t" hint-placeholder-count="5">
+            <div class="tl">
+              <span class="mono" style="flex:0 0 150px;font-size:12.5px;font-weight:500">{{t.n}}</span>
+              <span style="flex:1 1 200px;min-width:0;font-size:13px;color:var(--t2)">{{t.d}}</span>
+              <span class="mono" style="font-size:12px;color:var(--t3);flex:0 0 52px;text-align:right">{{t.c}}</span>
+              <span class="{{t.tg}}"></span>
+            </div>
+          </sc-for>
+        </sc-for>
+        <div style="padding:12px 20px;border-top:1px solid var(--ln);font-size:12.5px;color:var(--t3)">Число справа: вызовы за 7 дней. Выключенный инструмент пропадает из списка, который видит Claude.</div>
+      </section>
+    </div>
+
+    <aside style="flex:1 1 380px;max-width:480px;min-width:0">
+      <section class="panel">
+        <div class="ph" style="padding-bottom:10px"><h2 style="flex-grow:1">Журнал вызовов</h2><span style="display:inline-flex;align-items:center;gap:6px;font:600 11px 'JetBrains Mono',monospace;color:var(--dnt);letter-spacing:.06em"><span style="width:7px;height:7px;border-radius:50%;background:var(--dn)"></span>LIVE</span></div>
+        <div style="padding:0 18px 12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <span class="fc on">Все</span><span class="fc">Запись</span><span class="fc">Ошибки: 1</span>
+          <span style="flex-grow:1"></span><span class="mono" style="font-size:11.5px;color:var(--t3)">148 сегодня · медиана 11 мс</span>
+        </div>
+        <sc-for list="{{log}}" as="l" hint-placeholder-count="10">
+          <div class="lg">
+            <span class="mono" style="color:var(--t3)">{{l.t}}</span>
+            <span style="width:20px;height:20px;border-radius:50%;background:var(--acs);color:var(--act);display:grid;place-items:center" title="claude"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 3v18M3 12h18M6 6l12 12M18 6L6 18"></path></svg></span>
+            <span style="min-width:0;display:flex;flex-direction:column;gap:1px"><span class="mono" style="font-weight:500;font-size:12.5px">{{l.n}}</span><span class="mono" style="font-size:11.5px;color:var(--t3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{l.a}}</span></span>
+            <span style="display:flex;align-items:center;gap:8px"><span class="mono" style="font-size:11.5px;color:var(--t3)">{{l.ms}}</span><span class="{{l.cls}}">{{l.st}}</span></span>
+          </div>
+        </sc-for>
+        <div style="padding:12px 18px;border-top:1px solid var(--ln);display:flex;align-items:center;font-size:12.5px;color:var(--t3)"><span style="flex-grow:1">Хранится 7 дней</span><span>Очистить журнал</span></div>
+      </section>
+    </aside>
+  </div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark"],"default":"dark","section":"Вид"},"$preview":{"width":1440,"height":1320}}'>
+class Component extends DCLogic {
+state = { ran: false, tab: 'code' };
+renderVals() {
+const st = this.state;
+const I = {
+  cal: 'M5 6h14a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1zM4 10h16M8 3v4M16 3v4',
+  clock: 'M12 4a8 8 0 1 0 0 16a8 8 0 0 0 0-16zM12 8v4l3 2',
+  plug: 'M9 3v5M15 3v5M6 8h12v3a6 6 0 0 1-12 0zM12 17v4',
+  trash: 'M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13M10 11v6M14 11v6',
+  target: 'M12 4a8 8 0 1 0 0 16a8 8 0 0 0 0-16zM12 9a3 3 0 1 0 0 6a3 3 0 0 0 0-6zM12 2v3M12 19v3M2 12h3M19 12h3',
+  clover: 'M12 12c-3-3-3-8 0-8s3 5 0 8zM12 12c3-3 8-3 8 0s-5 3-8 0zM12 12c3 3 3 8 0 8s-3-5 0-8zM12 12c-3 3-8 3-8 0s5-3 8 0z',
+  key: 'M14 10a4 4 0 1 1-8 0a4 4 0 0 1 8 0zM13 12l7 7M17 16l2-2M15 18l2-2',
+  stack: 'M4 6h16v4H4zM4 14h16v4H4zM7 8h.01M7 16h.01',
+  candle: 'M7 4v4M7 15v4M5 8h4v7H5zM17 3v3M17 14v5M15 6h4v8h-4z'
+};
+const nav = [
+  { l: 'Сегодня', i: I.cal, n: '9', h: 'Today.dc.html', cls: 'nv' },
+  { l: 'Просрочено', i: I.clock, n: '2', h: 'Today.dc.html', cls: 'nv' },
+  { l: 'MCP', i: I.plug, dot: true, h: 'MCP.dc.html', cls: 'nv on' },
+  { l: 'Корзина', i: I.trash, n: '3', h: 'Main.dc.html', cls: 'nv' }
+];
+const proj = [
+  { name: 'Huntly Tracker', n: '10', c: '#2D5CC9', i: I.target },
+  { name: 'ADS Clover', n: '11', c: '#17784C', i: I.clover },
+  { name: 'Huntly Licensing', n: '6', c: '#B8620A', i: I.key },
+  { name: 'Clover Hub → Go', n: '9', c: '#0E7490', i: I.stack },
+  { name: 'Учебный терминал', n: '4', c: '#C0265F', i: I.candle }
+].map((p) => ({ ...p, cls: 'nv', h: 'Main.dc.html' }));
+const views = [{ l: 'P0 на неделю', n: '6' }, { l: 'Созданные Claude', n: '12' }, { l: 'Без даты', n: '5' }];
+const checks = [
+  { t: 'Сервер отвечает', d: 'GET /healthz', v: '4 мс' },
+  { t: 'Протокол MCP', d: 'initialize · Streamable HTTP · 12 инструментов', v: 'ок' },
+  { t: 'Токен', d: 'Bearer · действует · последний вызов 17:04', v: 'ок' },
+  { t: 'Host и Origin', d: 'разрешены: localhost, docket.localhost', v: 'ок' },
+  { t: 'База данных', d: 'SQLite WAL · 2,4 МБ · бэкап сегодня в 03:00', v: 'ок' }
+];
+const CODE1 = 'claude mcp add --transport http docket http://localhost:7777/mcp \\\n  --header "Authorization: Bearer $DOCKET_MCP_TOKEN"';
+const CODE2 = '{\n  "mcpServers": {\n    "docket": {\n      "command": "npx",\n      "args": ["-y", "mcp-remote", "http://localhost:7777/mcp",\n               "--header", "Authorization:${AUTH}", "--allow-http"],\n      "env": { "AUTH": "Bearer <TOKEN>" }\n    }\n  }\n}';
+const tabs = [
+  { l: 'Claude Code', cls: st.tab === 'code' ? 'tb on' : 'tb', pick: () => this.setState({ tab: 'code' }) },
+  { l: 'Claude Desktop', cls: st.tab === 'desktop' ? 'tb on' : 'tb', pick: () => this.setState({ tab: 'desktop' }) }
+];
+const T = (on) => (on ? 'tg on' : 'tg');
+const groups = [
+  { name: 'Чтение', tools: [
+    { n: 'list_projects', d: 'Проекты со счётчиками по статусам', c: '12', tg: T(true) },
+    { n: 'get_board', d: 'Срез доски: проект, статус, дата, область', c: '214', tg: T(true) },
+    { n: 'get_today', d: 'План на дату и просроченные задачи', c: '96', tg: T(true) },
+    { n: 'get_task', d: 'Задача целиком: описание, подзадачи, заметки', c: '188', tg: T(true) },
+    { n: 'search', d: 'Полнотекстовый поиск по названиям и описаниям', c: '41', tg: T(true) }
+  ] },
+  { name: 'Запись', tools: [
+    { n: 'create_project', d: 'Новый проект с ключом и цветом', c: '3', tg: T(true) },
+    { n: 'create_tasks', d: 'До 100 задач за раз, с подзадачами через parent_ref', c: '27', tg: T(true) },
+    { n: 'update_task', d: 'Название, описание, приоритет, область, дата', c: '143', tg: T(true) },
+    { n: 'move_tasks', d: 'Сменить статус или дату у нескольких задач', c: '88', tg: T(true) },
+    { n: 'add_note', d: 'Заметка о ходе работы от имени claude', c: '52', tg: T(true) },
+    { n: 'carry_over', d: 'Перенести незакрытые задачи с даты на дату', c: '6', tg: T(true) },
+    { n: 'delete_tasks', d: 'Только в корзину, окончательно удаляете вы', c: '0', tg: T(false) }
+  ] }
+];
+const ok = (t, n, a, ms) => ({ t, n, a, ms, st: 'ok', cls: 'okc' });
+const log = [
+  ok('17:04:12', 'carry_over', 'from=2026-11-05 to=2026-11-06', '18 мс'),
+  ok('17:02:41', 'add_note', 'task=TRK-08', '9 мс'),
+  ok('16:58:03', 'update_task', 'id=TRK-08 description_md', '12 мс'),
+  ok('16:57:40', 'get_task', 'id=TRK-08', '7 мс'),
+  ok('16:41:19', 'move_tasks', 'ids=[TRK-08] status=doing', '14 мс'),
+  ok('16:41:02', 'get_board', 'project=tracker', '11 мс'),
+  ok('15:20:55', 'create_tasks', '6 задач · project=licensing', '63 мс'),
+  ok('15:20:31', 'create_project', 'name="Huntly Licensing"', '21 мс'),
+  { t: '15:19:48', n: 'update_task', a: 'id=TRK-999 → not_found', ms: '5 мс', st: 'ошибка', cls: 'erc' },
+  ok('14:47:10', 'update_task', 'id=TRK-03 priority=P0', '10 мс')
+];
+return {
+  theme: this.props.theme ?? 'dark', nav, proj, views, checks, tabs, groups, log,
+  code: st.tab === 'code' ? CODE1 : CODE2,
+  check: () => this.setState({ ran: true }),
+  checkLabel: st.ran ? 'Проверено только что' : 'Проверить соединение',
+  checkedAt: st.ran ? 'только что' : '17:04'
+};
+}
+}
+</script>
+</body>
+</html>

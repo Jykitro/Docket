@@ -1,0 +1,7 @@
+/* Docket design tokens. Источник: design/Main.dc.html. Корневой элемент: <div class="app" data-theme="light|dark"> */
+.app{
+  --bg:#F4F5F7;--sf:#FFFFFF;--sf2:#F8F9FB;--sk:#ECEEF2;--ln:#E3E6EB;--ln2:#CDD2DA;--tx:#14171F;--t2:#4B5362;--t3:#646C7D;--ac:#5A3DF0;--acs:#EEEBFF;--act:#4A2FD8;--ink:#14171F;--inkt:#FFFFFF;--td:#3B6FD9;--tds:#E6EEFC;--tdt:#2650A8;--dg:#C77700;--dgs:#FFF1D6;--dgt:#8A5200;--dn:#1E8E5A;--dns:#DDF3E7;--dnt:#176B43;--bk:#8A93A3;--bks:#ECEEF2;--bkt:#4B5362;--rd:#C9362B;--rds:#FDE7E4;--sh:0 1px 2px rgba(20,23,31,.06),0 12px 28px rgba(20,23,31,.12);font-family:'Onest',system-ui,-apple-system,'Segoe UI',sans-serif;background:var(--bg);color:var(--tx);font-size:14px;line-height:1.4}
+.app[data-theme="dark"]{--bg:#0F1116;--sf:#171A21;--sf2:#1C2029;--sk:#222732;--ln:#262B36;--ln2:#363C49;--tx:#E8EAF0;--t2:#A9B0BE;--t3:#8B93A4;--ac:#8F7BFF;--acs:#25204A;--act:#B4A6FF;--ink:#E8EAF0;--inkt:#0F1116;--td:#6B9BFF;--tds:#17233F;--tdt:#9DBDFF;--dg:#E2A13B;--dgs:#33270E;--dgt:#F0BE6A;--dn:#4CC98A;--dns:#12301F;--dnt:#7FDDAB;--bk:#6F7889;--bks:#232833;--bkt:#A9B0BE;--rd:#FF7A6E;--rds:#3A1C19;--sh:0 1px 2px rgba(0,0,0,.4),0 12px 28px rgba(0,0,0,.5)}
+.app *{box-sizing:border-box}
+.app button,.app input{font:inherit;color:inherit}
+.app :focus-visible{outline:2px solid var(--ac);outline-offset:2px}

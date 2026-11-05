@@ -1,0 +1,8 @@
+services:
+  docket:
+    build: .
+    image: docket:local
+    env_file: .env
+    ports: ["127.0.0.1:7777:7777"]
+    volumes: ["./data:/data"]
+    restart: unless-stopped

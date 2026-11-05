@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Задача</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+body{margin:0}
+.app{--bg:#F4F5F7;--sf:#FFFFFF;--sf2:#F8F9FB;--sk:#ECEEF2;--ln:#E3E6EB;--ln2:#CDD2DA;--tx:#14171F;--t2:#4B5362;--t3:#646C7D;--ac:#5A3DF0;--acs:#EEEBFF;--act:#4A2FD8;--ink:#14171F;--inkt:#FFFFFF;--td:#3B6FD9;--tds:#E6EEFC;--tdt:#2650A8;--dg:#C77700;--dgs:#FFF1D6;--dgt:#8A5200;--dn:#1E8E5A;--dns:#DDF3E7;--dnt:#176B43;--bk:#8A93A3;--bks:#ECEEF2;--bkt:#4B5362;--rd:#C9362B;--rds:#FDE7E4;--sh:0 1px 2px rgba(20,23,31,.06),0 12px 28px rgba(20,23,31,.12);font-family:'Onest',system-ui,-apple-system,'Segoe UI',sans-serif;background:var(--bg);color:var(--tx);font-size:14px;line-height:1.4}
+.app[data-theme="dark"]{--bg:#0F1116;--sf:#171A21;--sf2:#1C2029;--sk:#222732;--ln:#262B36;--ln2:#363C49;--tx:#E8EAF0;--t2:#A9B0BE;--t3:#8B93A4;--ac:#8F7BFF;--acs:#25204A;--act:#B4A6FF;--ink:#E8EAF0;--inkt:#0F1116;--td:#6B9BFF;--tds:#17233F;--tdt:#9DBDFF;--dg:#E2A13B;--dgs:#33270E;--dgt:#F0BE6A;--dn:#4CC98A;--dns:#12301F;--dnt:#7FDDAB;--bk:#6F7889;--bks:#232833;--bkt:#A9B0BE;--rd:#FF7A6E;--rds:#3A1C19;--sh:0 1px 2px rgba(0,0,0,.4),0 12px 28px rgba(0,0,0,.5)}
+.app *{box-sizing:border-box}
+.app button,.app input,.app textarea{font:inherit;color:inherit}
+.app :focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+.mono{font-family:'JetBrains Mono',ui-monospace,Menlo,monospace}
+.cap{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--t3)}
+.nv{display:flex;align-items:center;gap:10px;height:32px;padding:0 8px;border-radius:8px;color:var(--t2);text-decoration:none;font-size:13.5px}
+.nv:hover{background:var(--sk)}
+.nv.on{background:var(--sk);color:var(--tx);font-weight:600}
+.btn{display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 12px;border-radius:8px;border:1px solid var(--ln);background:var(--sf);font-size:13px;font-weight:500;text-decoration:none;color:var(--tx);cursor:pointer}
+.btn:hover{background:var(--sk)}
+.btn.sq{width:32px;padding:0;justify-content:center;border-color:transparent;background:transparent;color:var(--t2)}
+.btn.sq:hover{background:var(--sk);color:var(--tx)}
+.kbd{font:500 11px 'JetBrains Mono',monospace;color:var(--t3);border:1px solid var(--ln);border-radius:5px;padding:1px 5px;background:var(--sf)}
+.pr{font:600 11px 'JetBrains Mono',monospace;padding:2px 6px;border-radius:5px}
+.p0{background:var(--rds);color:var(--rd)}
+.chip{display:inline-flex;align-items:center;gap:7px;height:26px;padding:0 10px;border-radius:7px;font-size:13px;font-weight:500}
+.pk{display:grid;grid-template-columns:128px minmax(0,1fr);align-items:center;gap:12px;min-height:34px}
+.pk>span:first-child{display:flex;align-items:center;gap:8px;color:var(--t3);font-size:13px}
+.lk{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 9px;border:1px solid var(--ln);border-radius:7px;background:var(--sf2);color:var(--act);font-size:12.5px;text-decoration:none}
+.lk:hover{background:var(--sk)}
+.md h3{margin:18px 0 6px;font-size:15px;font-weight:600}
+.md p{margin:0 0 6px;color:var(--t2);line-height:1.6;font-size:14.5px}
+.sec{display:flex;align-items:center;gap:10px;margin:0 0 10px}
+.sec h2{margin:0;font-size:15px;font-weight:600}
+.cb{width:17px;height:17px;border-radius:5px;border:1.5px solid var(--ln2);flex:0 0 17px;display:grid;place-items:center}
+.cb.on{background:var(--dn);border-color:var(--dn)}
+.hist{display:flex;gap:10px;align-items:baseline;font-size:12.5px;color:var(--t2);padding:5px 0}
+.hist .mono{color:var(--t3);font-size:11.5px;width:42px;flex:0 0 42px}
+</style>
+</helmet>
+<div class="app" data-theme="{{theme}}" style="min-height:1120px;display:flex;flex-wrap:wrap;align-items:stretch">
+
+<aside style="flex:0 0 264px;max-width:100%;background:var(--sf);border-right:1px solid var(--ln);padding:16px 12px 14px;display:flex;flex-direction:column;gap:18px">
+  <div style="display:flex;align-items:center;gap:10px;padding:2px 6px">
+    <div style="width:28px;height:28px;border-radius:8px;background:var(--ink);color:var(--inkt);display:grid;place-items:center">
+      <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4h5a8 8 0 0 1 0 16H6zM9.5 12.2l2 2 3.2-4"></path></svg>
+    </div>
+    <span style="font-weight:700;font-size:16px;letter-spacing:-.01em;flex-grow:1">Docket</span>
+    <span class="mono" style="font-size:11px;color:var(--t3)">:7777</span>
+  </div>
+  <a href="Search.dc.html" style="display:flex;align-items:center;gap:8px;height:34px;padding:0 10px;border:1px solid var(--ln);border-radius:8px;background:var(--sf2);color:var(--t3);font-size:13px;text-decoration:none">
+    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4a7 7 0 1 0 0 14a7 7 0 0 0 0-14zM20 20l-4-4"></path></svg>
+    <span style="flex-grow:1">Поиск</span><span class="kbd">⌘K</span>
+  </a>
+  <nav style="display:flex;flex-direction:column;gap:2px" aria-label="Разделы">
+    <sc-for list="{{nav}}" as="n" hint-placeholder-count="4">
+      <a class="{{n.cls}}" href="{{n.h}}">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{n.i}}"></path></svg>
+        <span style="flex-grow:1">{{n.l}}</span>
+        <sc-if value="{{n.dot}}" hint-placeholder-val="{{false}}"><span style="width:7px;height:7px;border-radius:50%;background:var(--dn)"></span></sc-if>
+        <sc-if value="{{n.n}}" hint-placeholder-val="{{true}}"><span class="mono" style="font-size:11.5px;color:var(--t3)">{{n.n}}</span></sc-if>
+      </a>
+    </sc-for>
+  </nav>
+  <div style="display:flex;flex-direction:column;gap:2px">
+    <div style="display:flex;align-items:center;padding:0 8px 6px"><span class="cap" style="flex-grow:1">Проекты</span>
+      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="var(--t3)" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></div>
+    <sc-for list="{{proj}}" as="p" hint-placeholder-count="5">
+      <a class="{{p.cls}}" href="{{p.h}}">
+        <span style="width:20px;height:20px;border-radius:6px;display:grid;place-items:center;flex:0 0 20px;color:#fff;background:{{p.c}}"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{p.i}}"></path></svg></span>
+        <span style="flex-grow:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{p.name}}</span>
+        <span class="mono" style="font-size:11.5px;color:var(--t3)">{{p.n}}</span>
+      </a>
+    </sc-for>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:2px">
+    <div class="cap" style="padding:0 8px 6px">Виды</div>
+    <sc-for list="{{views}}" as="v" hint-placeholder-count="3">
+      <a class="nv" href="Main.dc.html">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16l-6 8v6l-4-2v-4z"></path></svg>
+        <span style="flex-grow:1">{{v.l}}</span><span class="mono" style="font-size:11.5px;color:var(--t3)">{{v.n}}</span>
+      </a>
+    </sc-for>
+  </div>
+  <div style="flex-grow:1"></div>
+  <div style="display:flex;align-items:center;gap:10px;padding:10px 6px 0;border-top:1px solid var(--ln)">
+    <span style="width:26px;height:26px;border-radius:50%;background:var(--sk);display:grid;place-items:center;font-weight:600;font-size:12px">D</span>
+    <span style="flex-grow:1;display:flex;flex-direction:column;line-height:1.2"><span style="font-weight:600;font-size:13px">Denis</span><span style="font-size:11.5px;color:var(--t3)">локально · без входа</span></span>
+    <span style="display:inline-flex;border:1px solid var(--ln);border-radius:8px;padding:2px;gap:2px">
+      <span style="width:24px;height:22px;border-radius:6px;display:grid;place-items:center;color:var(--t3)"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 8a4 4 0 1 0 0 8a4 4 0 0 0 0-8zM12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg></span>
+      <span style="width:24px;height:22px;border-radius:6px;background:var(--sk);display:grid;place-items:center;color:var(--tx)"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"></path></svg></span>
+    </span>
+  </div>
+</aside>
+
+<div aria-hidden="true" style="flex:1 1 240px;min-width:0;padding:24px 24px;display:flex;gap:14px;align-items:flex-start;opacity:.38;overflow:hidden">
+  <sc-for list="{{ghostCols}}" as="gc" hint-placeholder-count="3">
+    <div style="flex:1 0 190px;display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;gap:8px;height:22px"><span style="width:9px;height:9px;border-radius:50%;background:{{gc.c}}"></span><span style="height:9px;width:70px;border-radius:5px;background:var(--ln2)"></span></div>
+      <sc-for list="{{gc.cards}}" as="k" hint-placeholder-count="3">
+        <div style="background:var(--sf);border:1px solid var(--ln);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:9px">
+          <span style="height:8px;width:48px;border-radius:4px;background:var(--ln2)"></span>
+          <span style="height:10px;width:{{k.w}};border-radius:5px;background:var(--ln2)"></span>
+          <span style="height:10px;width:60%;border-radius:5px;background:var(--ln)"></span>
+        </div>
+      </sc-for>
+    </div>
+  </sc-for>
+</div>
+
+<section aria-label="Задача TRK-08" style="flex:0 1 700px;min-width:0;max-width:100%;background:var(--sf);border-left:1px solid var(--ln);box-shadow:var(--sh);display:flex;flex-direction:column">
+  <div style="display:flex;align-items:center;gap:6px;padding:10px 16px;border-bottom:1px solid var(--ln)">
+    <span style="width:20px;height:20px;border-radius:6px;display:grid;place-items:center;color:#fff;background:#2D5CC9"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4a8 8 0 1 0 0 16a8 8 0 0 0 0-16zM12 9a3 3 0 1 0 0 6a3 3 0 0 0 0-6zM12 2v3M12 19v3M2 12h3M19 12h3"></path></svg></span>
+    <span style="font-size:13px;color:var(--t2)">Huntly Tracker</span>
+    <span style="color:var(--t3)">/</span>
+    <span class="mono" style="font-size:12.5px;color:var(--t3);flex-grow:1">TRK-08</span>
+    <button class="btn sq" type="button" aria-label="Копировать ссылку"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"></path></svg></button>
+    <button class="btn sq" type="button" aria-label="Открыть на всю страницу"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-8 8M10 6H5a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5"></path></svg></button>
+    <button class="btn sq" type="button" aria-label="Удалить в корзину"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13M10 11v6M14 11v6"></path></svg></button>
+    <a class="btn sq" href="Main.dc.html" aria-label="Закрыть"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></a>
+  </div>
+
+  <div style="padding:26px 36px 40px;display:flex;flex-direction:column;gap:26px">
+    <h1 style="margin:0;font-size:27px;line-height:1.2;font-weight:700;letter-spacing:-.02em;text-wrap:balance">POST /campaigns: валидация, сервис, sqlx-репозиторий, тесты</h1>
+
+    <div style="display:flex;flex-direction:column">
+      <div class="pk"><span><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 4a8 8 0 1 0 0 16a8 8 0 0 0 0-16zM12 8v4"></path></svg>Статус</span><span><span class="chip" style="background:var(--dgs);color:var(--dgt)"><span style="width:8px;height:8px;border-radius:50%;background:var(--dg)"></span>В работе</span></span></div>
+      <div class="pk"><span><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 21V4M6 5h11l-2 4 2 4H6"></path></svg>Приоритет</span><span><span class="chip" style="background:var(--rds);color:var(--rd)"><span class="mono" style="font-weight:600;font-size:12px">P0</span>Критично</span></span></div>
+      <div class="pk"><span><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12V5a1 1 0 0 1 1-1h7l8 8-8 8zM8 8h.01"></path></svg>Область</span><span><span class="chip" style="background:var(--sk);color:var(--t2)"><span style="width:8px;height:8px;border-radius:50%;background:#4C8DF6"></span>API</span></span></div>
+      <div class="pk"><span><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 6h14a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1zM4 10h16M8 3v4M16 3v4"></path></svg>Дата</span><span style="font-size:13.5px">Сегодня, 5 ноября</span></div>
+      <div class="pk"><span><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"></path></svg>Связано</span><span style="display:flex;gap:8px;flex-wrap:wrap"><a class="lk" href="Task.dc.html"><span class="mono" style="font-size:11.5px">TRK-07</span>Контракт API кампаний</a></span></div>
+      <div class="pk"><span><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 4a4 4 0 1 0 0 8a4 4 0 0 0 0-8zM5 20a7 7 0 0 1 14 0"></path></svg>Создал</span><span style="display:inline-flex;align-items:center;gap:8px;font-size:13.5px"><span style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;color:var(--act);background:var(--acs);border-radius:5px;padding:2px 7px 2px 5px;font-weight:500"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 3v18M3 12h18M6 6l12 12M18 6L6 18"></path></svg>claude</span><span style="color:var(--t3)">через MCP · 4 ноя, 22:10</span></span></div>
+    </div>
+
+    <section style="border-top:1px solid var(--ln);padding-top:22px">
+      <div class="sec">
+        <h2 style="flex-grow:1">Описание</h2>
+        <span style="display:inline-flex;border:1px solid var(--ln);border-radius:8px;padding:2px;gap:2px;font-size:12.5px"><span style="padding:3px 10px;border-radius:6px;background:var(--sk);font-weight:600">Просмотр</span><span style="padding:3px 10px;border-radius:6px;color:var(--t3)">Markdown</span></span>
+      </div>
+      <div class="md">
+        <h3 style="margin-top:4px">Цель</h3>
+        <p>Ручка создания кампании с проверкой входных данных: название, домен, потоки, офферы и лендинги. Ответ совпадает со схемой из контракта TRK-07.</p>
+        <h3>Критерии готовности</h3>
+        <div style="display:flex;flex-direction:column;gap:7px;margin-top:8px">
+          <sc-for list="{{crit}}" as="c" hint-placeholder-count="4">
+            <div style="display:flex;align-items:flex-start;gap:10px;font-size:14.5px;line-height:1.45;color:{{c.col}}">
+              <span class="{{c.cls}}"><sc-if value="{{c.on}}" hint-placeholder-val="{{true}}"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></sc-if></span>
+              <span style="text-decoration:{{c.td}}">{{c.t}}</span>
+            </div>
+          </sc-for>
+        </div>
+        <h3>Запрос</h3>
+        <pre class="mono" style="margin:6px 0 0;padding:12px 14px;background:var(--sf2);border:1px solid var(--ln);border-radius:9px;font-size:12.5px;line-height:1.6;overflow-x:auto;color:var(--t2)">POST /api/v1/campaigns
+{ "name": "FB · Nutra · DE", "domain_id": 3, "streams": [] }</pre>
+        <h3>Ссылки</h3>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+          <a class="lk" href="Task.dc.html"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h8l4 4v14H7zM15 3v4h4"></path></svg>openapi/campaigns.yaml</a>
+          <a class="lk" href="Task.dc.html"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7v10M17 9a2 2 0 1 0 0-4a2 2 0 0 0 0 4zM7 7a2 2 0 1 0 0-4a2 2 0 0 0 0 4zM7 21a2 2 0 1 0 0-4a2 2 0 0 0 0 4zM17 9c0 5-10 3-10 8"></path></svg>PR #42 · campaigns-create</a>
+          <a class="lk" href="Task.dc.html"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-8 8M10 6H5a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5"></path></svg>Схема кампаний в Keitaro</a>
+        </div>
+      </div>
+    </section>
+
+    <section style="border-top:1px solid var(--ln);padding-top:22px">
+      <div class="sec"><h2>Подзадачи</h2><span class="mono" style="font-size:12px;color:var(--t3);flex-grow:1">1 / 4</span><span style="width:110px;height:6px;border-radius:3px;background:var(--sk);overflow:hidden;display:block"><span style="display:block;height:100%;width:25%;background:var(--dn)"></span></span></div>
+      <div style="display:flex;flex-direction:column">
+        <sc-for list="{{subs}}" as="s" hint-placeholder-count="4">
+          <div style="display:flex;align-items:center;gap:10px;min-height:36px;border-bottom:1px solid var(--ln)">
+            <span class="{{s.cls}}"><sc-if value="{{s.on}}" hint-placeholder-val="{{true}}"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></sc-if></span>
+            <span style="flex-grow:1;font-size:14px;color:{{s.col}};text-decoration:{{s.td}}">{{s.t}}</span>
+            <span class="mono" style="font-size:11.5px;color:var(--t3)">{{s.id}}</span>
+          </div>
+        </sc-for>
+        <div style="display:flex;align-items:center;gap:8px;height:36px;color:var(--t3);font-size:13.5px"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Добавить подзадачу</div>
+      </div>
+    </section>
+
+    <section style="border-top:1px solid var(--ln);padding-top:22px">
+      <div class="sec"><h2 style="flex-grow:1">Заметки</h2><span class="mono" style="font-size:12px;color:var(--t3)">2</span></div>
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <sc-for list="{{notes}}" as="n" hint-placeholder-count="2">
+          <div style="display:flex;gap:12px">
+            <span style="width:28px;height:28px;border-radius:50%;flex:0 0 28px;display:grid;place-items:center;background:{{n.bg}};color:{{n.fg}}"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{n.i}}"></path></svg></span>
+            <div style="flex:1 1 0;min-width:0;display:flex;flex-direction:column;gap:3px">
+              <div style="display:flex;gap:8px;align-items:baseline"><b style="font-weight:600;font-size:13.5px">{{n.who}}</b><span class="mono" style="font-size:11.5px;color:var(--t3)">{{n.t}}</span></div>
+              <div style="font-size:14px;line-height:1.55;color:var(--t2)">{{n.text}}</div>
+            </div>
+          </div>
+        </sc-for>
+        <label style="display:flex;align-items:center;gap:10px;border:1px solid var(--ln);border-radius:10px;padding:0 10px 0 14px;height:42px;background:var(--sf2)">
+          <input id="note-in" type="text" placeholder="Добавить заметку" aria-label="Добавить заметку" style="flex:1;border:0;background:transparent;outline:0;font-size:14px">
+          <span class="kbd">⌘↵</span>
+        </label>
+      </div>
+    </section>
+
+    <section style="border-top:1px solid var(--ln);padding-top:22px">
+      <div class="sec"><h2 style="flex-grow:1">История</h2><span style="font-size:12.5px;color:var(--t3)">показать всё</span></div>
+      <div>
+        <sc-for list="{{hist}}" as="h" hint-placeholder-count="4">
+          <div class="hist"><span class="mono">{{h.t}}</span><span><b style="font-weight:600;color:var(--tx)">{{h.who}}</b> {{h.text}}</span></div>
+        </sc-for>
+      </div>
+    </section>
+  </div>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark"],"default":"dark","section":"Вид"},"$preview":{"width":1440,"height":1120}}'>
+class Component extends DCLogic {
+renderVals() {
+const I = {
+  cal: 'M5 6h14a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1zM4 10h16M8 3v4M16 3v4',
+  clock: 'M12 4a8 8 0 1 0 0 16a8 8 0 0 0 0-16zM12 8v4l3 2',
+  plug: 'M9 3v5M15 3v5M6 8h12v3a6 6 0 0 1-12 0zM12 17v4',
+  trash: 'M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13M10 11v6M14 11v6',
+  target: 'M12 4a8 8 0 1 0 0 16a8 8 0 0 0 0-16zM12 9a3 3 0 1 0 0 6a3 3 0 0 0 0-6zM12 2v3M12 19v3M2 12h3M19 12h3',
+  clover: 'M12 12c-3-3-3-8 0-8s3 5 0 8zM12 12c3-3 8-3 8 0s-5 3-8 0zM12 12c3 3 3 8 0 8s-3-5 0-8zM12 12c-3 3-8 3-8 0s5-3 8 0z',
+  key: 'M14 10a4 4 0 1 1-8 0a4 4 0 0 1 8 0zM13 12l7 7M17 16l2-2M15 18l2-2',
+  stack: 'M4 6h16v4H4zM4 14h16v4H4zM7 8h.01M7 16h.01',
+  candle: 'M7 4v4M7 15v4M5 8h4v7H5zM17 3v3M17 14v5M15 6h4v8h-4z',
+  spark: 'M12 3v18M3 12h18M6 6l12 12M18 6L6 18',
+  user: 'M12 4a4 4 0 1 0 0 8a4 4 0 0 0 0-8zM5 20a7 7 0 0 1 14 0'
+};
+const nav = [
+  { l: 'Сегодня', i: I.cal, n: '9', h: 'Today.dc.html', cls: 'nv' },
+  { l: 'Просрочено', i: I.clock, n: '2', h: 'Today.dc.html', cls: 'nv' },
+  { l: 'MCP', i: I.plug, dot: true, h: 'MCP.dc.html', cls: 'nv' },
+  { l: 'Корзина', i: I.trash, n: '3', h: 'Main.dc.html', cls: 'nv' }
+];
+const proj = [
+  { name: 'Huntly Tracker', n: '10', c: '#2D5CC9', i: I.target, cls: 'nv on' },
+  { name: 'ADS Clover', n: '11', c: '#17784C', i: I.clover, cls: 'nv' },
+  { name: 'Huntly Licensing', n: '6', c: '#B8620A', i: I.key, cls: 'nv' },
+  { name: 'Clover Hub → Go', n: '9', c: '#0E7490', i: I.stack, cls: 'nv' },
+  { name: 'Учебный терминал', n: '4', c: '#C0265F', i: I.candle, cls: 'nv' }
+].map((p) => ({ ...p, h: 'Main.dc.html' }));
+const views = [{ l: 'P0 на неделю', n: '6' }, { l: 'Созданные Claude', n: '12' }, { l: 'Без даты', n: '5' }];
+const ghostCols = [
+  { c: 'var(--td)', cards: [{ w: '85%' }, { w: '70%' }, { w: '90%' }] },
+  { c: 'var(--dg)', cards: [{ w: '75%' }, { w: '88%' }] },
+  { c: 'var(--dn)', cards: [{ w: '65%' }, { w: '80%' }] }
+];
+const item = (t, on) => ({
+  t, on, cls: on ? 'cb on' : 'cb', col: on ? 'var(--t3)' : 'var(--tx)', td: on ? 'line-through' : 'none'
+});
+const crit = [
+  item('Схема запроса совпадает с OpenAPI из TRK-07', true),
+  item('Валидация: пустое имя, дубль slug, неизвестный домен', true),
+  item('Репозиторий на sqlx: создание кампании и потоков в одной транзакции', false),
+  item('Тесты: успешное создание и четыре ошибки валидации', false)
+];
+const subs = [
+  { ...item('Схема запроса и DTO', true), id: 'TRK-08.1' },
+  { ...item('Валидация в service', false), id: 'TRK-08.2' },
+  { ...item('Репозиторий на sqlx', false), id: 'TRK-08.3' },
+  { ...item('Тесты хендлера и репозитория', false), id: 'TRK-08.4' }
+];
+const AI = { bg: 'var(--acs)', fg: 'var(--act)', i: I.spark };
+const UI = { bg: 'var(--sk)', fg: 'var(--t2)', i: I.user };
+const notes = [
+  { ...AI, who: 'claude', t: '17:02', text: 'Валидацию вынес в service, хендлер остался тонким. Осталась транзакция для потоков.' },
+  { ...UI, who: 'Denis', t: '17:08', text: 'Потоки пока без офферов, офферы отдельной задачей.' }
+];
+const hist = [
+  { t: '17:08', who: 'Denis', text: 'добавил заметку' },
+  { t: '16:41', who: 'Denis', text: 'статус: К работе → В работе' },
+  { t: '14:47', who: 'claude', text: 'приоритет: P1 → P0' },
+  { t: '22:10', who: 'claude', text: 'создал задачу в Huntly Tracker (4 ноя)' }
+];
+return { theme: this.props.theme ?? 'dark', nav, proj, views, ghostCols, crit, subs, notes, hist };
+}
+}
+</script>
+</body>
+</html>
