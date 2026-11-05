@@ -60,7 +60,7 @@ export function Icon({ name, size = 16, sw = 1.75 }: { name: string; size?: numb
 /** Coloured tile with a project's icon (sidebar 20px, headers 40px). */
 export function ProjectTile({ icon, color, size = 20, radius = 6 }: { icon: string; color: string; size?: number; radius?: number }) {
   return (
-    <span className="tile" style={{ width: size, height: size, flex: `0 0 ${size}px`, borderRadius: radius, background: color }}>
+    <span className="grid place-items-center text-white" style={{ width: size, height: size, flex: `0 0 ${size}px`, borderRadius: radius, background: color }}>
       <Icon name={icon} size={Math.round(size * 0.6)} sw={size > 28 ? 1.9 : 2} />
     </span>
   )
