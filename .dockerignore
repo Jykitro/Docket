@@ -1,0 +1,7 @@
+.env
+.git
+.idea
+.claude
+data
+web/node_modules
+internal/web/dist
