@@ -7,7 +7,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { ApiError, type Field, type Label, type Project, type Status, type View, api, statusColor, useProjects } from './api'
 import { Icon, PROJECT_COLORS, PROJECT_ICONS, ProjectTile } from './icons'
 import { Link, navigate } from './router'
-import { ConfirmButton, Dialog, EmptyState, ErrorState, Menu, Skeleton, Toggle } from './ui'
+import { ConfirmButton, Dialog, EmptyState, ErrorState, Menu, Skeleton, Toggle, MENUITEM } from './ui'
 
 const CATEGORIES: [Status['category'], string][] = [['todo', 'К работе'], ['doing', 'В работе'], ['done', 'Готово']]
 const STATUS_COLORS = ['bk', 'td', 'dg', 'dn', '#8B6CFF', '#E56B9B', '#2EB5A3', '#C0265F']
@@ -213,7 +213,7 @@ function StatusRow({ s, run, onDelete }: { s: Status; run: Run; onDelete: (s: St
         onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()} />
       <Menu className={SELBTN + ' min-w-[136px]'} ariaLabel="Категория статуса" label={<>{CATEGORIES.find((c) => c[0] === s.category)![1]}<Icon name="chevD" size={13} sw={2} /></>}>
         {(close) => CATEGORIES.map(([k, n]) => (
-          <button key={k} type="button" onClick={() => { patch({ category: k }); close() }}>{n}{k === s.category && <span className="ml-auto text-act"><Icon name="check" size={14} sw={2.2} /></span>}</button>
+          <button key={k} type="button" className={MENUITEM} onClick={() => { patch({ category: k }); close() }}>{n}{k === s.category && <span className="ml-auto text-act"><Icon name="check" size={14} sw={2.2} /></span>}</button>
         ))}
       </Menu>
       <span className="grow" />
@@ -316,7 +316,7 @@ function LabelChip({ l, run }: { l: Label; run: Run }) {
                 onClick={() => run(() => api.updateLabel(l.id, { color: c }))} />
             ))}
           </div>
-          <button type="button" className="text-rd" onClick={() => { run(() => api.deleteLabel(l.id)); close() }}>
+          <button type="button" className={MENUITEM + ' text-rd'} onClick={() => { run(() => api.deleteLabel(l.id)); close() }}>
             <Icon name="trash" size={14} />Удалить{l.task_count ? ` (область очистится у ${l.task_count})` : ''}
           </button>
         </div>

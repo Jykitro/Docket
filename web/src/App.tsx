@@ -74,7 +74,7 @@ export function App() {
     : proj ? (current ? current.name + (proj[2] ? ': настройки' : '') : 'Проект') : 'Docket'
   useEffect(() => { document.title = task ? `${task.toUpperCase()} · ${heading} · Docket` : heading === 'Docket' ? 'Docket' : `${heading} · Docket` }, [heading, task])
   return (
-    <div className="app min-h-screen flex flex-wrap items-stretch bg-bg text-tx" data-theme={theme.resolved}>
+    <div className="min-h-screen flex flex-wrap items-stretch bg-bg text-tx" data-theme={theme.resolved}>
       <Sidebar path={path} view={params.get('view')} theme={theme.pref} onTheme={theme.set} onNewProject={() => setNewProject(true)} onSearch={() => setSearch(true)} />
       <main className="flex-[999_1_560px] min-w-0 flex flex-col">{page}</main>
       {task && <TaskPanel key={task} code={task} mode="drawer" />}

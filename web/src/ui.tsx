@@ -16,6 +16,9 @@ export const cap = 'text-[11px] font-semibold tracking-[.06em] uppercase text-t3
 export const mc = 'inline-flex items-center gap-[5px] text-[12px] text-t3'
 const fc = 'inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full border border-ln bg-sf text-[12.5px] text-t2 whitespace-nowrap hover:bg-sk'
 
+/** An item button inside a popover menu. */
+export const MENUITEM = 'flex h-[30px] w-full items-center gap-2 rounded-md bg-transparent px-2 text-left text-[13px] hover:bg-sk'
+
 /** A button that opens a popover; closes on outside click and Esc. children gets a close() callback. */
 export function Menu({ label, className = fc, right, ariaLabel, children }: {
   label: ReactNode; className?: string; right?: boolean; ariaLabel?: string; children: (close: () => void) => ReactNode
@@ -40,7 +43,7 @@ export function Menu({ label, className = fc, right, ariaLabel, children }: {
       <button type="button" className={className} aria-haspopup="menu" aria-expanded={open} aria-label={ariaLabel} onClick={() => setOpen(!open)}>
         {label}
       </button>
-      {open && <div className={'pop absolute top-[calc(100%+6px)] z-30 min-w-[200px] max-h-80 overflow-y-auto bg-sf border border-ln rounded-xl shadow-pop p-1.5 ' + (right ? 'right-0' : 'left-0')} role="menu">{children(() => setOpen(false))}</div>}
+      {open && <div data-menu className={'absolute top-[calc(100%+6px)] z-30 min-w-[200px] max-h-80 overflow-y-auto bg-sf border border-ln rounded-xl shadow-pop p-1.5 ' + (right ? 'right-0' : 'left-0')} role="menu">{children(() => setOpen(false))}</div>}
     </span>
   )
 }
@@ -80,7 +83,7 @@ export function Dialog({ title, onClose, children }: { title: string; onClose: (
   const trap = useFocusTrap<HTMLDivElement>()
   return (
     <div className="fixed inset-0 z-50 bg-[rgba(15,17,22,.45)] flex items-start justify-center pt-[12vh] px-4 pb-4 overflow-y-auto" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="dialog w-full max-w-[560px] bg-sf border border-ln rounded-2xl shadow-pop p-5 flex flex-col gap-4" role="dialog" aria-modal="true" aria-label={title} ref={trap} tabIndex={-1}>
+      <div className="w-full max-w-[560px] bg-sf border border-ln rounded-2xl shadow-pop p-5 flex flex-col gap-4" role="dialog" aria-modal="true" aria-label={title} ref={trap} tabIndex={-1}>
         <h2 className="text-[17px] font-semibold tracking-[-.01em]">{title}</h2>
         {children}
       </div>
@@ -89,7 +92,7 @@ export function Dialog({ title, onClose, children }: { title: string; onClose: (
 }
 
 export function Skeleton({ w = '100%', h = 14 }: { w?: number | string; h?: number }) {
-  return <span className="block rounded-md bg-ln animate-[pulse_1.4s_ease-in-out_infinite]" style={{ width: w, height: h }} aria-hidden="true" />
+  return <span className="block rounded-md bg-ln animate-pulse" style={{ width: w, height: h }} aria-hidden="true" />
 }
 
 export function SkeletonRows({ n = 4 }: { n?: number }) {

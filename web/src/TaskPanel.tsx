@@ -6,9 +6,9 @@ import {
   useProjects, useProjectsMeta,
 } from './api'
 import { Icon, ProjectTile } from './icons'
-import { renderMarkdown, toggleCheckbox } from './markdown'
+import { MD_NOTE, MD_PROSE, renderMarkdown, toggleCheckbox } from './markdown'
 import { Link, hrefWith, navigate, setParam } from './router'
-import { ClaudeBadge, EmptyState, ErrorState, Menu, SkeletonRows, useFocusTrap } from './ui'
+import { ClaudeBadge, EmptyState, ErrorState, MENUITEM, Menu, SkeletonRows, useFocusTrap } from './ui'
 
 const PRIORITIES: Record<string, { name: string; cls: string }> = {
   P0: { name: 'Критично', cls: 'bg-rds text-rd' },
@@ -84,7 +84,7 @@ export function TaskPanel({ code, mode }: { code: string; mode: 'drawer' | 'page
     if (mode !== 'drawer') return
     const key = (e: KeyboardEvent) => {
       // Esc first closes an open menu or dialog on top of the panel.
-      if (e.key === 'Escape' && !document.querySelector('.pop, [role="dialog"]:not([data-drawer])')) close()
+      if (e.key === 'Escape' && !document.querySelector('[data-menu], [role="dialog"]:not([data-drawer])')) close()
     }
     document.addEventListener('keydown', key)
     return () => document.removeEventListener('keydown', key)
@@ -220,7 +220,7 @@ function Properties({ d, statuses, labels, fields, readOnly, onPatch }: {
       <Prop icon="clock" label="Статус">
         {menu(<span className={CHIP} style={st ? statusChip(st.color) : undefined}><span className={DOT} style={{ background: st ? statusColor(st.color) : 'var(--bk)' }} />{d.status_name}</span>,
           (close) => statuses.map((s) => (
-            <button key={s.id} type="button" onClick={() => { onPatch({ status: s.key }); close() }}>
+            <button key={s.id} type="button" className={MENUITEM} onClick={() => { onPatch({ status: s.key }); close() }}>
               <span className={DOT} style={{ background: statusColor(s.color) }} />{s.name}{s.key === d.status && <span className={CHK}><Icon name="check" size={14} sw={2.2} /></span>}
             </button>
           )))}
@@ -228,7 +228,7 @@ function Properties({ d, statuses, labels, fields, readOnly, onPatch }: {
       <Prop icon="flag" label="Приоритет">
         {menu(<span className={CHIP + ' ' + pr.cls}><span className="font-mono text-[12px] font-semibold">{d.priority}</span>{pr.name}</span>,
           (close) => Object.entries(PRIORITIES).map(([k, p]) => (
-            <button key={k} type="button" onClick={() => { onPatch({ priority: k }); close() }}><span className="font-mono">{k}</span>{p.name}{k === d.priority && <span className={CHK}><Icon name="check" size={14} sw={2.2} /></span>}</button>
+            <button key={k} type="button" className={MENUITEM} onClick={() => { onPatch({ priority: k }); close() }}><span className="font-mono">{k}</span>{p.name}{k === d.priority && <span className={CHK}><Icon name="check" size={14} sw={2.2} /></span>}</button>
           )))}
       </Prop>
       <Prop icon="tag" label="Область">
@@ -238,9 +238,9 @@ function Properties({ d, statuses, labels, fields, readOnly, onPatch }: {
         (close) => (
           <>
             {labels.map((l) => (
-              <button key={l.id} type="button" onClick={() => { onPatch({ area: l.name }); close() }}><span className={DOT} style={{ background: l.color }} />{l.name}{l.name === d.area && <span className={CHK}><Icon name="check" size={14} sw={2.2} /></span>}</button>
+              <button key={l.id} type="button" className={MENUITEM} onClick={() => { onPatch({ area: l.name }); close() }}><span className={DOT} style={{ background: l.color }} />{l.name}{l.name === d.area && <span className={CHK}><Icon name="check" size={14} sw={2.2} /></span>}</button>
             ))}
-            {d.area && <button type="button" onClick={() => { onPatch({ area: '' }); close() }}>Убрать область</button>}
+            {d.area && <button type="button" className={MENUITEM} onClick={() => { onPatch({ area: '' }); close() }}>Убрать область</button>}
             <form className="p-1" onSubmit={(e) => { e.preventDefault(); if (newArea.trim()) { onPatch({ area: newArea.trim() }); setNewArea(''); close() } }}>
               <input className="h-[30px] w-full rounded-lg border border-ln bg-sf px-2.5 text-[13.5px] text-tx focus:border-ac focus:outline-0" placeholder="Новая область" aria-label="Новая область" value={newArea} onChange={(e) => setNewArea(e.target.value)} />
             </form>
@@ -251,8 +251,8 @@ function Properties({ d, statuses, labels, fields, readOnly, onPatch }: {
         {menu(d.planned_for ? <span className="text-[13.5px]">{dateLabel(d.planned_for)}</span> : <span className={MUTED}>не задана</span>,
           (close) => (
             <>
-              {[todayStr(), addDays(todayStr(), 1)].map((day) => <button key={day} type="button" onClick={() => { onPatch({ planned_for: day }); close() }}>{fmtDay(day)}</button>)}
-              <button type="button" onClick={() => { onPatch({ planned_for: '' }); close() }}>Без даты</button>
+              {[todayStr(), addDays(todayStr(), 1)].map((day) => <button key={day} type="button" className={MENUITEM} onClick={() => { onPatch({ planned_for: day }); close() }}>{fmtDay(day)}</button>)}
+              <button type="button" className={MENUITEM} onClick={() => { onPatch({ planned_for: '' }); close() }}>Без даты</button>
               <div className="p-1">
                 <input className={DATEIN} type="date" aria-label="Выбрать дату" defaultValue={d.planned_for ?? ''}
                   onChange={(e) => { if (e.target.value) { onPatch({ planned_for: isoDay(new Date(e.target.value + 'T12:00:00')) }); close() } }} />
@@ -287,8 +287,8 @@ function FieldProp({ f, d, readOnly, onPatch }: { f: Field; d: TaskDetail; readO
       <Menu className={PKBTN} label={cur ? <span className={CHIP + ' bg-sk text-t2'}>{String(cur)}</span> : <span className={MUTED}>не задано</span>}>
         {(close) => (
           <>
-            {f.options.map((o) => <button key={o} type="button" onClick={() => { set(o); close() }}>{o}{o === cur && <span className={CHK}><Icon name="check" size={14} sw={2.2} /></span>}</button>)}
-            {cur !== undefined && <button type="button" onClick={() => { set(null); close() }}>Очистить</button>}
+            {f.options.map((o) => <button key={o} type="button" className={MENUITEM} onClick={() => { set(o); close() }}>{o}{o === cur && <span className={CHK}><Icon name="check" size={14} sw={2.2} /></span>}</button>)}
+            {cur !== undefined && <button type="button" className={MENUITEM} onClick={() => { set(null); close() }}>Очистить</button>}
           </>
         )}
       </Menu>
@@ -311,7 +311,7 @@ function Description({ d, readOnly, onSave }: { d: TaskDetail; readOnly: boolean
   const [edit, setEdit] = useState(false)
   const [draft, setDraft] = useState(d.description_md)
   const view = (
-    <div className="md"
+    <div className={MD_PROSE}
       onClick={(e) => {
         const el = e.target as HTMLElement
         if (el instanceof HTMLInputElement && el.type === 'checkbox' && el.dataset.idx !== undefined) {
@@ -416,7 +416,7 @@ function Notes({ d, readOnly }: { d: TaskDetail; readOnly: boolean }) {
                 <b className="text-[13.5px] font-semibold">{n.author === 'claude' ? 'claude' : 'Denis'}</b>
                 <span className={MONO_T3}>{fmtStamp(n.created_at)}</span>
               </div>
-              <div className="md note" dangerouslySetInnerHTML={{ __html: renderMarkdown(n.body_md) }} />
+              <div className={MD_NOTE} dangerouslySetInnerHTML={{ __html: renderMarkdown(n.body_md) }} />
             </div>
           </div>
         ))}
