@@ -82,8 +82,8 @@ func run() error {
 // runSelfHost serves many users, each with their own database, behind a login. The shared env token and
 // the seed are not used here: a token shared by all users would make MCP routing ambiguous.
 func runSelfHost(ctx context.Context, cfg config.Config) error {
-	if cfg.MCPToken != "" || cfg.Seed != "" {
-		slog.Warn("DOCKET_MCP_TOKEN and DOCKET_SEED are ignored in selfhost mode")
+	if cfg.MCPToken != "" { // DOCKET_SEED is ignored silently: .env.example sets it, and the README says so
+		slog.Warn("DOCKET_MCP_TOKEN is ignored in selfhost mode: every profile has its own token")
 	}
 	ad, err := auth.Open(filepath.Join(cfg.DataDir, "auth.db"))
 	if err != nil {
