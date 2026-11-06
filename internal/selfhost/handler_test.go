@@ -357,6 +357,26 @@ func TestMcpBearerRouting(t *testing.T) {
 	}
 }
 
+func TestMcpDuplicateTokenRefused(t *testing.T) {
+	s := newServer(t)
+	_, wsA := s.addUser("alice")
+	_, wsB := s.addUser("bob")
+	_, wsC := s.addUser("carol")
+	if rec := s.do("POST", "/mcp", mcpListProjects, nil, withAuth(mcpHdr, bearerFor(t, wsC))); rec.Code != 200 {
+		t.Fatalf("distinct token: %d %s", rec.Code, rec.Body)
+	}
+	none := s.do("POST", "/mcp", mcpListProjects, nil, withAuth(mcpHdr, "Bearer nope"))
+	wsA.Svc.SetEnvToken("shared-token")
+	wsB.Svc.SetEnvToken("shared-token")
+	rec := s.do("POST", "/mcp", mcpListProjects, nil, withAuth(mcpHdr, "Bearer shared-token"))
+	if rec.Code != 401 || rec.Body.String() != none.Body.String() {
+		t.Fatalf("shared token: %d %s, want 401 %s", rec.Code, rec.Body, none.Body)
+	}
+	if rec := s.do("POST", "/mcp", mcpListProjects, nil, withAuth(mcpHdr, bearerFor(t, wsC))); rec.Code != 200 {
+		t.Fatalf("distinct token after clash: %d %s", rec.Code, rec.Body)
+	}
+}
+
 func jsonBody(kv ...string) string {
 	m := map[string]string{}
 	for i := 0; i+1 < len(kv); i += 2 {

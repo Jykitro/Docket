@@ -378,13 +378,18 @@ func (h *handler) mcp(w http.ResponseWriter, r *http.Request) {
 	}
 	got := []byte(r.Header.Get("Authorization"))
 	var match *Workspace
+	matches := 0
 	for _, ws := range h.WS.All() { // compare against every token so timing does not reveal which one matched
 		token, err := ws.Svc.MCPToken(r.Context())
 		if err == nil && token != "" && subtle.ConstantTimeCompare(got, []byte("Bearer "+token)) == 1 {
 			match = ws
+			matches++
 		}
 	}
-	if match == nil {
+	if matches > 1 {
+		slog.Error("selfhost: several profiles share one MCP token; refusing it until it is rotated", "profiles", matches)
+	}
+	if matches != 1 {
 		w.Header().Set("WWW-Authenticate", "Bearer")
 		writeError(w, 401, "unauthorized", "missing or invalid bearer token")
 		return
