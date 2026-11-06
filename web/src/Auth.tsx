@@ -106,11 +106,14 @@ export function Gate({ children }: { children: ReactNode }) {
   const me = useMe()
   const { path } = useRoute()
 
-  // Session ended (expired, or logout): forget everything cached for the previous profile, then ask again who we are.
+  // Session ended (expired, or logout): forget everything cached for the previous profile and put `me` back to
+  // pending, which unmounts <App /> (closing its observers and the SSE stream) while `me` is asked again.
+  // invalidate would keep the old user in `data` (a failed v5 refetch keeps it) and the app would stay mounted.
   useEffect(() => {
     const reset = () => {
+      if (qc.getQueryState(['me'])?.data === undefined) return // already pending or on the login screen: nothing to drop
       qc.removeQueries({ predicate: (q) => q.queryKey[0] !== 'me' })
-      qc.invalidateQueries({ queryKey: ['me'] })
+      qc.resetQueries({ queryKey: ['me'] }) // the /api/auth/me request never dispatches the event, so this cannot loop
     }
     window.addEventListener('docket:unauthorized', reset)
     return () => window.removeEventListener('docket:unauthorized', reset)
@@ -118,11 +121,11 @@ export function Gate({ children }: { children: ReactNode }) {
 
   const wrap = (el: ReactNode) => <div className="min-h-screen bg-bg text-tx" data-theme={theme.resolved}>{el}</div>
   if (me.isPending) return <div className="min-h-screen bg-bg" data-theme={theme.resolved} /> // no flash of the app
-  if (me.data?.mode === 'local' || me.data?.user) return <>{children}</>
-  if (me.data?.setup) return wrap(<Setup />)
-  if (me.error instanceof ApiError && me.error.code === 'unauthorized') {
+  if (me.error instanceof ApiError && me.error.code === 'unauthorized') { // before the user check: v5 keeps stale data on error
     return wrap(path.startsWith('/invite/') ? <AcceptInvite token={path.slice('/invite/'.length)} /> : <Login />)
   }
+  if (me.data?.mode === 'local' || me.data?.user) return <>{children}</>
+  if (me.data?.setup) return wrap(<Setup />)
   return wrap(
     <main className="min-h-screen grid place-items-center px-4 text-center">
       <div className="flex flex-col items-center gap-3">
