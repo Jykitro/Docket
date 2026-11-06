@@ -174,6 +174,7 @@ function PanelBody({ code, mode, onClose }: { code: string; mode: 'drawer' | 'pa
         <Description d={d!} readOnly={readOnly} onSave={(description_md) => patch.mutate({ description_md })} />
         {!d!.parent_id && <Subtasks d={d!} statuses={meta?.statuses ?? []} projectKey={project?.key} readOnly={readOnly} />}
         <Notes d={d!} readOnly={readOnly} />
+        <WikiMentions code={code} />
         <History acts={d!.activity} />
       </div>
     </>
@@ -433,6 +434,19 @@ function Notes({ d, readOnly }: { d: TaskDetail; readOnly: boolean }) {
         )}
         {add.isError && <div className={ERR} role="alert">{add.error.message}</div>}
       </div>
+    </section>
+  )
+}
+
+function WikiMentions({ code }: { code: string }) {
+  const q = useQuery({ queryKey: ['task-pages', code], queryFn: () => api.taskPages(code) })
+  if (!q.data?.length) return null
+  return (
+    <section className={PSEC}>
+      <div className={SEC}><h2 className={'grow ' + SEC_H}>{tr('Упомянута на страницах')}</h2></div>
+      <ul className="m-0 flex list-none flex-col gap-1.5 p-0 text-sm">
+        {q.data.map((p) => <li key={p.id}><Link to={`/p/${p.project}/wiki/${p.id}`}>{p.title}</Link></li>)}
+      </ul>
     </section>
   )
 }
