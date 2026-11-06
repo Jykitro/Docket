@@ -35,7 +35,7 @@ Answers are compact JSON. IDs always look like `TRK-07`; `project` arguments acc
 | `add_note` | Comment on a task | `task_id`, `body_md` |
 | `list_pages` | Wiki pages of a project | `project`. id, title, parent, `updated_at`; no bodies |
 | `read_page` | One wiki page by `title` | Markdown body, parent, `updated_at`, backlinks, linked task IDs. Read it before `write_page` |
-| `write_page` | Create a page or replace its body | `project`, `title`, `body_md`, optional `parent` (title), `expected_updated_at` (from `read_page`; a newer edit fails with `conflict`). Replaces the WHOLE body |
+| `write_page` | Create a page or replace its body | `project`, `title`, `body_md`, optional `parent` (title), `expected_updated_at` (from `read_page`; a newer edit, or a page deleted since, fails with `conflict`). Title matches ignoring case and keeps the stored casing. Replaces the WHOLE body |
 | `append_to_page` | Add to the end of a page | `project`, `title`, `text`. The page must exist; no need to read it first |
 | `carry_over` | Roll a day forward | Moves open tasks planned for `from` to `to`. Only when the user asks |
 | `delete_tasks` | Trash tasks | Off by default. Never use it on the user's tasks unprompted |

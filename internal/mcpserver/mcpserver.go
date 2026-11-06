@@ -640,7 +640,7 @@ func (t *tools) readPage(ctx context.Context, in readPageIn) (any, error) {
 
 type writePageIn struct {
 	Project           string `json:"project" jsonschema:"project key, slug or id"`
-	Title             string `json:"title" jsonschema:"page title; an existing page with this title (any case) is replaced"`
+	Title             string `json:"title" jsonschema:"page title; an existing page with this title (any case) has its body replaced and keeps its stored title"`
 	BodyMD            string `json:"body_md" jsonschema:"markdown, replaces the whole body; link pages as [[Title]]"`
 	Parent            string `json:"parent,omitempty" jsonschema:"title of the parent page; empty keeps the current parent (top level for a new page)"`
 	ExpectedUpdatedAt string `json:"expected_updated_at,omitempty" jsonschema:"updated_at from read_page; the write fails with conflict if the page changed since"`

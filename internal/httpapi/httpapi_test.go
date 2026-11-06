@@ -458,6 +458,15 @@ func TestPagesREST(t *testing.T) {
 		}
 	}
 
+	get := func(url string, v any) {
+		t.Helper()
+		res := do(t, "GET", url, "", nil)
+		if res.StatusCode != 200 {
+			t.Fatalf("GET %s: %d, want 200", url, res.StatusCode)
+		}
+		read(res, v)
+	}
+
 	var a, b page
 	res := do(t, "POST", api+"/projects/proj/pages", `{"title":"Alpha","body_md":"see [[Beta]] and PRJ-01"}`, nil)
 	if res.StatusCode != 201 {
@@ -474,7 +483,7 @@ func TestPagesREST(t *testing.T) {
 	}
 
 	var list []page
-	read(do(t, "GET", api+"/projects/proj/pages", "", nil), &list)
+	get(api+"/projects/proj/pages", &list)
 	if len(list) != 2 || list[0].BodyMD != "" || list[1].BodyMD != "" {
 		t.Errorf("list = %+v, want 2 pages without bodies", list)
 	}
@@ -484,30 +493,53 @@ func TestPagesREST(t *testing.T) {
 		Backlinks []struct{ Title string }
 		Links     struct{ Pages, Tasks []struct{ Title string } }
 	}
-	read(do(t, "GET", api+"/pages/"+id(b.ID), "", nil), &det)
+	get(api+"/pages/"+id(b.ID), &det)
 	if len(det.Backlinks) != 1 || det.Backlinks[0].Title != "Alpha" {
 		t.Errorf("backlinks = %+v, want Alpha", det.Backlinks)
 	}
 	det.Links.Pages, det.Links.Tasks = nil, nil
-	read(do(t, "GET", api+"/pages/"+id(a.ID), "", nil), &det)
+	get(api+"/pages/"+id(a.ID), &det)
 	if len(det.Links.Pages) != 1 || len(det.Links.Tasks) != 1 {
 		t.Errorf("links = %+v, want 1 page and 1 task", det.Links)
 	}
 	var tp []struct{ Title, Project string }
-	read(do(t, "GET", api+"/tasks/prj-01/pages", "", nil), &tp)
+	get(api+"/tasks/prj-01/pages", &tp)
 	if len(tp) != 1 || tp[0].Title != "Alpha" || tp[0].Project != "proj" {
 		t.Errorf("task pages = %+v", tp)
 	}
 
 	// absent and null parent_id leave the parent alone, 0 moves to the top level
 	var u page
-	read(do(t, "PUT", api+"/pages/"+id(b.ID), `{"body_md":"x","parent_id":null}`, nil), &u)
+	res = do(t, "PUT", api+"/pages/"+id(b.ID), `{"body_md":"x","parent_id":null}`, nil)
+	if res.StatusCode != 200 {
+		t.Fatalf("update: %d, want 200", res.StatusCode)
+	}
+	read(res, &u)
 	if u.BodyMD != "x" || u.ParentID == nil || *u.ParentID != a.ID {
 		t.Errorf("update with null parent_id: %+v", u)
 	}
-	read(do(t, "PUT", api+"/pages/"+id(b.ID), `{"parent_id":0}`, nil), &u)
+	res = do(t, "PUT", api+"/pages/"+id(b.ID), `{"parent_id":0}`, nil)
+	if res.StatusCode != 200 {
+		t.Fatalf("update parent_id 0: %d, want 200", res.StatusCode)
+	}
+	read(res, &u)
 	if u.ParentID != nil {
 		t.Errorf("parent_id 0 should make the page top level, got %v", *u.ParentID)
+	}
+	if res := do(t, "PUT", api+"/pages/999999", `{"body_md":"x"}`, nil); res.StatusCode != 404 {
+		t.Errorf("update of a missing page: %d, want 404", res.StatusCode)
+	}
+	if res := do(t, "PUT", api+"/pages/"+id(b.ID), `{"parent_id":999999}`, nil); res.StatusCode != 400 {
+		t.Errorf("update with a missing parent page: %d, want 400", res.StatusCode)
+	}
+	var z page
+	res = do(t, "POST", api+"/projects/proj/pages", `{"title":"Zero","parent_id":0}`, nil)
+	if res.StatusCode != 201 {
+		t.Fatalf("create with parent_id 0: %d, want 201", res.StatusCode)
+	}
+	read(res, &z)
+	if z.ParentID != nil {
+		t.Errorf("parent_id 0 on create should be top level, got %v", *z.ParentID)
 	}
 
 	var er struct {

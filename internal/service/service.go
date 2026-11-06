@@ -538,6 +538,7 @@ type Export struct {
 	Views      []store.View     `json:"views"`
 	Tasks      []store.Task     `json:"tasks"`
 	Notes      []store.Note     `json:"notes"`
+	Pages      []store.Page     `json:"pages"`
 	Activity   []store.Activity `json:"activity"`
 }
 
@@ -561,6 +562,7 @@ func (s *Service) Export(ctx context.Context, projectID int64) (e Export, err er
 			e.Projects = keep
 		}
 		e.Statuses, e.Labels, e.Fields, e.Views = []store.Status{}, []store.Label{}, []store.Field{}, []store.View{}
+		e.Pages = []store.Page{}
 		for _, p := range e.Projects {
 			ss, err := tx.ListStatuses(p.ID)
 			if err != nil {
@@ -577,6 +579,11 @@ func (s *Service) Export(ctx context.Context, projectID int64) (e Export, err er
 				return err
 			}
 			e.Fields = append(e.Fields, fs...)
+			pgs, err := tx.ListPages(p.ID)
+			if err != nil {
+				return err
+			}
+			e.Pages = append(e.Pages, pgs...)
 		}
 		vs, err := tx.ListViews(projectID)
 		if err != nil {

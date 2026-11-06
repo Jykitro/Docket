@@ -107,6 +107,9 @@ func (s *Service) ListPages(ctx context.Context, projectRef string) (out []store
 }
 
 func (s *Service) CreatePage(ctx context.Context, actor, projectRef string, in PageInput) (pg store.Page, err error) {
+	if in.ParentID != nil && *in.ParentID == 0 { // 0 = top level, as in UpdatePage
+		in.ParentID = nil
+	}
 	title := strings.TrimSpace(in.Title)
 	if err := checkPageTitle(title); err != nil {
 		return pg, err
@@ -167,14 +170,15 @@ func (s *Service) UpdatePage(ctx context.Context, actor string, id int64, patch 
 				return err
 			}
 			cur.Title = *patch.Title
-			if newKey := titleKey(cur.Title); newKey != oldKey {
-				if err := rewriteLinks(o.tx, cur, oldKey, cur.Title); err != nil {
-					return err
-				}
-			}
 		}
 		if patch.BodyMD != nil {
 			cur.BodyMD = *patch.BodyMD
+		}
+		if patch.Title != nil && titleKey(cur.Title) != oldKey {
+			if err := rewriteLinks(o.tx, cur, oldKey, cur.Title); err != nil {
+				return err
+			}
+			cur.BodyMD = replaceLinks(cur.BodyMD, oldKey, cur.Title)
 		}
 		if patch.ParentID != nil {
 			var parent *int64
@@ -239,18 +243,22 @@ func (s *Service) findPage(ctx context.Context, projectRef, title, parentTitle s
 	return pg, parentID, err
 }
 
-// WritePage creates the page titled in.Title or replaces its body (upsert by title, ignoring case).
+// WritePage creates the page titled in.Title or replaces its body (upsert by title, ignoring case; the stored title is kept).
+// A non-empty ExpectedUpdatedAt for a title that does not exist is a conflict: the page was deleted or renamed meanwhile.
 func (s *Service) WritePage(ctx context.Context, actor, projectRef string, in WritePageInput) (store.Page, bool, error) {
 	pg, parentID, err := s.findPage(ctx, projectRef, in.Title, in.Parent)
 	if err != nil {
 		return store.Page{}, false, err
 	}
+	if pg == nil && in.ExpectedUpdatedAt != "" {
+		return store.Page{}, false, conflict("page %q no longer exists; it was deleted or renamed since you read it", in.Title)
+	}
 	if pg == nil {
 		created, err := s.CreatePage(ctx, actor, projectRef, PageInput{Title: in.Title, BodyMD: in.BodyMD, ParentID: parentID})
 		return created, true, err
 	}
-	// The title key is unchanged, so UpdatePage does not rewrite links; it only takes the caller's casing.
-	updated, err := s.UpdatePage(ctx, actor, pg.ID, PagePatch{Title: &in.Title, BodyMD: &in.BodyMD, ParentID: parentID,
+	// The title stays as stored: a different casing in the call must not rename the owner's page.
+	updated, err := s.UpdatePage(ctx, actor, pg.ID, PagePatch{BodyMD: &in.BodyMD, ParentID: parentID,
 		ExpectedUpdatedAt: in.ExpectedUpdatedAt})
 	return updated, false, err
 }
@@ -274,7 +282,17 @@ func (s *Service) AppendToPage(ctx context.Context, actor, projectRef, title, te
 	return s.UpdatePage(ctx, actor, pg.ID, PagePatch{BodyMD: &body, ExpectedUpdatedAt: pg.UpdatedAt})
 }
 
-// rewriteLinks turns [[old]] into [[newTitle]] in the other pages of self's project (same transaction).
+func replaceLinks(body, oldKey, newTitle string) string {
+	return wikiLinkRe.ReplaceAllStringFunc(body, func(m string) string {
+		if titleKey(m[2:len(m)-2]) == oldKey {
+			return "[[" + newTitle + "]]"
+		}
+		return m
+	})
+}
+
+// rewriteLinks turns [[old]] into [[newTitle]] in the other pages of self's project (same transaction);
+// self's own body is rewritten by the caller.
 func rewriteLinks(tx *store.Tx, self store.Page, oldKey, newTitle string) error {
 	pages, err := tx.ListPages(self.ProjectID)
 	if err != nil {
@@ -285,12 +303,7 @@ func rewriteLinks(tx *store.Tx, self store.Page, oldKey, newTitle string) error 
 		if p.ID == self.ID {
 			continue
 		}
-		body := wikiLinkRe.ReplaceAllStringFunc(p.BodyMD, func(m string) string {
-			if titleKey(m[2:len(m)-2]) == oldKey {
-				return "[[" + newTitle + "]]"
-			}
-			return m
-		})
+		body := replaceLinks(p.BodyMD, oldKey, newTitle)
 		if body == p.BodyMD {
 			continue
 		}
@@ -404,7 +417,7 @@ func pageDetail(tx *store.Tx, pg store.Page) (PageDetail, error) {
 			}
 			return d, err
 		}
-		if t.DeletedAt == nil {
+		if t.DeletedAt == nil && t.Code == c { // only the canonical form (TRK-07) is a link, as in TaskPages
 			d.Links.Tasks = append(d.Links.Tasks, TaskRef{t.Code, t.Title})
 		}
 	}

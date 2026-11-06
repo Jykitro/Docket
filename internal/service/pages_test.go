@@ -213,11 +213,21 @@ func TestRenameRewritesLinks(t *testing.T) {
 	if gb.BodyMD != "x [[Новое]] y [[Новое]] z [[Другое]]" || gb.UpdatedAt == b.UpdatedAt {
 		t.Fatalf("sibling: %+v", gb.Page)
 	}
-	if ga, _ := s.GetPage(ctx, a.ID); ga.BodyMD != "self [[Старое]]" {
-		t.Fatalf("renamed page itself must stay untouched: %q", ga.BodyMD)
+	if ga, _ := s.GetPage(ctx, a.ID); ga.BodyMD != "self [[Новое]]" {
+		t.Fatalf("renamed page's own links must follow the rename: %q", ga.BodyMD)
 	}
 	if go2, _ := s.GetPage(ctx, other.ID); go2.BodyMD != "[[Старое]]" {
 		t.Fatalf("other project touched: %q", go2.BodyMD)
+	}
+}
+
+func TestRenameRewritesOwnLinksInPatchedBody(t *testing.T) {
+	s := newSvc(t)
+	mustProject(t, s, "a")
+	a, _ := s.CreatePage(ctx, ActorDenis, "a", PageInput{Title: "Старое", BodyMD: "old"})
+	got, err := s.UpdatePage(ctx, ActorDenis, a.ID, PagePatch{Title: ptr("Новое"), BodyMD: ptr("me [[старое]]")})
+	if err != nil || got.BodyMD != "me [[Новое]]" {
+		t.Fatalf("%v %q", err, got.BodyMD)
 	}
 }
 
@@ -355,5 +365,105 @@ func TestIsWriteToolPages(t *testing.T) {
 		if IsWriteTool(name) != want {
 			t.Errorf("IsWriteTool(%q) != %v", name, want)
 		}
+	}
+}
+
+func TestCreatePageParentZeroIsTopLevel(t *testing.T) {
+	s := newSvc(t)
+	mustProject(t, s, "a")
+	got, err := s.CreatePage(ctx, ActorDenis, "a", PageInput{Title: "A", ParentID: ptr(int64(0))})
+	if err != nil || got.ParentID != nil {
+		t.Fatalf("parent 0: %v %+v", err, got)
+	}
+}
+
+func TestWritePageMissingWithExpectedIsConflict(t *testing.T) {
+	s := newSvc(t)
+	mustProject(t, s, "a")
+	_, created, err := s.WritePage(ctx, ActorClaude, "a", WritePageInput{Title: "Gone", BodyMD: "x", ExpectedUpdatedAt: "2000-01-01T00:00:00.000Z"})
+	wantCode(t, err, "conflict")
+	if created {
+		t.Fatal("must not report created")
+	}
+	if l, _ := s.ListPages(ctx, "a"); len(l) != 0 {
+		t.Fatalf("a deleted page must not come back: %+v", l)
+	}
+}
+
+func TestWritePageKeepsStoredTitleCasing(t *testing.T) {
+	s := newSvc(t)
+	mustProject(t, s, "a")
+	s.WritePage(ctx, ActorClaude, "a", WritePageInput{Title: "Настройки", BodyMD: "1"})
+	got, created, err := s.WritePage(ctx, ActorClaude, "a", WritePageInput{Title: "настройки", BodyMD: "2"})
+	if err != nil || created || got.Title != "Настройки" || got.BodyMD != "2" {
+		t.Fatalf("%v %v %+v", err, created, got)
+	}
+}
+
+func TestLinksTaskCodesCanonicalOnly(t *testing.T) {
+	s := newSvc(t)
+	mustProject(t, s, "a")
+	task := mustTasks(t, s, ActorDenis, NewTask{Project: "a", Title: "t"})[0]
+	prefix := task.Code[:strings.Index(task.Code, "-")]
+	pg, _ := s.CreatePage(ctx, ActorDenis, "a", PageInput{Title: "P", BodyMD: prefix + "-1 " + prefix + "-001"})
+	d, err := s.GetPage(ctx, pg.ID)
+	if err != nil || len(d.Links.Tasks) != 0 {
+		t.Fatalf("non-canonical codes are not links: %v %+v", err, d.Links.Tasks)
+	}
+	if got, err := s.TaskPages(ctx, task.Code); err != nil || len(got) != 0 {
+		t.Fatalf("task pages: %v %+v", err, got)
+	}
+}
+
+func TestTaskPagesEdges(t *testing.T) {
+	s := newSvc(t)
+	mustProject(t, s, "a")
+	pb := mustProject(t, s, "b")
+	ts := mustTasks(t, s, ActorDenis, NewTask{Project: "a", Title: "t"}, NewTask{Project: "a", Title: "gone"})
+	code := ts[0].Code
+	_, err := s.TaskPages(ctx, "ZZ-99")
+	wantCode(t, err, "not_found")
+	if _, err := s.DeleteTasks(ctx, ActorDenis, []string{ts[1].Code}); err != nil {
+		t.Fatal(err)
+	}
+	_, err = s.TaskPages(ctx, ts[1].Code)
+	wantCode(t, err, "not_found")
+
+	s.CreatePage(ctx, ActorDenis, "a", PageInput{Title: "PA", BodyMD: code})
+	s.CreatePage(ctx, ActorDenis, "b", PageInput{Title: "PB", BodyMD: "also " + code})
+	got, err := s.TaskPages(ctx, code)
+	if err != nil || len(got) != 2 || got[0].Project != "a" || got[1].Project != "b" {
+		t.Fatalf("two projects: %v %+v", err, got)
+	}
+	if _, err := s.DeleteProject(ctx, ActorDenis, pb.ID); err != nil {
+		t.Fatal(err)
+	}
+	if got, err = s.TaskPages(ctx, code); err != nil || len(got) != 1 || got[0].Title != "PA" {
+		t.Fatalf("soft-deleted project must be skipped: %v %+v", err, got)
+	}
+}
+
+func TestExportIncludesPages(t *testing.T) {
+	s := newSvc(t)
+	pa := mustProject(t, s, "a")
+	mustProject(t, s, "b")
+	root, _ := s.CreatePage(ctx, ActorDenis, "a", PageInput{Title: "Root", BodyMD: "root body"})
+	s.CreatePage(ctx, ActorDenis, "a", PageInput{Title: "Kid", BodyMD: "kid body", ParentID: &root.ID})
+	s.CreatePage(ctx, ActorDenis, "b", PageInput{Title: "Other", BodyMD: "other body"})
+	e, err := s.Export(ctx, 0)
+	if err != nil || len(e.Pages) != 3 {
+		t.Fatalf("all: %v %+v", err, e.Pages)
+	}
+	for _, p := range e.Pages {
+		if !strings.HasSuffix(p.BodyMD, "body") {
+			t.Fatalf("body must be exported: %+v", p)
+		}
+	}
+	e, err = s.Export(ctx, pa.ID)
+	if err != nil || len(e.Pages) != 2 {
+		t.Fatalf("one project: %v %+v", err, e.Pages)
+	}
+	if e, _ := s.Export(ctx, mustProject(t, s, "c").ID); e.Pages == nil {
+		t.Fatal("pages must be [] not null")
 	}
 }
