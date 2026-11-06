@@ -59,6 +59,11 @@ export type SearchResult = {
   groups: { tasks: Hit[]; descriptions: Hit[]; projects: Project[] }; counts: Record<string, number>; took_ms: number
 }
 
+export type AuthUser = { id: number; username: string; is_admin: boolean; created_at: string }
+export type Me = { mode: 'local' | 'selfhost'; setup?: boolean; user?: AuthUser }
+export type AdminInvite = { id: number; created_at: string; expires_at: string }
+export type NewInvite = { url: string; expires_at: string }
+
 export class ApiError extends Error {
   constructor(public code: string, message: string) { super(message) }
 }
@@ -71,11 +76,25 @@ async function req<T>(method: string, url: string, body?: unknown): Promise<T> {
   })
   if (res.status === 204) return undefined as T
   const data = await res.json().catch(() => null)
+  // Session expired: tell the gate (auth routes handle their own 401s, e.g. a wrong password).
+  if (res.status === 401 && !url.startsWith('/api/auth/')) window.dispatchEvent(new Event('docket:unauthorized'))
   if (!res.ok) throw new ApiError(data?.error?.code ?? 'internal', data?.error?.message ?? res.statusText)
   return data as T
 }
 
 export const api = {
+  me: () => req<Me>('GET', '/api/auth/me'),
+  login: (username: string, password: string) => req<AuthUser>('POST', '/api/auth/login', { username, password }),
+  // Same signal as an expired session: the gate drops cached data and re-asks who we are.
+  logout: () => req<void>('POST', '/api/auth/logout').then(() => { window.dispatchEvent(new Event('docket:unauthorized')) }),
+  setup: (code: string, username: string, password: string) => req<AuthUser>('POST', '/api/auth/setup', { code, username, password }),
+  acceptInvite: (token: string, username: string, password: string) =>
+    req<AuthUser>('POST', `/api/auth/invite/${encodeURIComponent(token)}`, { username, password }),
+  changePassword: (old: string, next: string) => req<void>('PUT', '/api/auth/password', { old, new: next }),
+  adminUsers: () => req<AuthUser[]>('GET', '/api/admin/users'),
+  adminInvites: () => req<AdminInvite[]>('GET', '/api/admin/invites'),
+  createInvite: () => req<NewInvite>('POST', '/api/admin/invites'),
+  deleteUser: (id: number) => req<void>('DELETE', `/api/admin/users/${id}`),
   profile: () => req<Profile>('GET', '/api/profile'),
   setProfile: (name: string) => req<Profile>('PUT', '/api/profile', { name }),
   projects: () => req<Project[]>('GET', '/api/projects?include_archived=1'),
@@ -128,6 +147,7 @@ export const api = {
 
 // ---- hooks ----
 
+export const useMe = () => useQuery({ queryKey: ['me'], queryFn: api.me, retry: false })
 export const useProjects = () => useQuery({ queryKey: ['projects'], queryFn: api.projects })
 export const useProfile = () => useQuery({ queryKey: ['profile'], queryFn: api.profile })
 
