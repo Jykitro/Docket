@@ -35,7 +35,7 @@ No external services, and in the default local mode no users and no login. The U
 - **Today view.** Day plan, overdue tasks, progress, recent activity and MCP status in one place.
 - **Kanban board and list.** Per-project statuses, drag and drop, filters, grouping, sorting and saved views.
 - **Rich tasks.** Markdown description with clickable checkboxes, subtasks, notes and a full change history.
-- **Claude as a teammate.** 12 MCP tools, a read-only mode, per-tool switches and an audit log of every call.
+- **Claude as a teammate.** 16 MCP tools, a read-only mode, per-tool switches and an audit log of every call.
 - **Live updates.** Changes made over MCP show up in the browser immediately (server-sent events).
 - **Safe by default.** Bound to `127.0.0.1`, `Host` and `Origin` checks, bearer token for `/mcp`.
 - **Easy to keep.** A single SQLite file, automatic daily backups, a trash bin and a full JSON export.
@@ -241,14 +241,17 @@ Three skills in [`skills/`](skills), one `SKILL.md` each:
 
 ### Tools
 
-There are 12 tools. Tasks are referred to by ID (`TRK-07`) in responses, `project` accepts a key, a slug or an id, and a
+There are 16 tools. Tasks are referred to by ID (`TRK-07`) in responses, `project` accepts a key, a slug or an id, and a
 status is given by its key.
 
 | Read | Write |
 |---|---|
-| `list_projects`, `get_board`, `get_today`, `get_task`, `search` | `create_project`, `create_tasks` (up to 100 at a time, epics with subtasks via `ref`/`parent_ref`, idempotent by `external_id`), `update_task`, `move_tasks`, `add_note`, `carry_over`, `delete_tasks` |
+| `list_projects`, `get_board`, `get_today`, `get_task`, `search`, `list_pages`, `read_page` | `create_project`, `create_tasks` (up to 100 at a time, epics with subtasks via `ref`/`parent_ref`, idempotent by `external_id`), `update_task`, `move_tasks`, `add_note`, `write_page`, `append_to_page`, `carry_over`, `delete_tasks` |
 
 - `delete_tasks` is **off** by default. It only moves tasks to the trash; the owner empties the trash in the UI.
+- Wiki: `write_page` creates a page or replaces its whole body (pass the `updated_at` from `read_page` as `expected_updated_at`;
+  a newer edit by the owner returns `conflict`), `append_to_page` adds to the end. There is no delete tool: the owner deletes
+  pages in the UI.
 - Read-only mode keeps only the read tools; writes return `forbidden`. A disabled tool is hidden from `tools/list`, and
   calling it by name returns `tool_disabled`.
 - Every call is logged (tool, short arguments, duration, result). The log is kept for 7 days.
@@ -300,7 +303,7 @@ Layering rule: `httpapi` and `mcpserver` call only `service`, and SQL lives only
 ## REST API
 
 All requests are performed on behalf of the human actor (stored as `denis`; the UI shows the profile name). Errors come as
-`{"error": {"code", "message"}}` (`validation` 400, `not_found` 404, `status_in_use` 409, `forbidden` 403). A task in the
+`{"error": {"code", "message"}}` (`validation` 400, `not_found` 404, `status_in_use` 409, `conflict` 409, `forbidden` 403). A task in the
 path can be given by code (`TRK-07`) or by id.
 
 | Method and path | Purpose |
@@ -316,6 +319,9 @@ path can be given by code (`TRK-07`) or by id.
 | `POST /api/tasks`, `GET/PATCH/DELETE /api/tasks/:id` | CRUD; `planned_for: ""` clears the date |
 | `POST /api/tasks/:id/move` | `{status, before_id?, after_id?, project_id?}` (drag and drop) |
 | `POST /api/tasks/:id/restore`, `POST /api/tasks/:id/notes`, `POST /api/tasks/carry-over` | Restore, add a note, move tasks from one date to another |
+| `GET /api/tasks/:id/pages` | Wiki pages that mention the task (`[{id, title, project}]`) |
+| `GET/POST /api/projects/:id/pages` | Wiki pages of a project (without bodies); create (`title`, `body_md?`, `parent_id?`) |
+| `GET/PUT/DELETE /api/pages/:id` | A page with backlinks and links; update (`expected_updated_at` returns `conflict` 409 if the page changed); `DELETE` re-parents children |
 | `GET /api/search?q=&scope=all\|tasks\|projects` | Tasks by title and description (with a snippet), and projects |
 | `GET /api/trash`, `GET /api/trash/projects`, `DELETE /api/trash` | Trash and emptying it (physical delete) |
 | `GET /api/mcp/status`, `POST /api/mcp/check`, `GET/PATCH /api/mcp/settings` | Status, self-check, mode and tool switches |

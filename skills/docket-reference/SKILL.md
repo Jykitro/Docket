@@ -33,6 +33,10 @@ Answers are compact JSON. IDs always look like `TRK-07`; `project` arguments acc
 | `update_task` | Edit fields | Omitted fields stay. `description_md` replaces the whole text. `planned_for: ""` clears the date, `parent: ""` detaches. Status and project are not here |
 | `move_tasks` | Status, date, project of many tasks | Give at least one of `status`, `planned_for`, `project`. Moved tasks go to the end of the target column. Moving to another project assigns new IDs and subtasks follow their epic. The answer is only `{"updated": n}`: `search` by title to learn the new IDs |
 | `add_note` | Comment on a task | `task_id`, `body_md` |
+| `list_pages` | Wiki pages of a project | `project`. id, title, parent, `updated_at`; no bodies |
+| `read_page` | One wiki page by `title` | Markdown body, parent, `updated_at`, backlinks, linked task IDs. Read it before `write_page` |
+| `write_page` | Create a page or replace its body | `project`, `title`, `body_md`, optional `parent` (title), `expected_updated_at` (from `read_page`; a newer edit fails with `conflict`). Replaces the WHOLE body |
+| `append_to_page` | Add to the end of a page | `project`, `title`, `text`. The page must exist; no need to read it first |
 | `carry_over` | Roll a day forward | Moves open tasks planned for `from` to `to`. Only when the user asks |
 | `delete_tasks` | Trash tasks | Off by default. Never use it on the user's tasks unprompted |
 
@@ -47,6 +51,10 @@ An epic with two subtasks in one call (epic first; the subtasks name its `ref`):
 ]}
 ```
 
+## Wiki
+
+Per project, markdown pages (notes, specs, decisions). Link pages as `[[Title]]` and tasks by ID (`TRK-07`); only IDs of existing tasks become links. `write_page` replaces the whole body: `read_page` first, change it, send it back with `expected_updated_at`. `append_to_page` is safe for adding a section. There is no delete tool: the user deletes pages in the UI. A title is 1 to 120 characters without `[`, `]` or a newline; a body is up to 200 KB.
+
 ## Errors
 
 Errors read `code: message`. Never retry the same call blindly.
@@ -57,6 +65,7 @@ Errors read `code: message`. Never retry the same call blindly.
 | `not_found` | No such task or project | Check the ID with `search`; the key may have changed |
 | `forbidden` | Docket is in read-only mode | Don't retry. List the intended updates in your final message |
 | `tool_disabled` | The user switched this tool off | Same as `forbidden` |
+| `conflict` | The page changed since you read it (`write_page`) | `read_page` again, merge, retry once |
 | `status_in_use` | A status still holds tasks (admin calls) | Not expected over MCP |
 | `internal` | Server fault | Retry once; if it repeats, tell the user and check `docket-setup` |
 
