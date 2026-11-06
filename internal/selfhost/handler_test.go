@@ -6,7 +6,9 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -19,7 +21,10 @@ import (
 	"docket/internal/service"
 )
 
-const testPassword = "password-123"
+const (
+	testPassword  = "password-123"
+	testSetupCode = "setup-code-xyz"
+)
 
 type server struct {
 	t  *testing.T
@@ -42,7 +47,7 @@ func newServer(t *testing.T) *server {
 			MCP: mcpserver.Handler(svc, time.UTC), Web: http.NotFoundHandler()})
 	})
 	t.Cleanup(ws.Close)
-	h := Handler(Options{Auth: db, WS: ws, Web: http.NotFoundHandler(), AllowedHosts: hosts})
+	h := Handler(Options{Auth: db, WS: ws, Web: http.NotFoundHandler(), AllowedHosts: hosts, SetupCode: testSetupCode})
 	return &server{t: t, h: h, db: db, ws: ws}
 }
 
@@ -333,5 +338,198 @@ func TestMcpBearerRouting(t *testing.T) {
 	}
 	if rec := s.do("GET", "/mcp", "", nil, map[string]string{"Accept": "text/html"}); rec.Code == 401 {
 		t.Fatal("browser navigation to /mcp must reach the app")
+	}
+}
+
+func jsonBody(kv ...string) string {
+	m := map[string]string{}
+	for i := 0; i+1 < len(kv); i += 2 {
+		m[kv[i]] = kv[i+1]
+	}
+	b, _ := json.Marshal(m)
+	return string(b)
+}
+
+func TestSetupFlow(t *testing.T) {
+	s := newServer(t)
+	rec := s.do("POST", "/api/auth/setup", jsonBody("code", "wrong", "username", "alice", "password", testPassword), nil, nil)
+	if rec.Code != 403 || !strings.Contains(rec.Body.String(), `"forbidden"`) || sessionCookie(rec) != nil {
+		t.Fatalf("wrong code: %d %s", rec.Code, rec.Body)
+	}
+	if n, _ := s.db.UserCount(); n != 0 {
+		t.Fatalf("wrong code created %d users", n)
+	}
+	rec = s.do("POST", "/api/auth/setup", jsonBody("code", testSetupCode, "username", "alice", "password", testPassword), nil, nil)
+	c := sessionCookie(rec)
+	if rec.Code != 200 || c == nil || !strings.Contains(rec.Body.String(), `"is_admin":true`) {
+		t.Fatalf("setup: %d %s", rec.Code, rec.Body)
+	}
+	if rec := s.do("GET", "/api/admin/users", "", c, nil); rec.Code != 200 {
+		t.Fatalf("admin cookie: %d %s", rec.Code, rec.Body)
+	}
+	if _, ok := s.ws.Get(1); !ok {
+		t.Error("workspace not opened")
+	}
+	rec = s.do("POST", "/api/auth/setup", jsonBody("code", testSetupCode, "username", "mallory", "password", testPassword), nil, nil)
+	if rec.Code != 404 || sessionCookie(rec) != nil {
+		t.Fatalf("second setup: %d %s", rec.Code, rec.Body)
+	}
+}
+
+func TestSetupEmptyCodeRefuses(t *testing.T) {
+	s := newServer(t)
+	h := Handler(Options{Auth: s.db, WS: s.ws, Web: http.NotFoundHandler(), AllowedHosts: []string{"localhost"}})
+	for _, body := range []string{
+		jsonBody("code", "", "username", "alice", "password", testPassword),
+		jsonBody("username", "alice", "password", testPassword),
+	} {
+		req := httptest.NewRequest("POST", "/api/auth/setup", strings.NewReader(body))
+		req.Host = "localhost"
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		if rec.Code != 403 {
+			t.Fatalf("empty configured code: %d %s", rec.Code, rec.Body)
+		}
+	}
+	if n, _ := s.db.UserCount(); n != 0 {
+		t.Fatalf("created %d users", n)
+	}
+}
+
+// invite has the admin create an invite and returns its token.
+func (s *server) invite(admin *http.Cookie) string {
+	s.t.Helper()
+	rec := s.do("POST", "/api/admin/invites", "", admin, nil)
+	var out struct {
+		URL       string `json:"url"`
+		ExpiresAt string `json:"expires_at"`
+	}
+	if rec.Code != 201 || json.Unmarshal(rec.Body.Bytes(), &out) != nil || !strings.HasPrefix(out.URL, "/invite/") {
+		s.t.Fatalf("create invite: %d %s", rec.Code, rec.Body)
+	}
+	if _, err := time.Parse(time.RFC3339, out.ExpiresAt); err != nil || !strings.Contains(rec.Body.String(), `"expires_at"`) {
+		s.t.Fatalf("expires_at: %s", rec.Body)
+	}
+	return strings.TrimPrefix(out.URL, "/invite/")
+}
+
+func TestInviteFlow(t *testing.T) {
+	s := newServer(t)
+	admin, _ := s.addUser("alice")
+	tok := s.invite(admin)
+	if rec := s.do("GET", "/api/admin/invites", "", admin, nil); rec.Code != 200 || strings.Count(rec.Body.String(), `"expires_at"`) != 1 || strings.Contains(rec.Body.String(), tok) {
+		t.Fatalf("list invites: %d %s", rec.Code, rec.Body)
+	}
+	rec := s.do("POST", "/api/auth/invite/"+tok, jsonBody("username", "bob", "password", testPassword), nil, nil)
+	c := sessionCookie(rec)
+	if rec.Code != 200 || c == nil || !strings.Contains(rec.Body.String(), `"is_admin":false`) {
+		t.Fatalf("accept: %d %s", rec.Code, rec.Body)
+	}
+	if rec := s.do("GET", "/api/projects", "", c, nil); rec.Code != 200 || strings.TrimSpace(rec.Body.String()) != "[]" {
+		t.Fatalf("new user projects: %d %s", rec.Code, rec.Body)
+	}
+	for _, r := range []struct{ method, path string }{
+		{"GET", "/api/admin/users"}, {"GET", "/api/admin/invites"}, {"POST", "/api/admin/invites"}, {"DELETE", "/api/admin/users/1"},
+	} {
+		if rec := s.do(r.method, r.path, "", c, nil); rec.Code != 403 || !strings.Contains(rec.Body.String(), `"forbidden"`) {
+			t.Errorf("non-admin %s %s: %d %s", r.method, r.path, rec.Code, rec.Body)
+		}
+		if rec := s.do(r.method, r.path, "", nil, nil); rec.Code != 401 {
+			t.Errorf("anonymous %s %s: %d", r.method, r.path, rec.Code)
+		}
+	}
+	if rec := s.do("GET", "/api/admin/nope", "", nil, nil); rec.Code != 401 {
+		t.Errorf("anonymous unknown admin path: %d", rec.Code)
+	}
+	if rec := s.do("GET", "/api/admin/users", "", admin, nil); rec.Code != 200 || !strings.Contains(rec.Body.String(), `"bob"`) {
+		t.Fatalf("admin users: %d %s", rec.Code, rec.Body)
+	}
+}
+
+func TestInviteReuseAndExpiry(t *testing.T) {
+	s := newServer(t)
+	admin, _ := s.addUser("alice")
+	tok := s.invite(admin)
+	if rec := s.do("POST", "/api/auth/invite/"+tok, jsonBody("username", "bob", "password", testPassword), nil, nil); rec.Code != 200 {
+		t.Fatalf("first accept: %d %s", rec.Code, rec.Body)
+	}
+	reused := s.do("POST", "/api/auth/invite/"+tok, jsonBody("username", "carol", "password", testPassword), nil, nil)
+	garbage := s.do("POST", "/api/auth/invite/garbage", jsonBody("username", "carol", "password", testPassword), nil, nil)
+	for _, rec := range []*httptest.ResponseRecorder{reused, garbage} {
+		if rec.Code != 400 || !strings.Contains(rec.Body.String(), `"validation"`) || sessionCookie(rec) != nil {
+			t.Fatalf("bad token: %d %s", rec.Code, rec.Body)
+		}
+	}
+	if reused.Body.String() != garbage.Body.String() {
+		t.Errorf("used and unknown tokens are distinguishable: %s / %s", reused.Body, garbage.Body)
+	}
+	// A taken username and a weak password do not burn the invite.
+	tok = s.invite(admin)
+	if rec := s.do("POST", "/api/auth/invite/"+tok, jsonBody("username", "alice", "password", testPassword), nil, nil); rec.Code != 400 || !strings.Contains(rec.Body.String(), "username is taken") {
+		t.Fatalf("taken: %d %s", rec.Code, rec.Body)
+	}
+	if rec := s.do("POST", "/api/auth/invite/"+tok, jsonBody("username", "carol", "password", "short"), nil, nil); rec.Code != 400 || !strings.Contains(rec.Body.String(), "password must be") {
+		t.Fatalf("weak password: %d %s", rec.Code, rec.Body)
+	}
+}
+
+func TestAdminDeleteUser(t *testing.T) {
+	s := newServer(t)
+	ca, _ := s.addUser("alice")
+	cb, wsB := s.addUser("bob")
+	if rec := s.do("GET", "/api/projects", "", cb, nil); rec.Code != 200 {
+		t.Fatalf("bob before: %d", rec.Code)
+	}
+	file := s.ws.path(wsB.ID)
+	if _, err := os.Stat(file); err != nil {
+		t.Fatal(err)
+	}
+	for path, want := range map[string]int{"/api/admin/users/1": 400, "/api/admin/users/abc": 400, "/api/admin/users/99": 404} {
+		if rec := s.do("DELETE", path, "", ca, nil); rec.Code != want {
+			t.Errorf("DELETE %s: %d %s, want %d", path, rec.Code, rec.Body, want)
+		}
+	}
+	if rec := s.do("DELETE", "/api/admin/users/"+strconv.FormatInt(wsB.ID, 10), "", ca, nil); rec.Code != 204 {
+		t.Fatalf("delete bob: %d %s", rec.Code, rec.Body)
+	}
+	if rec := s.do("GET", "/api/projects", "", cb, nil); rec.Code != 401 {
+		t.Fatalf("bob's old cookie: %d, want 401", rec.Code)
+	}
+	if _, err := os.Stat(file); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("bob's database still there: %v", err)
+	}
+	if _, ok := s.ws.Get(wsB.ID); ok {
+		t.Error("bob's workspace still open")
+	}
+	if rec := s.do("GET", "/api/projects", "", ca, nil); rec.Code != 200 {
+		t.Fatalf("alice after: %d", rec.Code)
+	}
+}
+
+func TestChangePasswordEndpoint(t *testing.T) {
+	s := newServer(t)
+	c, _ := s.addUser("alice")
+	const newPw = "a-brand-new-password"
+	if rec := s.do("PUT", "/api/auth/password", jsonBody("old", testPassword, "new", newPw), nil, nil); rec.Code != 401 {
+		t.Fatalf("anonymous: %d", rec.Code)
+	}
+	rec := s.do("PUT", "/api/auth/password", jsonBody("old", "wrong-password", "new", newPw), c, nil)
+	if rec.Code != 401 || !strings.Contains(rec.Body.String(), `"invalid_credentials"`) {
+		t.Fatalf("wrong old: %d %s", rec.Code, rec.Body)
+	}
+	if rec := s.do("PUT", "/api/auth/password", jsonBody("old", testPassword, "new", "short"), c, nil); rec.Code != 400 || !strings.Contains(rec.Body.String(), `"validation"`) {
+		t.Fatalf("short new: %d %s", rec.Code, rec.Body)
+	}
+	if rec := s.do("PUT", "/api/auth/password", jsonBody("old", testPassword, "new", newPw), c, nil); rec.Code != 204 {
+		t.Fatalf("change: %d %s", rec.Code, rec.Body)
+	}
+	if rec := s.login("alice", newPw, nil); rec.Code != 200 {
+		t.Fatalf("login with new: %d %s", rec.Code, rec.Body)
+	}
+	if rec := s.login("alice", testPassword, nil); rec.Code != 401 {
+		t.Fatalf("login with old: %d", rec.Code)
+	}
+	if rec := s.do("GET", "/api/projects", "", c, nil); rec.Code != 200 {
+		t.Fatalf("current session after change: %d", rec.Code)
 	}
 }
