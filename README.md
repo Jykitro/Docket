@@ -17,6 +17,7 @@ No users, no login, no external services. The UI never talks to an outside host 
 - [Features](#features)
 - [Quick start](#quick-start)
 - [Configuration](#configuration)
+- [Self-host](#self-host)
 - [Using the UI](#using-the-ui)
 - [Connecting Claude (MCP)](#connecting-claude-mcp)
 - [Development](#development)
@@ -81,6 +82,7 @@ Settings are read from `.env` (see `.env.example`):
 
 | Variable | Default | Description |
 |---|---|---|
+| `DOCKET_MODE` | `local` | `local`: one user, no login. `selfhost`: several users behind a login, see [Self-host](#self-host) |
 | `DOCKET_ADDR` | `:7777` | Server address inside the container |
 | `DOCKET_DB` | `/data/docket.db` | Database file |
 | `DOCKET_BACKUP_DIR` | `/data/backups` | Where backups are written |
@@ -88,6 +90,42 @@ Settings are read from `.env` (see `.env.example`):
 | `DOCKET_ALLOWED_HOSTS` | `localhost,127.0.0.1,docket.localhost` | Allowed `Host` and `Origin` values |
 | `DOCKET_SEED` | `/app/seed/seed.json` | Initial data file |
 | `TZ` | `Asia/Ho_Chi_Minh` | Time zone used to decide what "today" is |
+
+## Self-host
+
+`DOCKET_MODE=selfhost` turns Docket into a server for several people: everyone logs in with a username and password,
+and every profile has its own database, its own MCP token and its own backups. `local` mode (the default) works as
+before.
+
+1. In `.env`, set `DOCKET_MODE=selfhost` and put your real domain in `DOCKET_ALLOWED_HOSTS` (for example
+   `docket.example.com`).
+2. Put an HTTPS reverse proxy in front of the container and do not publish port `7777` without it. The session cookie
+   is marked `Secure` only over HTTPS (or with `X-Forwarded-Proto: https`), so logging in without a proxy is not safe.
+3. On first start the log contains a one-time setup code: `docker logs docket` (the line
+   `first run: create the admin with this setup code`). Open the site and create the administrator with that code.
+   The code works until the first user exists and is never printed again after that. Until an administrator exists,
+   every restart prints a new code and the previous one stops working.
+4. The administrator invites everyone else from Settings: an invite link creates a profile.
+
+Data: `auth.db` (users and sessions) and `users/<id>.db` (one database per profile) sit next to `DOCKET_DB`; profile
+backups are written to `DOCKET_BACKUP_DIR/<id>`, and a profile created later gets its first backup within an hour.
+Every profile has its own MCP token, shown on the **MCP** tab. Claude connects to the same `/mcp` address and the
+profile is picked by the token. `DOCKET_SEED` and `DOCKET_MCP_TOKEN` are ignored in this mode (a warning is logged if
+they are set).
+
+Switching an existing install to `selfhost` does not import `DOCKET_DB` (`docket.db`): the file stays untouched and
+selfhost profiles start empty. Switching back to `local` brings the old data back.
+
+Never delete or recreate `auth.db` while `users/` holds files: user ids start again at 1, so the new profiles would
+open the old profiles' databases and MCP tokens. To start from scratch, first move `users/` and the per-profile backup
+directories in `DOCKET_BACKUP_DIR` aside.
+
+Limits:
+
+- Behind a reverse proxy, login rate limiting is counted per proxy address, so one client's failed attempts can lock
+  a username for everyone for 10 minutes.
+- There is no password reset by email: the administrator deletes the profile and issues a new invite. Deleting a
+  profile removes `users/<id>.db`, but its backups in `DOCKET_BACKUP_DIR/<id>` stay and must be removed by hand.
 
 ## Using the UI
 
