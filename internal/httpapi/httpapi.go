@@ -109,6 +109,8 @@ func Router(d Deps) http.Handler {
 		r.Post("/mcp/token/rotate", a.h(a.mcpRotate))
 		r.Get("/mcp/calls", a.h(a.mcpCalls))
 		r.Delete("/mcp/calls", a.h(a.mcpClearCalls))
+		r.Get("/profile", a.h(a.getProfile))
+		r.Put("/profile", a.h(a.setProfile))
 		r.Get("/events", a.events)
 		r.Get("/export", a.export)
 		r.NotFound(func(w http.ResponseWriter, _ *http.Request) { writeError(w, 404, "not_found", "no such endpoint") })

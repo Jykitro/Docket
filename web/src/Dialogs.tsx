@@ -11,8 +11,8 @@ const chips = 'flex flex-wrap gap-1.5'
 const choice = 'inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full border text-[12.5px] '
 const choiceOn = choice + 'bg-acs border-transparent text-act font-medium'
 const choiceOff = choice + 'bg-sf border-ln text-t2 hover:bg-sk'
-const dateinput = 'h-7 border border-ln rounded-lg bg-sf px-2 text-[12.5px] text-tx focus:border-ac focus:outline-none'
-const textin = 'h-[34px] border border-ln rounded-lg bg-sf px-2.5 text-[13.5px] text-tx focus:border-ac focus:outline-none'
+const dateinput = 'h-7 border border-ln rounded-md bg-sf px-2 text-[12.5px] text-tx focus:border-ring focus:ring-[3px] focus:ring-ring/50 focus:outline-none'
+const textin = 'h-9 border border-ln rounded-md bg-sf px-2.5 text-sm text-tx focus:border-ring focus:ring-[3px] focus:ring-ring/50 focus:outline-none'
 const errline = 'text-rd text-[13px]'
 const foot = 'flex items-center gap-2 justify-end'
 const pick = 'border bg-sf p-0 aria-pressed:border-ac '
@@ -103,7 +103,10 @@ export function NewTaskDialog({ projects, project, date, status, title: initial 
   )
 }
 
-export function NewProjectDialog({ onClose }: { onClose: () => void }) {
+/** The "new project" fields and buttons; used by the dialog and by onboarding. */
+export function NewProjectForm({ onCreated, onCancel, cancelLabel = 'Отмена' }: {
+  onCreated: (p: Project) => void; onCancel: () => void; cancelLabel?: string
+}) {
   const qc = useQueryClient()
   const [name, setName] = useState('')
   const [key, setKey] = useState('')
@@ -113,13 +116,12 @@ export function NewProjectDialog({ onClose }: { onClose: () => void }) {
     mutationFn: () => api.createProject({ name: name.trim(), key: key.trim() || undefined, icon, color }),
     onSuccess: (p) => {
       qc.invalidateQueries()
-      onClose()
-      navigate(`/p/${p.slug}`)
+      onCreated(p)
     },
   })
   const submit = () => name.trim() && !create.isPending && create.mutate()
   return (
-    <Dialog title="Новый проект" onClose={onClose}>
+    <>
       <div className={field}>
         <span className={cap}>Название</span>
         <input className={textin + ' w-full'} autoFocus value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submit()} aria-label="Название проекта" />
@@ -133,7 +135,7 @@ export function NewProjectDialog({ onClose }: { onClose: () => void }) {
         <span className={cap}>Иконка</span>
         <div className="grid grid-cols-[repeat(9,1fr)] gap-1.5">
           {PROJECT_ICONS.map((i) => (
-            <button key={i} type="button" className={pick + 'h-8 rounded-lg grid place-items-center border-ln text-t2 aria-pressed:bg-acs aria-pressed:text-act'} aria-label={i} aria-pressed={i === icon} onClick={() => setIcon(i)}><Icon name={i} size={16} /></button>
+            <button key={i} type="button" className={pick + 'h-8 rounded-md grid place-items-center border-ln text-t2 aria-pressed:bg-acs aria-pressed:text-act'} aria-label={i} aria-pressed={i === icon} onClick={() => setIcon(i)}><Icon name={i} size={16} /></button>
           ))}
         </div>
       </div>
@@ -147,9 +149,17 @@ export function NewProjectDialog({ onClose }: { onClose: () => void }) {
       </div>
       {create.isError && <div className={errline} role="alert">{create.error.message}</div>}
       <div className={foot}>
-        <button type="button" className={btn} onClick={onClose}>Отмена</button>
+        <button type="button" className={btn} onClick={onCancel}>{cancelLabel}</button>
         <button type="button" className={btnPri} disabled={!name.trim() || create.isPending} onClick={submit}>Создать</button>
       </div>
+    </>
+  )
+}
+
+export function NewProjectDialog({ onClose }: { onClose: () => void }) {
+  return (
+    <Dialog title="Новый проект" onClose={onClose}>
+      <NewProjectForm onCancel={onClose} onCreated={(p) => { onClose(); navigate(`/p/${p.slug}`) }} />
     </Dialog>
   )
 }

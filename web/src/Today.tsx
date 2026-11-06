@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   type Activity, type Category, type Meta, type Project, type Task, type TodayData, addDays, api, fmtDay, fmtLongDay, fmtTime,
-  plural, todayStr, useProjectsMeta,
+  plural, todayStr, useProjectsMeta, useWho,
 } from './api'
 import { Icon, ProjectTile } from './icons'
 import { useFresh } from './live'
@@ -10,7 +10,7 @@ import { Link, hrefWith, navigate, useRoute } from './router'
 import { AreaDot, ClaudeBadge, EmptyState, ErrorState, PriorityChip, SkeletonRows, btn, btnPri, btnSq, btnWarn, cap, kbdPri, mc } from './ui'
 
 const panel = 'bg-sf border border-ln rounded-xl'
-const panelHead = 'flex items-center gap-2.5 px-4 py-3'
+const panelHead = 'flex flex-wrap items-center gap-2.5 px-4 py-3'
 const dot = 'inline-block w-2 h-2 rounded-full flex-[0_0_8px] '
 const feed = 'flex gap-3 px-4 py-3 border-t border-ln'
 const content = 'px-8 pt-6 pb-8 flex gap-6 flex-wrap items-start max-[640px]:px-4'
@@ -38,7 +38,7 @@ function TaskRow({ t, meta, late, onCycle }: { t: Task; meta?: Meta; late?: bool
       <button type="button" className={'size-[18px] rounded-full flex-[0_0_18px] grid place-items-center p-0 border-[1.5px] text-white ' + SC[t.status_category]} aria-label={`${t.code}: ${t.status_name}. Сменить статус`} onClick={() => onCycle(t)}>
         {done && <Icon name="check" size={11} sw={3.2} />}
       </button>
-      <Link to={hrefWith('task', t.code)} className="flex items-center gap-3 flex-1 min-w-0 self-stretch no-underline text-inherit">
+      <Link to={hrefWith('task', t.code)} className="flex flex-wrap items-center gap-x-3 gap-y-1 flex-1 min-w-0 self-stretch no-underline text-inherit">
         <span className="font-mono text-[11.5px] text-t3 w-[58px] flex-[0_0_58px]">{t.code}</span>
         <span className={'flex-[1_1_200px] min-w-0 font-medium' + (done ? ' text-t3 line-through' : '')}>{t.title}</span>
         {late && t.planned_for && <span className="inline-flex items-center gap-[5px] text-[12px] text-rd font-medium">{fmtDay(t.planned_for)}</span>}
@@ -78,6 +78,7 @@ function actText(a: Activity): string {
 
 export function Today({ onNewTask }: { onNewTask: (o: { project?: Project; date: string }) => void }) {
   const { params } = useRoute()
+  const who = useWho()
   const dateParam = params.get('date') ?? undefined
   const qc = useQueryClient()
   const key = ['today', dateParam ?? 'now']
@@ -134,10 +135,10 @@ export function Today({ onNewTask }: { onNewTask: (o: { project?: Project; date:
 
   return (
     <>
-      <header className="px-8 pt-6 pb-[18px] flex items-center gap-3.5 flex-wrap border-b border-ln bg-sf max-[640px]:px-4">
+      <header className="px-8 pt-6 pb-4 flex items-center gap-3.5 flex-wrap max-[640px]:px-4">
         <div className="flex flex-col gap-0.5 flex-[1_1_260px] min-w-0">
-          <h1 className="text-[26px] font-bold tracking-[-.02em]">{isToday ? 'Сегодня' : fmtLongDay(date)}</h1>
-          <span className="text-[13.5px] text-t3">
+          <h1 className="text-2xl font-bold tracking-tight">{isToday ? 'Сегодня' : fmtLongDay(date)}</h1>
+          <span className="text-sm text-t3">
             {isToday ? fmtLongDay(date) : fmtDay(date)} · {total} {plural(total, 'задача', 'задачи', 'задач')} в {projects.length} {plural(projects.length, 'проекте', 'проектах', 'проектах')}
           </span>
         </div>
@@ -241,7 +242,7 @@ export function Today({ onNewTask }: { onNewTask: (o: { project?: Project; date:
               <div className={feed} key={a.id}>
                 <span className={'size-[26px] rounded-full flex-[0_0_26px] grid place-items-center ' + (a.actor === 'claude' ? 'bg-acs text-act' : 'bg-sk text-t2')}><Icon name={a.actor === 'claude' ? 'spark' : 'user'} size={13} sw={2} /></span>
                 <span className="flex-[1_1_0] min-w-0 flex flex-col gap-0.5 text-[13px] leading-[1.4]">
-                  <span><b className="font-semibold">{a.actor === 'claude' ? 'claude' : 'Denis'}</b> {actText(a)}</span>
+                  <span><b className="font-semibold">{who(a.actor)}</b> {actText(a)}</span>
                   <span className="font-mono text-[11.5px] text-t3">{fmtTime(a.at)}</span>
                 </span>
               </div>

@@ -1,0 +1,3 @@
+# Run package.json scripts (vite, tsc, knip) on bun itself, so Node is not needed at all.
+[run]
+bun = true

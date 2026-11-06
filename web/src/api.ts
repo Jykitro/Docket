@@ -28,7 +28,8 @@ export type Activity = {
   diff_json: string; at: string; task_code: string; task_title: string
 }
 export type TodayData = { date: string; projects: Project[]; tasks: Task[]; overdue: Task[]; activity: Activity[] }
-export type Check = { key: string; label: string; ok: boolean; detail: string; value: string; hint?: string }
+export type Profile = { name: string }
+type Check = { key: string; label: string; ok: boolean; detail: string; value: string; hint?: string }
 export type CheckResult = { ok: boolean; took_ms: number; at: string; checks: Check[] }
 export type McpStatus = {
   online: boolean; calls_today: number; median_ms: number; last_call_at: string; token_last_used_at: string; check: CheckResult | null
@@ -75,6 +76,8 @@ async function req<T>(method: string, url: string, body?: unknown): Promise<T> {
 }
 
 export const api = {
+  profile: () => req<Profile>('GET', '/api/profile'),
+  setProfile: (name: string) => req<Profile>('PUT', '/api/profile', { name }),
   projects: () => req<Project[]>('GET', '/api/projects?include_archived=1'),
   createProject: (b: { name: string; key?: string; icon?: string; color?: string }) => req<Project>('POST', '/api/projects', b),
   statuses: (pid: number) => req<Status[]>('GET', `/api/projects/${pid}/statuses`),
@@ -126,6 +129,13 @@ export const api = {
 // ---- hooks ----
 
 export const useProjects = () => useQuery({ queryKey: ['projects'], queryFn: api.projects })
+export const useProfile = () => useQuery({ queryKey: ['profile'], queryFn: api.profile })
+
+/** Display name of an actor: claude stays "claude", the stored actor "denis" is whoever the profile says. */
+export function useWho() {
+  const name = useProfile().data?.name || 'Вы'
+  return (actor: string) => (actor === 'claude' ? 'claude' : name)
+}
 
 export type Meta = { statuses: Status[]; labels: Label[]; fields: Field[] }
 

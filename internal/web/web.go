@@ -26,7 +26,7 @@ func Handler() http.Handler {
 		}
 		index, err := fs.ReadFile(sub, "index.html")
 		if err != nil {
-			http.Error(w, "UI is not built: run `npm run build` in web/", http.StatusNotFound)
+			http.Error(w, "UI is not built: run `bun run build` in web/", http.StatusNotFound)
 			return
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")

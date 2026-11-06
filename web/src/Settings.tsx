@@ -15,14 +15,14 @@ const LABEL_COLORS = ['#8B6CFF', '#4C8DF6', '#E5A23A', '#E56B9B', '#8A93A3', '#2
 const FIELD_TYPES: [Field['type'], string, string][] = [['number', 'Число', 'bars'], ['url', 'Ссылка', 'link'], ['select', 'Выбор', 'tag']]
 const SECTIONS: [string, string][] = [['general', 'Основное'], ['statuses', 'Статусы'], ['labels', 'Метки'], ['fields', 'Поля'], ['views', 'Виды'], ['data', 'Данные']]
 
-const BTN_LOOK = 'items-center gap-2 whitespace-nowrap rounded-lg border font-medium no-underline disabled:cursor-default disabled:opacity-50'
-const BTN = 'inline-flex h-[34px] px-3 text-[13.5px] border-ln bg-sf text-tx hover:bg-sk ' + BTN_LOOK
-const BTN_PRI = 'inline-flex h-[34px] px-3 text-[13.5px] border-ink bg-ink text-inkt hover:opacity-90 ' + BTN_LOOK
+const BTN_LOOK = 'items-center gap-2 whitespace-nowrap rounded-md border font-medium no-underline disabled:cursor-default disabled:opacity-50'
+const BTN = 'inline-flex h-9 px-3 text-sm border-ln bg-sf text-tx hover:bg-sk ' + BTN_LOOK
+const BTN_PRI = 'inline-flex h-9 px-3 text-sm border-ink bg-ink text-inkt hover:opacity-90 ' + BTN_LOOK
 const BTN_SM = 'inline-flex h-[30px] px-2.5 text-[13px] border-ln bg-sf text-tx hover:bg-sk ' + BTN_LOOK
 const BTN_SM_PRI = 'inline-flex h-[30px] px-2.5 text-[13px] border-ink bg-ink text-inkt hover:opacity-90 ' + BTN_LOOK
-const BTN_SQ = 'inline-flex size-[34px] justify-center p-0 text-[13.5px] border-ln bg-sf text-tx hover:bg-sk ' + BTN_LOOK
-const BTN_GHOST = 'inline-flex size-[30px] justify-center p-0 text-[13.5px] border-transparent bg-transparent text-t3 hover:bg-sk hover:text-tx ' + BTN_LOOK
-const BTN_DNG = 'inline-flex h-[34px] px-3 text-[13.5px] border-rd bg-sf text-rd hover:bg-sk ' + BTN_LOOK
+const BTN_SQ = 'inline-flex size-[34px] justify-center p-0 text-sm border-ln bg-sf text-tx hover:bg-sk ' + BTN_LOOK
+const BTN_GHOST = 'inline-flex size-[30px] justify-center p-0 text-sm border-transparent bg-transparent text-t3 hover:bg-sk hover:text-tx ' + BTN_LOOK
+const BTN_DNG = 'inline-flex h-9 px-3 text-sm border-rd bg-sf text-rd hover:bg-sk ' + BTN_LOOK
 const CHOICE = 'inline-flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-[12.5px] '
 const choice = (on: boolean) => CHOICE + (on ? 'border-transparent bg-acs font-medium text-act' : 'border-ln bg-sf text-t2 hover:bg-sk')
 const CONTENT = 'flex flex-wrap items-start gap-6 px-8 pt-6 pb-8 max-[640px]:px-4'
@@ -31,7 +31,7 @@ const ERR = 'text-[13px] text-rd'
 const PB = 'flex flex-col gap-[18px] px-5 pt-4 pb-5'
 const LB = 'flex min-w-0 flex-col gap-1.5 text-[12.5px] font-medium text-t2'
 const HINT = 'text-[12px] font-normal text-t3'
-const IN = 'w-full rounded-lg border border-ln bg-sf px-3 text-[14px] text-tx focus:border-ac focus:outline-0'
+const IN = 'w-full rounded-md border border-ln bg-sf px-3 text-[14px] text-tx focus:border-ac focus:outline-0'
 // Small inputs inside .tr rows: on phones they stretch (the old `.tr .in.sm` rule used !important to beat inline styles).
 const IN_TR = IN + ' h-8 max-[640px]:max-w-none! max-[640px]:flex-[1_1_120px]!'
 const TR = 'flex min-h-[46px] flex-wrap items-center gap-3 border-t border-ln px-5 py-1 max-[640px]:gap-2 max-[640px]:px-3 max-[640px]:py-1.5'
@@ -98,18 +98,18 @@ function ProjectSettings({ project }: { project: Project }) {
 
   return (
     <>
-      <header className="flex flex-wrap items-center gap-3.5 border-b border-ln bg-sf px-8 pt-[22px] pb-[18px]">
+      <header className="flex flex-wrap items-center gap-3.5 px-8 pt-[22px] pb-4">
         <Link to={`/p/${project.slug}`} className={BTN_SQ} aria-label="Назад к доске"><Icon name="chevL" size={16} sw={2} /></Link>
         <div className="flex min-w-0 flex-[1_1_260px] flex-col gap-0.5">
           <span className="text-[13px] text-t3">{project.name}{project.archived_at && ' · в архиве'}</span>
-          <h1 className="text-[24px] font-bold tracking-[-.02em]">Настройки проекта</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Настройки проекта</h1>
         </div>
         <span className="inline-flex items-center gap-1.5 text-[12.5px] text-dnt"><Icon name="check" size={14} sw={2.2} />Изменения сохраняются сразу</span>
       </header>
       <div className="flex flex-wrap items-start gap-7 px-8 pt-6 pb-10 max-[760px]:px-4 max-[760px]:py-4" ref={root}>
         <nav className="sticky top-4 flex flex-[0_0_200px] flex-col gap-0.5 max-[760px]:static max-[760px]:basis-full max-[760px]:flex-row max-[760px]:flex-wrap" aria-label="Разделы настроек">
           {SECTIONS.map(([id, label]) => (
-            <button key={id} type="button" className="flex h-8 w-full items-center gap-2.5 rounded-lg bg-transparent px-2.5 text-left text-[13.5px] text-t2 hover:bg-sk aria-[current=true]:bg-sk aria-[current=true]:font-semibold aria-[current=true]:text-tx max-[760px]:w-auto" aria-current={active === id ? 'true' : undefined}
+            <button key={id} type="button" className="flex h-8 w-full items-center gap-2.5 rounded-md bg-transparent px-2.5 text-left text-sm text-t2 hover:bg-sk aria-[current=true]:bg-sk aria-[current=true]:font-semibold aria-[current=true]:text-tx max-[760px]:w-auto" aria-current={active === id ? 'true' : undefined}
               onClick={() => { setActive(id); document.getElementById('s-' + id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }}>{label}</button>
           ))}
         </nav>
@@ -146,14 +146,14 @@ function General({ project, run }: { project: Project; run: Run }) {
             <span className="text-[18px] font-bold tracking-[-.01em]">{project.name}</span>
             <span className="font-mono text-[12px] text-t3">{project.key} · {project.open} открытых</span>
           </span>
-          <span className="flex h-8 min-w-[200px] items-center gap-2.5 rounded-lg bg-sk px-2 text-[13.5px] font-semibold text-tx">
+          <span className="flex h-8 min-w-[200px] items-center gap-2.5 rounded-md bg-sk px-2 text-sm font-semibold text-tx">
             <ProjectTile icon={project.icon} color={project.color} /><span className="min-w-0 grow truncate">{project.name}</span><span className="font-mono text-[11.5px] text-t3">{project.open}</span>
           </span>
         </div>
         <div className={LB}>Иконка
           <div className="flex flex-wrap gap-2" role="group" aria-label="Иконка проекта">
             {PROJECT_ICONS.map((i) => (
-              <button key={i} type="button" className="grid size-[38px] place-items-center rounded-[10px] border border-ln bg-sf p-0 text-t2 aria-pressed:border-ac aria-pressed:bg-ac aria-pressed:text-white" aria-label={i} aria-pressed={i === project.icon} onClick={() => patch({ icon: i })}><Icon name={i} size={18} /></button>
+              <button key={i} type="button" className="grid size-[38px] place-items-center rounded-[10px] border border-ln bg-sf p-0 text-t2 aria-pressed:border-ac aria-pressed:bg-ac aria-pressed:text-inkt" aria-label={i} aria-pressed={i === project.icon} onClick={() => patch({ icon: i })}><Icon name={i} size={18} /></button>
             ))}
           </div>
         </div>
@@ -304,7 +304,7 @@ function LabelChip({ l, run }: { l: Label; run: Run }) {
   const [name, setName] = useState(l.name)
   useEffect(() => setName(l.name), [l.name])
   return (
-    <Menu className="inline-flex h-[30px] items-center gap-2 rounded-lg border border-ln bg-sf2 px-[11px] text-[13px]" ariaLabel={`Метка «${l.name}»`} label={<><span className="inline-block size-[9px] shrink-0 rounded-full" style={{ background: l.color }} />{l.name}<span className="font-mono text-[11.5px] text-t3">{l.task_count}</span></>}>
+    <Menu className="inline-flex h-[30px] items-center gap-2 rounded-md border border-ln bg-sf2 px-[11px] text-[13px]" ariaLabel={`Метка «${l.name}»`} label={<><span className="inline-block size-[9px] shrink-0 rounded-full" style={{ background: l.color }} />{l.name}<span className="font-mono text-[11.5px] text-t3">{l.task_count}</span></>}>
       {(close) => (
         <div className="flex w-[220px] flex-col gap-2 p-1.5">
           <input className={IN + ' h-8'} aria-label="Название метки" value={name} onChange={(e) => setName(e.target.value)}
@@ -342,7 +342,7 @@ function LabelsSection({ project, run }: { project: Project; run: Run }) {
             <input className={IN + ' h-8 w-[180px]'} autoFocus placeholder="Название метки" aria-label="Название новой метки" value={name} onChange={(e) => setName(e.target.value)}
               onBlur={() => !name.trim() && setAdding(false)} onKeyDown={(e) => { if (e.key === 'Enter') add(); if (e.key === 'Escape') { setAdding(false); setName('') } }} />
           ) : (
-            <button type="button" className="inline-flex h-[30px] items-center gap-2 rounded-lg border border-dashed border-ln bg-transparent px-[11px] text-[13px] text-t3" onClick={() => setAdding(true)}><Icon name="plus" size={13} sw={2} />Новая метка</button>
+            <button type="button" className="inline-flex h-[30px] items-center gap-2 rounded-md border border-dashed border-ln bg-transparent px-[11px] text-[13px] text-t3" onClick={() => setAdding(true)}><Icon name="plus" size={13} sw={2} />Новая метка</button>
           )}
         </div>
         {q.isSuccess && q.data.length === 0 && !adding && <span className={HINT}>Меток пока нет. Они появятся, когда у задач будут области.</span>}

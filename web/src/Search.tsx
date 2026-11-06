@@ -16,7 +16,7 @@ const KBD = 'font-mono text-[11px] font-medium leading-[normal] text-t3 border b
 const MARK = 'rounded-[3px] bg-acs text-act group-data-[on]:bg-sf'
 const SCH = 'inline-flex items-center gap-1.5 h-7 px-[11px] rounded-full border text-[12.5px] cursor-pointer'
 const RHEAD = 'px-3 pt-3 pb-1 text-[11px] text-t3'
-const RHEAD_CAP = RHEAD + ' font-semibold tracking-[.06em] uppercase'
+const RHEAD_CAP = RHEAD + ' font-medium'
 const SQ = 'grid place-items-center w-[22px] h-[22px] flex-[0_0_22px] rounded-[7px]'
 
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -107,8 +107,8 @@ export function SearchDialog({ projects, current, onClose, onCreate }: {
   const i0 = (it: Item) => items.indexOf(it)
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[rgba(15,17,22,.45)] px-4 pt-[112px] pb-4" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="flex flex-col self-start w-[680px] max-w-full overflow-hidden bg-sf border border-ln rounded-2xl shadow-pop" role="dialog" aria-modal="true" aria-label="Поиск" onKeyDown={key} ref={trap} tabIndex={-1}>
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 px-4 pt-[112px] pb-4" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="flex flex-col self-start w-[680px] max-w-full overflow-hidden bg-sf border border-ln rounded-lg shadow-pop" role="dialog" aria-modal="true" aria-label="Поиск" onKeyDown={key} ref={trap} tabIndex={-1}>
         <div className="flex items-center gap-3 px-4 h-[58px] border-b border-ln text-t3">
           <Icon name="search" size={19} sw={1.9} />
           <input className="flex-1 min-w-0 border-0 bg-transparent outline-0 text-[17px] font-medium text-tx" autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Поиск по задачам и проектам" aria-label="Поиск по задачам, проектам и командам" />

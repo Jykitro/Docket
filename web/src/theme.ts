@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react'
 export type ThemePref = 'light' | 'dark' | 'system'
 const KEY = 'docket-theme'
 
-export function readPref(): ThemePref {
+function readPref(): ThemePref {
   try {
     const v = localStorage.getItem(KEY)
     if (v === 'light' || v === 'dark' || v === 'system') return v
@@ -15,7 +15,7 @@ export function readPref(): ThemePref {
   return 'system'
 }
 
-export function resolve(p: ThemePref): 'light' | 'dark' {
+function resolve(p: ThemePref): 'light' | 'dark' {
   return p === 'system' ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : p
 }
 
