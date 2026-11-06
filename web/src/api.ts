@@ -68,6 +68,22 @@ export class ApiError extends Error {
   constructor(public code: string, message: string) { super(message) }
 }
 
+// Server texts shown to the user in Russian; unknown ones fall back to the server's own message.
+const RU: Record<string, string> = {
+  'invalid username or password': 'Неверное имя пользователя или пароль',
+  'current password is wrong': 'Неверный текущий пароль',
+  'too many failed attempts, try again later': 'Слишком много попыток, подождите несколько минут.',
+  'invalid setup code': 'Неверный код настройки',
+  'username is taken': 'Имя пользователя уже занято',
+  'invalid or expired invite': 'Приглашение недействительно или истекло',
+  'username must be 2-32 characters: a-z, 0-9, _ . -, starting with a letter or digit':
+    'Имя пользователя: 2-32 символа, a-z, 0-9, _ . -, начинается с буквы или цифры',
+  'password must be 10-128 characters': 'Пароль должен быть от 10 до 128 символов',
+  'cannot delete yourself': 'Нельзя удалить самого себя',
+  'not logged in': 'Сессия истекла, войдите снова',
+}
+export const ruError = (e: unknown): string => (e instanceof Error ? RU[e.message] ?? e.message : String(e))
+
 async function req<T>(method: string, url: string, body?: unknown): Promise<T> {
   const res = await fetch(url, {
     method,

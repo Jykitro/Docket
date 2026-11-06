@@ -2,7 +2,7 @@
 // shows setup, login or invite screens. In local mode, or with a session, it renders the app untouched.
 import { type ReactNode, useEffect, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { ApiError, type Me, api, useMe } from './api'
+import { ApiError, type Me, api, ruError, useMe } from './api'
 import { Icon } from './icons'
 import { navigate, useRoute } from './router'
 import { useTheme } from './theme'
@@ -22,8 +22,7 @@ function AuthForm({ title, text, fields, submit, onSubmit }: {
     mutationFn: () => onSubmit(values),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['me'] }),
   })
-  const err = send.error
-  const message = err instanceof ApiError && err.code === 'rate_limited' ? 'Слишком много попыток, подождите несколько минут.' : err?.message
+  const message = send.error && ruError(send.error)
   return (
     <main className="min-h-screen grid place-items-center px-4 py-8">
       <div className="w-full max-w-[460px] bg-sf border border-ln rounded-lg shadow-pop p-6 flex flex-col gap-4">
@@ -135,7 +134,7 @@ export function Gate({ children }: { children: ReactNode }) {
   return wrap(
     <main className="min-h-screen grid place-items-center px-4 text-center">
       <div className="flex flex-col items-center gap-3">
-        <p className="text-sm text-t2" role="alert">Не удалось связаться с сервером{me.error ? `: ${me.error.message}` : ''}</p>
+        <p className="text-sm text-t2" role="alert">Не удалось связаться с сервером{me.error ? `: ${ruError(me.error)}` : ''}</p>
         <button type="button" className={btnPri} onClick={() => me.refetch()}>Повторить</button>
       </div>
     </main>,
