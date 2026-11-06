@@ -21,7 +21,7 @@ jobs:
           go-version-file: go.mod
       - uses: oven-sh/setup-bun@v2
       - run: make install web # the UI is embedded into the binary, so build it first
-      - uses: goreleaser/goreleaser-action@v6
+      - uses: goreleaser/goreleaser-action@v7
         with:
           version: "~> v2"
           args: release --clean
