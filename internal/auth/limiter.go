@@ -51,6 +51,21 @@ func (l *Limiter) Fail(key string) {
 	l.fails[key] = append(l.fails[key], l.now())
 }
 
+// Attempt counts one try for key and reports whether it may proceed; check and record share one lock, so
+// concurrent attempts cannot all pass before any is counted.
+func (l *Limiter) Attempt(key string) bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	for k := range l.fails { // sweep so keys that never return do not accumulate
+		l.recent(k)
+	}
+	if len(l.fails[key]) >= l.max {
+		return false
+	}
+	l.fails[key] = append(l.fails[key], l.now())
+	return true
+}
+
 func (l *Limiter) Reset(key string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
