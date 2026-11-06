@@ -2,12 +2,13 @@
 // Per-project settings live in Settings.tsx.
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { api, useProfile } from './api'
+import { api, useMe, useProfile } from './api'
 import { Icon } from './icons'
 import { NAME_MAX } from './Onboarding'
 import { Link } from './router'
 import { type ThemePref } from './theme'
 import { Dialog, btn, btnPri, cap } from './ui'
+import { AccountSection } from './Users'
 
 export const THEMES: { id: ThemePref; icon: string; label: string }[] = [
   { id: 'light', icon: 'sun', label: 'Светлая' },
@@ -20,6 +21,7 @@ const row = 'flex items-center gap-3 min-h-10 px-3 rounded-md border border-ln b
 export function AppSettings({ theme, onTheme, onClose }: { theme: ThemePref; onTheme: (t: ThemePref) => void; onClose: () => void }) {
   const qc = useQueryClient()
   const profile = useProfile()
+  const me = useMe().data
   const [name, setName] = useState(profile.data?.name ?? '')
   const save = useMutation({
     mutationFn: () => api.setProfile(name.trim()),
@@ -37,6 +39,7 @@ export function AppSettings({ theme, onTheme, onClose }: { theme: ThemePref; onT
         </div>
         {save.isError && <div className="text-rd text-[13px]" role="alert">{save.error.message}</div>}
       </form>
+      {me?.mode === 'selfhost' && me.user && <AccountSection user={me.user} />}
       <div className="flex flex-col gap-1.5">
         <span className={cap}>Тема</span>
         <div className="flex flex-wrap gap-1.5" role="group" aria-label="Тема">

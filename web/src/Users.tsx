@@ -1,0 +1,116 @@
+// Self-host account block of the settings dialog: who you are, logout, password change and, for admins,
+// users and invites. Rendered by AppSettings only in self-host mode.
+import { useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { ApiError, type AuthUser, api } from './api'
+import { Icon } from './icons'
+import { ConfirmButton, btn, btnPri, cap } from './ui'
+
+const input = 'h-9 w-full min-w-0 border border-ln rounded-md bg-sf px-2.5 text-sm text-tx focus:border-ring focus:ring-[3px] focus:ring-ring/50 focus:outline-none'
+const item = 'flex items-center gap-3 min-h-10 px-3 rounded-md border border-ln bg-sf2 text-sm'
+const day = (iso: string) => new Date(iso).toLocaleDateString('ru-RU')
+const when = (iso: string) => new Date(iso).toLocaleString('ru-RU', { dateStyle: 'medium', timeStyle: 'short' })
+const errText = (e: Error) => (e instanceof ApiError && e.code === 'invalid_credentials' ? 'Неверный текущий пароль' : e.message)
+
+function ChangePassword() {
+  const [old, setOld] = useState('')
+  const [next, setNext] = useState('')
+  const change = useMutation({
+    mutationFn: () => api.changePassword(old, next),
+    onSuccess: () => { setOld(''); setNext('') },
+  })
+  return (
+    <form className="flex flex-col gap-1.5" onSubmit={(e) => { e.preventDefault(); if (!change.isPending) change.mutate() }}>
+      <span className={cap}>Смена пароля</span>
+      <input className={input} type="password" required autoComplete="current-password" maxLength={128} placeholder="Текущий пароль" aria-label="Текущий пароль" value={old} onChange={(e) => setOld(e.target.value)} />
+      <input className={input} type="password" required autoComplete="new-password" minLength={10} maxLength={128} placeholder="Новый пароль (не короче 10 символов)" aria-label="Новый пароль" value={next} onChange={(e) => setNext(e.target.value)} />
+      <div className="flex items-center gap-3">
+        <button type="submit" className={btn} disabled={change.isPending}>Сменить пароль</button>
+        {change.isSuccess && <span className="text-[13px] text-t2" role="status">Пароль изменён</span>}
+        {change.isError && <span className="text-rd text-[13px]" role="alert">{errText(change.error)}</span>}
+      </div>
+    </form>
+  )
+}
+
+function Invites() {
+  const qc = useQueryClient()
+  const pending = useQuery({ queryKey: ['admin', 'invites'], queryFn: api.adminInvites })
+  const create = useMutation({
+    mutationFn: api.createInvite,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'invites'] }),
+  })
+  const link = create.data && location.origin + create.data.url
+  const copy = async () => { try { await navigator.clipboard.writeText(link!) } catch { /* the text stays selected for a manual copy */ } }
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className={cap}>Приглашения</span>
+      <div>
+        <button type="button" className={btnPri} disabled={create.isPending} onClick={() => create.mutate()}><Icon name="plus" size={15} sw={2} />Создать приглашение</button>
+      </div>
+      {create.isError && <div className="text-rd text-[13px]" role="alert">{create.error.message}</div>}
+      {link && create.data && (
+        <div className="flex flex-col gap-1.5">
+          <div className="flex gap-2">
+            <input className={input + ' font-mono text-[12.5px]'} readOnly value={link} aria-label="Ссылка-приглашение" onFocus={(e) => e.currentTarget.select()} />
+            <button type="button" className={btn} onClick={copy}>Копировать</button>
+          </div>
+          <span className="text-xs text-t3">Действует до {when(create.data.expires_at)}. Ссылка показывается один раз: сервер хранит только её хеш, потом её не восстановить.</span>
+        </div>
+      )}
+      {pending.data?.map((i) => (
+        <div key={i.id} className={item}>
+          <span className="grow">Создано {day(i.created_at)}</span>
+          <span className="text-[12.5px] text-t3">до {when(i.expires_at)}</span>
+        </div>
+      ))}
+      {pending.data?.length === 0 && <span className="px-3 text-[12.5px] text-t3">Активных приглашений нет</span>}
+    </div>
+  )
+}
+
+function Users({ me }: { me: AuthUser }) {
+  const qc = useQueryClient()
+  const users = useQuery({ queryKey: ['admin', 'users'], queryFn: api.adminUsers })
+  const remove = useMutation({
+    mutationFn: api.deleteUser,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'users'] }),
+  })
+  return (
+    <>
+      <div className="flex flex-col gap-1.5">
+        <span className={cap}>Пользователи</span>
+        {users.data?.map((u) => (
+          <div key={u.id} className={item}>
+            <span className="grow min-w-0 truncate">{u.username}{u.id === me.id && <span className="ml-2 text-xs text-t3">вы</span>}</span>
+            <span className="text-[12.5px] text-t3">{day(u.created_at)}</span>
+            {u.id !== me.id && (
+              <ConfirmButton className="p-0 text-[12.5px] text-t3 hover:text-rd" label="Удалить" ariaLabel={`Удалить пользователя ${u.username}`} armed="Удалить вместе с данными?" disabled={remove.isPending} onConfirm={() => remove.mutate(u.id)} />
+            )}
+          </div>
+        ))}
+        {users.isError && <div className="text-rd text-[13px]" role="alert">{users.error.message}</div>}
+        {remove.isError && <div className="text-rd text-[13px]" role="alert">{remove.error.message}</div>}
+      </div>
+      <Invites />
+    </>
+  )
+}
+
+export function AccountSection({ user }: { user: AuthUser }) {
+  const logout = useMutation({ mutationFn: api.logout }) // api.logout itself sends the user back to the login screen
+  return (
+    <>
+      <div className="flex flex-col gap-1.5">
+        <span className={cap}>Аккаунт</span>
+        <div className={item}>
+          <span className="grow min-w-0 truncate">{user.username}{user.is_admin && <span className="ml-2 text-xs text-t3">администратор</span>}</span>
+          <button type="button" className={btn} disabled={logout.isPending} onClick={() => logout.mutate()}>Выйти</button>
+        </div>
+        {logout.isError && <div className="text-rd text-[13px]" role="alert">{logout.error.message}</div>}
+      </div>
+      <ChangePassword />
+      {user.is_admin && <Users me={user} />}
+    </>
+  )
+}
