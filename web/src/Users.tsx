@@ -2,7 +2,7 @@
 // users and invites. Rendered by AppSettings only in self-host mode.
 import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ApiError, type AuthUser, api } from './api'
+import { type AuthUser, api, ruError } from './api'
 import { Icon } from './icons'
 import { ConfirmButton, btn, btnPri, cap } from './ui'
 
@@ -10,7 +10,6 @@ const input = 'h-9 w-full min-w-0 border border-ln rounded-md bg-sf px-2.5 text-
 const item = 'flex items-center gap-3 min-h-10 px-3 rounded-md border border-ln bg-sf2 text-sm'
 const day = (iso: string) => new Date(iso).toLocaleDateString('ru-RU')
 const when = (iso: string) => new Date(iso).toLocaleString('ru-RU', { dateStyle: 'medium', timeStyle: 'short' })
-const errText = (e: Error) => (e instanceof ApiError && e.code === 'invalid_credentials' ? 'Неверный текущий пароль' : e.message)
 
 function ChangePassword() {
   const [old, setOld] = useState('')
@@ -27,7 +26,7 @@ function ChangePassword() {
       <div className="flex items-center gap-3">
         <button type="submit" className={btn} disabled={change.isPending}>Сменить пароль</button>
         {change.isSuccess && <span className="text-[13px] text-t2" role="status">Пароль изменён</span>}
-        {change.isError && <span className="text-rd text-[13px]" role="alert">{errText(change.error)}</span>}
+        {change.isError && <span className="text-rd text-[13px]" role="alert">{ruError(change.error)}</span>}
       </div>
     </form>
   )
@@ -61,7 +60,7 @@ function Invites() {
       <div>
         <button type="button" className={btnPri} disabled={create.isPending} onClick={() => create.mutate()}><Icon name="plus" size={15} sw={2} />Создать приглашение</button>
       </div>
-      {create.isError && <div className="text-rd text-[13px]" role="alert">{create.error.message}</div>}
+      {create.isError && <div className="text-rd text-[13px]" role="alert">{ruError(create.error)}</div>}
       {link && create.data && (
         <div className="flex flex-col gap-1.5">
           <div className="flex gap-2">
@@ -103,8 +102,8 @@ function Users({ me }: { me: AuthUser }) {
             )}
           </div>
         ))}
-        {users.isError && <div className="text-rd text-[13px]" role="alert">{users.error.message}</div>}
-        {remove.isError && <div className="text-rd text-[13px]" role="alert">{remove.error.message}</div>}
+        {users.isError && <div className="text-rd text-[13px]" role="alert">{ruError(users.error)}</div>}
+        {remove.isError && <div className="text-rd text-[13px]" role="alert">{ruError(remove.error)}</div>}
       </div>
       <Invites />
     </>
@@ -121,7 +120,7 @@ export function AccountSection({ user }: { user: AuthUser }) {
           <span className="grow min-w-0 truncate">{user.username}{user.is_admin && <span className="ml-2 text-xs text-t3">администратор</span>}</span>
           <button type="button" className={btn} disabled={logout.isPending} onClick={() => logout.mutate()}>Выйти</button>
         </div>
-        {logout.isError && <div className="text-rd text-[13px]" role="alert">{logout.error.message}</div>}
+        {logout.isError && <div className="text-rd text-[13px]" role="alert">{ruError(logout.error)}</div>}
       </div>
       <ChangePassword />
       {user.is_admin && <Users me={user} />}
