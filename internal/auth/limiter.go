@@ -5,21 +5,22 @@ import (
 	"time"
 )
 
-// Limiter refuses a key once it has failed max times within window.
+// Limiter refuses a key once it has tried max times within window.
 // shortcut: in-memory, resets on restart; move to auth.db if the server runs several replicas.
 type Limiter struct {
-	mu     sync.Mutex
-	max    int
-	window time.Duration
-	now    func() time.Time
-	fails  map[string][]time.Time
+	mu        sync.Mutex
+	max       int
+	window    time.Duration
+	now       func() time.Time
+	fails     map[string][]time.Time
+	lastSweep time.Time
 }
 
 func NewLimiter(max int, window time.Duration) *Limiter {
 	return &Limiter{max: max, window: window, now: time.Now, fails: map[string][]time.Time{}}
 }
 
-// recent drops expired failures for key and returns the rest. Caller holds mu.
+// recent drops expired attempts for key and returns the rest. Caller holds mu.
 func (l *Limiter) recent(key string) []time.Time {
 	cutoff := l.now().Add(-l.window)
 	ts := l.fails[key]
@@ -36,30 +37,18 @@ func (l *Limiter) recent(key string) []time.Time {
 	return ts
 }
 
-func (l *Limiter) Blocked(key string) bool {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	return len(l.recent(key)) >= l.max
-}
-
-func (l *Limiter) Fail(key string) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	for k := range l.fails { // sweep so keys that never return do not accumulate
-		l.recent(k)
-	}
-	l.fails[key] = append(l.fails[key], l.now())
-}
-
 // Attempt counts one try for key and reports whether it may proceed; check and record share one lock, so
 // concurrent attempts cannot all pass before any is counted.
 func (l *Limiter) Attempt(key string) bool {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	for k := range l.fails { // sweep so keys that never return do not accumulate
-		l.recent(k)
+	if now := l.now(); now.Sub(l.lastSweep) >= time.Minute { // sweep so keys that never return do not accumulate
+		l.lastSweep = now
+		for k := range l.fails {
+			l.recent(k)
+		}
 	}
-	if len(l.fails[key]) >= l.max {
+	if len(l.recent(key)) >= l.max {
 		return false
 	}
 	l.fails[key] = append(l.fails[key], l.now())

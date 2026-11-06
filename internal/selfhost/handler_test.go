@@ -351,7 +351,7 @@ func TestLoginRateLimitParallel(t *testing.T) {
 			limited++
 		}
 	}
-	if unauthorized > 5 || limited != n-unauthorized {
+	if unauthorized != 5 || limited != n-5 {
 		t.Fatalf("401=%d 429=%d of %d: %v", unauthorized, limited, n, codes)
 	}
 }
