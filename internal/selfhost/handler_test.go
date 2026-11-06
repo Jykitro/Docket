@@ -553,6 +553,36 @@ func TestInviteReuseAndExpiry(t *testing.T) {
 	}
 }
 
+func TestRevokeInvite(t *testing.T) {
+	s := newServer(t)
+	admin, _ := s.addUser("alice")
+	tok := s.invite(admin)
+	var list []auth.Invite
+	if rec := s.do("GET", "/api/admin/invites", "", admin, nil); json.Unmarshal(rec.Body.Bytes(), &list) != nil || len(list) != 1 {
+		t.Fatalf("list: %s", rec.Body)
+	}
+	path := "/api/admin/invites/" + strconv.FormatInt(list[0].ID, 10)
+	if rec := s.do("DELETE", path, "", nil, nil); rec.Code != 401 {
+		t.Fatalf("anonymous revoke: %d", rec.Code)
+	}
+	bob := sessionCookie(s.do("POST", "/api/auth/invite/"+s.invite(admin), jsonBody("username", "bob", "password", testPassword), nil, nil))
+	if rec := s.do("DELETE", path, "", bob, nil); rec.Code != 403 {
+		t.Fatalf("non-admin revoke: %d", rec.Code)
+	}
+	for p, want := range map[string]int{path: 204, "/api/admin/invites/abc": 400, "/api/admin/invites/999": 404} {
+		if rec := s.do("DELETE", p, "", admin, nil); rec.Code != want {
+			t.Errorf("DELETE %s: %d %s, want %d", p, rec.Code, rec.Body, want)
+		}
+	}
+	if rec := s.do("POST", "/api/auth/invite/"+tok, jsonBody("username", "carol", "password", testPassword), nil, nil); rec.Code != 400 {
+		t.Fatalf("revoked invite accepted: %d %s", rec.Code, rec.Body)
+	}
+	// Bob's invite (id 2) is used: it cannot be revoked.
+	if rec := s.do("DELETE", "/api/admin/invites/2", "", admin, nil); rec.Code != 404 {
+		t.Fatalf("revoke used invite: %d", rec.Code)
+	}
+}
+
 func TestAdminDeleteUser(t *testing.T) {
 	s := newServer(t)
 	ca, _ := s.addUser("alice")

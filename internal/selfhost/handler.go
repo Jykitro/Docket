@@ -100,6 +100,7 @@ func Handler(o Options) http.Handler {
 	r.Delete("/api/admin/users/{id}", h.admin(h.deleteUser))
 	r.Get("/api/admin/invites", h.admin(h.listInvites))
 	r.Post("/api/admin/invites", h.admin(h.createInvite))
+	r.Delete("/api/admin/invites/{id}", h.admin(h.deleteInvite))
 	adminNotFound := h.admin(func(w http.ResponseWriter, _ *http.Request, _ auth.User) {
 		writeError(w, 404, "not_found", "no such endpoint")
 	})
@@ -354,6 +355,24 @@ func (h *handler) createInvite(w http.ResponseWriter, _ *http.Request, u auth.Us
 		return
 	}
 	writeJSON(w, 201, map[string]string{"url": "/invite/" + token, "expires_at": expires.UTC().Format(time.RFC3339)})
+}
+
+func (h *handler) deleteInvite(w http.ResponseWriter, r *http.Request, _ auth.User) {
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		writeError(w, 400, "validation", "invalid invite id")
+		return
+	}
+	err = h.Auth.DeleteInvite(id)
+	if errors.Is(err, auth.ErrNotFound) {
+		writeError(w, 404, "not_found", "no such invite")
+		return
+	}
+	if err != nil {
+		internalError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *handler) deleteUser(w http.ResponseWriter, r *http.Request, u auth.User) {

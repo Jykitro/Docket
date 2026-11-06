@@ -269,6 +269,20 @@ func (d *DB) AcceptInvite(token, username, password string) (User, error) {
 	return u, tx.Commit()
 }
 
+// DeleteInvite revokes an unused invite; ErrNotFound when there is none with that id.
+func (d *DB) DeleteInvite(id int64) error {
+	res, err := d.db.Exec(`DELETE FROM invites WHERE id = ? AND used_at IS NULL`, id)
+	if err != nil {
+		return err
+	}
+	if n, err := res.RowsAffected(); err != nil {
+		return err
+	} else if n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 func (d *DB) ListInvites() ([]Invite, error) {
 	rows, err := d.db.Query(`SELECT id, created_at, expires_at FROM invites WHERE used_at IS NULL AND expires_at > ? ORDER BY id`, d.now().Unix())
 	if err != nil {

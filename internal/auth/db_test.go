@@ -230,6 +230,33 @@ func TestInviteAccept(t *testing.T) {
 	}
 }
 
+func TestDeleteInvite(t *testing.T) {
+	d := openTest(t)
+	admin := newInviter(t, d)
+	tok, _, err := d.NewInvite(admin.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	inv, _ := d.ListInvites()
+	if err := d.DeleteInvite(inv[0].ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := d.AcceptInvite(tok, "friend", "longenough2"); !errors.Is(err, ErrInvalidInvite) {
+		t.Fatalf("revoked invite accepted: %v", err)
+	}
+	if err := d.DeleteInvite(inv[0].ID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("second revoke: %v", err)
+	}
+	used, _, _ := d.NewInvite(admin.ID)
+	inv, _ = d.ListInvites()
+	if _, err := d.AcceptInvite(used, "friend", "longenough2"); err != nil {
+		t.Fatal(err)
+	}
+	if err := d.DeleteInvite(inv[0].ID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("revoke used invite: %v", err)
+	}
+}
+
 func TestInviteExpired(t *testing.T) {
 	d := openTest(t)
 	admin := newInviter(t, d)
