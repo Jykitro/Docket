@@ -2,7 +2,7 @@
 // `rail` is the collapsed icon-only mode (desktop); on narrow screens it is an off-canvas drawer.
 import { type ReactNode } from 'react'
 import { useQueries, useQuery } from '@tanstack/react-query'
-import { type Project, type View, api, useProfile, useProjects } from './api'
+import { type Project, type View, api, useMe, useProfile, useProjects } from './api'
 import { Icon, ProjectTile } from './icons'
 import { Link } from './router'
 import { cap } from './ui'
@@ -27,6 +27,7 @@ export function Sidebar({ path, view, rail, mobileOpen, onClose, onNewProject, o
 }) {
   const projects = useProjects()
   const name = useProfile().data?.name ?? ''
+  const me = useMe().data
   const today = useQuery({ queryKey: ['today', 'now'], queryFn: () => api.today() })
   const trash = useQuery({ queryKey: ['trash'], queryFn: api.trash })
   const mcp = useQuery({ queryKey: ['mcp-status'], queryFn: api.mcpStatus })
@@ -121,7 +122,7 @@ export function Sidebar({ path, view, rail, mobileOpen, onClose, onNewProject, o
               <>
                 <span className="flex min-w-0 grow flex-col leading-tight">
                   <b className="truncate text-sm font-semibold">{name || 'Профиль'}</b>
-                  <span className="truncate text-xs text-t3">локально · без входа</span>
+                  <span className="truncate text-xs text-t3">{me?.mode === 'selfhost' ? (me.user?.is_admin ? 'администратор' : 'пользователь') : 'локально · без входа'}</span>
                 </span>
                 <span className="text-t3"><Icon name="chevUD" size={16} /></span>
               </>
