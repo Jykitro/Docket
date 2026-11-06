@@ -348,3 +348,21 @@ func TestSSE(t *testing.T) {
 		t.Fatalf("sse got %q", got)
 	}
 }
+
+func TestLocalMe(t *testing.T) {
+	st, err := store.Open(filepath.Join(t.TempDir(), "t.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { st.Close() })
+	svc := service.New(st, events.NewBus(), time.UTC)
+	h := Router(Deps{Svc: svc, Bus: events.NewBus(), AllowedHosts: []string{"localhost"}, MCP: http.NotFoundHandler(), Web: http.NotFoundHandler()})
+	req := httptest.NewRequest("GET", "/api/auth/me", nil)
+	req.Host = "localhost"
+	req.RemoteAddr = "127.0.0.1:1234"
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != 200 || strings.TrimSpace(rec.Body.String()) != `{"mode":"local"}` {
+		t.Fatalf("got %d %s", rec.Code, rec.Body)
+	}
+}

@@ -38,10 +38,6 @@ type Deps struct {
 }
 
 func Router(d Deps) http.Handler {
-	allowed := map[string]bool{}
-	for _, h := range d.AllowedHosts {
-		allowed[strings.ToLower(strings.TrimSpace(h))] = true
-	}
 	a := &api{svc: d.Svc, bus: d.Bus, mcp: d.MCP, selfAddr: d.SelfAddr, hosts: d.AllowedHosts}
 	if d.SelfAddr != "" {
 		ctx := d.Ctx
@@ -51,7 +47,7 @@ func Router(d Deps) http.Handler {
 		go a.checkLoop(ctx)
 	}
 	r := chi.NewRouter()
-	r.Use(middleware.Recoverer, hostGuard(allowed))
+	r.Use(middleware.Recoverer, HostGuard(d.AllowedHosts))
 	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) { w.Write([]byte("ok")) })
 	// /mcp is both the MCP endpoint and a screen of the web app: a browser navigation gets the app.
 	mcp := bearer(d.Svc, d.MCP)
@@ -63,6 +59,7 @@ func Router(d Deps) http.Handler {
 		mcp.ServeHTTP(w, req)
 	}))
 	r.Route("/api", func(r chi.Router) {
+		r.Get("/auth/me", func(w http.ResponseWriter, _ *http.Request) { writeJSON(w, 200, map[string]string{"mode": "local"}) })
 		r.Get("/projects", a.h(a.listProjects))
 		r.Post("/projects", a.h(a.createProject))
 		r.Patch("/projects/{id}", a.h(a.updateProject))
@@ -122,8 +119,12 @@ func Router(d Deps) http.Handler {
 	return r
 }
 
-// hostGuard blocks DNS rebinding (Host allowlist) and browser CSRF (Origin allowlist on API writes).
-func hostGuard(allowed map[string]bool) func(http.Handler) http.Handler {
+// HostGuard blocks DNS rebinding (Host allowlist) and browser CSRF (Origin allowlist on API writes).
+func HostGuard(allowedHosts []string) func(http.Handler) http.Handler {
+	allowed := map[string]bool{}
+	for _, h := range allowedHosts {
+		allowed[strings.ToLower(strings.TrimSpace(h))] = true
+	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if !allowed[hostname(r.Host)] {
