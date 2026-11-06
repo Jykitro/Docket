@@ -111,7 +111,7 @@ Data: `auth.db` (users and sessions) and `users/<id>.db` (one database per profi
 backups are written to `DOCKET_BACKUP_DIR/<id>`, and a profile created later gets its first backup within an hour.
 Every profile has its own MCP token, shown on the **MCP** tab. Claude connects to the same `/mcp` address and the
 profile is picked by the token. `DOCKET_SEED` and `DOCKET_MCP_TOKEN` are ignored in this mode (a warning is logged if
-they are set).
+`DOCKET_MCP_TOKEN` is set).
 
 Switching an existing install to `selfhost` does not import `DOCKET_DB` (`docket.db`): the file stays untouched and
 selfhost profiles start empty. Switching back to `local` brings the old data back.
