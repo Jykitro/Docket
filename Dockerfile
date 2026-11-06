@@ -19,7 +19,6 @@ RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/docket ./cmd/docke
 # 3. runtime
 FROM gcr.io/distroless/static
 COPY --from=build /out/docket /app/docket
-COPY seed /app/seed
 ENV DOCKET_ADDR=:7777 \
     DOCKET_DB=/data/docket.db \
     DOCKET_BACKUP_DIR=/data/backups

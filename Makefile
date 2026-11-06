@@ -28,7 +28,7 @@ knip: ## неиспользуемый код и зависимости фрон�
 check: typecheck knip test ## все проверки
 
 dev-api: ## бэкенд на :7777 с отдельной dev-базой
-	DOCKET_DB=./data/dev.db DOCKET_BACKUP_DIR=./data/backups DOCKET_SEED=./seed/seed.json go run ./cmd/docket
+	DOCKET_DB=./data/dev.db DOCKET_BACKUP_DIR=./data/backups go run ./cmd/docket
 
 dev-web: ## Vite с hot reload (проксирует /api на :7777)
 	cd web && bun run dev
