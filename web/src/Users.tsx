@@ -1,6 +1,6 @@
 // Self-host account block of the settings dialog: who you are, logout, password change and, for admins,
 // users and invites. Rendered by AppSettings only in self-host mode.
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ApiError, type AuthUser, api } from './api'
 import { Icon } from './icons'
@@ -41,7 +41,20 @@ function Invites() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'invites'] }),
   })
   const link = create.data && location.origin + create.data.url
-  const copy = async () => { try { await navigator.clipboard.writeText(link!) } catch { /* the text stays selected for a manual copy */ } }
+  const field = useRef<HTMLInputElement>(null)
+  const [copied, setCopied] = useState<'done' | 'manual' | null>(null)
+  useEffect(() => {
+    if (copied !== 'done') return
+    const t = setTimeout(() => setCopied(null), 2000)
+    return () => clearTimeout(t)
+  }, [copied])
+  // navigator.clipboard is missing on plain-HTTP origins (a LAN IP), so fall back to execCommand, then to a manual-copy hint.
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(link!); return setCopied('done') } catch { /* try the legacy path */ }
+    field.current?.select()
+    try { if (document.execCommand('copy')) return setCopied('done') } catch { /* leave it selected */ }
+    setCopied('manual')
+  }
   return (
     <div className="flex flex-col gap-1.5">
       <span className={cap}>Приглашения</span>
@@ -52,9 +65,10 @@ function Invites() {
       {link && create.data && (
         <div className="flex flex-col gap-1.5">
           <div className="flex gap-2">
-            <input className={input + ' font-mono text-[12.5px]'} readOnly value={link} aria-label="Ссылка-приглашение" onFocus={(e) => e.currentTarget.select()} />
-            <button type="button" className={btn} onClick={copy}>Копировать</button>
+            <input ref={field} className={input + ' font-mono text-[12.5px]'} readOnly value={link} aria-label="Ссылка-приглашение" onFocus={(e) => e.currentTarget.select()} />
+            <button type="button" className={btn} onClick={copy}>{copied === 'done' ? 'Скопировано' : 'Копировать'}</button>
           </div>
+          {copied === 'manual' && <span className="text-xs text-t2" role="status">Выделено — нажмите Ctrl+C</span>}
           <span className="text-xs text-t3">Действует до {when(create.data.expires_at)}. Ссылка показывается один раз: сервер хранит только её хеш, потом её не восстановить.</span>
         </div>
       )}
