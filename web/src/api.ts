@@ -69,6 +69,7 @@ export class ApiError extends Error {
 }
 
 // Server texts shown to the user in Russian; unknown ones fall back to the server's own message.
+// Keys are the exact messages from internal/selfhost/handler.go and internal/auth/db.go: update both together.
 const RU: Record<string, string> = {
   'invalid username or password': 'Неверное имя пользователя или пароль',
   'current password is wrong': 'Неверный текущий пароль',
@@ -81,6 +82,8 @@ const RU: Record<string, string> = {
   'password must be 10-128 characters': 'Пароль должен быть от 10 до 128 символов',
   'cannot delete yourself': 'Нельзя удалить самого себя',
   'not logged in': 'Сессия истекла, войдите снова',
+  'admin only': 'Только для администратора',
+  'internal error': 'Внутренняя ошибка сервера, попробуйте позже',
 }
 export const ruError = (e: unknown): string => (e instanceof Error ? RU[e.message] ?? e.message : String(e))
 
@@ -102,10 +105,8 @@ export const api = {
   me: () => req<Me>('GET', '/api/auth/me'),
   login: (username: string, password: string) => req<AuthUser>('POST', '/api/auth/login', { username, password }),
   // Same signal as an expired session: the gate drops cached data and re-asks who we are.
-  // An already-expired session (401) is the state logout wants anyway, so it is not an error.
-  logout: () => req<void>('POST', '/api/auth/logout')
-    .catch((e) => { if (!(e instanceof ApiError && e.code === 'unauthorized')) throw e })
-    .then(() => { window.dispatchEvent(new Event('docket:unauthorized')) }),
+  // The server answers 204 to logout whether or not a session still exists.
+  logout: () => req<void>('POST', '/api/auth/logout').then(() => { window.dispatchEvent(new Event('docket:unauthorized')) }),
   setup: (code: string, username: string, password: string) => req<AuthUser>('POST', '/api/auth/setup', { code, username, password }),
   acceptInvite: (token: string, username: string, password: string) =>
     req<AuthUser>('POST', `/api/auth/invite/${encodeURIComponent(token)}`, { username, password }),
