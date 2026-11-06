@@ -75,12 +75,26 @@ func (a *api) runAndStore(ctx context.Context) *CheckResult {
 func (a *api) runCheck(ctx context.Context) *CheckResult {
 	started := time.Now()
 	checks := []Check{a.checkServer(ctx), a.checkProtocol(ctx), a.checkToken(ctx), a.checkHosts(), a.checkDB(ctx)}
+	if a.selfHost {
+		for i := range checks {
+			checks[i].Hint = selfHostHints[checks[i].Key]
+		}
+	}
 	res := &CheckResult{OK: true, At: time.Now().UTC().Format("2006-01-02T15:04:05.000Z"), Checks: checks}
 	for _, c := range checks {
 		res.OK = res.OK && c.OK
 	}
 	res.TookMS = time.Since(started).Milliseconds()
 	return res
+}
+
+// selfHostHints replace the operator hints (docker, .env) in selfhost, where a profile user does not run the server.
+var selfHostHints = map[string]string{
+	"server":   "Сервер не ответил на проверку. Сообщите администратору сервера",
+	"protocol": "MCP не отвечает внутри сервера. Сообщите администратору сервера",
+	"token":    "У каждого профиля свой токен: перевыпустите его на этой странице",
+	"hosts":    "Хост и подключение к серверу настраивает администратор сервера",
+	"db":       "С базой профиля что-то не так. Сообщите администратору сервера",
 }
 
 // checkServer requests our own /healthz over the network, the way a client would.
