@@ -35,16 +35,16 @@ function ChangePassword() {
 function Invites() {
   const qc = useQueryClient()
   const pending = useQuery({ queryKey: ['admin', 'invites'], queryFn: api.adminInvites })
+  const [copied, setCopied] = useState<'done' | 'manual' | null>(null)
   const create = useMutation({
     mutationFn: api.createInvite,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'invites'] }),
+    onSuccess: () => { setCopied(null); return qc.invalidateQueries({ queryKey: ['admin', 'invites'] }) }, // a new link drops the old copy state
   })
   const link = create.data && location.origin + create.data.url
   const field = useRef<HTMLInputElement>(null)
-  const [copied, setCopied] = useState<'done' | 'manual' | null>(null)
   useEffect(() => {
-    if (copied !== 'done') return
-    const t = setTimeout(() => setCopied(null), 2000)
+    if (!copied) return
+    const t = setTimeout(() => setCopied(null), copied === 'done' ? 2000 : 4000)
     return () => clearTimeout(t)
   }, [copied])
   // navigator.clipboard is missing on plain-HTTP origins (a LAN IP), so fall back to execCommand, then to a manual-copy hint.
