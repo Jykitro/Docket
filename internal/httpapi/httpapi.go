@@ -35,10 +35,12 @@ type Deps struct {
 	SelfAddr string
 	// Ctx stops the background self-check; nil means it runs for the life of the process.
 	Ctx context.Context
+	// SelfHost swaps the MCP self-check hints meant for the server operator for ones meant for a profile user.
+	SelfHost bool
 }
 
 func Router(d Deps) http.Handler {
-	a := &api{svc: d.Svc, bus: d.Bus, mcp: d.MCP, selfAddr: d.SelfAddr, hosts: d.AllowedHosts}
+	a := &api{svc: d.Svc, bus: d.Bus, mcp: d.MCP, selfAddr: d.SelfAddr, hosts: d.AllowedHosts, selfHost: d.SelfHost}
 	if d.SelfAddr != "" {
 		ctx := d.Ctx
 		if ctx == nil {
@@ -176,6 +178,7 @@ type api struct {
 	mcp      http.Handler
 	selfAddr string
 	hosts    []string
+	selfHost bool
 	last     lastCheck
 }
 

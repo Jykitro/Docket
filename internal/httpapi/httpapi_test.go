@@ -366,3 +366,38 @@ func TestLocalMe(t *testing.T) {
 		t.Fatalf("got %d %s", rec.Code, rec.Body)
 	}
 }
+
+func TestSelfCheckHints(t *testing.T) {
+	st, err := store.Open(filepath.Join(t.TempDir(), "t.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { st.Close() })
+	svc := service.New(st, events.NewBus(), time.UTC)
+	hints := func(selfHost bool) map[string]string {
+		a := &api{svc: svc, bus: events.NewBus(), mcp: mcpserver.Handler(svc, time.UTC), selfHost: selfHost}
+		m := map[string]string{}
+		for _, c := range a.runCheck(context.Background()).Checks {
+			m[c.Key] = c.Hint
+		}
+		return m
+	}
+	local := map[string]string{
+		"server":   "Проверьте, что контейнер запущен: docker ps",
+		"protocol": "Посмотрите лог контейнера: docker logs docket",
+		"token":    "Задайте DOCKET_MCP_TOKEN в .env или перевыпустите токен на этой странице",
+		"hosts":    "Добавьте хост в DOCKET_ALLOWED_HOSTS и перезапустите контейнер",
+		"db":       "Проверьте место на диске и том ./data; бэкапы лежат в data/backups",
+	}
+	got := hints(false)
+	for k, want := range local {
+		if got[k] != want {
+			t.Errorf("local %s hint = %q, want %q", k, got[k], want)
+		}
+	}
+	for k, h := range hints(true) {
+		if h == "" || h == local[k] || strings.Contains(h, "DOCKET_") || strings.Contains(h, "docker") || strings.Contains(h, ".env") {
+			t.Errorf("selfhost %s hint = %q", k, h)
+		}
+	}
+}
