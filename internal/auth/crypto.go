@@ -18,6 +18,9 @@ var pbkdf2Iter = 600_000
 
 const hashPrefix = "pbkdf2-sha256"
 
+// maxIter bounds the work a stored hash can demand, so a tampered row cannot stall a login.
+const maxIter = 10_000_000
+
 // HashPassword returns "pbkdf2-sha256$<iter>$<b64 salt>$<b64 hash>".
 func HashPassword(pw string) (string, error) {
 	salt := make([]byte, 16)
@@ -39,7 +42,7 @@ func CheckPassword(hash, pw string) bool {
 		return false
 	}
 	iter, err := strconv.Atoi(parts[1])
-	if err != nil || iter <= 0 {
+	if err != nil || iter <= 0 || iter > maxIter {
 		return false
 	}
 	salt, err := base64.StdEncoding.DecodeString(parts[2])
