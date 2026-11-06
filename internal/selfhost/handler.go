@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -46,6 +47,17 @@ func Handler(o Options) http.Handler {
 	r.Get("/api/auth/me", h.me)
 	r.Post("/api/auth/login", h.login)
 	r.Post("/api/auth/logout", h.logout)
+	r.Post("/api/auth/setup", h.setup)
+	r.Post("/api/auth/invite/{token}", h.acceptInvite)
+	r.Put("/api/auth/password", h.authed(h.changePassword))
+	// Registered explicitly so no /api/admin path ever reaches a user's own router.
+	r.Get("/api/admin/users", h.admin(h.listUsers))
+	r.Delete("/api/admin/users/{id}", h.admin(h.deleteUser))
+	r.Get("/api/admin/invites", h.admin(h.listInvites))
+	r.Post("/api/admin/invites", h.admin(h.createInvite))
+	r.Handle("/api/admin/*", h.admin(func(w http.ResponseWriter, _ *http.Request, _ auth.User) {
+		writeError(w, 404, "not_found", "no such endpoint")
+	}))
 	r.Handle("/api/*", http.HandlerFunc(h.api))
 	r.Handle("/mcp", http.HandlerFunc(h.mcp))
 	r.Handle("/*", o.Web)
@@ -134,6 +146,186 @@ func (h *handler) login(w http.ResponseWriter, r *http.Request) {
 	}
 	setCookie(w, r, token, cookieAge)
 	writeJSON(w, 200, u)
+}
+
+// decode reads a JSON body of at most 1 MiB; on failure it has already written the 400.
+func decode(w http.ResponseWriter, r *http.Request, v any) bool {
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(v); err != nil {
+		writeError(w, 400, "validation", "invalid JSON body")
+		return false
+	}
+	return true
+}
+
+// authed runs next for a request with a valid session.
+func (h *handler) authed(next func(http.ResponseWriter, *http.Request, auth.User)) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		u, ok, err := h.session(r)
+		if err != nil {
+			internalError(w, err)
+			return
+		}
+		if !ok {
+			writeError(w, 401, "unauthorized", "not logged in")
+			return
+		}
+		next(w, r, u)
+	}
+}
+
+// admin is authed plus an admin check.
+func (h *handler) admin(next func(http.ResponseWriter, *http.Request, auth.User)) http.HandlerFunc {
+	return h.authed(func(w http.ResponseWriter, r *http.Request, u auth.User) {
+		if !u.IsAdmin {
+			writeError(w, 403, "forbidden", "admin only")
+			return
+		}
+		next(w, r, u)
+	})
+}
+
+// startSession opens the new user's workspace, logs them in and answers with the user.
+func (h *handler) startSession(w http.ResponseWriter, r *http.Request, u auth.User) {
+	if _, err := h.WS.Open(r.Context(), u); err != nil {
+		internalError(w, err)
+		return
+	}
+	token, err := h.Auth.NewSession(u.ID)
+	if err != nil {
+		internalError(w, err)
+		return
+	}
+	setCookie(w, r, token, cookieAge)
+	writeJSON(w, 200, u)
+}
+
+// credentialError answers a failed setup, invite or password change.
+func credentialError(w http.ResponseWriter, err error) {
+	var ve auth.ValidationError
+	switch {
+	case errors.Is(err, auth.ErrInvalidInvite):
+		writeError(w, 400, "validation", "invalid or expired invite") // one message for unknown, used and expired
+	case errors.Is(err, auth.ErrTaken):
+		writeError(w, 400, "validation", "username is taken")
+	case errors.As(err, &ve):
+		writeError(w, 400, "validation", ve.Error())
+	default:
+		internalError(w, err)
+	}
+}
+
+func (h *handler) setup(w http.ResponseWriter, r *http.Request) {
+	var in struct{ Code, Username, Password string }
+	if !decode(w, r, &in) {
+		return
+	}
+	n, err := h.Auth.UserCount()
+	if err != nil {
+		internalError(w, err)
+		return
+	}
+	if n > 0 {
+		writeError(w, 404, "not_found", "setup already completed")
+		return
+	}
+	// An unset code matches nothing (ConstantTimeCompare of two empty strings is 1).
+	if h.SetupCode == "" || subtle.ConstantTimeCompare([]byte(in.Code), []byte(h.SetupCode)) != 1 {
+		writeError(w, 403, "forbidden", "invalid setup code")
+		return
+	}
+	u, err := h.Auth.SetupAdmin(in.Username, in.Password) // re-checks emptiness atomically
+	if errors.Is(err, auth.ErrSetupDone) {
+		writeError(w, 404, "not_found", "setup already completed")
+		return
+	}
+	if err != nil {
+		credentialError(w, err)
+		return
+	}
+	h.startSession(w, r, u)
+}
+
+func (h *handler) acceptInvite(w http.ResponseWriter, r *http.Request) {
+	var in struct{ Username, Password string }
+	if !decode(w, r, &in) {
+		return
+	}
+	u, err := h.Auth.AcceptInvite(chi.URLParam(r, "token"), in.Username, in.Password)
+	if err != nil {
+		credentialError(w, err)
+		return
+	}
+	h.startSession(w, r, u)
+}
+
+func (h *handler) changePassword(w http.ResponseWriter, r *http.Request, u auth.User) {
+	var in struct{ Old, New string }
+	if !decode(w, r, &in) {
+		return
+	}
+	err := h.Auth.ChangePassword(u.ID, in.Old, in.New)
+	if errors.Is(err, auth.ErrBadCredentials) {
+		writeError(w, 401, "invalid_credentials", "current password is wrong")
+		return
+	}
+	if err != nil {
+		credentialError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *handler) listUsers(w http.ResponseWriter, _ *http.Request, _ auth.User) {
+	users, err := h.Auth.ListUsers()
+	if err != nil {
+		internalError(w, err)
+		return
+	}
+	writeJSON(w, 200, users)
+}
+
+func (h *handler) listInvites(w http.ResponseWriter, _ *http.Request, _ auth.User) {
+	invites, err := h.Auth.ListInvites()
+	if err != nil {
+		internalError(w, err)
+		return
+	}
+	writeJSON(w, 200, invites)
+}
+
+func (h *handler) createInvite(w http.ResponseWriter, _ *http.Request, u auth.User) {
+	token, expires, err := h.Auth.NewInvite(u.ID)
+	if err != nil {
+		internalError(w, err)
+		return
+	}
+	writeJSON(w, 201, map[string]string{"url": "/invite/" + token, "expires_at": expires.UTC().Format(time.RFC3339)})
+}
+
+func (h *handler) deleteUser(w http.ResponseWriter, r *http.Request, u auth.User) {
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		writeError(w, 400, "validation", "invalid user id")
+		return
+	}
+	if id == u.ID {
+		writeError(w, 400, "validation", "cannot delete yourself")
+		return
+	}
+	err = h.Auth.DeleteUser(id) // first: this kills their sessions, so no request can reopen the workspace
+	if errors.Is(err, auth.ErrNotFound) {
+		writeError(w, 404, "not_found", "no such user")
+		return
+	}
+	if err != nil {
+		internalError(w, err)
+		return
+	}
+	if err := h.WS.Remove(id); err != nil {
+		internalError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *handler) logout(w http.ResponseWriter, r *http.Request) {
