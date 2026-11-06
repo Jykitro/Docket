@@ -186,14 +186,26 @@ codex mcp add docket --url http://localhost:7777/mcp --bearer-token-env-var DOCK
 
 ### Agent skill: Docket as a personal planner
 
-[`skills/docket/SKILL.md`](skills/docket/SKILL.md) tells an assistant to keep Docket true while it works: find or create a
-task and put its plan in the description as a checklist, tick steps and add notes as it goes, file every problem it spots
-as a backlog task with the area `issue`, and reconcile before each final message so nothing is left stale. It is about
-2 KB on purpose (a test keeps it under the 2048 bytes Claude Code accepts as server instructions).
+Three skills in [`skills/`](skills), one `SKILL.md` each:
 
-- Docket sends the same text to every client as the MCP server instructions, so a connected agent has the rules already.
-- To have it trigger from the first message, install it (also on the **MCP** tab, which serves it at `/api/mcp/skill`):
-  `~/.claude/skills/docket/SKILL.md` for Claude Code, `~/.agents/skills/docket/SKILL.md` for Codex.
+| Skill | What it covers |
+|---|---|
+| [`docket`](skills/docket/SKILL.md) | The workflow: find or create a task and put its plan in the description as a checklist, tick steps and add notes as it goes, file every problem it spots as a backlog task with the area `issue`, reconcile before each final message so nothing is left stale. About 2 KB on purpose |
+| [`docket-reference`](skills/docket-reference/SKILL.md) | The answers an agent needs: data model, every tool and its quirks, error codes, conventions for plans, notes and issues, a FAQ |
+| [`docket-setup`](skills/docket-setup/SKILL.md) | Connecting Claude Code, Claude Desktop and Codex, installing the skills, the hooks, troubleshooting |
+
+- Docket sends the body of `docket` to every client as the MCP server instructions, so a connected agent has the workflow already. A test keeps it under the 2048 bytes Claude Code accepts, which is why the detail lives in the other two skills.
+- To have the skills trigger from the first message, install them. The **MCP** tab has Copy and Download buttons, and the server
+  serves each at `/api/mcp/skill/<name>`. Claude Code reads `~/.claude/skills/<name>/SKILL.md`, Codex `~/.agents/skills/<name>/SKILL.md`:
+
+  ```bash
+  for s in docket docket-reference docket-setup; do
+    mkdir -p ~/.claude/skills/$s    # Codex: ~/.agents/skills/$s
+    curl -fsS http://localhost:7777/api/mcp/skill/$s -o ~/.claude/skills/$s/SKILL.md
+  done
+  ```
+
+  In selfhost mode the API needs a login: use the Download buttons instead.
 - Optional strict mode, the same JSON for Claude Code and Codex (the snippet is on the **MCP** tab): a `SessionStart`
   hook reminds the agent to find or create the task, and a `Stop` hook makes it run the reconcile step before it
   finishes. It blocks only the first stop of a turn, so it cannot loop. Claude Code: the project's

@@ -106,10 +106,21 @@ func Router(d Deps) http.Handler {
 		r.Post("/mcp/check", a.h(a.mcpCheck))
 		r.Get("/mcp/settings", a.h(a.mcpSettings))
 		r.Patch("/mcp/settings", a.h(a.mcpUpdateSettings))
-		r.Get("/mcp/skill", func(w http.ResponseWriter, _ *http.Request) {
+		skill := func(w http.ResponseWriter, r *http.Request) {
+			name := chi.URLParam(r, "name")
+			if name == "" {
+				name = "docket" // /mcp/skill without a name stays the docket workflow
+			}
+			text, ok := skills.Get(name)
+			if !ok {
+				http.NotFound(w, r)
+				return
+			}
 			w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
-			_, _ = io.WriteString(w, skills.File)
-		})
+			_, _ = io.WriteString(w, text)
+		}
+		r.Get("/mcp/skill", skill)
+		r.Get("/mcp/skill/{name}", skill)
 		r.Get("/mcp/token", a.h(a.mcpToken))
 		r.Post("/mcp/token/rotate", a.h(a.mcpRotate))
 		r.Get("/mcp/calls", a.h(a.mcpCalls))

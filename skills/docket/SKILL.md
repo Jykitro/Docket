@@ -5,10 +5,10 @@ description: Use when starting, planning, finishing or pausing any work in a pro
 
 # Docket: keep the planner true
 
-Every piece of work has a task. The task is the record, not the diff or your final message. Write in the user's language.
+Every piece of work has a task: the task is the record, not the diff or your chat. Use the user's language.
 
 **Start**
-1. `search` the request (or `get_today`). Found: `get_task`, then `move_tasks` to `doing`. Missing: `create_tasks` once with the plan in `description_md`, `status: doing`, `planned_for` today, right project (`list_projects`; none fits: ask, don't create one).
+1. `search` the request. Found: `get_task`, then `move_tasks` to `doing`. Missing: `create_tasks` once with the plan in `description_md`, `status: doing`, `planned_for` today, right project (`list_projects`; none fits: ask, don't create one).
 2. The plan is `- [ ]` steps in `description_md`. A changed plan edits the list, never a second task.
 
 **During**
@@ -21,8 +21,8 @@ Every piece of work has a task. The task is the record, not the diff or your fin
 3. `get_board` status `doing` has nothing of yours stale.
 4. The final message lists task IDs touched and issues filed.
 
-Tiny work still gets a task: one `create_tasks` with `status: done` and a one-line description. Hurry means one-line notes, same calls.
-`forbidden` or `tool_disabled`: don't retry; list the intended updates in the final message.
+Tiny work: one `create_tasks` with `status: done`, one-line description. Hurry means one-line notes, same calls.
+`forbidden`, `tool_disabled`, 401, 403: don't retry or work around; say it in the final message (`docket-setup`). Unsure how a tool or field behaves: `docket-reference`.
 
 | Excuse | Reality |
 |---|---|

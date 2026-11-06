@@ -296,6 +296,19 @@ func TestDocketSkillIsServedAndSentAsInstructions(t *testing.T) {
 	if res.StatusCode != 200 || !strings.HasPrefix(string(body), "---\nname: docket\n") {
 		t.Fatalf("skill endpoint: %d %.40q", res.StatusCode, body)
 	}
+	for _, name := range []string{"docket", "docket-reference", "docket-setup"} {
+		res := do(t, "GET", e.srv.URL+"/api/mcp/skill/"+name, "", nil)
+		b, _ := io.ReadAll(res.Body)
+		res.Body.Close()
+		if res.StatusCode != 200 || !strings.HasPrefix(string(b), "---\nname: "+name+"\ndescription: Use when ") {
+			t.Errorf("skill %s: %d %.60q", name, res.StatusCode, b)
+		}
+	}
+	for _, name := range []string{"nope", "..%2Fgo.mod", "docket%2Fx"} {
+		if res := do(t, "GET", e.srv.URL+"/api/mcp/skill/"+name, "", nil); res.StatusCode != 404 {
+			t.Errorf("skill %q: status %d, want 404", name, res.StatusCode)
+		}
+	}
 	ins := connect(t, e).InitializeResult().Instructions
 	if ins == "" || strings.Contains(ins, "name: docket") || len(ins) > 2048 {
 		t.Fatalf("instructions must be the skill body within 2048 bytes, got %d bytes", len(ins))
