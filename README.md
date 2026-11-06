@@ -1,10 +1,15 @@
 # Docket
 
+[![CI](https://github.com/Jykitro/Docket/actions/workflows/ci.yml/badge.svg)](https://github.com/Jykitro/Docket/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/Jykitro/Docket)](https://github.com/Jykitro/Docket/releases)
+[![License: MIT](https://img.shields.io/github/license/Jykitro/Docket)](LICENSE)
+
 A personal task planner that runs locally in Docker: one container, one Go process, one SQLite database.
 Claude manages tasks over [MCP](https://modelcontextprotocol.io); you review and edit them in the web UI.
 Both channels go through the same service layer, so validation, change history and live updates behave identically.
 
-No users, no login, no external services. The UI never talks to an outside host (fonts are bundled).
+No external services, and in the default local mode no users and no login. The UI never talks to an outside host
+(fonts are bundled).
 
 <p align="center">
   <img src="docs/images/today-dark.png" alt="The Today screen: day plan, progress bar, tasks grouped by project and the activity feed" width="820">
@@ -23,6 +28,7 @@ No users, no login, no external services. The UI never talks to an outside host 
 - [Development](#development)
 - [REST API](#rest-api)
 - [Troubleshooting](#troubleshooting)
+- [Contributing and license](#contributing-and-license)
 
 ## Features
 
@@ -44,6 +50,18 @@ No users, no login, no external services. The UI never talks to an outside host 
 ## Quick start
 
 Requirements: [Docker](https://docs.docker.com/get-docker/). [`make`](https://www.gnu.org/software/make/) is optional but convenient.
+
+Prebuilt image (published with every release, `linux/amd64` and `linux/arm64`):
+
+```bash
+docker run -d --name docket -p 127.0.0.1:7777:7777 -v "$PWD/data:/data" --restart unless-stopped \
+  ghcr.io/jykitro/docket:latest
+```
+
+Or download a binary for Linux, macOS or Windows from the [releases page](https://github.com/Jykitro/Docket/releases)
+and run it. Outside Docker set `DOCKET_ADDR=127.0.0.1:7777` (the default `:7777` listens on every interface) and point
+`DOCKET_DB` and `DOCKET_BACKUP_DIR` at local paths, since they default to `/data/...` (see
+[Configuration](#configuration)). To build from source:
 
 ```bash
 make rebuild   # creates .env from .env.example, builds the docket:local image and (re)starts the container
@@ -252,6 +270,9 @@ Go tests open a port on localhost. Run `make help` for every target:
 
 For frontend work with hot reload, run `make dev-api` in one terminal and `make dev-web` in another.
 
+Working on Docket with an assistant: [`AGENTS.md`](AGENTS.md) (read by Codex and most agents) and [`CLAUDE.md`](CLAUDE.md)
+(Claude Code, imports `AGENTS.md`) describe the commands, layout, conventions and gotchas.
+
 ### Project layout
 
 ```
@@ -269,9 +290,6 @@ docs/design/        original mockups (the shipped UI follows the tokens in web/s
 Layering rule: `httpapi` and `mcpserver` call only `service`, and SQL lives only in `store`.
 
 ## REST API
-
-Working on Docket with an assistant: [`AGENTS.md`](AGENTS.md) (read by Codex and most agents) and [`CLAUDE.md`](CLAUDE.md)
-(Claude Code, imports `AGENTS.md`) describe the commands, layout, conventions and gotchas.
 
 All requests are performed on behalf of the human actor (stored as `denis`; the UI shows the profile name). Errors come as
 `{"error": {"code", "message"}}` (`validation` 400, `not_found` 404, `status_in_use` 409, `forbidden` 403). A task in the
@@ -305,3 +323,8 @@ path can be given by code (`TRK-07`) or by id.
 - **403 `forbidden_host`.** Add the host name to `DOCKET_ALLOWED_HOSTS` and restart the container.
 - **The self-check is red.** Each row on the MCP tab explains what to do. Logs: `make logs` (or `docker logs docket`).
 - **Start from scratch.** Stop the container and delete `./data/docket.db*`; backups are in `./data/backups`.
+
+## Contributing and license
+
+Issues and pull requests are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md). Report vulnerabilities privately, as
+described in [SECURITY.md](SECURITY.md). Docket is released under the [MIT License](LICENSE).
