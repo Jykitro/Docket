@@ -177,22 +177,28 @@ func (d *DB) NewSession(userID int64) (string, error) {
 }
 
 func (d *DB) UserBySession(token string) (User, error) {
+	u, _, err := d.Session(token)
+	return u, err
+}
+
+// Session returns the session's user and when the session expires.
+func (d *DB) Session(token string) (User, time.Time, error) {
 	var u User
-	var created int64
-	err := d.db.QueryRow(`SELECT u.id, u.username, u.is_admin, u.created_at FROM sessions s JOIN users u ON u.id = s.user_id
-		WHERE s.token_hash = ? AND s.expires_at > ?`, hashToken(token), d.now().Unix()).Scan(&u.ID, &u.Username, &u.IsAdmin, &created)
+	var created, expires int64
+	err := d.db.QueryRow(`SELECT u.id, u.username, u.is_admin, u.created_at, s.expires_at FROM sessions s JOIN users u ON u.id = s.user_id
+		WHERE s.token_hash = ? AND s.expires_at > ?`, TokenHash(token), d.now().Unix()).Scan(&u.ID, &u.Username, &u.IsAdmin, &created, &expires)
 	if errors.Is(err, sql.ErrNoRows) {
-		return User{}, ErrNotFound
+		return User{}, time.Time{}, ErrNotFound
 	}
 	if err != nil {
-		return User{}, err
+		return User{}, time.Time{}, err
 	}
 	u.CreatedAt = time.Unix(created, 0).UTC().Format(time.RFC3339)
-	return u, nil
+	return u, time.Unix(expires, 0), nil
 }
 
 func (d *DB) DeleteSession(token string) error {
-	_, err := d.db.Exec(`DELETE FROM sessions WHERE token_hash = ?`, hashToken(token))
+	_, err := d.db.Exec(`DELETE FROM sessions WHERE token_hash = ?`, TokenHash(token))
 	return err
 }
 
@@ -242,7 +248,7 @@ func (d *DB) AcceptInvite(token, username, password string) (User, error) {
 	defer tx.Rollback()
 	var id int64
 	err = tx.QueryRow(`SELECT id FROM invites WHERE token_hash = ? AND used_at IS NULL AND expires_at > ?`,
-		hashToken(token), d.now().Unix()).Scan(&id)
+		TokenHash(token), d.now().Unix()).Scan(&id)
 	if errors.Is(err, sql.ErrNoRows) {
 		return User{}, ErrInvalidInvite
 	}
@@ -320,36 +326,49 @@ func (d *DB) DeleteUser(id int64) error {
 	return tx.Commit()
 }
 
-func (d *DB) ChangePassword(userID int64, oldPw, newPw, keepToken string) error {
+// ChangePassword sets a new password and ends every other session of the account, returning their token hashes.
+func (d *DB) ChangePassword(userID int64, oldPw, newPw, keepToken string) (ended []string, err error) {
 	if err := validatePassword(newPw); err != nil {
-		return err
+		return nil, err
 	}
 	var hash string
-	err := d.db.QueryRow(`SELECT password_hash FROM users WHERE id = ?`, userID).Scan(&hash)
+	err = d.db.QueryRow(`SELECT password_hash FROM users WHERE id = ?`, userID).Scan(&hash)
 	if errors.Is(err, sql.ErrNoRows) {
-		return ErrNotFound
+		return nil, ErrNotFound
 	}
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if !CheckPassword(hash, oldPw) {
-		return ErrBadCredentials
+		return nil, ErrBadCredentials
 	}
 	newHash, err := HashPassword(newPw)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	tx, err := d.db.Begin()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer tx.Rollback()
 	if _, err := tx.Exec(`UPDATE users SET password_hash = ? WHERE id = ?`, newHash, userID); err != nil {
-		return err
+		return nil, err
 	}
 	// Every other session of the account ends; the one that made the change stays.
-	if _, err := tx.Exec(`DELETE FROM sessions WHERE user_id = ? AND token_hash != ?`, userID, hashToken(keepToken)); err != nil {
-		return err
+	rows, err := tx.Query(`DELETE FROM sessions WHERE user_id = ? AND token_hash != ? RETURNING token_hash`, userID, TokenHash(keepToken))
+	if err != nil {
+		return nil, err
 	}
-	return tx.Commit()
+	for rows.Next() {
+		var h string
+		if err := rows.Scan(&h); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		ended = append(ended, h)
+	}
+	if err := errors.Join(rows.Err(), rows.Close()); err != nil {
+		return nil, err
+	}
+	return ended, tx.Commit()
 }

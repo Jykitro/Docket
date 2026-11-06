@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -35,6 +36,50 @@ type Options struct {
 type handler struct {
 	Options
 	limiter *auth.Limiter
+	streams streams
+}
+
+// streams holds the cancel funcs of in-flight forwarded requests by session token hash, so ending a session
+// ends its open SSE streams too.
+type streams struct {
+	mu sync.Mutex
+	m  map[string]map[*context.CancelFunc]struct{}
+}
+
+// track returns a context cancelled by end(hash); done releases the entry and must run when the request ends.
+func (s *streams) track(parent context.Context, hash string) (ctx context.Context, done func()) {
+	ctx, cancel := context.WithCancel(parent)
+	key := &cancel
+	s.mu.Lock()
+	if s.m == nil {
+		s.m = map[string]map[*context.CancelFunc]struct{}{}
+	}
+	if s.m[hash] == nil {
+		s.m[hash] = map[*context.CancelFunc]struct{}{}
+	}
+	s.m[hash][key] = struct{}{}
+	s.mu.Unlock()
+	return ctx, func() {
+		cancel()
+		s.mu.Lock()
+		delete(s.m[hash], key)
+		if len(s.m[hash]) == 0 {
+			delete(s.m, hash)
+		}
+		s.mu.Unlock()
+	}
+}
+
+// end cancels every tracked request of the sessions with these token hashes.
+func (s *streams) end(hashes ...string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, h := range hashes {
+		for cancel := range s.m[h] {
+			(*cancel)()
+		}
+		delete(s.m, h)
+	}
 }
 
 // Handler serves the multi-user server: auth routes, then each user's own httpapi.Router behind their session
@@ -271,7 +316,7 @@ func (h *handler) changePassword(w http.ResponseWriter, r *http.Request, u auth.
 		return
 	}
 	c, _ := r.Cookie(cookieName) // present: authed checked it
-	err := h.Auth.ChangePassword(u.ID, in.Old, in.New, c.Value)
+	ended, err := h.Auth.ChangePassword(u.ID, in.Old, in.New, c.Value)
 	if errors.Is(err, auth.ErrBadCredentials) {
 		writeError(w, 401, "invalid_credentials", "current password is wrong")
 		return
@@ -280,6 +325,7 @@ func (h *handler) changePassword(w http.ResponseWriter, r *http.Request, u auth.
 		credentialError(w, err)
 		return
 	}
+	h.streams.end(ended...)
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -329,7 +375,7 @@ func (h *handler) deleteUser(w http.ResponseWriter, r *http.Request, u auth.User
 		internalError(w, err)
 		return
 	}
-	if err := h.WS.Remove(id); err != nil {
+	if err := h.WS.Remove(id); err != nil { // also ends the user's in-flight requests via the workspace ctx
 		internalError(w, err)
 		return
 	}
@@ -342,6 +388,7 @@ func (h *handler) logout(w http.ResponseWriter, r *http.Request) {
 			internalError(w, err)
 			return
 		}
+		h.streams.end(auth.TokenHash(c.Value))
 	}
 	setCookie(w, r, "", -1)
 	w.WriteHeader(http.StatusNoContent)
@@ -352,23 +399,38 @@ func setCookie(w http.ResponseWriter, r *http.Request, value string, maxAge int)
 		SameSite: http.SameSiteLaxMode, Secure: r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https"})
 }
 
-// api hands any other /api/* request to the session user's own router.
+// api hands any other /api/* request to the session user's own router. The request ends when the session does
+// (logout, password change elsewhere, expiry) or when the user is deleted.
 func (h *handler) api(w http.ResponseWriter, r *http.Request) {
-	u, ok, err := h.session(r)
+	c, err := r.Cookie(cookieName)
 	if err != nil {
-		internalError(w, err)
-		return
-	}
-	if !ok {
 		writeError(w, 401, "unauthorized", "not logged in")
 		return
 	}
-	ws, err := h.WS.Open(r.Context(), u) // returns the already-open workspace when there is one
+	// Tracked before the session check, so a session that ends right after the check still ends this request.
+	ctx, done := h.streams.track(r.Context(), auth.TokenHash(c.Value))
+	defer done()
+	u, expires, err := h.Auth.Session(c.Value)
+	if errors.Is(err, auth.ErrNotFound) {
+		writeError(w, 401, "unauthorized", "not logged in")
+		return
+	}
 	if err != nil {
 		internalError(w, err)
 		return
 	}
-	forward(ws.Router, w, r)
+	ws, err := h.WS.Open(ctx, u) // returns the already-open workspace when there is one
+	if errors.Is(err, ErrRemoved) { // the user was deleted while this request was on its way
+		writeError(w, 401, "unauthorized", "not logged in")
+		return
+	}
+	if err != nil {
+		internalError(w, err)
+		return
+	}
+	ctx, cancel := context.WithDeadline(ctx, expires)
+	defer cancel()
+	forward(ws, w, r.WithContext(ctx))
 }
 
 // mcp is both the MCP endpoint and a screen of the web app: a browser navigation gets the app. MCP clients are
@@ -396,10 +458,15 @@ func (h *handler) mcp(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 401, "unauthorized", "missing or invalid bearer token")
 		return
 	}
-	forward(match.Router, w, r)
+	forward(match, w, r)
 }
 
-// forward drops this mux's chi route context so the user's router routes the request from scratch.
-func forward(next http.Handler, w http.ResponseWriter, r *http.Request) {
-	next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), chi.RouteCtxKey, nil)))
+// forward hands r to the workspace's router with a context that also ends when the workspace is removed or
+// closed. It drops this mux's chi route context so the user's router routes the request from scratch.
+func forward(ws *Workspace, w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithCancel(context.WithValue(r.Context(), chi.RouteCtxKey, nil))
+	defer cancel()
+	stop := context.AfterFunc(ws.ctx, cancel)
+	defer stop()
+	ws.Router.ServeHTTP(w, r.WithContext(ctx))
 }

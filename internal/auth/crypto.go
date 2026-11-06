@@ -64,10 +64,11 @@ func newToken() (token, hash string, err error) {
 		return "", "", err
 	}
 	token = base64.RawURLEncoding.EncodeToString(b)
-	return token, hashToken(token), nil
+	return token, TokenHash(token), nil
 }
 
-func hashToken(token string) string {
+// TokenHash is the hex SHA-256 stored in place of a session or invite token.
+func TokenHash(token string) string {
 	sum := sha256.Sum256([]byte(token))
 	return hex.EncodeToString(sum[:])
 }
