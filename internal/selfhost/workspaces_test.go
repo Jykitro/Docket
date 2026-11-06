@@ -124,3 +124,24 @@ func TestCloseCancels(t *testing.T) {
 		t.Fatal("workspace context not cancelled by Close")
 	}
 }
+
+func TestRemoveDeletesStrayWALFiles(t *testing.T) {
+	w, dir := newWS(t)
+	base := filepath.Join(dir, "users", "9.db")
+	if err := os.MkdirAll(filepath.Dir(base), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, suffix := range []string{"", "-wal", "-shm"} { // id 9 was never opened, so nothing else removes these
+		if err := os.WriteFile(base+suffix, []byte("x"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := w.Remove(9); err != nil {
+		t.Fatal(err)
+	}
+	for _, suffix := range []string{"", "-wal", "-shm"} {
+		if _, err := os.Stat(base + suffix); !os.IsNotExist(err) {
+			t.Fatalf("9.db%s still exists (err=%v)", suffix, err)
+		}
+	}
+}
