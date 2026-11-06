@@ -4,6 +4,7 @@ import { type ReactNode } from 'react'
 import { useQueries, useQuery } from '@tanstack/react-query'
 import { type Project, type View, api, useMe, useProfile, useProjects } from './api'
 import { Icon, ProjectTile } from './icons'
+import { tr } from './i18n'
 import { Link } from './router'
 import { cap } from './ui'
 
@@ -40,10 +41,10 @@ export function Sidebar({ path, view, rail, mobileOpen, onClose, onNewProject, o
     (views[i]?.data ?? []).filter((v) => v.pinned && v.project_id === p.id).map((v) => ({ v, p })))
 
   const nav = [
-    { to: '/', label: 'Сегодня', icon: 'cal', n: today.data?.tasks.length, on: path === '/' },
-    { to: '/?focus=overdue', label: 'Просрочено', icon: 'clock', n: today.data?.overdue.length, on: false },
+    { to: '/', label: tr('Сегодня'), icon: 'cal', n: today.data?.tasks.length, on: path === '/' },
+    { to: '/?focus=overdue', label: tr('Просрочено'), icon: 'clock', n: today.data?.overdue.length, on: false },
     { to: '/mcp', label: 'MCP', icon: 'plug', dot: mcp.data ? (mcp.data.online ? 'var(--dn)' : 'var(--rd)') : undefined, on: path === '/mcp' },
-    { to: '/trash', label: 'Корзина', icon: 'trash', n: (trash.data?.length ?? 0) + (trashP.data?.length ?? 0), on: path === '/trash' },
+    { to: '/trash', label: tr('Корзина'), icon: 'trash', n: (trash.data?.length ?? 0) + (trashP.data?.length ?? 0), on: path === '/trash' },
   ]
   // In the icon rail an item is just its icon (centred), with the label as a tooltip.
   const cls = (on: boolean) => (on ? nvOn : nvOff) + (rail ? ' justify-center px-0' : '')
@@ -56,7 +57,7 @@ export function Sidebar({ path, view, rail, mobileOpen, onClose, onNewProject, o
         className={'z-50 shrink-0 p-2 transition-[width,translate] duration-200 '
           + 'max-[899px]:fixed max-[899px]:inset-y-0 max-[899px]:left-0 max-[899px]:w-68 min-[900px]:sticky min-[900px]:top-0 min-[900px]:h-screen '
           + (rail ? 'min-[900px]:w-18 ' : 'min-[900px]:w-68 ') + (mobileOpen ? '' : 'max-[899px]:-translate-x-full')}
-        aria-label="Боковая панель"
+        aria-label={tr('Боковая панель')}
       >
         <div className="flex h-full flex-col rounded-lg border border-ln bg-sf shadow-sm">
         <div className={'flex h-16 items-center gap-2 px-3 ' + (rail ? 'justify-center' : '')}>
@@ -65,21 +66,21 @@ export function Sidebar({ path, view, rail, mobileOpen, onClose, onNewProject, o
         </div>
 
         <div className="flex min-h-0 grow flex-col gap-3 overflow-y-auto px-2 py-1">
-          <Group label="Общее" rail={rail}>
-            <nav className="flex flex-col gap-0.5" aria-label="Разделы">
+          <Group label={tr('Общее')} rail={rail}>
+            <nav className="flex flex-col gap-0.5" aria-label={tr('Разделы')}>
               {nav.map((n) => (
                 <Link key={n.label} to={n.to} className={cls(n.on)} aria-current={n.on ? 'page' : undefined} title={rail ? n.label : undefined}>
                   <Icon name={n.icon} />
                   {!rail && <span className={nvName}>{n.label}</span>}
-                  {!rail && n.dot && <span className="inline-block size-[7px] shrink-0 rounded-full" style={{ background: n.dot }} role="img" aria-label={n.dot.includes('dn') ? 'онлайн' : 'недоступен'} />}
+                  {!rail && n.dot && <span className="inline-block size-[7px] shrink-0 rounded-full" style={{ background: n.dot }} role="img" aria-label={n.dot.includes('dn') ? tr('онлайн') : tr('недоступен')} />}
                   {!rail && n.n !== undefined && n.n > 0 && <span className={nvN}>{n.n}</span>}
                 </Link>
               ))}
             </nav>
           </Group>
 
-          <Group label="Проекты" rail={rail}
-            action={<button type="button" className="inline-grid size-6 place-items-center rounded-md bg-transparent p-0 text-t3 hover:bg-sk hover:text-tx" aria-label="Новый проект" onClick={onNewProject}><Icon name="plus" size={15} sw={2} /></button>}>
+          <Group label={tr('Проекты')} rail={rail}
+            action={<button type="button" className="inline-grid size-6 place-items-center rounded-md bg-transparent p-0 text-t3 hover:bg-sk hover:text-tx" aria-label={tr('Новый проект')} onClick={onNewProject}><Icon name="plus" size={15} sw={2} /></button>}>
             {list.map((p) => {
               const on = path === `/p/${p.slug}` && !view
               return (
@@ -91,7 +92,7 @@ export function Sidebar({ path, view, rail, mobileOpen, onClose, onNewProject, o
             })}
             {!rail && archived.length > 0 && (
               <details className="group">
-                <summary className={nvOff + ' list-none cursor-pointer [&::-webkit-details-marker]:hidden'}><Icon name="stack" /><span className={nvName}>Архив</span><span className={nvN}>{archived.length}</span></summary>
+                <summary className={nvOff + ' list-none cursor-pointer [&::-webkit-details-marker]:hidden'}><Icon name="stack" /><span className={nvName}>{tr('Архив')}</span><span className={nvN}>{archived.length}</span></summary>
                 {archived.map((p) => (
                   <Link key={p.id} to={`/p/${p.slug}`} className={(path.startsWith(`/p/${p.slug}`) ? nvOn : nvOff) + ' opacity-75'}>
                     <ProjectTile icon={p.icon} color={p.color} /><span className={nvName}>{p.name}</span>
@@ -99,12 +100,12 @@ export function Sidebar({ path, view, rail, mobileOpen, onClose, onNewProject, o
                 ))}
               </details>
             )}
-            {!rail && projects.isError && <button type="button" className="px-2 py-0 text-left text-[12.5px] text-rd" onClick={() => projects.refetch()}>Не удалось загрузить проекты · Повторить</button>}
-            {!rail && projects.isSuccess && list.length === 0 && <span className="px-2 text-[12.5px] text-t3">Проектов пока нет</span>}
+            {!rail && projects.isError && <button type="button" className="px-2 py-0 text-left text-[12.5px] text-rd" onClick={() => projects.refetch()}>{tr('Не удалось загрузить проекты · Повторить')}</button>}
+            {!rail && projects.isSuccess && list.length === 0 && <span className="px-2 text-[12.5px] text-t3">{tr('Проектов пока нет')}</span>}
           </Group>
 
           {pinned.length > 0 && (
-            <Group label="Виды" rail={rail}>
+            <Group label={tr('Виды')} rail={rail}>
               {pinned.map(({ v, p }) => (
                 <Link key={v.id} to={`/p/${p.slug}?view=${v.id}`} className={cls(view === String(v.id) && path === `/p/${p.slug}`)} title={rail ? v.name : undefined}>
                   <Icon name="funnel" />
@@ -116,13 +117,13 @@ export function Sidebar({ path, view, rail, mobileOpen, onClose, onNewProject, o
         </div>
 
         <div className="p-2">
-          <button type="button" className={'flex w-full items-center gap-2 rounded-md p-2 text-left hover:bg-sk ' + (rail ? 'justify-center px-0' : '')} aria-label="Настройки" title="Настройки: профиль, тема, платформа" onClick={onSettings}>
+          <button type="button" className={'flex w-full items-center gap-2 rounded-md p-2 text-left hover:bg-sk ' + (rail ? 'justify-center px-0' : '')} aria-label={tr('Настройки')} title={tr('Настройки: профиль, тема, платформа')} onClick={onSettings}>
             <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-sk text-sm font-semibold">{name ? name.charAt(0).toUpperCase() : <Icon name="user" size={15} sw={2} />}</span>
             {!rail && (
               <>
                 <span className="flex min-w-0 grow flex-col leading-tight">
-                  <b className="truncate text-sm font-semibold">{name || 'Профиль'}</b>
-                  <span className="truncate text-xs text-t3">{me?.mode === 'selfhost' ? (me.user?.is_admin ? 'администратор' : 'пользователь') : 'локально · без входа'}</span>
+                  <b className="truncate text-sm font-semibold">{name || tr('Профиль')}</b>
+                  <span className="truncate text-xs text-t3">{me?.mode === 'selfhost' ? (me.user?.is_admin ? tr('администратор') : tr('пользователь')) : tr('локально · без входа')}</span>
                 </span>
                 <span className="text-t3"><Icon name="chevUD" size={16} /></span>
               </>

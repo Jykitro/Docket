@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { type Project, addDays, api, fmtDay, todayStr, useProjectsMeta } from './api'
 import { Icon, PROJECT_COLORS, PROJECT_ICONS, ProjectTile } from './icons'
+import { tr } from './i18n'
 import { navigate } from './router'
 import { Dialog, btn, btnPri, cap } from './ui'
 
@@ -43,11 +44,11 @@ export function NewTaskDialog({ projects, project, date, status, title: initial 
   const tomorrow = addDays(todayStr(), 1)
 
   return (
-    <Dialog title="Новая задача" onClose={onClose}>
-      <input className="border-b border-ln bg-transparent text-[17px] font-medium pt-1.5 pb-2.5 px-0 outline-none w-full focus:border-ac" autoFocus placeholder="Что нужно сделать" aria-label="Название задачи" value={title}
+    <Dialog title={tr('Новая задача')} onClose={onClose}>
+      <input className="border-b border-ln bg-transparent text-[17px] font-medium pt-1.5 pb-2.5 px-0 outline-none w-full focus:border-ac" autoFocus placeholder={tr('Что нужно сделать')} aria-label={tr('Название задачи')} value={title}
         onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submit()} />
       <div className={field}>
-        <span className={cap}>Проект</span>
+        <span className={cap}>{tr('Проект')}</span>
         <div className={chips}>
           {projects.map((p) => (
             <button key={p.id} type="button" className={p.id === pid ? choiceOn : choiceOff} onClick={() => { setPid(p.id); setSt(''); setArea('') }}>
@@ -57,7 +58,7 @@ export function NewTaskDialog({ projects, project, date, status, title: initial 
         </div>
       </div>
       <div className={field}>
-        <span className={cap}>Статус</span>
+        <span className={cap}>{tr('Статус')}</span>
         <div className={chips}>
           {statuses.map((s) => (
             <button key={s.id} type="button" className={s.key === effStatus ? choiceOn : choiceOff} onClick={() => setSt(s.key)}>{s.name}</button>
@@ -65,7 +66,7 @@ export function NewTaskDialog({ projects, project, date, status, title: initial 
         </div>
       </div>
       <div className={field}>
-        <span className={cap}>Приоритет</span>
+        <span className={cap}>{tr('Приоритет')}</span>
         <div className={chips}>
           {['P0', 'P1', 'P2'].map((p) => (
             <button key={p} type="button" className={(p === prio ? choiceOn : choiceOff) + ' font-mono'} onClick={() => setPrio(p)}>{p}</button>
@@ -73,31 +74,31 @@ export function NewTaskDialog({ projects, project, date, status, title: initial 
         </div>
       </div>
       <div className={field}>
-        <span className={cap}>Область</span>
+        <span className={cap}>{tr('Область')}</span>
         <div className={chips}>
           {(meta?.labels ?? []).map((l) => (
             <button key={l.id} type="button" className={l.name === area ? choiceOn : choiceOff} onClick={() => setArea(l.name === area ? '' : l.name)}>
               <span className="inline-block w-[7px] h-[7px] rounded-full flex-[0_0_7px]" style={{ background: l.color }} />{l.name}
             </button>
           ))}
-          <input className={dateinput + ' w-[130px]'} placeholder="Новая область" aria-label="Новая область" value={area}
+          <input className={dateinput + ' w-[130px]'} placeholder={tr('Новая область')} aria-label={tr('Новая область')} value={area}
             onChange={(e) => setArea(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submit()} />
         </div>
       </div>
       <div className={field}>
-        <span className={cap}>Дата</span>
+        <span className={cap}>{tr('Дата')}</span>
         <div className={chips}>
           {[todayStr(), tomorrow].map((d) => (
             <button key={d} type="button" className={day === d ? choiceOn : choiceOff} onClick={() => setDay(d)}>{fmtDay(d)}</button>
           ))}
-          <button type="button" className={day === '' ? choiceOn : choiceOff} onClick={() => setDay('')}>Без даты</button>
-          <input className={dateinput} type="date" aria-label="Выбрать дату" value={day} onChange={(e) => setDay(e.target.value)} />
+          <button type="button" className={day === '' ? choiceOn : choiceOff} onClick={() => setDay('')}>{tr('Без даты')}</button>
+          <input className={dateinput} type="date" aria-label={tr('Выбрать дату')} value={day} onChange={(e) => setDay(e.target.value)} />
         </div>
       </div>
       {create.isError && <div className={errline} role="alert">{create.error.message}</div>}
       <div className={foot}>
-        <button type="button" className={btn} onClick={onClose}>Отмена</button>
-        <button type="button" className={btnPri} disabled={!title.trim() || !proj || create.isPending} onClick={submit}>Создать</button>
+        <button type="button" className={btn} onClick={onClose}>{tr('Отмена')}</button>
+        <button type="button" className={btnPri} disabled={!title.trim() || !proj || create.isPending} onClick={submit}>{tr('Создать')}</button>
       </div>
     </Dialog>
   )
@@ -123,16 +124,16 @@ export function NewProjectForm({ onCreated, onCancel, cancelLabel = 'Отмен�
   return (
     <>
       <div className={field}>
-        <span className={cap}>Название</span>
-        <input className={textin + ' w-full'} autoFocus value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submit()} aria-label="Название проекта" />
+        <span className={cap}>{tr('Название')}</span>
+        <input className={textin + ' w-full'} autoFocus value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submit()} aria-label={tr('Название проекта')} />
       </div>
       <div className={field}>
-        <span className={cap}>Ключ (2–5 символов, например TRK)</span>
-        <input className={textin + ' font-mono w-[120px]'} maxLength={5} value={key} placeholder="авто"
-          onChange={(e) => setKey(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))} onKeyDown={(e) => e.key === 'Enter' && submit()} aria-label="Ключ проекта" />
+        <span className={cap}>{tr('Ключ (2–5 символов, например TRK)')}</span>
+        <input className={textin + ' font-mono w-[120px]'} maxLength={5} value={key} placeholder={tr('авто')}
+          onChange={(e) => setKey(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))} onKeyDown={(e) => e.key === 'Enter' && submit()} aria-label={tr('Ключ проекта')} />
       </div>
       <div className={field}>
-        <span className={cap}>Иконка</span>
+        <span className={cap}>{tr('Иконка')}</span>
         <div className="grid grid-cols-[repeat(9,1fr)] gap-1.5">
           {PROJECT_ICONS.map((i) => (
             <button key={i} type="button" className={pick + 'h-8 rounded-md grid place-items-center border-ln text-t2 aria-pressed:bg-acs aria-pressed:text-act'} aria-label={i} aria-pressed={i === icon} onClick={() => setIcon(i)}><Icon name={i} size={16} /></button>
@@ -140,7 +141,7 @@ export function NewProjectForm({ onCreated, onCancel, cancelLabel = 'Отмен�
         </div>
       </div>
       <div className={field}>
-        <span className={cap}>Цвет</span>
+        <span className={cap}>{tr('Цвет')}</span>
         <div className="flex flex-wrap gap-2">
           {PROJECT_COLORS.map((c) => (
             <button key={c} type="button" className="size-7 rounded-full border-2 border-transparent p-0 aria-pressed:border-tx" style={{ background: c }} aria-label={c} aria-pressed={c === color} onClick={() => setColor(c)} />
@@ -149,8 +150,8 @@ export function NewProjectForm({ onCreated, onCancel, cancelLabel = 'Отмен�
       </div>
       {create.isError && <div className={errline} role="alert">{create.error.message}</div>}
       <div className={foot}>
-        <button type="button" className={btn} onClick={onCancel}>{cancelLabel}</button>
-        <button type="button" className={btnPri} disabled={!name.trim() || create.isPending} onClick={submit}>Создать</button>
+        <button type="button" className={btn} onClick={onCancel}>{tr(cancelLabel)}</button>
+        <button type="button" className={btnPri} disabled={!name.trim() || create.isPending} onClick={submit}>{tr('Создать')}</button>
       </div>
     </>
   )
@@ -158,7 +159,7 @@ export function NewProjectForm({ onCreated, onCancel, cancelLabel = 'Отмен�
 
 export function NewProjectDialog({ onClose }: { onClose: () => void }) {
   return (
-    <Dialog title="Новый проект" onClose={onClose}>
+    <Dialog title={tr('Новый проект')} onClose={onClose}>
       <NewProjectForm onCancel={onClose} onCreated={(p) => { onClose(); navigate(`/p/${p.slug}`) }} />
     </Dialog>
   )
