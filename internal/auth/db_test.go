@@ -122,3 +122,25 @@ func TestSessionLifecycle(t *testing.T) {
 		t.Fatalf("expired: %v", err)
 	}
 }
+
+func TestInvitesSchema(t *testing.T) {
+	d := openTest(t)
+	rows, err := d.db.Query(`SELECT name FROM pragma_table_info('invites')`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	got := map[string]bool{}
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			t.Fatal(err)
+		}
+		got[name] = true
+	}
+	for _, want := range []string{"id", "token_hash", "created_by", "created_at", "expires_at", "used_at"} {
+		if !got[want] {
+			t.Errorf("invites missing column %q", want)
+		}
+	}
+}
