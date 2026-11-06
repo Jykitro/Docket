@@ -104,13 +104,11 @@ func runSelfHost(ctx context.Context, cfg config.Config) error {
 		return err
 	}
 	for _, u := range users {
-		w, err := ws.Open(ctx, u)
-		if err != nil {
+		if _, err := ws.Open(ctx, u); err != nil {
 			return err
 		}
-		// shortcut: restart picks up users created after startup; move to a ticker over WS.All() when needed
-		go maintenance(ctx, w.Svc, filepath.Join(cfg.BackupDir, strconv.FormatInt(u.ID, 10)))
 	}
+	go maintainAll(ctx, ws, cfg.BackupDir)
 
 	var code string
 	if len(users) == 0 {
@@ -165,6 +163,36 @@ func maintenance(ctx context.Context, svc *service.Service, dir string) {
 		case <-ctx.Done():
 			return
 		case <-time.After(24 * time.Hour):
+		}
+	}
+}
+
+// maintainAll runs maintenance for every open selfhost profile: at start and then hourly it backs up each profile
+// not done in the last 24h, so profiles created at runtime are picked up and deleted ones dropped.
+func maintainAll(ctx context.Context, ws *selfhost.Workspaces, backupDir string) {
+	last := map[int64]time.Time{}
+	for {
+		maintainPass(ws.All(), last, time.Now(), func(w *selfhost.Workspace) {
+			if path, err := w.Svc.Maintenance(ctx, filepath.Join(backupDir, strconv.FormatInt(w.ID, 10))); err != nil {
+				slog.Error("maintenance failed", "err", err)
+			} else {
+				slog.Info("backup written", "path", path)
+			}
+		})
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(time.Hour):
+		}
+	}
+}
+
+// maintainPass calls backup for each workspace never processed or processed 24h or more before now.
+func maintainPass(all []*selfhost.Workspace, last map[int64]time.Time, now time.Time, backup func(*selfhost.Workspace)) {
+	for _, w := range all {
+		if t, ok := last[w.ID]; !ok || now.Sub(t) >= 24*time.Hour {
+			backup(w)
+			last[w.ID] = now
 		}
 	}
 }
