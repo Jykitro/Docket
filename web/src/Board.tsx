@@ -16,6 +16,7 @@ import { tr, useLang } from './i18n'
 import { useFresh } from './live'
 import { Link, hrefWith, navigate, setParam, useRoute } from './router'
 import { AreaDot, ClaudeBadge, EmptyState, ErrorState, Menu, PriorityChip, Skeleton } from './ui'
+import { Wiki } from './Wiki'
 
 type Group = 'status' | 'priority' | 'area'
 type Sort = 'manual' | 'priority' | 'date'
@@ -310,7 +311,7 @@ function ListTable({ tasks, meta }: { tasks: Task[]; meta: Meta }) {
 
 // ---- screen ----
 
-export function Board({ slug, onNewTask }: { slug: string; onNewTask: (o: { project?: Project; status?: string }) => void }) {
+export function Board({ slug, onNewTask, wiki }: { slug: string; onNewTask: (o: { project?: Project; status?: string }) => void; wiki?: { id?: number } }) {
   const projects = useProjects()
   const project = projects.data?.find((p) => p.slug === slug)
   if (projects.isError) return <div className={CONTENT}><div className={COL_MAIN}><ErrorState message={projects.error.message} onRetry={() => projects.refetch()} /></div></div>
@@ -319,10 +320,10 @@ export function Board({ slug, onNewTask }: { slug: string; onNewTask: (o: { proj
       ? <div className={CONTENT}><Skeleton w="40%" h={28} /></div>
       : <div className={CONTENT}><div className={COL_MAIN}><EmptyState icon="board" title={tr('Проект не найден')} hint={tr('Нет проекта «{slug}». Возможно, он в архиве.', { slug })} /></div></div>
   }
-  return <ProjectBoard key={project.id} project={project} onNewTask={onNewTask} />
+  return <ProjectBoard key={project.id} project={project} onNewTask={onNewTask} wiki={wiki} />
 }
 
-function ProjectBoard({ project, onNewTask }: { project: Project; onNewTask: (o: { project?: Project; status?: string }) => void }) {
+function ProjectBoard({ project, onNewTask, wiki }: { project: Project; onNewTask: (o: { project?: Project; status?: string }) => void; wiki?: { id?: number } }) {
   const qc = useQueryClient()
   const { params } = useRoute()
   const viewId = params.get('view')
@@ -413,7 +414,7 @@ function ProjectBoard({ project, onNewTask }: { project: Project; onNewTask: (o:
       <Icon name={icon} size={15} />{label}
     </button>
   )
-  const plain = (l: Layout) => { setParam('view', null); setLayout(l) }
+  const plain = (l: Layout) => { setLayout(l); if (wiki) navigate(`/p/${project.slug}`); else setParam('view', null) }
 
   return (
     <>
@@ -430,14 +431,16 @@ function ProjectBoard({ project, onNewTask }: { project: Project; onNewTask: (o:
           <button type="button" className={BTN_PRI + ' h-9'} onClick={() => onNewTask({ project })}><Icon name="plus" size={16} sw={2} />{tr('Новая задача')}<span className={KBD_PRI}>C</span></button>
         </div>
         <nav className="flex flex-wrap items-end" aria-label={tr('Виды проекта')}>
-          {tab(tr('Доска'), 'board', !viewId && layout === 'board', () => plain('board'))}
-          {tab(tr('Список'), 'list', !viewId && layout === 'list', () => plain('list'))}
+          {tab(tr('Доска'), 'board', !wiki && !viewId && layout === 'board', () => plain('board'))}
+          {tab(tr('Список'), 'list', !wiki && !viewId && layout === 'list', () => plain('list'))}
+          {tab(tr('Вики'), 'doc', !!wiki, () => navigate(`/p/${project.slug}/wiki`))}
           {(vq.data ?? []).filter((v: View) => v.project_id === pid).map((v) => (
             <Link key={v.id} to={`/p/${project.slug}?view=${v.id}`} className={TAB + (viewId === String(v.id) ? ' text-tx border-b-ac' : ' text-t3 border-b-transparent')}><Icon name="funnel" size={14} />{v.name}</Link>
           ))}
         </nav>
       </header>
 
+      {wiki ? <Wiki project={project} pageId={wiki.id} /> : <>
       <FilterBar filter={filter} setFilter={setFilter} group={group} setGroup={setGroup} sort={sort} setSort={setSort}
         meta={meta} tasks={tasks} project={project} layout={layout} />
 
@@ -469,6 +472,7 @@ function ProjectBoard({ project, onNewTask }: { project: Project; onNewTask: (o:
         </DndContext>
       )}
       {tq.isSuccess && layout === 'list' && <ListTable tasks={cols.flatMap((c) => c.tasks)} meta={meta} />}
+      </>}
     </>
   )
 }

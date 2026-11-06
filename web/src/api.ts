@@ -60,6 +60,14 @@ export type SearchResult = {
   groups: { tasks: Hit[]; descriptions: Hit[]; projects: Project[] }; counts: Record<string, number>; took_ms: number
 }
 
+export type Page = {
+  id: number; project_id: number; parent_id: number | null; title: string; body_md: string; position: number
+  created_at: string; updated_at: string
+}
+export type PageRef = { id: number; title: string }
+export type TaskRef = { code: string; title: string }
+export type PageDetail = Page & { backlinks: PageRef[]; links: { pages: PageRef[]; tasks: TaskRef[] } }
+
 export type AuthUser = { id: number; username: string; is_admin: boolean; created_at: string }
 export type Me = { mode: 'local' | 'selfhost'; setup?: boolean; user?: AuthUser }
 export type AdminInvite = { id: number; created_at: string; expires_at: string }
@@ -170,6 +178,11 @@ export const api = {
   deleteTask: (ref: string) => req<{ trashed: number }>('DELETE', `/api/tasks/${ref}`),
   restoreTask: (ref: string) => req<Task>('POST', `/api/tasks/${ref}/restore`),
   addNote: (ref: string, body_md: string) => req<Note>('POST', `/api/tasks/${ref}/notes`, { body_md }),
+  pages: (pid: number) => req<Page[]>('GET', `/api/projects/${pid}/pages`),
+  page: (id: number) => req<PageDetail>('GET', `/api/pages/${id}`),
+  createPage: (pid: number, b: { title: string; body_md?: string; parent_id?: number }) => req<Page>('POST', `/api/projects/${pid}/pages`, b),
+  savePage: (id: number, b: { title?: string; body_md?: string; parent_id?: number; expected_updated_at?: string }) => req<Page>('PUT', `/api/pages/${id}`, b),
+  deletePage: (id: number) => req<void>('DELETE', `/api/pages/${id}`),
   search: (q: string, scope = 'all') => req<SearchResult>('GET', `/api/search?q=${encodeURIComponent(q)}&scope=${scope}&limit=8`),
 }
 

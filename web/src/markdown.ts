@@ -2,6 +2,7 @@
 // task-list checkboxes are live (data-idx = their order in the source), see toggleCheckbox().
 import DOMPurify from 'dompurify'
 import { Marked } from 'marked'
+import type { PageRef, TaskRef } from './api'
 
 let counter = 0
 const md = new Marked({
@@ -13,8 +14,10 @@ const md = new Marked({
   },
 })
 
+// Wiki anchors (data-wiki, data-wiki-new, data-task) with an in-app href stay in the same tab; any other anchor opens a new one.
 DOMPurify.addHook('afterSanitizeAttributes', (node) => {
-  if (node.tagName === 'A') {
+  const inApp = node.hasAttribute('data-wiki') || node.hasAttribute('data-wiki-new') || node.hasAttribute('data-task')
+  if (node.tagName === 'A' && !(inApp && /^(?:\/(?!\/)|\?|#)/.test(node.getAttribute('href') ?? ''))) {
     node.setAttribute('target', '_blank')
     node.setAttribute('rel', 'noopener noreferrer')
   }
@@ -23,6 +26,51 @@ DOMPurify.addHook('afterSanitizeAttributes', (node) => {
 export function renderMarkdown(src: string): string {
   counter = 0
   return DOMPurify.sanitize(md.parse(src, { async: false }), { ADD_ATTR: ['target', 'data-idx'] })
+}
+
+type WikiCtx = { slug: string; pages: PageRef[]; tasks: TaskRef[] }
+let wiki: WikiCtx = { slug: '', pages: [], tasks: [] }
+const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+const titleKey = (t: string) => t.trim().toLowerCase()
+
+// Second instance for the wiki: [[Title]] and task codes become links, resolved against the context set by renderWiki().
+// Inline extensions never run inside code spans or blocks. The lookbehind lives in start(): the tokenizer sees only the rest of the line.
+const mdWiki = new Marked({
+  gfm: true,
+  extensions: [
+    {
+      name: 'wikilink',
+      level: 'inline',
+      start: (src) => src.indexOf('[['),
+      tokenizer(src) {
+        const m = /^\[\[([^[\]\n]+)\]\]/.exec(src)
+        if (m) return { type: 'wikilink', raw: m[0], title: m[1].trim() }
+      },
+      renderer(t) {
+        const title = String(t.title)
+        const page = wiki.pages.find((p) => titleKey(p.title) === titleKey(title))
+        return page
+          ? `<a href="/p/${esc(wiki.slug)}/wiki/${page.id}" data-wiki="${page.id}">${esc(title)}</a>`
+          : `<a href="#" data-wiki-new="${esc(title)}" class="border-b border-dashed">${esc(title)}</a>`
+      },
+    },
+    {
+      name: 'taskcode',
+      level: 'inline',
+      start: (src) => src.search(/(?<![A-Za-z0-9])[A-Z][A-Z0-9]{1,4}-\d+\b/),
+      tokenizer(src) {
+        const m = /^[A-Z][A-Z0-9]{1,4}-\d+\b/.exec(src)
+        if (m && wiki.tasks.some((t) => t.code === m[0])) return { type: 'taskcode', raw: m[0], code: m[0] }
+      },
+      renderer: (t) => `<a href="?task=${esc(String(t.code))}" data-task="${esc(String(t.code))}">${esc(String(t.code))}</a>`,
+    },
+  ],
+})
+
+/** Wiki page body: like renderMarkdown, plus [[Title]] links and task codes that exist in ctx.tasks. */
+export function renderWiki(src: string, ctx: WikiCtx): string {
+  wiki = ctx
+  return DOMPurify.sanitize(mdWiki.parse(src, { async: false }), { ADD_ATTR: ['target'] })
 }
 
 const ITEM = /^(\s*(?:[-*+]|\d+[.)])\s+\[)([ xX])(\].*)$/

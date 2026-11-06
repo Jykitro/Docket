@@ -94,10 +94,10 @@ export function App() {
   const openNewTask = (o: NewTaskOpts) => (active?.length ? setNewTask(o) : setNewProject(true))
 
   let page
-  const proj = path.match(/^\/p\/([^/]+)(\/settings)?$/)
+  const proj = path.match(/^\/p\/([^/]+)(?:\/(settings)|\/(wiki)(?:\/(\d+))?)?$/)
   const taskPage = path.match(/^\/t\/([^/]+)$/)
   if (path === '/') page = <Today onNewTask={openNewTask} />
-  else if (proj && !proj[2]) page = <Board slug={proj[1]} onNewTask={openNewTask} />
+  else if (proj && !proj[2]) page = <Board slug={proj[1]} onNewTask={openNewTask} wiki={proj[3] ? { id: proj[4] ? Number(proj[4]) : undefined } : undefined} />
   else if (proj) page = <Settings slug={proj[1]} />
   else if (taskPage) page = <TaskPanel key={taskPage[1]} code={taskPage[1]} mode="page" />
   else if (path === '/mcp') page = <Mcp />
@@ -107,7 +107,7 @@ export function App() {
   const task = params.get('task')
   const current = proj ? projects.data?.find((p) => p.slug === proj[1]) : undefined
   const heading = path === '/' ? tr('Сегодня') : path === '/mcp' ? 'MCP' : path === '/trash' ? tr('Корзина') : taskPage ? taskPage[1].toUpperCase()
-    : proj ? (current ? current.name + (proj[2] ? `: ${tr('настройки')}` : '') : tr('Проект')) : 'Docket'
+    : proj ? (current ? current.name + (proj[2] ? `: ${tr('настройки')}` : proj[3] ? `: ${tr('вики')}` : '') : tr('Проект')) : 'Docket'
   useEffect(() => { document.title = task ? `${task.toUpperCase()} · ${heading} · Docket` : heading === 'Docket' ? 'Docket' : `${heading} · Docket` }, [heading, task])
   if (profile.isPending) return <div className="min-h-screen bg-bg" data-theme={theme.resolved} /> // avoid flashing the app before onboarding
   if (setup) return <div className="min-h-screen bg-bg text-tx" data-theme={theme.resolved}><Onboarding hasProjects={!!active?.length} onDone={() => setSetup(false)} /></div>
