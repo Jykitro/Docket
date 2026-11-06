@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"errors"
+	"regexp"
 	"strings"
 	"unicode/utf8"
 
@@ -69,10 +71,18 @@ func checkPageTitleFree(tx *store.Tx, projectID, selfID int64, title string) err
 	if err == nil && other.ID != selfID {
 		return invalid("a page titled %q already exists in this project (titles are compared ignoring case)", other.Title)
 	}
-	if err != nil && err != store.ErrNotFound {
+	if err != nil && !errors.Is(err, store.ErrNotFound) {
 		return err
 	}
 	return nil
+}
+
+func getPage(tx *store.Tx, id int64) (store.Page, error) {
+	p, err := tx.GetPage(id)
+	if errors.Is(err, store.ErrNotFound) {
+		return p, notFound("page %d not found", id)
+	}
+	return p, err
 }
 
 // ListPages returns the project's pages flat, without bodies.
@@ -141,44 +151,83 @@ func (s *Service) UpdatePage(ctx context.Context, actor string, id int64, patch 
 		}
 	}
 	err = s.write(ctx, actor, func(o *op) error {
-		if pg, err = o.tx.GetPage(id); err != nil {
-			return notFound("page %d not found", id)
+		cur, err := getPage(o.tx, id)
+		if err != nil {
+			return err
 		}
-		if patch.ExpectedUpdatedAt != "" && patch.ExpectedUpdatedAt != pg.UpdatedAt {
+		oldKey := titleKey(cur.Title)
+		if patch.ExpectedUpdatedAt != "" && patch.ExpectedUpdatedAt != cur.UpdatedAt {
 			return conflict("page changed since %s; reload it and merge", patch.ExpectedUpdatedAt)
 		}
 		if patch.Title != nil {
-			if err := checkPageTitleFree(o.tx, pg.ProjectID, id, *patch.Title); err != nil {
+			if err := checkPageTitleFree(o.tx, cur.ProjectID, id, *patch.Title); err != nil {
 				return err
 			}
-			pg.Title = *patch.Title
+			cur.Title = *patch.Title
+			if newKey := titleKey(cur.Title); newKey != oldKey {
+				if err := rewriteLinks(o.tx, cur, oldKey, cur.Title); err != nil {
+					return err
+				}
+			}
 		}
 		if patch.BodyMD != nil {
-			pg.BodyMD = *patch.BodyMD
+			cur.BodyMD = *patch.BodyMD
 		}
 		if patch.ParentID != nil {
 			var parent *int64
 			if *patch.ParentID != 0 {
 				parent = patch.ParentID
-				if err := checkPageParent(o.tx, pg.ProjectID, id, *parent); err != nil {
+				if err := checkPageParent(o.tx, cur.ProjectID, id, *parent); err != nil {
 					return err
 				}
 			}
-			if !samePage(pg.ParentID, parent) {
-				pg.ParentID = parent
-				if pg.Position, err = o.tx.NextPagePosition(pg.ProjectID, parent); err != nil {
+			if !samePage(cur.ParentID, parent) {
+				cur.ParentID = parent
+				if cur.Position, err = o.tx.NextPagePosition(cur.ProjectID, parent); err != nil {
 					return err
 				}
 			}
 		}
-		pg.UpdatedAt = nowTS()
-		if err := o.tx.UpdatePage(pg, titleKey(pg.Title)); err != nil {
+		cur.UpdatedAt = nowTS()
+		if err := o.tx.UpdatePage(cur, titleKey(cur.Title)); err != nil {
 			return err
 		}
-		o.emit("page_changed", 0, pg.ProjectID)
+		o.emit("page_changed", 0, cur.ProjectID)
+		pg = cur
 		return nil
 	})
-	return pg, err
+	if err != nil {
+		return store.Page{}, err
+	}
+	return pg, nil
+}
+
+// rewriteLinks turns [[old]] into [[newTitle]] in the other pages of self's project (same transaction).
+func rewriteLinks(tx *store.Tx, self store.Page, oldKey, newTitle string) error {
+	pages, err := tx.ListPages(self.ProjectID)
+	if err != nil {
+		return err
+	}
+	now := nowTS()
+	for _, p := range pages {
+		if p.ID == self.ID {
+			continue
+		}
+		body := wikiLinkRe.ReplaceAllStringFunc(p.BodyMD, func(m string) string {
+			if titleKey(m[2:len(m)-2]) == oldKey {
+				return "[[" + newTitle + "]]"
+			}
+			return m
+		})
+		if body == p.BodyMD {
+			continue
+		}
+		p.BodyMD, p.UpdatedAt = body, now
+		if err := tx.UpdatePage(p, titleKey(p.Title)); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func samePage(a, b *int64) bool { return (a == nil && b == nil) || (a != nil && b != nil && *a == *b) }
@@ -186,9 +235,9 @@ func samePage(a, b *int64) bool { return (a == nil && b == nil) || (a != nil && 
 // DeletePage removes a page; its subpages move up to its parent.
 func (s *Service) DeletePage(ctx context.Context, actor string, id int64) error {
 	return s.write(ctx, actor, func(o *op) error {
-		pg, err := o.tx.GetPage(id)
+		pg, err := getPage(o.tx, id)
 		if err != nil {
-			return notFound("page %d not found", id)
+			return err
 		}
 		if err := o.tx.ReparentPages(id, pg.ParentID); err != nil {
 			return err
@@ -199,4 +248,156 @@ func (s *Service) DeletePage(ctx context.Context, actor string, id int64) error 
 		o.emit("page_changed", 0, pg.ProjectID)
 		return nil
 	})
+}
+
+var (
+	wikiLinkRe = regexp.MustCompile(`\[\[([^\[\]\n]+)\]\]`)
+	taskCodeRe = regexp.MustCompile(`\b[A-Z][A-Z0-9]{1,4}-\d+\b`)
+)
+
+type PageRef struct {
+	ID    int64  `json:"id"`
+	Title string `json:"title"`
+}
+
+type TaskRef struct {
+	Code  string `json:"code"`
+	Title string `json:"title"`
+}
+
+type PageDetail struct {
+	store.Page
+	Backlinks []PageRef `json:"backlinks"`
+	Links     struct {
+		Pages []PageRef `json:"pages"`
+		Tasks []TaskRef `json:"tasks"`
+	} `json:"links"`
+}
+
+type TaskPage struct {
+	ID      int64  `json:"id"`
+	Title   string `json:"title"`
+	Project string `json:"project"`
+}
+
+// parseLinks returns the distinct [[page]] titles (as titleKey) and task codes of a body.
+// shortcut: links inside fenced code are counted too; upgrade when it matters.
+func parseLinks(body string) (titles []string, codes []string) {
+	seen := map[string]bool{}
+	for _, m := range wikiLinkRe.FindAllStringSubmatch(body, -1) {
+		if k := titleKey(m[1]); k != "" && !seen[k] {
+			seen[k] = true
+			titles = append(titles, k)
+		}
+	}
+	for _, c := range taskCodeRe.FindAllString(body, -1) {
+		if !seen[c] {
+			seen[c] = true
+			codes = append(codes, c)
+		}
+	}
+	return titles, codes
+}
+
+func pageDetail(tx *store.Tx, pg store.Page) (PageDetail, error) {
+	d := PageDetail{Page: pg, Backlinks: []PageRef{}}
+	d.Links.Pages, d.Links.Tasks = []PageRef{}, []TaskRef{}
+	all, err := tx.ListPages(pg.ProjectID)
+	if err != nil {
+		return d, err
+	}
+	byKey := map[string]store.Page{}
+	self := titleKey(pg.Title)
+	for _, p := range all {
+		byKey[titleKey(p.Title)] = p
+		if p.ID == pg.ID {
+			continue
+		}
+		if titles, _ := parseLinks(p.BodyMD); contains(titles, self) {
+			d.Backlinks = append(d.Backlinks, PageRef{p.ID, p.Title})
+		}
+	}
+	titles, codes := parseLinks(pg.BodyMD)
+	for _, k := range titles {
+		if p, ok := byKey[k]; ok {
+			d.Links.Pages = append(d.Links.Pages, PageRef{p.ID, p.Title})
+		}
+	}
+	for _, c := range codes {
+		t, err := resolveTask(tx, c)
+		if err != nil {
+			var se *Error
+			if errors.As(err, &se) && (se.Code == "not_found" || se.Code == "validation") {
+				continue
+			}
+			return d, err
+		}
+		if t.DeletedAt == nil {
+			d.Links.Tasks = append(d.Links.Tasks, TaskRef{t.Code, t.Title})
+		}
+	}
+	return d, nil
+}
+
+func (s *Service) GetPage(ctx context.Context, id int64) (d PageDetail, err error) {
+	err = s.read(ctx, func(tx *store.Tx) error {
+		pg, err := getPage(tx, id)
+		if err != nil {
+			return err
+		}
+		d, err = pageDetail(tx, pg)
+		return err
+	})
+	return d, err
+}
+
+func (s *Service) GetPageByTitle(ctx context.Context, projectRef, title string) (d PageDetail, err error) {
+	err = s.read(ctx, func(tx *store.Tx) error {
+		p, err := resolveProject(tx, projectRef)
+		if err != nil {
+			return err
+		}
+		pg, err := tx.PageByTitleKey(p.ID, titleKey(title))
+		if errors.Is(err, store.ErrNotFound) {
+			return notFound("no page titled %q in this project", title)
+		}
+		if err != nil {
+			return err
+		}
+		d, err = pageDetail(tx, pg)
+		return err
+	})
+	return d, err
+}
+
+// TaskPages lists the pages (any project) whose body mentions the task's code.
+func (s *Service) TaskPages(ctx context.Context, taskRef string) (out []TaskPage, err error) {
+	out = []TaskPage{}
+	err = s.read(ctx, func(tx *store.Tx) error {
+		t, err := resolveTask(tx, taskRef)
+		if err != nil {
+			return err
+		}
+		if t.DeletedAt != nil {
+			return notFound("task %s not found", t.Code)
+		}
+		cand, err := tx.PagesContaining(t.Code)
+		if err != nil {
+			return err
+		}
+		for _, pg := range cand {
+			if !contains(taskCodeRe.FindAllString(pg.BodyMD, -1), t.Code) {
+				continue
+			}
+			p, err := tx.GetProject(pg.ProjectID)
+			if err != nil {
+				return err
+			}
+			if p.DeletedAt == nil {
+				out = append(out, TaskPage{pg.ID, pg.Title, p.Slug})
+			}
+		}
+		return nil
+	})
+	return out, err
 }
