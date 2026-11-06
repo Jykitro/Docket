@@ -427,6 +427,12 @@ export const MESSAGES: Record<string, [en: string, uk: string]> = {
     'Docket sends these rules to the agent itself when it connects. The skill makes them apply from the very first message.',
     'Docket сам надсилає агентові ці правила під час підключення. Навичка потрібна, щоб вони спрацьовували з першого повідомлення.',
   ],
+  'Установить одной командой': ['Install in one command', 'Встановити однією командою'],
+  'Команда скопирована': ['Command copied', 'Команду скопійовано'],
+  'Вставьте её в терминал: скрипт сам положит все три навыка и подключит Docket к Claude Code и Codex, какие найдёт. macOS и Linux. Claude Desktop настраивается конфигом выше.': [
+    'Paste it into a terminal: the script puts all three skills in place and connects Docket to whichever of Claude Code and Codex it finds. macOS and Linux. Claude Desktop is set up with the config above.',
+    'Вставте її в термінал: скрипт сам покладе всі три навички та підключить Docket до Claude Code і Codex, які знайде. macOS і Linux. Claude Desktop налаштовується конфігом вище.',
+  ],
   'Старт': ['Start', 'Старт'],
   'Ход работы': ['In progress', 'Хід роботи'],
   'Финиш': ['Finish', 'Фініш'],

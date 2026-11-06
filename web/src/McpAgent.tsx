@@ -5,7 +5,8 @@ import { tr } from './i18n'
 
 const PANEL = 'overflow-hidden rounded-xl border border-ln bg-sf'
 const BTN = 'inline-flex h-[30px] items-center gap-2 whitespace-nowrap rounded-md border border-ln bg-sf px-2.5 text-[13px] font-medium text-tx no-underline hover:bg-sk'
-const PRE = 'overflow-x-auto rounded-[10px] border border-ln bg-sf2 px-4 py-3 font-mono text-[12.5px] leading-[1.65] whitespace-pre text-t2'
+const PRI = 'inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-md border border-ink bg-ink px-3 text-sm font-medium text-inkt hover:opacity-90'
+const PRE ='overflow-x-auto rounded-[10px] border border-ln bg-sf2 px-4 py-3 font-mono text-[12.5px] leading-[1.65] whitespace-pre text-t2'
 const STEPS = [
   ['Старт', 'Находит или создаёт задачу, кладёт план чек-листом в описание и ставит «В работе».'],
   ['Ход работы', 'Отмечает шаги и пишет заметки. Найденные проблемы заводит задачами с областью issue.'],
@@ -36,7 +37,7 @@ const HOOK = `{
 // Claude Code: the project file. Codex: its global file (hooks are on by default there).
 const HOOK_PATH = ['.claude/settings.json', '', '~/.codex/hooks.json']
 
-export function McpAgent({ tab }: { tab: number }) {
+export function McpAgent({ tab, token }: { tab: number; token: () => Promise<string> }) {
   const [copied, setCopied] = useState('')
   const [error, setError] = useState('')
   const copy = async (what: string, text: () => string | Promise<string>) => {
@@ -54,6 +55,8 @@ export function McpAgent({ tab }: { tab: number }) {
     if (!r.ok) throw new Error(`${r.status} ${r.statusText}`)
     return r.text()
   }
+  // The server may sit in Docker and cannot reach the user's home, so the page hands over one command that does everything.
+  const install = async () => `curl -fsSL ${location.origin}/api/mcp/install.sh | DOCKET_URL=${location.origin}/mcp DOCKET_TOKEN=${await token()} sh`
   const path = SKILL_PATH[tab]
 
   return (
@@ -63,6 +66,12 @@ export function McpAgent({ tab }: { tab: number }) {
       </div>
       <div className="flex flex-col gap-4 px-5 pb-5">
         <p className="text-[13px] text-t3">{tr('Docket сам отправляет агенту эти правила при подключении. Навык нужен, чтобы они срабатывали с первого сообщения.')}</p>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-[10px] border border-ln bg-sf2 px-4 py-3">
+          <button type="button" className={PRI} onClick={() => copy('install', install)}>
+            <Icon name={copied === 'install' ? 'check' : 'spark'} size={15} />{copied === 'install' ? tr('Команда скопирована') : tr('Установить одной командой')}
+          </button>
+          <span className="min-w-0 flex-[1_1_260px] text-[12.5px] text-t3">{tr('Вставьте её в терминал: скрипт сам положит все три навыка и подключит Docket к Claude Code и Codex, какие найдёт. macOS и Linux. Claude Desktop настраивается конфигом выше.')}</span>
+        </div>
         <ol className="flex flex-col gap-1.5 text-[13px]">
           {STEPS.map(([name, text], i) => (
             <li key={name} className="flex gap-2.5">

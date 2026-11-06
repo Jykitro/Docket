@@ -213,8 +213,17 @@ Three skills in [`skills/`](skills), one `SKILL.md` each:
 | [`docket-setup`](skills/docket-setup/SKILL.md) | Connecting Claude Code, Claude Desktop and Codex, installing the skills, the hooks, troubleshooting |
 
 - Docket sends the body of `docket` to every client as the MCP server instructions, so a connected agent has the workflow already. A test keeps it under the 2048 bytes Claude Code accepts, which is why the detail lives in the other two skills.
-- To have the skills trigger from the first message, install them. The **MCP** tab has Copy and Download buttons, and the server
-  serves each at `/api/mcp/skill/<name>`. Claude Code reads `~/.claude/skills/<name>/SKILL.md`, Codex `~/.agents/skills/<name>/SKILL.md`:
+- To have the skills trigger from the first message, install them. The **MCP** tab has an **Install in one command** button: it
+  copies one line to paste into a terminal (macOS, Linux). The script writes all three skills for Claude Code (`~/.claude/skills`)
+  and Codex (`~/.agents/skills`) and registers the MCP server in whichever of the two it finds. It is served at
+  `/api/mcp/install.sh` and reads the address and token from `DOCKET_URL` and `DOCKET_TOKEN`, which the button fills in:
+
+  ```bash
+  curl -fsSL http://localhost:7777/api/mcp/install.sh | DOCKET_URL=http://localhost:7777/mcp DOCKET_TOKEN=<token> sh
+  ```
+
+  By hand, the same tab has Copy and Download buttons, and the server serves each skill at `/api/mcp/skill/<name>`.
+  Claude Code reads `~/.claude/skills/<name>/SKILL.md`, Codex `~/.agents/skills/<name>/SKILL.md`:
 
   ```bash
   for s in docket docket-reference docket-setup; do

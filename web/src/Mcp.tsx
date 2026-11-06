@@ -184,7 +184,7 @@ export function Mcp() {
             </div>
           </section>
 
-          <McpAgent tab={tab} />
+          <McpAgent tab={tab} token={fullToken} />
 
           <section className={PANEL}>
             <div className={PH_ROW + ' pb-3'}><h2 className={PH_H2}>{tr('Инструменты')}</h2><span className="text-[13px] text-t3">{tr('{n} из {total} включено', { n: enabled, total: s?.tools.length ?? 0 })}</span></div>

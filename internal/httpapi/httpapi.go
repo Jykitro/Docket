@@ -121,6 +121,7 @@ func Router(d Deps) http.Handler {
 		}
 		r.Get("/mcp/skill", skill)
 		r.Get("/mcp/skill/{name}", skill)
+		r.Get("/mcp/install.sh", InstallScript)
 		r.Get("/mcp/token", a.h(a.mcpToken))
 		r.Post("/mcp/token/rotate", a.h(a.mcpRotate))
 		r.Get("/mcp/calls", a.h(a.mcpCalls))
@@ -136,6 +137,13 @@ func Router(d Deps) http.Handler {
 	})
 	r.Handle("/*", d.Web)
 	return r
+}
+
+// InstallScript serves the one-line installer of the agent skills. It holds no secrets (the token comes from the
+// caller's environment), so selfhost serves it without a login too.
+func InstallScript(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "text/x-shellscript; charset=utf-8")
+	_, _ = io.WriteString(w, skills.InstallScript())
 }
 
 // HostGuard blocks DNS rebinding (Host allowlist) and browser CSRF (Origin allowlist on API writes).

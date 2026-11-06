@@ -309,6 +309,12 @@ func TestDocketSkillIsServedAndSentAsInstructions(t *testing.T) {
 			t.Errorf("skill %q: status %d, want 404", name, res.StatusCode)
 		}
 	}
+	res = do(t, "GET", e.srv.URL+"/api/mcp/install.sh", "", nil)
+	body, _ = io.ReadAll(res.Body)
+	res.Body.Close()
+	if res.StatusCode != 200 || !strings.HasPrefix(string(body), "#!/bin/sh\n") || !strings.Contains(string(body), "name: docket-setup") {
+		t.Fatalf("install.sh: %d %.40q", res.StatusCode, body)
+	}
 	ins := connect(t, e).InitializeResult().Instructions
 	if ins == "" || strings.Contains(ins, "name: docket") || len(ins) > 2048 {
 		t.Fatalf("instructions must be the skill body within 2048 bytes, got %d bytes", len(ins))

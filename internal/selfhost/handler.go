@@ -106,6 +106,7 @@ func Handler(o Options) http.Handler {
 	})
 	r.Handle("/api/admin", adminNotFound)
 	r.Handle("/api/admin/*", adminNotFound)
+	r.Get("/api/mcp/install.sh", httpapi.InstallScript) // public: no secrets, curl has no session
 	r.Handle("/api/*", http.HandlerFunc(h.api))
 	r.Handle("/mcp", http.HandlerFunc(h.mcp))
 	r.Handle("/*", o.Web)

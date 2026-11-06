@@ -69,6 +69,8 @@ The server already sends the `docket` workflow to every connected client as MCP 
 | Codex | `~/.agents/skills/<name>/SKILL.md` |
 | Claude Desktop | no folder: paste the text into the project instructions |
 
+Fastest on macOS and Linux: the MCP tab's "Install in one command" button copies one line. It installs all three skills and registers the server in Claude Code and Codex, whichever are in PATH. Codex still needs `DOCKET_MCP_TOKEN` in the shell profile; the script prints the line to add. The line is `curl -fsSL http://localhost:7777/api/mcp/install.sh | DOCKET_URL=http://localhost:7777/mcp DOCKET_TOKEN=<token> sh`; the script holds no secrets, so it is public even in selfhost mode. By hand:
+
 ```bash
 for s in docket docket-reference docket-setup; do
   mkdir -p ~/.claude/skills/$s     # Codex: ~/.agents/skills/$s
