@@ -166,6 +166,8 @@ func (t *Tx) ListDeletedProjects() ([]Project, error) {
 // PurgeProject physically removes a project with its tasks, notes, history and configuration.
 func (t *Tx) PurgeProject(id int64) (int64, error) {
 	for _, q := range []string{
+		`UPDATE pages SET parent_id = NULL WHERE project_id = ?`,
+		`DELETE FROM pages WHERE project_id = ?`,
 		`UPDATE tasks SET parent_id = NULL WHERE project_id = ?`,
 		`DELETE FROM notes WHERE task_id IN (SELECT id FROM tasks WHERE project_id = ?)`,
 		`DELETE FROM activity WHERE project_id = ?`,

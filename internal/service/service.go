@@ -25,7 +25,7 @@ const (
 	ActorClaude = "claude"
 )
 
-// Error is a client-facing error. Code: validation, not_found, status_in_use, forbidden, tool_disabled.
+// Error is a client-facing error. Code: validation, not_found, conflict, status_in_use, forbidden, tool_disabled.
 type Error struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
@@ -39,6 +39,10 @@ func invalid(format string, a ...any) error {
 
 func notFound(format string, a ...any) error {
 	return &Error{Code: "not_found", Message: fmt.Sprintf(format, a...)}
+}
+
+func conflict(format string, a ...any) error {
+	return &Error{Code: "conflict", Message: fmt.Sprintf(format, a...)}
 }
 
 type Service struct {
