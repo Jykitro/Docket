@@ -5,7 +5,6 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ApiError, type Me, api, ruError, useMe } from './api'
 import { Icon } from './icons'
 import { navigate, useRoute } from './router'
-import { useTheme } from './theme'
 import { btnPri, cap } from './ui'
 
 const inputCls = 'h-[38px] border border-ln rounded-md bg-sf px-3 text-[14px] text-tx focus:border-ring focus:ring-[3px] focus:ring-ring/50 focus:outline-none'
@@ -101,7 +100,6 @@ function AcceptInvite({ token }: { token: string }) {
 
 export function Gate({ children }: { children: ReactNode }) {
   const qc = useQueryClient()
-  const theme = useTheme()
   const me = useMe()
   const { path } = useRoute()
 
@@ -124,12 +122,18 @@ export function Gate({ children }: { children: ReactNode }) {
     if (loggedOut) qc.removeQueries({ predicate: (q) => q.queryKey[0] !== 'me' })
   }, [loggedOut, qc])
 
-  const wrap = (el: ReactNode) => <div className="min-h-screen bg-bg text-tx" data-theme={theme.resolved}>{el}</div>
-  if (me.isPending) return <div className="min-h-screen bg-bg" data-theme={theme.resolved} /> // no flash of the app
+  // App sets page-specific titles that would go stale behind the login screen.
+  const inApp = !loggedOut && (me.data?.mode === 'local' || !!me.data?.user)
+  useEffect(() => {
+    if (!inApp) document.title = 'Docket'
+  }, [inApp])
+
+  const wrap = (el: ReactNode) => <div className="min-h-screen bg-bg text-tx">{el}</div>
+  if (me.isPending) return <div className="min-h-screen bg-bg" /> // no flash of the app
   if (loggedOut) { // before the user check: v5 keeps stale data on error
     return wrap(path.startsWith('/invite/') ? <AcceptInvite token={path.slice('/invite/'.length)} /> : <Login />)
   }
-  if (me.data?.mode === 'local' || me.data?.user) return <>{children}</>
+  if (inApp) return <>{children}</>
   if (me.data?.setup) return wrap(<Setup />)
   return wrap(
     <main className="min-h-screen grid place-items-center px-4 text-center">
