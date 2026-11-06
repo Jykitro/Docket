@@ -144,3 +144,140 @@ func TestInvitesSchema(t *testing.T) {
 		}
 	}
 }
+
+func TestSetupAdmin(t *testing.T) {
+	d := openTest(t)
+	u, err := d.SetupAdmin("denis", "longenough1")
+	if err != nil || !u.IsAdmin {
+		t.Fatalf("got %+v, %v", u, err)
+	}
+	if _, err := d.SetupAdmin("other", "longenough1"); !errors.Is(err, ErrSetupDone) {
+		t.Fatalf("second setup: %v", err)
+	}
+	if n, err := d.UserCount(); err != nil || n != 1 {
+		t.Fatalf("count = %d, %v", n, err)
+	}
+}
+
+func newInviter(t *testing.T, d *DB) User {
+	t.Helper()
+	admin, err := d.SetupAdmin("admin", "longenough1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return admin
+}
+
+func TestInviteAccept(t *testing.T) {
+	d := openTest(t)
+	admin := newInviter(t, d)
+	tok, exp, err := d.NewInvite(admin.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := time.Now().Add(7 * 24 * time.Hour); exp.Sub(want).Abs() > time.Minute {
+		t.Fatalf("expires = %v, want ~%v", exp, want)
+	}
+	var n int
+	if err := d.db.QueryRow(`SELECT count(*) FROM invites WHERE token_hash = ?`, tok).Scan(&n); err != nil || n != 0 {
+		t.Fatalf("raw token stored: n=%d err=%v", n, err)
+	}
+	if inv, err := d.ListInvites(); err != nil || len(inv) != 1 {
+		t.Fatalf("ListInvites = %+v, %v", inv, err)
+	}
+	u, err := d.AcceptInvite(tok, "friend", "longenough2")
+	if err != nil || u.IsAdmin || u.Username != "friend" {
+		t.Fatalf("got %+v, %v", u, err)
+	}
+	if _, err := d.AcceptInvite(tok, "friend2", "longenough2"); !errors.Is(err, ErrInvalidInvite) {
+		t.Fatalf("second use: %v", err)
+	}
+	if inv, err := d.ListInvites(); err != nil || len(inv) != 0 {
+		t.Fatalf("used invite still listed: %+v, %v", inv, err)
+	}
+}
+
+func TestInviteExpired(t *testing.T) {
+	d := openTest(t)
+	admin := newInviter(t, d)
+	tok, _, err := d.NewInvite(admin.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	d.now = func() time.Time { return time.Now().Add(8 * 24 * time.Hour) }
+	if _, err := d.AcceptInvite(tok, "friend", "longenough2"); !errors.Is(err, ErrInvalidInvite) {
+		t.Fatalf("expired: %v", err)
+	}
+	if inv, err := d.ListInvites(); err != nil || len(inv) != 0 {
+		t.Fatalf("expired invite listed: %+v, %v", inv, err)
+	}
+}
+
+func TestInviteUnknownToken(t *testing.T) {
+	d := openTest(t)
+	if _, err := d.AcceptInvite("nope", "friend", "longenough2"); !errors.Is(err, ErrInvalidInvite) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestAcceptInviteTaken(t *testing.T) {
+	d := openTest(t)
+	admin := newInviter(t, d)
+	tok, _, err := d.NewInvite(admin.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := d.AcceptInvite(tok, "admin", "longenough2"); !errors.Is(err, ErrTaken) {
+		t.Fatalf("err = %v", err)
+	}
+	if _, err := d.AcceptInvite(tok, "friend", "longenough2"); err != nil {
+		t.Fatalf("invite should remain usable: %v", err)
+	}
+}
+
+func TestDeleteUserKillsSessions(t *testing.T) {
+	d := openTest(t)
+	newInviter(t, d)
+	u, err := mkUser(d, "victim", "longenough1", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tok, err := d.NewSession(u.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := d.DeleteUser(u.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := d.UserBySession(tok); err != ErrNotFound {
+		t.Fatalf("session survived: %v", err)
+	}
+	users, err := d.ListUsers()
+	if err != nil || len(users) != 1 || users[0].Username != "admin" {
+		t.Fatalf("users = %+v, %v", users, err)
+	}
+	if err := d.DeleteUser(u.ID); err != ErrNotFound {
+		t.Fatalf("second delete: %v", err)
+	}
+}
+
+func TestChangePassword(t *testing.T) {
+	d := openTest(t)
+	u := newInviter(t, d)
+	if err := d.ChangePassword(u.ID, "wrong-password", "newlongenough1"); err != ErrBadCredentials {
+		t.Fatalf("wrong old: %v", err)
+	}
+	var ve ValidationError
+	if err := d.ChangePassword(u.ID, "longenough1", "short"); !errors.As(err, &ve) {
+		t.Fatalf("short new: %v", err)
+	}
+	if err := d.ChangePassword(u.ID, "longenough1", "newlongenough1"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := d.Authenticate("admin", "longenough1"); err != ErrBadCredentials {
+		t.Fatalf("old password still works: %v", err)
+	}
+	if _, err := d.Authenticate("admin", "newlongenough1"); err != nil {
+		t.Fatalf("new password: %v", err)
+	}
+}
