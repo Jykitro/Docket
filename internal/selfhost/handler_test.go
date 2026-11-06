@@ -266,6 +266,22 @@ func TestLoginRateLimit(t *testing.T) {
 	}
 }
 
+func TestLoginOverlongUsername(t *testing.T) {
+	s := newServer(t)
+	s.addUser("alice")
+	wrong := s.login("alice", "wrong-password", nil)
+	long := strings.Repeat("a", 1000)
+	// The same name 20 times: through the limiter the 6th would be a 429, so all-401 shows it is not counted.
+	for i := 0; i < 20; i++ {
+		if rec := s.login(long, testPassword, nil); rec.Code != 401 || rec.Body.String() != wrong.Body.String() {
+			t.Fatalf("attempt %d: %d %s, want %d %s", i+1, rec.Code, rec.Body, wrong.Code, wrong.Body)
+		}
+	}
+	if rec := s.login("alice", testPassword, nil); rec.Code != 200 {
+		t.Fatalf("real login after over-long names: %d %s", rec.Code, rec.Body)
+	}
+}
+
 func TestLoginRateLimitParallel(t *testing.T) {
 	s := newServer(t)
 	s.addUser("aa")

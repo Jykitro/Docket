@@ -120,11 +120,16 @@ func (h *handler) login(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 400, "validation", "invalid JSON body")
 		return
 	}
+	name := strings.ToLower(strings.TrimSpace(in.Username))
+	if len(name) > 32 { // no valid username is longer; kept out of the limiter so junk names cannot grow its map
+		writeError(w, 401, "invalid_credentials", "invalid username or password")
+		return
+	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		host = r.RemoteAddr
 	}
-	key := host + "|" + strings.ToLower(strings.TrimSpace(in.Username))
+	key := host + "|" + name
 	if !h.limiter.Attempt(key) { // counted before the password check, so parallel guesses cannot outrun it
 		writeError(w, 429, "rate_limited", "too many failed attempts, try again later")
 		return
