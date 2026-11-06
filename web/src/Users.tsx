@@ -2,7 +2,7 @@
 // users and invites. Rendered by AppSettings only in self-host mode.
 import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { type AuthUser, api, ruError } from './api'
+import { ApiError, type AuthUser, api, ruError } from './api'
 import { Icon } from './icons'
 import { ConfirmButton, btn, btnPri, cap } from './ui'
 
@@ -42,6 +42,11 @@ function Invites() {
     mutationFn: api.createInvite,
     onSuccess: () => { setCopied(null); return qc.invalidateQueries({ queryKey: ['admin', 'invites'] }) }, // a new link drops the old copy state
   })
+  const revoke = useMutation({
+    // 404: already used, expired or revoked elsewhere; the refreshed list shows it.
+    mutationFn: (id: number) => api.revokeInvite(id).catch((e) => { if (!(e instanceof ApiError && e.code === 'not_found')) throw e }),
+    onSettled: () => qc.invalidateQueries({ queryKey: ['admin', 'invites'] }),
+  })
   const link = create.data && location.origin + create.data.url
   const field = useRef<HTMLInputElement>(null)
   useEffect(() => {
@@ -62,6 +67,7 @@ function Invites() {
       <div>
         <button type="button" className={btnPri} disabled={create.isPending} onClick={() => create.mutate()}><Icon name="plus" size={15} sw={2} />Создать приглашение</button>
       </div>
+      <span className="text-xs text-t3">Новое приглашение не отменяет прежние. Полная ссылка показывается только один раз.</span>
       {create.isError && <div className="text-rd text-[13px]" role="alert">{ruError(create.error)}</div>}
       {link && create.data && (
         <div className="flex flex-col gap-1.5">
@@ -74,11 +80,13 @@ function Invites() {
         </div>
       )}
       {pending.data?.map((i) => (
-        <div key={i.id} className={item}>
+        <div key={i.id} className={item + ' flex-wrap'}>
           <span className="grow">Создано {day(i.created_at)}</span>
           <span className="text-[12.5px] text-t3">до {when(i.expires_at)}</span>
+          <ConfirmButton className="shrink-0 p-0 text-[12.5px] text-t3 hover:text-rd" label="Отозвать" ariaLabel={`Отозвать приглашение от ${day(i.created_at)}`} armed="Отозвать приглашение?" disabled={revoke.isPending} onConfirm={() => revoke.mutate(i.id)} />
         </div>
       ))}
+      {revoke.isError && <div className="text-rd text-[13px]" role="alert">{ruError(revoke.error)}</div>}
       {pending.isPending && <span className="px-3 text-[12.5px] text-t3">Загрузка…</span>}
       {pending.data?.length === 0 && <span className="px-3 text-[12.5px] text-t3">Активных приглашений нет</span>}
     </div>

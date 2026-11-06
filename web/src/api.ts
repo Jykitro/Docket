@@ -113,6 +113,7 @@ export const api = {
   adminUsers: () => req<AuthUser[]>('GET', '/api/admin/users'),
   adminInvites: () => req<AdminInvite[]>('GET', '/api/admin/invites'),
   createInvite: () => req<NewInvite>('POST', '/api/admin/invites'),
+  revokeInvite: (id: number) => req<void>('DELETE', `/api/admin/invites/${id}`),
   deleteUser: (id: number) => req<void>('DELETE', `/api/admin/users/${id}`),
   profile: () => req<Profile>('GET', '/api/profile'),
   setProfile: (name: string) => req<Profile>('PUT', '/api/profile', { name }),
