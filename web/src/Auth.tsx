@@ -119,9 +119,15 @@ export function Gate({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('docket:unauthorized', reset)
   }, [qc])
 
+  // Whenever the login screen shows, drop every other query, even when the 401 came only from a `me` refetch (no event).
+  const loggedOut = me.error instanceof ApiError && me.error.code === 'unauthorized'
+  useEffect(() => {
+    if (loggedOut) qc.removeQueries({ predicate: (q) => q.queryKey[0] !== 'me' })
+  }, [loggedOut, qc])
+
   const wrap = (el: ReactNode) => <div className="min-h-screen bg-bg text-tx" data-theme={theme.resolved}>{el}</div>
   if (me.isPending) return <div className="min-h-screen bg-bg" data-theme={theme.resolved} /> // no flash of the app
-  if (me.error instanceof ApiError && me.error.code === 'unauthorized') { // before the user check: v5 keeps stale data on error
+  if (loggedOut) { // before the user check: v5 keeps stale data on error
     return wrap(path.startsWith('/invite/') ? <AcceptInvite token={path.slice('/invite/'.length)} /> : <Login />)
   }
   if (me.data?.mode === 'local' || me.data?.user) return <>{children}</>
