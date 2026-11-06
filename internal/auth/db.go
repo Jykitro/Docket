@@ -169,7 +169,11 @@ func (d *DB) NewSession(userID int64) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	_, err = d.db.Exec(`INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)`, hash, userID, d.now().Add(sessionTTL).Unix())
+	now := d.now()
+	if _, err := d.db.Exec(`DELETE FROM sessions WHERE expires_at <= ?`, now.Unix()); err != nil { // so expired rows do not pile up
+		return "", err
+	}
+	_, err = d.db.Exec(`INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)`, hash, userID, now.Add(sessionTTL).Unix())
 	if err != nil {
 		return "", err
 	}

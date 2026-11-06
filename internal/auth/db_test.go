@@ -126,6 +126,36 @@ func TestSessionLifecycle(t *testing.T) {
 	}
 }
 
+func TestNewSessionPurgesExpired(t *testing.T) {
+	d := openTest(t)
+	u, err := mkUser(d, "denis", "longenough1", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now()
+	d.now = func() time.Time { return now }
+	old, _ := d.NewSession(u.ID)
+	now = now.Add(sessionTTL) // old expires exactly now
+	fresh, err := d.NewSession(u.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var hashes []string
+	rows, err := d.db.Query(`SELECT token_hash FROM sessions`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var h string
+		rows.Scan(&h)
+		hashes = append(hashes, h)
+	}
+	if len(hashes) != 1 || hashes[0] != TokenHash(fresh) || hashes[0] == TokenHash(old) {
+		t.Fatalf("sessions left: %v", hashes)
+	}
+}
+
 func TestInvitesSchema(t *testing.T) {
 	d := openTest(t)
 	rows, err := d.db.Query(`SELECT name FROM pragma_table_info('invites')`)
