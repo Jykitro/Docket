@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -13,6 +14,8 @@ import (
 	"docket/internal/events"
 	"docket/internal/service"
 	"docket/internal/store"
+
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // Handler panics at startup when a service.MCPTools entry has no registration (or the reverse); this builds
@@ -33,7 +36,7 @@ func TestWikiToolsOverMCP(t *testing.T) {
 	call := func(tool, args string) string {
 		t.Helper()
 		id++
-		body := `{"jsonrpc":"2.0","id":` + string(rune('0'+id)) + `,"method":"tools/call","params":{"name":"` + tool + `","arguments":` + args + `}}`
+		body := `{"jsonrpc":"2.0","id":` + strconv.Itoa(id) + `,"method":"tools/call","params":{"name":"` + tool + `","arguments":` + args + `}}`
 		r := httptest.NewRequest("POST", "/", strings.NewReader(body))
 		r.Header.Set("Content-Type", "application/json")
 		r.Header.Set("Accept", "application/json, text/event-stream")
@@ -78,5 +81,29 @@ func TestWikiToolsOverMCP(t *testing.T) {
 	}
 	if out = call("write_page", `{"project":"p","title":"Kid","body_md":"x","expected_updated_at":"2000-01-01T00:00:00.000Z"}`); !strings.HasPrefix(out, "ERR conflict:") {
 		t.Fatalf("stale write: %s", out)
+	}
+	calls, err := svc.ListMCPCalls(context.Background(), "error", 10)
+	if err != nil || len(calls) == 0 || calls[0].ErrorCode == nil || *calls[0].ErrorCode != "conflict" {
+		t.Fatalf("logged conflict: %v %+v", err, calls)
+	}
+	appended, err := svc.ListMCPCalls(context.Background(), "write", 50)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range appended {
+		if c.Tool == "append_to_page" && !strings.Contains(c.ArgsSummary, `"title":"kid"`) {
+			t.Fatalf("append_to_page summary lost the title: %s", c.ArgsSummary)
+		}
+	}
+}
+
+func TestResultCodeAndSummarize(t *testing.T) {
+	conflict := &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: "conflict: page changed"}}}
+	if got := resultCode(conflict, nil); got != "conflict" {
+		t.Errorf("resultCode = %q, want conflict", got)
+	}
+	got := summarize(json.RawMessage(`{"title":"Log","text":"long appended text","body_md":"b"}`))
+	if strings.Contains(got, "appended") || strings.Contains(got, `"b"`) || !strings.Contains(got, `"title":"Log"`) {
+		t.Errorf("summarize = %s", got)
 	}
 }

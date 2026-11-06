@@ -151,7 +151,7 @@ func call(ctx context.Context, svc *service.Service, method string, req mcp.Requ
 }
 
 var knownCodes = map[string]bool{"not_found": true, "invalid_argument": true, "forbidden": true, "tool_disabled": true,
-	"status_in_use": true, "internal": true}
+	"status_in_use": true, "conflict": true, "internal": true}
 
 // resultCode returns "" for a successful call, else the error code taken from the "code: message" text.
 func resultCode(res mcp.Result, err error) string {
@@ -183,7 +183,7 @@ func summarize(raw json.RawMessage) string {
 		switch t := x.(type) {
 		case map[string]any:
 			for k, e := range t {
-				if k == "description_md" || k == "body_md" {
+				if k == "description_md" || k == "body_md" || k == "text" {
 					t[k] = "…"
 				} else {
 					t[k] = strip(e)
