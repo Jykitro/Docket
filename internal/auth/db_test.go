@@ -264,15 +264,29 @@ func TestDeleteUserKillsSessions(t *testing.T) {
 func TestChangePassword(t *testing.T) {
 	d := openTest(t)
 	u := newInviter(t, d)
-	if err := d.ChangePassword(u.ID, "wrong-password", "newlongenough1"); err != ErrBadCredentials {
+	if err := d.ChangePassword(u.ID, "wrong-password", "newlongenough1", ""); err != ErrBadCredentials {
 		t.Fatalf("wrong old: %v", err)
 	}
 	var ve ValidationError
-	if err := d.ChangePassword(u.ID, "longenough1", "short"); !errors.As(err, &ve) {
+	if err := d.ChangePassword(u.ID, "longenough1", "short", ""); !errors.As(err, &ve) {
 		t.Fatalf("short new: %v", err)
 	}
-	if err := d.ChangePassword(u.ID, "longenough1", "newlongenough1"); err != nil {
+	keep, err := d.NewSession(u.ID)
+	if err != nil {
 		t.Fatal(err)
+	}
+	other, err := d.NewSession(u.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := d.ChangePassword(u.ID, "longenough1", "newlongenough1", keep); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := d.UserBySession(other); err != ErrNotFound {
+		t.Fatalf("other session survived the change: %v", err)
+	}
+	if got, err := d.UserBySession(keep); err != nil || got.ID != u.ID {
+		t.Fatalf("kept session: %+v %v", got, err)
 	}
 	if _, err := d.Authenticate("admin", "longenough1"); err != ErrBadCredentials {
 		t.Fatalf("old password still works: %v", err)
