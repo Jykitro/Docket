@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
@@ -86,7 +87,7 @@ func runSelfHost(ctx context.Context, cfg config.Config) error {
 	}
 	ad, err := auth.Open(filepath.Join(cfg.DataDir, "auth.db"))
 	if err != nil {
-		return err
+		return fmt.Errorf("open auth database: %w", err)
 	}
 	defer ad.Close()
 
@@ -105,7 +106,7 @@ func runSelfHost(ctx context.Context, cfg config.Config) error {
 	}
 	for _, u := range users {
 		if _, err := ws.Open(ctx, u); err != nil {
-			return err
+			return fmt.Errorf("open workspace for user %d (%s): %w", u.ID, u.Username, err)
 		}
 	}
 	go maintainAll(ctx, ws, cfg.BackupDir)
