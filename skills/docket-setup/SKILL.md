@@ -55,7 +55,7 @@ bearer_token_env_var = "DOCKET_MCP_TOKEN"
 }
 ```
 
-Check it: ask the assistant to call `list_projects`. Twelve tools should be listed (five read, seven write); fewer means some are switched off on the MCP tab.
+Check it: ask the assistant to call `list_projects`. Sixteen tools exist (seven read, nine write) and `delete_tasks` is off by default, so a fresh install lists fifteen; fewer means some are switched off on the MCP tab.
 
 **Docket on a server or in selfhost mode:** use its public address instead of `localhost:7777`, for example `https://docket.example.com/mcp`, and the token from your own MCP tab. For Claude Desktop with an `https` address drop `--allow-http` (it is only for plain `http`). Put the host name (no scheme, no port) in `DOCKET_ALLOWED_HOSTS` in `.env` and restart the container, or every call gets `403`. TLS is the reverse proxy's job; the README's Self-host section explains it. Re-adding a server after a token change needs a remove first: `claude mcp remove docket` or `codex mcp remove docket`.
 
