@@ -82,7 +82,8 @@ function PageEditor({ page, c, dirty, onDone }: { page: Page; c: Ctx; dirty: Ref
       })
     },
     onSuccess: (p, v) => {
-      load(p)
+      // Only the baseline moves: characters typed while the request was in flight stay in the draft (and keep it dirty).
+      setOrig(p); setConflict(false); setError('')
       qc.setQueryData<PageDetail>(['page', page.id], (old) => old && { ...old, ...p })
       qc.invalidateQueries()
       if (v.close) onDone()
@@ -140,13 +141,13 @@ function PageArea({ id, c, dirty, startEdit }: { id: number; c: Ctx; dirty: RefO
   const tasks = useMemo(() => [...(dq.data?.links.tasks ?? []), ...c.tasks], [dq.data, c.tasks])
   const cc = { ...c, tasks }
 
+  const notFound = <EmptyState icon="doc" title={tr('Страница не найдена')} action={<Link to={base} className={btn}>{tr('Вики')}</Link>} />
   if (dq.isPending) return <SkeletonRows n={5} />
   if (dq.isError) {
-    return dq.error instanceof ApiError && dq.error.code === 'not_found'
-      ? <EmptyState icon="doc" title={tr('Страница не найдена')} action={<Link to={base} className={btn}>{tr('Вики')}</Link>} />
-      : <ErrorState message={dq.error.message} onRetry={() => dq.refetch()} />
+    return dq.error instanceof ApiError && dq.error.code === 'not_found' ? notFound : <ErrorState message={dq.error.message} onRetry={() => dq.refetch()} />
   }
   const d = dq.data
+  if (d.project_id !== c.project.id) return notFound // an id from another project
   if (editing) return <PageEditor key={d.id} page={d} c={cc} dirty={dirty} onDone={() => setEditing(false)} />
   return (
     <div className="flex flex-col gap-4 p-5 max-[640px]:p-4">
