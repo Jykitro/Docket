@@ -102,7 +102,10 @@ export const api = {
   me: () => req<Me>('GET', '/api/auth/me'),
   login: (username: string, password: string) => req<AuthUser>('POST', '/api/auth/login', { username, password }),
   // Same signal as an expired session: the gate drops cached data and re-asks who we are.
-  logout: () => req<void>('POST', '/api/auth/logout').then(() => { window.dispatchEvent(new Event('docket:unauthorized')) }),
+  // An already-expired session (401) is the state logout wants anyway, so it is not an error.
+  logout: () => req<void>('POST', '/api/auth/logout')
+    .catch((e) => { if (!(e instanceof ApiError && e.code === 'unauthorized')) throw e })
+    .then(() => { window.dispatchEvent(new Event('docket:unauthorized')) }),
   setup: (code: string, username: string, password: string) => req<AuthUser>('POST', '/api/auth/setup', { code, username, password }),
   acceptInvite: (token: string, username: string, password: string) =>
     req<AuthUser>('POST', `/api/auth/invite/${encodeURIComponent(token)}`, { username, password }),
