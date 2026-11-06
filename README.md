@@ -1,71 +1,129 @@
 # Docket
 
-Личный планировщик задач. Работает локально в Docker: один контейнер, один Go-процесс, одна SQLite-база.
-Задачи ведёт Claude через MCP, владелец смотрит и правит их в веб-интерфейсе. Оба канала идут через один
-сервисный слой, поэтому валидация, история изменений и live-обновления у них одинаковые.
+A personal task planner that runs locally in Docker: one container, one Go process, one SQLite database.
+Claude manages tasks over [MCP](https://modelcontextprotocol.io); you review and edit them in the web UI.
+Both channels go through the same service layer, so validation, change history and live updates behave identically.
 
-Без пользователей, логина и внешних сервисов: интерфейс не обращается ни к каким внешним хостам (шрифты встроены).
+No users, no login, no external services. The UI never talks to an outside host (fonts are bundled).
 
-## Запуск
+<p align="center">
+  <img src="docs/images/today-dark.png" alt="The Today screen: day plan, progress bar, tasks grouped by project and the activity feed" width="820">
+</p>
+
+> The interface is in Russian. The screenshots show demo data, not real projects.
+
+## Contents
+
+- [Features](#features)
+- [Quick start](#quick-start)
+- [Configuration](#configuration)
+- [Using the UI](#using-the-ui)
+- [Connecting Claude (MCP)](#connecting-claude-mcp)
+- [Development](#development)
+- [REST API](#rest-api)
+- [Troubleshooting](#troubleshooting)
+
+## Features
+
+- **Today view.** Day plan, overdue tasks, progress, recent activity and MCP status in one place.
+- **Kanban board and list.** Per-project statuses, drag and drop, filters, grouping, sorting and saved views.
+- **Rich tasks.** Markdown description with clickable checkboxes, subtasks, notes and a full change history.
+- **Claude as a teammate.** 12 MCP tools, a read-only mode, per-tool switches and an audit log of every call.
+- **Live updates.** Changes made over MCP show up in the browser immediately (server-sent events).
+- **Safe by default.** Bound to `127.0.0.1`, `Host` and `Origin` checks, bearer token for `/mcp`.
+- **Easy to keep.** A single SQLite file, automatic daily backups, a trash bin and a full JSON export.
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/images/board-light.png" alt="Project board with columns per status"><br><sub><b>Board.</b> Columns per status, filters, grouping and saved views.</sub></td>
+    <td width="50%"><img src="docs/images/task-light.png" alt="Task panel with properties and a markdown description"><br><sub><b>Task panel.</b> Properties, markdown with checkboxes, subtasks, notes and history.</sub></td>
+  </tr>
+</table>
+
+## Quick start
+
+Requirements: [Docker](https://docs.docker.com/get-docker/). [`make`](https://www.gnu.org/software/make/) is optional but convenient.
 
 ```bash
-make rebuild   # создаст .env из .env.example, соберёт образ docket:local и (пере)запустит контейнер
+make rebuild   # creates .env from .env.example, builds the docket:local image and (re)starts the container
 ```
 
-Та же команда пересобирает и перезапускает контейнер после изменений кода; данные в `./data` остаются.
-Остальное: `make logs`, `make stop`, `make help`. Без `make` то же самое делают `docker build -t docket:local .` и
-`docker run -d --name docket --env-file .env -p 127.0.0.1:7777:7777 -v "$PWD/data:/data" --restart unless-stopped docket:local`.
+The same command rebuilds and restarts the container after you change the code; your data in `./data` is kept.
+Other targets: `make logs`, `make stop`, `make help`.
 
-Открыть: <http://docket.localhost:7777> (Chrome сам резолвит `*.localhost`; для других браузеров подойдёт
-<http://localhost:7777>). Проверка: `curl localhost:7777/healthz`.
+Without `make`, run the equivalent commands:
 
-- Порт опубликован только на `127.0.0.1`.
-- Запросы с чужим `Host` получают 403, пишущие запросы к `/api` с чужим `Origin` тоже 403 (защита от DNS-rebinding и CSRF).
-- База: `./data/docket.db`. Бэкап (`VACUUM INTO`) при старте и раз в сутки в `./data/backups`, хранятся последние 14.
-- Seed: если в базе нет ни одного проекта, при старте импортируется `seed/seed.json` (проекты по `slug`, задачи по
-  `external_id`, автор `claude`). Повторный запуск дублей не создаёт.
+```bash
+cp .env.example .env
+docker build -t docket:local .
+docker run -d --name docket --env-file .env -p 127.0.0.1:7777:7777 \
+  -v "$PWD/data:/data" --restart unless-stopped docket:local
+```
 
-### Конфигурация (`.env`)
+Open <http://docket.localhost:7777> (Chrome resolves `*.localhost` on its own; other browsers can use
+<http://localhost:7777>). Health check: `curl localhost:7777/healthz`.
 
-| Переменная | По умолчанию | Что делает |
+On the first run with an empty database Docket asks for your name and a first project, then drops you into the app.
+
+### What to know
+
+- The port is published on `127.0.0.1` only.
+- Requests with a foreign `Host` get `403`, and write requests to `/api` with a foreign `Origin` also get `403`
+  (protection against DNS rebinding and CSRF).
+- Data lives in `./data/docket.db`. A backup (`VACUUM INTO`) is written at startup and once a day to `./data/backups`;
+  the last 14 are kept.
+- Seed data: if the database has no projects, `seed/seed.json` is imported at startup (projects by `slug`, tasks by
+  `external_id`, author `claude`). Running it again does not create duplicates.
+
+## Configuration
+
+Settings are read from `.env` (see `.env.example`):
+
+| Variable | Default | Description |
 |---|---|---|
-| `DOCKET_ADDR` | `:7777` | адрес сервера внутри контейнера |
-| `DOCKET_DB` | `/data/docket.db` | файл базы |
-| `DOCKET_BACKUP_DIR` | `/data/backups` | куда писать бэкапы |
-| `DOCKET_MCP_TOKEN` | пусто | необязательно: если задан, он главнее токена из базы, а перевыпуск в UI отключён |
-| `DOCKET_ALLOWED_HOSTS` | `localhost,127.0.0.1,docket.localhost` | разрешённые `Host` и `Origin` |
-| `DOCKET_SEED` | `/app/seed/seed.json` | файл начальных данных |
-| `TZ` | `Asia/Ho_Chi_Minh` | часовой пояс, в котором считается «сегодня» |
+| `DOCKET_ADDR` | `:7777` | Server address inside the container |
+| `DOCKET_DB` | `/data/docket.db` | Database file |
+| `DOCKET_BACKUP_DIR` | `/data/backups` | Where backups are written |
+| `DOCKET_MCP_TOKEN` | empty | Optional. If set, it takes precedence over the token stored in the database and rotating it in the UI is disabled |
+| `DOCKET_ALLOWED_HOSTS` | `localhost,127.0.0.1,docket.localhost` | Allowed `Host` and `Origin` values |
+| `DOCKET_SEED` | `/app/seed/seed.json` | Initial data file |
+| `TZ` | `Asia/Ho_Chi_Minh` | Time zone used to decide what "today" is |
 
-## Что есть в интерфейсе
+## Using the UI
 
-| Экран | Адрес | Что делает |
+| Screen | Address | What it does |
 |---|---|---|
-| Сегодня | `/` | план на день, просроченное, прогресс, активность, статус MCP; кружок статуса циклит todo → doing → done |
-| Доска проекта | `/p/:slug` | колонки по статусам проекта, перетаскивание, фильтры, группировка, сортировка, вкладка «Список», сохранённые виды |
-| Панель задачи | `?task=TRK-07`, `/t/TRK-07` | свойства, markdown-описание с кликабельными чекбоксами, подзадачи, заметки, история |
-| Настройки проекта | `/p/:slug/settings` | иконка, цвет, ключ, статусы, метки, свои поля, виды, экспорт, архив, удаление |
-| MCP | `/mcp` | статус и самопроверка, адрес и токен, режим доступа, переключатели инструментов, журнал вызовов |
-| Корзина | `/trash` | восстановление задач и проектов, очистка |
+| Today | `/` | Day plan, overdue tasks, progress, activity and MCP status; the status circle cycles todo → doing → done |
+| Project board | `/p/:slug` | Columns per project status, drag and drop, filters, grouping, sorting, a list tab and saved views |
+| Task panel | `?task=TRK-07`, `/t/TRK-07` | Properties, markdown description with clickable checkboxes, subtasks, notes and history |
+| Project settings | `/p/:slug/settings` | Icon, colour, key, statuses, labels, custom fields, views, export, archive and delete |
+| MCP | `/mcp` | Status and self-check, address and token, access mode, tool switches and the call log |
+| Trash | `/trash` | Restore tasks and projects, or empty the trash |
 
-Горячие клавиши: `C` новая задача, `⌘K` / `Ctrl+K` поиск, `Esc` закрывает панель, поиск и диалоги.
-Тема (светлая, тёмная, как в системе) переключается в футере сайдбара.
+**Keyboard:** `C` creates a task, `⌘K` / `Ctrl+K` opens search, `Esc` closes the panel, search and dialogs.
 
-Задачи имеют ID вида `TRK-07`: ключ проекта и номер. Номера не переиспользуются. Ключ можно сменить в настройках проекта,
-все ID пересчитаются, но старые ссылки с прежним ключом перестанут работать.
+**Layout and theme:** the top bar collapses the sidebar to an icon rail (a drawer on narrow screens) and switches the
+theme between light, dark and system.
 
-## Подключение Claude (MCP)
+**Task IDs** look like `TRK-07`: the project key plus a number. Numbers are never reused. You can change a project key in
+its settings and every ID is renumbered, but old links that use the previous key stop working.
 
-На первом старте Docket сам создаёт токен `dkt_…`, пишет его в лог один раз и хранит в базе. Дальше он виден
-(маской, с кнопкой «Показать») на вкладке **MCP**, там же его можно перевыпустить и скопировать готовый конфиг.
+## Connecting Claude (MCP)
 
-Claude Code:
+On the first start Docket creates a `dkt_…` token, prints it to the log once and stores it in the database. After that it
+is shown (masked, with a "Show" button) on the **MCP** tab, where you can also rotate it and copy a ready-made config.
+
+<p align="center">
+  <img src="docs/images/mcp-dark.png" alt="The MCP tab: self-check, server address, token and access mode" width="820">
+</p>
+
+**Claude Code:**
 
 ```bash
 claude mcp add --transport http docket http://localhost:7777/mcp --header "Authorization: Bearer <TOKEN>"
 ```
 
-Claude Desktop (`claude_desktop_config.json`):
+**Claude Desktop** (`claude_desktop_config.json`):
 
 ```json
 {
@@ -80,75 +138,93 @@ Claude Desktop (`claude_desktop_config.json`):
 }
 ```
 
-Инструменты (12). В ответах задачи называются по ID (`TRK-07`), `project` принимает ключ, slug или id, статус задаётся ключом.
+### Tools
 
-| Чтение | Запись |
+There are 12 tools. Tasks are referred to by ID (`TRK-07`) in responses, `project` accepts a key, a slug or an id, and a
+status is given by its key.
+
+| Read | Write |
 |---|---|
-| `list_projects`, `get_board`, `get_today`, `get_task`, `search` | `create_project`, `create_tasks` (до 100 за раз, эпик с подзадачами через `ref`/`parent_ref`, идемпотентно по `external_id`), `update_task`, `move_tasks`, `add_note`, `carry_over`, `delete_tasks` |
+| `list_projects`, `get_board`, `get_today`, `get_task`, `search` | `create_project`, `create_tasks` (up to 100 at a time, epics with subtasks via `ref`/`parent_ref`, idempotent by `external_id`), `update_task`, `move_tasks`, `add_note`, `carry_over`, `delete_tasks` |
 
-- `delete_tasks` по умолчанию **выключен**; он только отправляет задачи в корзину, окончательно очищает её владелец в UI.
-- Режим «Только чтение» оставляет только инструменты чтения; запись возвращает `forbidden`. Выключенный инструмент
-  не виден в `tools/list`, а вызов по имени возвращает `tool_disabled`.
-- Каждый вызов попадает в журнал (инструмент, краткие аргументы, время, результат), журнал хранится 7 дней.
-- Неизвестная область у задачи создаёт метку проекта сама; в `create_tasks` и `update_task` можно передавать значения
-  своих полей по имени (`custom`).
+- `delete_tasks` is **off** by default. It only moves tasks to the trash; the owner empties the trash in the UI.
+- Read-only mode keeps only the read tools; writes return `forbidden`. A disabled tool is hidden from `tools/list`, and
+  calling it by name returns `tool_disabled`.
+- Every call is logged (tool, short arguments, duration, result). The log is kept for 7 days.
+- An unknown area on a task creates a project label automatically. `create_tasks` and `update_task` accept values for custom
+  fields by name (`custom`).
 
-## Разработка
+## Development
+
+Requirements: Go (see `go.mod`), [Bun](https://bun.sh) and `make`.
 
 ```bash
-go test ./...                     # бэкенд (тесты HTTP открывают порт на localhost)
-cd web && bun install && bun run build # tsc --noEmit + vite build → internal/web/dist
+make install   # frontend dependencies (bun install --frozen-lockfile)
+make check     # typecheck + Knip (unused code and dependencies) + Go tests
 ```
 
-Для фронта с hot reload запустите бэкенд и `cd web && bun run dev` (Vite проксирует `/api` на `:7777`):
+Go tests open a port on localhost. Run `make help` for every target:
 
-```bash
-DOCKET_DB=./data/dev.db DOCKET_BACKUP_DIR=./data/backups DOCKET_SEED=./seed/seed.json go run ./cmd/docket
-```
-
-```
-cmd/docket          конфиг, wiring, graceful shutdown, обслуживание (бэкап и чистка журнала раз в сутки)
-internal/store      SQLite, миграции (migrations/*.sql), весь SQL
-internal/service    правила домена, валидация, activity, события, MCP-настройки
-internal/httpapi    REST, SSE /api/events, host/origin guard, bearer для /mcp, самопроверка MCP
-internal/mcpserver  MCP-инструменты → service, политика доступа и журнал вызовов
-internal/events     pub/sub для SSE
-internal/web        встроенный SPA (dist)
-web/                React + TypeScript + Vite
-docs/design/        исходные макеты и токены
-```
-
-Правило слоёв: `httpapi` и `mcpserver` вызывают только `service`, SQL живёт только в `store`.
-
-### REST
-
-Все запросы выполняются от имени `denis`. Ошибки приходят как `{"error": {"code", "message"}}`
-(`validation` 400, `not_found` 404, `status_in_use` 409, `forbidden` 403). Задачу в пути можно указать кодом (`TRK-07`) или id.
-
-| Метод и путь | Назначение |
+| Target | What it does |
 |---|---|
-| `GET/POST /api/projects`, `PATCH/DELETE /api/projects/:id` | проекты; `DELETE` уводит в корзину |
-| `POST /api/projects/:id/archive`, `POST /api/projects/:id/restore`, `GET /api/projects/:id/export` | архив, возврат из корзины, JSON-экспорт |
-| `GET/POST /api/projects/:id/statuses`, `PATCH/DELETE /api/statuses/:id`, `POST …/statuses/reorder` | статусы; `DELETE ?move_to=<id>` переносит задачи |
-| `GET/POST /api/projects/:id/labels`, `PATCH/DELETE /api/labels/:id` | метки областей |
-| `GET/POST /api/projects/:id/fields`, `PATCH/DELETE /api/fields/:id` | свои поля (`number`, `url`, `select`) |
-| `GET/POST /api/views?project=`, `PATCH/DELETE /api/views/:id` | сохранённые виды |
-| `GET /api/today?date=` | задачи на дату, просроченные и последняя активность |
-| `GET /api/tasks?project=&status=&planned_for=&area=&created_by=&q=&parent=&include_done=1` | список |
-| `POST /api/tasks`, `GET/PATCH/DELETE /api/tasks/:id` | CRUD; `planned_for: ""` очищает дату |
-| `POST /api/tasks/:id/move` | `{status, before_id?, after_id?, project_id?}` (перетаскивание) |
-| `POST /api/tasks/:id/restore`, `POST /api/tasks/:id/notes`, `POST /api/tasks/carry-over` | восстановление, заметка, перенос с даты на дату |
-| `GET /api/search?q=&scope=all\|tasks\|projects` | задачи по названию, по описанию (со сниппетом), проекты |
-| `GET /api/trash`, `GET /api/trash/projects`, `DELETE /api/trash` | корзина и её очистка (физическое удаление) |
-| `GET /api/mcp/status`, `POST /api/mcp/check`, `GET/PATCH /api/mcp/settings` | статус, самопроверка, режим и переключатели |
-| `GET /api/mcp/token`, `POST /api/mcp/token/rotate`, `GET/DELETE /api/mcp/calls` | токен, перевыпуск, журнал |
+| `make web` | Frontend build: `tsc --noEmit` and `vite build` into `internal/web/dist` |
+| `make build` | Builds `bin/docket` with the UI embedded |
+| `make test` | Backend tests (`go test ./...`) |
+| `make typecheck`, `make knip` | Frontend checks |
+| `make dev-api` | Backend on `:7777` with a separate `./data/dev.db` |
+| `make dev-web` | Vite with hot reload (proxies `/api` to `:7777`) |
+| `make image`, `make rebuild`, `make stop`, `make logs` | Docker image and container |
+| `make clean` | Removes `bin/` and the built frontend |
+
+For frontend work with hot reload, run `make dev-api` in one terminal and `make dev-web` in another.
+
+### Project layout
+
+```
+cmd/docket          config, wiring, graceful shutdown, housekeeping (daily backup and call-log cleanup)
+internal/store      SQLite, migrations (migrations/*.sql), all SQL
+internal/service    domain rules, validation, activity, events, MCP settings
+internal/httpapi    REST, SSE /api/events, host/origin guard, bearer auth for /mcp, MCP self-check
+internal/mcpserver  MCP tools → service, access policy and call log
+internal/events     pub/sub for SSE
+internal/web        embedded SPA (dist)
+web/                React + TypeScript + Vite + Tailwind CSS v4 (shadcn-admin look)
+docs/design/        original mockups (the shipped UI follows the tokens in web/src/styles.css)
+```
+
+Layering rule: `httpapi` and `mcpserver` call only `service`, and SQL lives only in `store`.
+
+## REST API
+
+All requests are performed on behalf of the human actor (stored as `denis`; the UI shows the profile name). Errors come as
+`{"error": {"code", "message"}}` (`validation` 400, `not_found` 404, `status_in_use` 409, `forbidden` 403). A task in the
+path can be given by code (`TRK-07`) or by id.
+
+| Method and path | Purpose |
+|---|---|
+| `GET/POST /api/projects`, `PATCH/DELETE /api/projects/:id` | Projects; `DELETE` moves a project to the trash |
+| `POST /api/projects/:id/archive`, `POST /api/projects/:id/restore`, `GET /api/projects/:id/export` | Archive, restore from the trash, JSON export |
+| `GET/POST /api/projects/:id/statuses`, `PATCH/DELETE /api/statuses/:id`, `POST …/statuses/reorder` | Statuses; `DELETE ?move_to=<id>` moves the tasks |
+| `GET/POST /api/projects/:id/labels`, `PATCH/DELETE /api/labels/:id` | Area labels |
+| `GET/POST /api/projects/:id/fields`, `PATCH/DELETE /api/fields/:id` | Custom fields (`number`, `url`, `select`) |
+| `GET/POST /api/views?project=`, `PATCH/DELETE /api/views/:id` | Saved views |
+| `GET /api/today?date=` | Tasks for a date, overdue tasks and recent activity |
+| `GET /api/tasks?project=&status=&planned_for=&area=&created_by=&q=&parent=&include_done=1` | Task list |
+| `POST /api/tasks`, `GET/PATCH/DELETE /api/tasks/:id` | CRUD; `planned_for: ""` clears the date |
+| `POST /api/tasks/:id/move` | `{status, before_id?, after_id?, project_id?}` (drag and drop) |
+| `POST /api/tasks/:id/restore`, `POST /api/tasks/:id/notes`, `POST /api/tasks/carry-over` | Restore, add a note, move tasks from one date to another |
+| `GET /api/search?q=&scope=all\|tasks\|projects` | Tasks by title and description (with a snippet), and projects |
+| `GET /api/trash`, `GET /api/trash/projects`, `DELETE /api/trash` | Trash and emptying it (physical delete) |
+| `GET /api/mcp/status`, `POST /api/mcp/check`, `GET/PATCH /api/mcp/settings` | Status, self-check, mode and tool switches |
+| `GET /api/mcp/token`, `POST /api/mcp/token/rotate`, `GET/DELETE /api/mcp/calls` | Token, rotation, call log |
+| `GET/PUT /api/profile` | Display name (an empty name means first run) |
 | `GET /api/events` | SSE: `{type, task_id?, project_id?, actor}` |
-| `GET /api/export`, `GET /healthz` | полный дамп, проверка живости |
+| `GET /api/export`, `GET /healthz` | Full dump, liveness check |
 
-## Если что-то не работает
+## Troubleshooting
 
-- **`/mcp` отвечает 401.** Нужен заголовок `Authorization: Bearer <TOKEN>`; токен смотрите на вкладке MCP. Вкладка **MCP**
-  в браузере открывается без токена: для запросов с `Accept: text/html` отдаётся интерфейс.
-- **403 `forbidden_host`.** Добавьте имя хоста в `DOCKET_ALLOWED_HOSTS` и перезапустите контейнер.
-- **Самопроверка красная.** Каждая строка на вкладке MCP объясняет, что делать; логи: `make logs` (или `docker logs docket`).
-- **Начать с нуля.** Остановите контейнер и удалите `./data/docket.db*`; бэкапы лежат в `./data/backups`.
+- **`/mcp` returns 401.** You need the header `Authorization: Bearer <TOKEN>`; find the token on the MCP tab. The **MCP**
+  page itself opens in a browser without a token: requests with `Accept: text/html` get the UI.
+- **403 `forbidden_host`.** Add the host name to `DOCKET_ALLOWED_HOSTS` and restart the container.
+- **The self-check is red.** Each row on the MCP tab explains what to do. Logs: `make logs` (or `docker logs docket`).
+- **Start from scratch.** Stop the container and delete `./data/docket.db*`; backups are in `./data/backups`.
