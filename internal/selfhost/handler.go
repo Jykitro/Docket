@@ -55,9 +55,11 @@ func Handler(o Options) http.Handler {
 	r.Delete("/api/admin/users/{id}", h.admin(h.deleteUser))
 	r.Get("/api/admin/invites", h.admin(h.listInvites))
 	r.Post("/api/admin/invites", h.admin(h.createInvite))
-	r.Handle("/api/admin/*", h.admin(func(w http.ResponseWriter, _ *http.Request, _ auth.User) {
+	adminNotFound := h.admin(func(w http.ResponseWriter, _ *http.Request, _ auth.User) {
 		writeError(w, 404, "not_found", "no such endpoint")
-	}))
+	})
+	r.Handle("/api/admin", adminNotFound)
+	r.Handle("/api/admin/*", adminNotFound)
 	r.Handle("/api/*", http.HandlerFunc(h.api))
 	r.Handle("/mcp", http.HandlerFunc(h.mcp))
 	r.Handle("/*", o.Web)

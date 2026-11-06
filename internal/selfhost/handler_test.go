@@ -155,6 +155,41 @@ func TestAnonymousBlocked(t *testing.T) {
 	}
 }
 
+func TestPathVariantsNeverReachUserRouter(t *testing.T) {
+	s := newServer(t)
+	_, _ = s.addUser("alice")
+	cb, _ := s.addUser("bob")
+	// Bob has a project, so a request that slipped through to his router would return project JSON.
+	if rec := s.do("POST", "/api/projects", `{"name":"Leak"}`, cb, nil); rec.Code != 201 {
+		t.Fatalf("create: %d %s", rec.Code, rec.Body)
+	}
+	for _, path := range []string{"/api/admin", "/api/admin/", "/api/admin/users/3", "/api//admin/users",
+		"/api/../api/projects", "//api/projects", "/API/projects", "/api/projects/"} {
+		rec := s.do("GET", path, "", nil, nil)
+		if (rec.Code != 401 && rec.Code != 403 && rec.Code != 404) || strings.Contains(rec.Body.String(), `"slug"`) {
+			t.Errorf("anonymous %s: %d %s", path, rec.Code, rec.Body)
+		}
+	}
+	for _, path := range []string{"/api/admin", "/api/admin/"} {
+		if rec := s.do("GET", path, "", cb, nil); (rec.Code != 403 && rec.Code != 404) || strings.Contains(rec.Body.String(), `"slug"`) {
+			t.Errorf("non-admin %s: %d %s", path, rec.Code, rec.Body)
+		}
+	}
+}
+
+func TestLoginOriginGuard(t *testing.T) {
+	s := newServer(t)
+	s.addUser("alice")
+	body := jsonBody("username", "alice", "password", testPassword)
+	rec := s.do("POST", "/api/auth/login", body, nil, map[string]string{"Origin": "https://evil.example"})
+	if rec.Code != 403 || !strings.Contains(rec.Body.String(), `"forbidden_origin"`) || sessionCookie(rec) != nil {
+		t.Fatalf("cross-origin login: %d %s", rec.Code, rec.Body)
+	}
+	if rec := s.do("POST", "/api/auth/login", body, nil, map[string]string{"Origin": "http://localhost"}); rec.Code != 200 {
+		t.Fatalf("same-origin login: %d %s", rec.Code, rec.Body)
+	}
+}
+
 func TestForeignHostBlocked(t *testing.T) {
 	s := newServer(t)
 	req := httptest.NewRequest("GET", "/healthz", nil)
