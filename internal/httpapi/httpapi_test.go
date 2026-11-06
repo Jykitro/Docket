@@ -436,3 +436,102 @@ func TestSelfCheckHints(t *testing.T) {
 		}
 	}
 }
+
+func TestPagesREST(t *testing.T) {
+	e := newEnv(t)
+	api := e.srv.URL + "/api"
+	do(t, "POST", api+"/projects", `{"name":"Proj","slug":"proj","key":"PRJ"}`, nil)
+	if res := do(t, "POST", api+"/tasks", `{"project":"PRJ","title":"t"}`, nil); res.StatusCode != 201 {
+		t.Fatalf("create task: %d", res.StatusCode)
+	}
+	type page struct {
+		ID        int64
+		ParentID  *int64 `json:"parent_id"`
+		Title     string
+		BodyMD    string `json:"body_md"`
+		UpdatedAt string `json:"updated_at"`
+	}
+	read := func(res *http.Response, v any) {
+		t.Helper()
+		if err := json.NewDecoder(res.Body).Decode(v); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	var a, b page
+	res := do(t, "POST", api+"/projects/proj/pages", `{"title":"Alpha","body_md":"see [[Beta]] and PRJ-01"}`, nil)
+	if res.StatusCode != 201 {
+		t.Fatalf("create page: %d", res.StatusCode)
+	}
+	read(res, &a)
+	res = do(t, "POST", api+"/projects/proj/pages", `{"title":"Beta","parent_id":`+id(a.ID)+`}`, nil)
+	if res.StatusCode != 201 {
+		t.Fatalf("create child page: %d", res.StatusCode)
+	}
+	read(res, &b)
+	if b.ParentID == nil || *b.ParentID != a.ID {
+		t.Errorf("child parent_id = %v, want %d", b.ParentID, a.ID)
+	}
+
+	var list []page
+	read(do(t, "GET", api+"/projects/proj/pages", "", nil), &list)
+	if len(list) != 2 || list[0].BodyMD != "" || list[1].BodyMD != "" {
+		t.Errorf("list = %+v, want 2 pages without bodies", list)
+	}
+
+	var det struct {
+		page
+		Backlinks []struct{ Title string }
+		Links     struct{ Pages, Tasks []struct{ Title string } }
+	}
+	read(do(t, "GET", api+"/pages/"+id(b.ID), "", nil), &det)
+	if len(det.Backlinks) != 1 || det.Backlinks[0].Title != "Alpha" {
+		t.Errorf("backlinks = %+v, want Alpha", det.Backlinks)
+	}
+	det.Links.Pages, det.Links.Tasks = nil, nil
+	read(do(t, "GET", api+"/pages/"+id(a.ID), "", nil), &det)
+	if len(det.Links.Pages) != 1 || len(det.Links.Tasks) != 1 {
+		t.Errorf("links = %+v, want 1 page and 1 task", det.Links)
+	}
+	var tp []struct{ Title, Project string }
+	read(do(t, "GET", api+"/tasks/prj-01/pages", "", nil), &tp)
+	if len(tp) != 1 || tp[0].Title != "Alpha" || tp[0].Project != "proj" {
+		t.Errorf("task pages = %+v", tp)
+	}
+
+	// absent and null parent_id leave the parent alone, 0 moves to the top level
+	var u page
+	read(do(t, "PUT", api+"/pages/"+id(b.ID), `{"body_md":"x","parent_id":null}`, nil), &u)
+	if u.BodyMD != "x" || u.ParentID == nil || *u.ParentID != a.ID {
+		t.Errorf("update with null parent_id: %+v", u)
+	}
+	read(do(t, "PUT", api+"/pages/"+id(b.ID), `{"parent_id":0}`, nil), &u)
+	if u.ParentID != nil {
+		t.Errorf("parent_id 0 should make the page top level, got %v", *u.ParentID)
+	}
+
+	var er struct {
+		Error struct{ Code string }
+	}
+	res = do(t, "PUT", api+"/pages/"+id(a.ID), `{"body_md":"y","expected_updated_at":"2000-01-01T00:00:00Z"}`, nil)
+	read(res, &er)
+	if res.StatusCode != 409 || er.Error.Code != "conflict" {
+		t.Errorf("stale update: %d %+v, want 409 conflict", res.StatusCode, er)
+	}
+	if res := do(t, "PUT", api+"/pages/"+id(a.ID), `{"body_md":"y","expected_updated_at":"`+a.UpdatedAt+`"}`, nil); res.StatusCode != 200 {
+		t.Errorf("update with current expected_updated_at: %d", res.StatusCode)
+	}
+
+	if res := do(t, "POST", api+"/projects/proj/pages", `{"title":"bad [title]"}`, nil); res.StatusCode != 400 {
+		t.Errorf("invalid title: %d, want 400", res.StatusCode)
+	}
+	if res := do(t, "GET", api+"/pages/abc", "", nil); res.StatusCode != 400 {
+		t.Errorf("non-numeric page id: %d, want 400", res.StatusCode)
+	}
+	if res := do(t, "DELETE", api+"/pages/"+id(a.ID), "", nil); res.StatusCode != 204 {
+		t.Errorf("delete: %d, want 204", res.StatusCode)
+	}
+	if res := do(t, "GET", api+"/pages/"+id(a.ID), "", nil); res.StatusCode != 404 {
+		t.Errorf("deleted page: %d, want 404", res.StatusCode)
+	}
+}

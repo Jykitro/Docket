@@ -99,6 +99,12 @@ func Router(d Deps) http.Handler {
 		r.Delete("/tasks/{id}", a.h(a.deleteTask))
 		r.Post("/tasks/{id}/restore", a.h(a.restoreTask))
 		r.Post("/tasks/{id}/notes", a.h(a.addNote))
+		r.Get("/tasks/{id}/pages", a.h(a.taskPages))
+		r.Get("/projects/{id}/pages", a.h(a.listPages))
+		r.Post("/projects/{id}/pages", a.h(a.createPage))
+		r.Get("/pages/{id}", a.h(a.getPage))
+		r.Put("/pages/{id}", a.h(a.updatePage))
+		r.Delete("/pages/{id}", a.h(a.deletePage))
 		r.Get("/trash", a.h(a.trash))
 		r.Get("/trash/projects", a.h(a.trashProjects))
 		r.Delete("/trash", a.h(a.purge))
@@ -240,7 +246,7 @@ func statusFor(code string) int {
 	switch code {
 	case "not_found":
 		return 404
-	case "status_in_use":
+	case "status_in_use", "conflict":
 		return 409
 	case "forbidden":
 		return 403
@@ -620,6 +626,64 @@ func (a *api) addNote(r *http.Request) (any, error) {
 	}
 	n, err := a.svc.AddNote(r.Context(), service.ActorDenis, taskRef(r), in.BodyMD)
 	return created{n}, err
+}
+
+// ---- wiki pages ----
+
+func (a *api) listPages(r *http.Request) (any, error) {
+	return a.svc.ListPages(r.Context(), chi.URLParam(r, "id"))
+}
+
+func (a *api) createPage(r *http.Request) (any, error) {
+	var in struct {
+		Title    string `json:"title"`
+		BodyMD   string `json:"body_md"`
+		ParentID *int64 `json:"parent_id"`
+	}
+	if err := decode(r, &in); err != nil {
+		return nil, err
+	}
+	pg, err := a.svc.CreatePage(r.Context(), service.ActorDenis, chi.URLParam(r, "id"),
+		service.PageInput{Title: in.Title, BodyMD: in.BodyMD, ParentID: in.ParentID})
+	return created{pg}, err
+}
+
+func (a *api) getPage(r *http.Request) (any, error) {
+	id, err := pathID(r)
+	if err != nil {
+		return nil, err
+	}
+	return a.svc.GetPage(r.Context(), id)
+}
+
+func (a *api) updatePage(r *http.Request) (any, error) {
+	id, err := pathID(r)
+	if err != nil {
+		return nil, err
+	}
+	var in struct {
+		Title             *string `json:"title"`
+		BodyMD            *string `json:"body_md"`
+		ParentID          *int64  `json:"parent_id"` // absent or null = unchanged, 0 = top level
+		ExpectedUpdatedAt string  `json:"expected_updated_at"`
+	}
+	if err := decode(r, &in); err != nil {
+		return nil, err
+	}
+	return a.svc.UpdatePage(r.Context(), service.ActorDenis, id,
+		service.PagePatch{Title: in.Title, BodyMD: in.BodyMD, ParentID: in.ParentID, ExpectedUpdatedAt: in.ExpectedUpdatedAt})
+}
+
+func (a *api) deletePage(r *http.Request) (any, error) {
+	id, err := pathID(r)
+	if err != nil {
+		return nil, err
+	}
+	return none{}, a.svc.DeletePage(r.Context(), service.ActorDenis, id)
+}
+
+func (a *api) taskPages(r *http.Request) (any, error) {
+	return a.svc.TaskPages(r.Context(), taskRef(r))
 }
 
 func (a *api) carryOver(r *http.Request) (any, error) {
