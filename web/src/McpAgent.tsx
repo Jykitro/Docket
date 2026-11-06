@@ -12,7 +12,12 @@ const STEPS = [
   ['Финиш', 'Сверяет: шаги закрыты, итог в заметке, статус честный, ничего не зависло.'],
 ] as const
 // Claude Code, Claude Desktop, Codex: where the skill file goes. Desktop has no skill folder, so it gets the text.
-const SKILL_PATH = ['~/.claude/skills/docket/SKILL.md', '', '~/.agents/skills/docket/SKILL.md']
+const SKILL_PATH = ['~/.claude/skills/<name>/SKILL.md', '', '~/.agents/skills/<name>/SKILL.md']
+const SKILLS = [
+  ['docket', 'Рабочий процесс: задача, план, заметки, финиш. Его же сервер отправляет при подключении.'],
+  ['docket-reference', 'Справочник: инструменты, поля, ошибки и ответы на частые вопросы.'],
+  ['docket-setup', 'Подключение клиентов, установка навыков, хуки и разбор проблем.'],
+] as const
 // One file works for both: Claude Code and Codex share the hooks format and the Stop contract.
 // SessionStart stdout becomes context. Stop blocks the first stop of a turn and lets the second pass (stop_hook_active),
 // so it cannot loop; "not tracked" gives repos without Docket a way out.
@@ -44,8 +49,8 @@ export function McpAgent({ tab }: { tab: number }) {
       setError(e instanceof Error ? e.message : String(e))
     }
   }
-  const skill = async () => {
-    const r = await fetch('/api/mcp/skill')
+  const skill = (name: string) => async () => {
+    const r = await fetch('/api/mcp/skill/' + name)
     if (!r.ok) throw new Error(`${r.status} ${r.statusText}`)
     return r.text()
   }
@@ -66,12 +71,18 @@ export function McpAgent({ tab }: { tab: number }) {
             </li>
           ))}
         </ol>
-        <div className="flex flex-wrap items-center gap-2.5">
-          <span className="min-w-0 flex-1 truncate font-mono text-[12.5px] text-t3">{path || tr('Вставьте в инструкции проекта')}</span>
-          <button type="button" className={BTN} onClick={() => copy('skill', skill)}>
-            <Icon name={copied === 'skill' ? 'check' : 'doc'} size={14} />{copied === 'skill' ? tr('Скопировано') : tr('Скопировать SKILL.md')}
-          </button>
-          <a className={BTN} href="/api/mcp/skill" download="SKILL.md"><Icon name="link" size={14} />{tr('Скачать')}</a>
+        <div>
+          <div className="mb-2 truncate font-mono text-[12.5px] text-t3">{path || tr('Вставьте в инструкции проекта')}</div>
+          {SKILLS.map(([name, text]) => (
+            <div key={name} className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-ln py-2.5">
+              <span className="flex-[0_0_150px] font-mono text-[12.5px] font-medium">{name}</span>
+              <span className="min-w-0 flex-[1_1_220px] text-[13px] text-t2">{tr(text)}</span>
+              <button type="button" className={BTN} aria-label={tr('Скопировать SKILL.md') + ': ' + name} title={tr('Скопировать SKILL.md')} onClick={() => copy(name, skill(name))}>
+                <Icon name={copied === name ? 'check' : 'doc'} size={14} />
+              </button>
+              <a className={BTN} aria-label={tr('Скачать') + ': ' + name} title={tr('Скачать')} href={'/api/mcp/skill/' + name} download={name + '-SKILL.md'}><Icon name="link" size={14} /></a>
+            </div>
+          ))}
         </div>
         {error && <div className="text-[13px] text-rd" role="alert">{error}</div>}
         {tab !== 1 && (
