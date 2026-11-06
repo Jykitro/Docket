@@ -270,6 +270,9 @@ Layering rule: `httpapi` and `mcpserver` call only `service`, and SQL lives only
 
 ## REST API
 
+Working on Docket with an assistant: [`AGENTS.md`](AGENTS.md) (read by Codex and most agents) and [`CLAUDE.md`](CLAUDE.md)
+(Claude Code, imports `AGENTS.md`) describe the commands, layout, conventions and gotchas.
+
 All requests are performed on behalf of the human actor (stored as `denis`; the UI shows the profile name). Errors come as
 `{"error": {"code", "message"}}` (`validation` 400, `not_found` 404, `status_in_use` 409, `forbidden` 403). A task in the
 path can be given by code (`TRK-07`) or by id.
