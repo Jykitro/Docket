@@ -128,11 +128,18 @@ export function Gate({ children }: { children: ReactNode }) {
     if (!inApp) document.title = 'Docket'
   }, [inApp])
 
+  // Signed in already: drop /invite/<token> from the URL and history instead of letting the app print it as "not found".
+  const leaving = !loggedOut && !!me.data?.user && path.startsWith('/invite/')
+  useEffect(() => {
+    if (leaving) navigate('/', true)
+  }, [leaving])
+
   const wrap = (el: ReactNode) => <div className="min-h-screen bg-bg text-tx">{el}</div>
   if (me.isPending) return <div className="min-h-screen bg-bg" /> // no flash of the app
   if (loggedOut) { // before the user check: v5 keeps stale data on error
     return wrap(path.startsWith('/invite/') ? <AcceptInvite token={path.slice('/invite/'.length)} /> : <Login />)
   }
+  if (leaving) return null
   if (inApp) return <>{children}</>
   if (me.data?.setup) return wrap(<Setup />)
   return wrap(
