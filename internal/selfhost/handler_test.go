@@ -33,7 +33,17 @@ type server struct {
 	ws *Workspaces
 }
 
+var hosts = []string{"localhost", "127.0.0.1"}
+
 func newServer(t *testing.T) *server {
+	return newServerWith(t, func(_ context.Context, svc *service.Service, bus *events.Bus) http.Handler {
+		return httpapi.Router(httpapi.Deps{Svc: svc, Bus: bus, AllowedHosts: hosts,
+			MCP: mcpserver.Handler(svc, time.UTC), Web: http.NotFoundHandler()})
+	})
+}
+
+// newServerWith uses build for every user's router.
+func newServerWith(t *testing.T, build func(context.Context, *service.Service, *events.Bus) http.Handler) *server {
 	t.Helper()
 	dir := t.TempDir()
 	db, err := auth.Open(filepath.Join(dir, "auth.db"))
@@ -41,11 +51,7 @@ func newServer(t *testing.T) *server {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { db.Close() })
-	hosts := []string{"localhost", "127.0.0.1"}
-	ws := NewWorkspaces(dir, time.UTC, func(svc *service.Service, bus *events.Bus) http.Handler {
-		return httpapi.Router(httpapi.Deps{Svc: svc, Bus: bus, AllowedHosts: hosts,
-			MCP: mcpserver.Handler(svc, time.UTC), Web: http.NotFoundHandler()})
-	})
+	ws := NewWorkspaces(context.Background(), dir, time.UTC, build)
 	t.Cleanup(ws.Close)
 	h := Handler(Options{Auth: db, WS: ws, Web: http.NotFoundHandler(), AllowedHosts: hosts, SetupCode: testSetupCode})
 	return &server{t: t, h: h, db: db, ws: ws}
@@ -606,5 +612,101 @@ func TestChangePasswordEndpoint(t *testing.T) {
 	}
 	if rec := s.do("GET", "/api/projects", "", c, nil); rec.Code != 200 {
 		t.Fatalf("current session after change: %d", rec.Code)
+	}
+}
+
+// streamServer's user routers answer GET /api/events by blocking until the request context ends.
+func streamServer(t *testing.T) *server {
+	return newServerWith(t, func(context.Context, *service.Service, *events.Bus) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path != "/api/events" {
+				http.NotFound(w, r)
+				return
+			}
+			w.WriteHeader(200)
+			<-r.Context().Done()
+		})
+	})
+}
+
+// stream opens /api/events with c in the background; the channel closes when the request returns.
+func (s *server) stream(c *http.Cookie) <-chan struct{} {
+	done := make(chan struct{})
+	req := httptest.NewRequest("GET", "/api/events", nil)
+	req.Host = "localhost"
+	req.RemoteAddr = "127.0.0.1:1234"
+	req.AddCookie(c)
+	go func() {
+		defer close(done)
+		s.h.ServeHTTP(httptest.NewRecorder(), req)
+	}()
+	select { // a stream that ends at once (e.g. 401) is caught here
+	case <-done:
+		s.t.Fatal("stream returned immediately")
+	case <-time.After(100 * time.Millisecond):
+	}
+	return done
+}
+
+func ended(t *testing.T, done <-chan struct{}, what string) {
+	t.Helper()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatalf("%s: stream still open", what)
+	}
+}
+
+func TestLogoutEndsStream(t *testing.T) {
+	s := streamServer(t)
+	c, _ := s.addUser("alice")
+	done := s.stream(c)
+	if rec := s.do("POST", "/api/auth/logout", "", c, nil); rec.Code != 204 {
+		t.Fatalf("logout: %d", rec.Code)
+	}
+	ended(t, done, "after logout")
+}
+
+func TestDeleteUserEndsStream(t *testing.T) {
+	s := streamServer(t)
+	admin, _ := s.addUser("alice")
+	cb, wsB := s.addUser("bob")
+	done := s.stream(cb)
+	if rec := s.do("DELETE", "/api/admin/users/"+strconv.FormatInt(wsB.ID, 10), "", admin, nil); rec.Code != 204 {
+		t.Fatalf("delete: %d %s", rec.Code, rec.Body)
+	}
+	ended(t, done, "after user deletion")
+}
+
+func TestPasswordChangeEndsOtherStreams(t *testing.T) {
+	s := streamServer(t)
+	c, _ := s.addUser("alice")
+	other := sessionCookie(s.login("alice", testPassword, nil))
+	mine, theirs := s.stream(c), s.stream(other)
+	if rec := s.do("PUT", "/api/auth/password", jsonBody("old", testPassword, "new", "a-brand-new-password"), c, nil); rec.Code != 204 {
+		t.Fatalf("change: %d %s", rec.Code, rec.Body)
+	}
+	ended(t, theirs, "other session after password change")
+	select {
+	case <-mine:
+		t.Fatal("current session's stream ended")
+	case <-time.After(200 * time.Millisecond):
+	}
+	s.do("POST", "/api/auth/logout", "", c, nil)
+	ended(t, mine, "current session after logout")
+}
+
+func TestStreamsRelease(t *testing.T) {
+	var s streams
+	_, done := s.track(context.Background(), "a")
+	ctx, done2 := s.track(context.Background(), "b")
+	done()
+	s.end("b")
+	if ctx.Err() == nil {
+		t.Fatal("end did not cancel")
+	}
+	done2()
+	if len(s.m) != 0 {
+		t.Fatalf("entries left: %v", s.m)
 	}
 }

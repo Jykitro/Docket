@@ -2,6 +2,7 @@ package selfhost
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -16,7 +17,7 @@ import (
 func newWS(t *testing.T) (*Workspaces, string) {
 	t.Helper()
 	dir := t.TempDir()
-	w := NewWorkspaces(dir, time.UTC, func(*service.Service, *events.Bus) http.Handler { return http.NotFoundHandler() })
+	w := NewWorkspaces(context.Background(), dir, time.UTC, func(context.Context, *service.Service, *events.Bus) http.Handler { return http.NotFoundHandler() })
 	t.Cleanup(w.Close)
 	return w, dir
 }
@@ -61,7 +62,7 @@ func TestOpenKeepsExistingProfileName(t *testing.T) {
 		t.Fatal(err)
 	}
 	w.Close()
-	w2 := NewWorkspaces(dir, time.UTC, func(*service.Service, *events.Bus) http.Handler { return http.NotFoundHandler() })
+	w2 := NewWorkspaces(context.Background(), dir, time.UTC, func(context.Context, *service.Service, *events.Bus) http.Handler { return http.NotFoundHandler() })
 	defer w2.Close()
 	ws, err = w2.Open(ctx, u)
 	if err != nil {
@@ -87,5 +88,39 @@ func TestRemoveDeletesFiles(t *testing.T) {
 	}
 	if _, ok := w.Get(3); ok {
 		t.Fatal("workspace still registered")
+	}
+}
+
+func TestRemoveTombstonesAndCancels(t *testing.T) {
+	var built context.Context
+	w := NewWorkspaces(context.Background(), t.TempDir(), time.UTC, func(ctx context.Context, _ *service.Service, _ *events.Bus) http.Handler {
+		built = ctx
+		return http.NotFoundHandler()
+	})
+	t.Cleanup(w.Close)
+	u := auth.User{ID: 4, Username: "erin"}
+	if _, err := w.Open(context.Background(), u); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.Remove(4); err != nil {
+		t.Fatal(err)
+	}
+	if built.Err() == nil {
+		t.Fatal("router context not cancelled by Remove")
+	}
+	if _, err := w.Open(context.Background(), u); !errors.Is(err, ErrRemoved) {
+		t.Fatalf("Open after Remove: %v, want ErrRemoved", err)
+	}
+}
+
+func TestCloseCancels(t *testing.T) {
+	w, _ := newWS(t)
+	ws, err := w.Open(context.Background(), auth.User{ID: 5, Username: "fay"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	w.Close()
+	if ws.ctx.Err() == nil {
+		t.Fatal("workspace context not cancelled by Close")
 	}
 }

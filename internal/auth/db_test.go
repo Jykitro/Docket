@@ -103,7 +103,7 @@ func TestSessionLifecycle(t *testing.T) {
 	if err := d.db.QueryRow(`SELECT count(*) FROM sessions WHERE token_hash = ?`, tok).Scan(&n); err != nil || n != 0 {
 		t.Fatalf("raw token stored: n=%d err=%v", n, err)
 	}
-	if err := d.db.QueryRow(`SELECT count(*) FROM sessions WHERE token_hash = ?`, hashToken(tok)).Scan(&n); err != nil || n != 1 {
+	if err := d.db.QueryRow(`SELECT count(*) FROM sessions WHERE token_hash = ?`, TokenHash(tok)).Scan(&n); err != nil || n != 1 {
 		t.Fatalf("hash not stored: n=%d err=%v", n, err)
 	}
 	if err := d.DeleteSession(tok); err != nil {
@@ -116,6 +116,9 @@ func TestSessionLifecycle(t *testing.T) {
 	tok2, err := d.NewSession(u.ID)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if _, exp, err := d.Session(tok2); err != nil || exp.Sub(time.Now()) < 29*24*time.Hour {
+		t.Fatalf("expiry %v: %v", exp, err)
 	}
 	d.now = func() time.Time { return time.Now().Add(31 * 24 * time.Hour) }
 	if _, err := d.UserBySession(tok2); err != ErrNotFound {
@@ -264,11 +267,11 @@ func TestDeleteUserKillsSessions(t *testing.T) {
 func TestChangePassword(t *testing.T) {
 	d := openTest(t)
 	u := newInviter(t, d)
-	if err := d.ChangePassword(u.ID, "wrong-password", "newlongenough1", ""); err != ErrBadCredentials {
+	if _, err := d.ChangePassword(u.ID, "wrong-password", "newlongenough1", ""); err != ErrBadCredentials {
 		t.Fatalf("wrong old: %v", err)
 	}
 	var ve ValidationError
-	if err := d.ChangePassword(u.ID, "longenough1", "short", ""); !errors.As(err, &ve) {
+	if _, err := d.ChangePassword(u.ID, "longenough1", "short", ""); !errors.As(err, &ve) {
 		t.Fatalf("short new: %v", err)
 	}
 	keep, err := d.NewSession(u.ID)
@@ -279,8 +282,9 @@ func TestChangePassword(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := d.ChangePassword(u.ID, "longenough1", "newlongenough1", keep); err != nil {
-		t.Fatal(err)
+	ended, err := d.ChangePassword(u.ID, "longenough1", "newlongenough1", keep)
+	if err != nil || len(ended) != 1 || ended[0] != TokenHash(other) {
+		t.Fatalf("ended %v, want [%s]: %v", ended, TokenHash(other), err)
 	}
 	if _, err := d.UserBySession(other); err != ErrNotFound {
 		t.Fatalf("other session survived the change: %v", err)

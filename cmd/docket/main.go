@@ -90,9 +90,9 @@ func runSelfHost(ctx context.Context, cfg config.Config) error {
 	}
 	defer ad.Close()
 
-	ws := selfhost.NewWorkspaces(cfg.DataDir, cfg.Loc, func(svc *service.Service, bus *events.Bus) http.Handler {
+	ws := selfhost.NewWorkspaces(ctx, cfg.DataDir, cfg.Loc, func(wctx context.Context, svc *service.Service, bus *events.Bus) http.Handler {
 		return httpapi.Router(httpapi.Deps{
-			Svc: svc, Bus: bus, AllowedHosts: cfg.AllowedHosts, SelfAddr: cfg.Addr, Ctx: ctx,
+			Svc: svc, Bus: bus, AllowedHosts: cfg.AllowedHosts, SelfAddr: cfg.Addr, Ctx: wctx,
 			MCP: mcpserver.Handler(svc, cfg.Loc), Web: web.Handler(),
 		})
 	})

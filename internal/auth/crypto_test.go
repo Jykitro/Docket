@@ -44,7 +44,7 @@ func TestNewTokenHash(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if hashToken(tok) != hash {
+	if TokenHash(tok) != hash {
 		t.Fatal("hash mismatch")
 	}
 	tok2, _, _ := newToken()
