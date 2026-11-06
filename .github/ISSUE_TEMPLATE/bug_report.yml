@@ -1,0 +1,55 @@
+name: Bug report
+description: Something in Docket does not work as documented
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: English or Russian is fine. Please remove tokens (`dkt_…`) and passwords from anything you paste.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, what you got instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. …
+        2. …
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Docket version
+      description: Release tag, image tag, or commit hash.
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: How you run it
+      options: [Docker image, Release binary, Built from source]
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Mode
+      options: [local, selfhost]
+    validations:
+      required: true
+  - type: input
+    id: client
+    attributes:
+      label: MCP client and browser
+      description: Only if it matters, e.g. "Claude Code 2.x, Chrome 130".
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Output of `docker logs docket`, or the MCP tab self-check and call log.
+      render: text
