@@ -113,13 +113,12 @@ func (h *handler) login(w http.ResponseWriter, r *http.Request) {
 		host = r.RemoteAddr
 	}
 	key := host + "|" + strings.ToLower(strings.TrimSpace(in.Username))
-	if h.limiter.Blocked(key) {
+	if !h.limiter.Attempt(key) { // counted before the password check, so parallel guesses cannot outrun it
 		writeError(w, 429, "rate_limited", "too many failed attempts, try again later")
 		return
 	}
 	u, err := h.Auth.Authenticate(in.Username, in.Password)
 	if errors.Is(err, auth.ErrBadCredentials) {
-		h.limiter.Fail(key)
 		writeError(w, 401, "invalid_credentials", "invalid username or password")
 		return
 	}

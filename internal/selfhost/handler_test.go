@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -247,6 +248,49 @@ func TestLoginRateLimit(t *testing.T) {
 	}
 	if rec := s.login("bb", testPassword, nil); rec.Code != 200 {
 		t.Fatalf("user bb: %d %s", rec.Code, rec.Body)
+	}
+	s.addUser("cc")
+	for i := 0; i < 4; i++ {
+		s.login("cc", "wrong-password", nil)
+	}
+	if rec := s.login("cc", testPassword, nil); rec.Code != 200 {
+		t.Fatalf("correct login after 4 failures: %d", rec.Code)
+	}
+	if rec := s.login("cc", "wrong-password", nil); rec.Code != 401 {
+		t.Fatalf("success did not reset the limit: %d", rec.Code)
+	}
+}
+
+func TestLoginRateLimitParallel(t *testing.T) {
+	s := newServer(t)
+	s.addUser("aa")
+	const n = 20
+	codes := make([]int, n)
+	var wg sync.WaitGroup
+	for i := range n {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			req := httptest.NewRequest("POST", "/api/auth/login", strings.NewReader(`{"username":"aa","password":"wrong-password"}`))
+			req.Host = "localhost"
+			req.RemoteAddr = "127.0.0.1:1234"
+			rec := httptest.NewRecorder()
+			s.h.ServeHTTP(rec, req)
+			codes[i] = rec.Code
+		}()
+	}
+	wg.Wait()
+	var unauthorized, limited int
+	for _, c := range codes {
+		switch c {
+		case 401:
+			unauthorized++
+		case 429:
+			limited++
+		}
+	}
+	if unauthorized > 5 || limited != n-unauthorized {
+		t.Fatalf("401=%d 429=%d of %d: %v", unauthorized, limited, n, codes)
 	}
 }
 
