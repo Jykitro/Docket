@@ -320,7 +320,7 @@ func (d *DB) DeleteUser(id int64) error {
 	return tx.Commit()
 }
 
-func (d *DB) ChangePassword(userID int64, oldPw, newPw string) error {
+func (d *DB) ChangePassword(userID int64, oldPw, newPw, keepToken string) error {
 	if err := validatePassword(newPw); err != nil {
 		return err
 	}
@@ -339,6 +339,17 @@ func (d *DB) ChangePassword(userID int64, oldPw, newPw string) error {
 	if err != nil {
 		return err
 	}
-	_, err = d.db.Exec(`UPDATE users SET password_hash = ? WHERE id = ?`, newHash, userID)
-	return err
+	tx, err := d.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.Exec(`UPDATE users SET password_hash = ? WHERE id = ?`, newHash, userID); err != nil {
+		return err
+	}
+	// Every other session of the account ends; the one that made the change stays.
+	if _, err := tx.Exec(`DELETE FROM sessions WHERE user_id = ? AND token_hash != ?`, userID, hashToken(keepToken)); err != nil {
+		return err
+	}
+	return tx.Commit()
 }

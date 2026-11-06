@@ -268,7 +268,8 @@ func (h *handler) changePassword(w http.ResponseWriter, r *http.Request, u auth.
 	if !decode(w, r, &in) {
 		return
 	}
-	err := h.Auth.ChangePassword(u.ID, in.Old, in.New)
+	c, _ := r.Cookie(cookieName) // present: authed checked it
+	err := h.Auth.ChangePassword(u.ID, in.Old, in.New, c.Value)
 	if errors.Is(err, auth.ErrBadCredentials) {
 		writeError(w, 401, "invalid_credentials", "current password is wrong")
 		return

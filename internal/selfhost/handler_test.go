@@ -525,6 +525,7 @@ func TestAdminDeleteUser(t *testing.T) {
 func TestChangePasswordEndpoint(t *testing.T) {
 	s := newServer(t)
 	c, _ := s.addUser("alice")
+	other := sessionCookie(s.login("alice", testPassword, nil))
 	const newPw = "a-brand-new-password"
 	if rec := s.do("PUT", "/api/auth/password", jsonBody("old", testPassword, "new", newPw), nil, nil); rec.Code != 401 {
 		t.Fatalf("anonymous: %d", rec.Code)
@@ -538,6 +539,9 @@ func TestChangePasswordEndpoint(t *testing.T) {
 	}
 	if rec := s.do("PUT", "/api/auth/password", jsonBody("old", testPassword, "new", newPw), c, nil); rec.Code != 204 {
 		t.Fatalf("change: %d %s", rec.Code, rec.Body)
+	}
+	if rec := s.do("GET", "/api/projects", "", other, nil); rec.Code != 401 {
+		t.Fatalf("other session after change: %d, want 401", rec.Code)
 	}
 	if rec := s.login("alice", newPw, nil); rec.Code != 200 {
 		t.Fatalf("login with new: %d %s", rec.Code, rec.Body)
