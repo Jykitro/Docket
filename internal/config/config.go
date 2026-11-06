@@ -2,7 +2,9 @@
 package config
 
 import (
+	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -15,6 +17,8 @@ type Config struct {
 	AllowedHosts []string
 	Seed         string
 	Loc          *time.Location
+	SelfHost     bool   // DOCKET_MODE=selfhost: many users, each with their own database
+	DataDir      string // directory of DB; holds auth.db and users/<id>.db in selfhost mode
 }
 
 func Load() (Config, error) {
@@ -26,6 +30,14 @@ func Load() (Config, error) {
 		AllowedHosts: strings.Split(env("DOCKET_ALLOWED_HOSTS", "localhost,127.0.0.1,docket.localhost"), ","),
 		Seed:         os.Getenv("DOCKET_SEED"),
 		Loc:          time.Local,
+	}
+	c.DataDir = filepath.Dir(c.DB)
+	switch m := os.Getenv("DOCKET_MODE"); m {
+	case "", "local":
+	case "selfhost":
+		c.SelfHost = true
+	default:
+		return c, fmt.Errorf("DOCKET_MODE: unknown mode %q (want local or selfhost)", m)
 	}
 	if tz := os.Getenv("TZ"); tz != "" {
 		loc, err := time.LoadLocation(tz)
