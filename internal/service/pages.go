@@ -53,8 +53,11 @@ func checkPageParent(tx *store.Tx, projectID, selfID, parentID int64) error {
 			return invalid("a page cannot be moved under itself or its own subpage")
 		}
 		p, err := tx.GetPage(cur)
-		if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
 			return invalid("parent page %d not found", cur)
+		}
+		if err != nil {
+			return err
 		}
 		if p.ProjectID != projectID {
 			return invalid("parent page %d belongs to another project", cur)
