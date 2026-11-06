@@ -1,4 +1,4 @@
-// Icon set from docs/design/icons.json plus the few UI glyphs the screens use. viewBox 24, stroke 1.75, round caps.
+// Icon set plus the few UI glyphs the screens use. viewBox 24, stroke 1.75, round caps.
 const P = {
   // project icons (the database stores these names)
   target: 'M12 4a8 8 0 1 0 0 16a8 8 0 0 0 0-16zM12 9a3 3 0 1 0 0 6a3 3 0 0 0 0-6zM12 2v3M12 19v3M2 12h3M19 12h3',

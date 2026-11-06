@@ -34,8 +34,7 @@ internal/selfhost   one database per profile, routing by session or MCP token
 internal/events     pub/sub for SSE
 internal/web        embedded SPA (dist)
 skills/             agent skills for users of Docket, embedded in the binary (see below)
-web/                React + TypeScript + Vite + Tailwind CSS v4
-docs/design/        original mockups; the shipped UI follows the tokens in web/src/styles.css
+web/                React + TypeScript + Vite + Tailwind CSS v4; the design tokens are in web/src/styles.css
 ```
 
 **Layering rule:** `httpapi` and `mcpserver` call only `service`; SQL lives only in `store`. Both channels (REST as the human, MCP as `claude`) go through the same service functions, so validation, history and live updates behave the same.

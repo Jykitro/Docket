@@ -283,8 +283,7 @@ internal/httpapi    REST, SSE /api/events, host/origin guard, bearer auth for /m
 internal/mcpserver  MCP tools → service, access policy and call log
 internal/events     pub/sub for SSE
 internal/web        embedded SPA (dist)
-web/                React + TypeScript + Vite + Tailwind CSS v4 (shadcn-admin look)
-docs/design/        original mockups (the shipped UI follows the tokens in web/src/styles.css)
+web/                React + TypeScript + Vite + Tailwind CSS v4 (shadcn-admin look; tokens in web/src/styles.css)
 ```
 
 Layering rule: `httpapi` and `mcpserver` call only `service`, and SQL lives only in `store`.
