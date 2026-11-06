@@ -73,8 +73,9 @@ On the first run with an empty database Docket asks for your name and a first pr
   (protection against DNS rebinding and CSRF).
 - Data lives in `./data/docket.db`. A backup (`VACUUM INTO`) is written at startup and once a day to `./data/backups`;
   the last 14 are kept.
-- Seed data: if the database has no projects, `seed/seed.json` is imported at startup (projects by `slug`, tasks by
-  `external_id`, author `claude`). Running it again does not create duplicates.
+- Seed data (optional): if `DOCKET_SEED` points to a JSON file and the database has no projects, it is imported at
+  startup (`{"projects": […], "tasks": […]}`: projects by `slug`, tasks by `external_id`, author `claude`). Running it
+  again does not create duplicates. No seed file ships with Docket.
 
 ## Configuration
 
@@ -88,7 +89,7 @@ Settings are read from `.env` (see `.env.example`):
 | `DOCKET_BACKUP_DIR` | `/data/backups` | Where backups are written |
 | `DOCKET_MCP_TOKEN` | empty | Optional. If set, it takes precedence over the token stored in the database and rotating it in the UI is disabled |
 | `DOCKET_ALLOWED_HOSTS` | `localhost,127.0.0.1,docket.localhost` | Allowed `Host` and `Origin` values |
-| `DOCKET_SEED` | `/app/seed/seed.json` | Initial data file |
+| `DOCKET_SEED` | empty | Optional initial data file |
 | `TZ` | `Asia/Ho_Chi_Minh` | Time zone used to decide what "today" is |
 
 ## Self-host
