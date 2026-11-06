@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"net/http"
@@ -22,6 +23,7 @@ import (
 	"docket/internal/events"
 	"docket/internal/service"
 	"docket/internal/store"
+	"docket/skills"
 )
 
 type Deps struct {
@@ -104,6 +106,10 @@ func Router(d Deps) http.Handler {
 		r.Post("/mcp/check", a.h(a.mcpCheck))
 		r.Get("/mcp/settings", a.h(a.mcpSettings))
 		r.Patch("/mcp/settings", a.h(a.mcpUpdateSettings))
+		r.Get("/mcp/skill", func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
+			_, _ = io.WriteString(w, skills.File)
+		})
 		r.Get("/mcp/token", a.h(a.mcpToken))
 		r.Post("/mcp/token/rotate", a.h(a.mcpRotate))
 		r.Get("/mcp/calls", a.h(a.mcpCalls))

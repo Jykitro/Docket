@@ -17,13 +17,14 @@ import (
 
 	"docket/internal/service"
 	"docket/internal/store"
+	"docket/skills"
 )
 
 const actor = service.ActorClaude
 
 // Handler returns the /mcp handler. Host checks and auth are done by the caller's middleware.
 func Handler(svc *service.Service, loc *time.Location) http.Handler {
-	s := mcp.NewServer(&mcp.Implementation{Name: "docket", Version: "1.0.0"}, nil)
+	s := mcp.NewServer(&mcp.Implementation{Name: "docket", Version: "1.0.0"}, &mcp.ServerOptions{Instructions: skills.Instructions()})
 	t := &tools{svc: svc, loc: loc}
 
 	add(s, "list_projects", t.listProjects)

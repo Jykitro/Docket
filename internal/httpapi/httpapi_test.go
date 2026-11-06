@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -285,6 +286,21 @@ func TestMCPToolsPolicyAndCallLog(t *testing.T) {
 }
 
 func ptr[T any](v T) *T { return &v }
+
+// The skill is both installed by the user and sent as server instructions; Claude Code cuts instructions at 2048 bytes.
+func TestDocketSkillIsServedAndSentAsInstructions(t *testing.T) {
+	e := newEnv(t)
+	res := do(t, "GET", e.srv.URL+"/api/mcp/skill", "", nil)
+	body, _ := io.ReadAll(res.Body)
+	res.Body.Close()
+	if res.StatusCode != 200 || !strings.HasPrefix(string(body), "---\nname: docket\n") {
+		t.Fatalf("skill endpoint: %d %.40q", res.StatusCode, body)
+	}
+	ins := connect(t, e).InitializeResult().Instructions
+	if ins == "" || strings.Contains(ins, "name: docket") || len(ins) > 2048 {
+		t.Fatalf("instructions must be the skill body within 2048 bytes, got %d bytes", len(ins))
+	}
+}
 
 func TestMCPCheckAndStatus(t *testing.T) {
 	e := newEnv(t)
