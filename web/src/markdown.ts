@@ -14,10 +14,15 @@ const md = new Marked({
   },
 })
 
-// Wiki anchors (data-wiki, data-wiki-new, data-task) with an in-app href stay in the same tab; any other anchor opens a new one.
+// While renderWiki() sanitizes, wiki anchors (data-wiki, data-wiki-new, data-task) whose href resolves to this origin stay in
+// the same tab; every other anchor, and every anchor of renderMarkdown() (text the assistant can write), opens a new one.
+let sanitizingWiki = false
+const sameOrigin = (href: string) => {
+  try { return new URL(href, location.href).origin === location.origin } catch { return false }
+}
 DOMPurify.addHook('afterSanitizeAttributes', (node) => {
-  const inApp = node.hasAttribute('data-wiki') || node.hasAttribute('data-wiki-new') || node.hasAttribute('data-task')
-  if (node.tagName === 'A' && !(inApp && /^(?:\/(?!\/)|\?|#)/.test(node.getAttribute('href') ?? ''))) {
+  const wikiAnchor = node.hasAttribute('data-wiki') || node.hasAttribute('data-wiki-new') || node.hasAttribute('data-task')
+  if (node.tagName === 'A' && !(sanitizingWiki && wikiAnchor && sameOrigin(node.getAttribute('href') ?? ''))) {
     node.setAttribute('target', '_blank')
     node.setAttribute('rel', 'noopener noreferrer')
   }
@@ -70,7 +75,12 @@ const mdWiki = new Marked({
 /** Wiki page body: like renderMarkdown, plus [[Title]] links and task codes that exist in ctx.tasks. */
 export function renderWiki(src: string, ctx: WikiCtx): string {
   wiki = ctx
-  return DOMPurify.sanitize(mdWiki.parse(src, { async: false }), { ADD_ATTR: ['target'] })
+  sanitizingWiki = true
+  try {
+    return DOMPurify.sanitize(mdWiki.parse(src, { async: false }), { ADD_ATTR: ['target'] })
+  } finally {
+    sanitizingWiki = false
+  }
 }
 
 const ITEM = /^(\s*(?:[-*+]|\d+[.)])\s+\[)([ xX])(\].*)$/
