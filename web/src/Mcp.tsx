@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { type McpTool, api, fmtTime } from './api'
 import { Icon } from './icons'
 import { locale, tr } from './i18n'
+import { McpAgent } from './McpAgent'
 import { ConfirmButton, ErrorState, Skeleton, Toggle } from './ui'
 
 const BTN_LOOK = 'items-center gap-2 whitespace-nowrap rounded-md border font-medium no-underline disabled:cursor-default disabled:opacity-50'
@@ -183,6 +184,7 @@ export function Mcp() {
             </div>
           </section>
 
+          <McpAgent tab={tab} />
 
           <section className={PANEL}>
             <div className={PH_ROW + ' pb-3'}><h2 className={PH_H2}>{tr('Инструменты')}</h2><span className="text-[13px] text-t3">{tr('{n} из {total} включено', { n: enabled, total: s?.tools.length ?? 0 })}</span></div>
