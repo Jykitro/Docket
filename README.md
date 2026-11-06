@@ -176,6 +176,29 @@ claude mcp add --transport http docket http://localhost:7777/mcp --header "Autho
 }
 ```
 
+**Codex** (the token is read from an environment variable, so it stays out of `config.toml`):
+
+```bash
+export DOCKET_MCP_TOKEN=<TOKEN>
+codex mcp add docket --url http://localhost:7777/mcp --bearer-token-env-var DOCKET_MCP_TOKEN
+```
+
+### Agent skill: Docket as a personal planner
+
+[`skills/docket/SKILL.md`](skills/docket/SKILL.md) tells an assistant to keep Docket true while it works: find or create a
+task and put its plan in the description as a checklist, tick steps and add notes as it goes, file every problem it spots
+as a backlog task with the area `issue`, and reconcile before each final message so nothing is left stale. It is about
+2 KB on purpose (a test keeps it under the 2048 bytes Claude Code accepts as server instructions).
+
+- Docket sends the same text to every client as the MCP server instructions, so a connected agent has the rules already.
+- To have it trigger from the first message, install it (also on the **MCP** tab, which serves it at `/api/mcp/skill`):
+  `~/.claude/skills/docket/SKILL.md` for Claude Code, `~/.agents/skills/docket/SKILL.md` for Codex.
+- Optional strict mode, the same JSON for Claude Code and Codex (the snippet is on the **MCP** tab): a `SessionStart`
+  hook reminds the agent to find or create the task, and a `Stop` hook makes it run the reconcile step before it
+  finishes. It blocks only the first stop of a turn, so it cannot loop. Claude Code: the project's
+  `.claude/settings.json`. Codex: `~/.codex/hooks.json` (hooks are on by default). Codex's file is global, so in a repo
+  without Docket the agent answers "not tracked" and finishes.
+
 ### Tools
 
 There are 12 tools. Tasks are referred to by ID (`TRK-07`) in responses, `project` accepts a key, a slug or an id, and a
