@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { type Project, useProjects } from './api'
+import { type Project, useProfile, useProjects } from './api'
+import { AppSettings } from './AppSettings'
 import { Board } from './Board'
 import { Mcp } from './Mcp'
+import { Onboarding } from './Onboarding'
 import { Settings } from './Settings'
 import { NewProjectDialog, NewTaskDialog } from './Dialogs'
 import { useLive } from './live'
+import { Header } from './Header'
 import { Link, useRoute } from './router'
 import { SearchDialog } from './Search'
 import { Sidebar } from './Sidebar'
@@ -25,16 +28,47 @@ function Soon({ title, hint }: { title: string; hint: string }) {
   )
 }
 
+const WIDE = '(min-width: 900px)'
+
+/** Sidebar state: an icon rail on desktop (remembered), an off-canvas drawer on narrow screens that closes on navigation. */
+function useSidebar(closeOn: string) {
+  const [collapsed, setCollapsed] = useState(() => {
+    try { return localStorage.getItem('docket-sidebar') === 'rail' } catch { return false }
+  })
+  const [wide, setWide] = useState(() => matchMedia(WIDE).matches)
+  const [open, setOpen] = useState(false)
+  useEffect(() => {
+    const mq = matchMedia(WIDE)
+    const on = () => setWide(mq.matches)
+    mq.addEventListener('change', on)
+    return () => mq.removeEventListener('change', on)
+  }, [])
+  useEffect(() => setOpen(false), [closeOn])
+  const toggle = () => {
+    if (!wide) return setOpen(!open)
+    setCollapsed(!collapsed)
+    try { localStorage.setItem('docket-sidebar', collapsed ? 'open' : 'rail') } catch { /* storage can be blocked: the choice just is not remembered */ }
+  }
+  return { rail: wide && collapsed, open, close: () => setOpen(false), toggle }
+}
+
 export function App() {
   const { path, params } = useRoute()
   const qc = useQueryClient()
   useLive(qc)
   const theme = useTheme()
+  const sidebar = useSidebar(path + (params.get('view') ?? ''))
   const projects = useProjects()
   const active = projects.data?.filter((p) => !p.archived_at)
   const [newTask, setNewTask] = useState<NewTaskOpts | null>(null)
   const [newProject, setNewProject] = useState(false)
   const [search, setSearch] = useState(false)
+  const [settings, setSettings] = useState(false)
+  // Onboarding starts when the profile has no name and stays up (latched) until it finishes, even though
+  // saving the name in step 1 makes the profile non-empty.
+  const profile = useProfile()
+  const [setup, setSetup] = useState(false)
+  if (profile.isSuccess && !profile.data.name && !setup) setSetup(true)
 
   // C opens "new task" unless the user is typing or a dialog is open; Cmd/Ctrl+K opens search.
   useEffect(() => {
@@ -73,16 +107,22 @@ export function App() {
   const heading = path === '/' ? 'Сегодня' : path === '/mcp' ? 'MCP' : path === '/trash' ? 'Корзина' : taskPage ? taskPage[1].toUpperCase()
     : proj ? (current ? current.name + (proj[2] ? ': настройки' : '') : 'Проект') : 'Docket'
   useEffect(() => { document.title = task ? `${task.toUpperCase()} · ${heading} · Docket` : heading === 'Docket' ? 'Docket' : `${heading} · Docket` }, [heading, task])
+  if (profile.isPending) return <div className="min-h-screen bg-bg" data-theme={theme.resolved} /> // avoid flashing the app before onboarding
+  if (setup) return <div className="min-h-screen bg-bg text-tx" data-theme={theme.resolved}><Onboarding hasProjects={!!active?.length} onDone={() => setSetup(false)} /></div>
   return (
-    <div className="min-h-screen flex flex-wrap items-stretch bg-bg text-tx" data-theme={theme.resolved}>
-      <Sidebar path={path} view={params.get('view')} theme={theme.pref} onTheme={theme.set} onNewProject={() => setNewProject(true)} onSearch={() => setSearch(true)} />
-      <main className="flex-[999_1_560px] min-w-0 flex flex-col">{page}</main>
+    <div className="min-h-screen flex items-stretch bg-bg text-tx" data-theme={theme.resolved}>
+      <Sidebar path={path} view={params.get('view')} rail={sidebar.rail} mobileOpen={sidebar.open} onClose={sidebar.close} onNewProject={() => setNewProject(true)} onSettings={() => setSettings(true)} />
+      <div className="flex min-w-0 flex-1 flex-col">
+        <Header onToggle={sidebar.toggle} onSearch={() => setSearch(true)} theme={theme.pref} resolved={theme.resolved} onTheme={theme.set} onSettings={() => setSettings(true)} />
+        <main className="flex min-w-0 flex-1 flex-col">{page}</main>
+      </div>
       {task && <TaskPanel key={task} code={task} mode="drawer" />}
       {search && projects.data && (
         <SearchDialog projects={projects.data} current={current} onClose={() => setSearch(false)} onCreate={(title) => openNewTask({ title, project: current })} />
       )}
       {newTask && active && <NewTaskDialog projects={active} {...newTask} onClose={() => setNewTask(null)} />}
       {newProject && <NewProjectDialog onClose={() => setNewProject(false)} />}
+      {settings && <AppSettings theme={theme.pref} onTheme={theme.set} onClose={() => setSettings(false)} />}
     </div>
   )
 }

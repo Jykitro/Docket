@@ -85,7 +85,7 @@ func (a *api) runCheck(ctx context.Context) *CheckResult {
 
 // checkServer requests our own /healthz over the network, the way a client would.
 func (a *api) checkServer(ctx context.Context) Check {
-	c := Check{Key: "server", Label: "Сервер отвечает", Hint: "Проверьте, что контейнер запущен: docker compose ps"}
+	c := Check{Key: "server", Label: "Сервер отвечает", Hint: "Проверьте, что контейнер запущен: docker ps"}
 	addr := a.selfAddr
 	if strings.HasPrefix(addr, ":") {
 		addr = "127.0.0.1" + addr
@@ -113,7 +113,7 @@ func (a *api) checkServer(ctx context.Context) Check {
 
 // checkProtocol runs initialize and tools/list on the MCP handler inside the process.
 func (a *api) checkProtocol(ctx context.Context) Check {
-	c := Check{Key: "protocol", Label: "Протокол MCP", Hint: "Посмотрите лог контейнера: docker compose logs docket"}
+	c := Check{Key: "protocol", Label: "Протокол MCP", Hint: "Посмотрите лог контейнера: docker logs docket"}
 	call := func(body string) (json.RawMessage, error) {
 		req := httptest.NewRequest(http.MethodPost, "/mcp", strings.NewReader(body)).WithContext(ctx)
 		req.Header.Set("Content-Type", "application/json")
@@ -228,6 +228,16 @@ func (a *api) mcpStatus(r *http.Request) (any, error) {
 }
 
 func (a *api) mcpCheck(r *http.Request) (any, error) { return a.runAndStore(r.Context()), nil }
+
+func (a *api) getProfile(r *http.Request) (any, error) { return a.svc.GetProfile(r.Context()) }
+
+func (a *api) setProfile(r *http.Request) (any, error) {
+	var in service.Profile
+	if err := decode(r, &in); err != nil {
+		return nil, err
+	}
+	return a.svc.SetProfile(r.Context(), in.Name)
+}
 
 func (a *api) mcpSettings(r *http.Request) (any, error) { return a.svc.GetMCPSettings(r.Context()) }
 

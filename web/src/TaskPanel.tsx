@@ -3,7 +3,7 @@ import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   type Activity, type Field, type Status, type TaskDetail, addDays, api, fmtDay, fmtStamp, isoDay, statusChip, statusColor, todayStr,
-  useProjects, useProjectsMeta,
+  useProjects, useProjectsMeta, useWho,
 } from './api'
 import { Icon, ProjectTile } from './icons'
 import { MD_NOTE, MD_PROSE, renderMarkdown, toggleCheckbox } from './markdown'
@@ -15,13 +15,13 @@ const PRIORITIES: Record<string, { name: string; cls: string }> = {
   P1: { name: 'Обычно', cls: 'bg-sk text-t2' },
   P2: { name: 'Низкий', cls: 'border border-ln text-t3' },
 }
-const BTN = 'inline-flex h-[34px] items-center gap-2 whitespace-nowrap rounded-lg border border-ln bg-sf px-3 text-[13.5px] font-medium text-tx no-underline hover:bg-sk disabled:cursor-default disabled:opacity-50'
-const BTN_PRI = 'inline-flex h-[34px] items-center gap-2 whitespace-nowrap rounded-lg border border-ink bg-ink px-3 text-[13.5px] font-medium text-inkt no-underline hover:opacity-90 disabled:cursor-default disabled:opacity-50'
-const HEAD_BTN = 'inline-flex size-8 items-center justify-center whitespace-nowrap rounded-lg border border-transparent bg-transparent p-0 text-[13.5px] font-medium text-t2 hover:bg-sk hover:text-tx disabled:cursor-default disabled:opacity-50'
+const BTN = 'inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-md border border-ln bg-sf px-3 text-sm font-medium text-tx no-underline hover:bg-sk disabled:cursor-default disabled:opacity-50'
+const BTN_PRI = 'inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-md border border-ink bg-ink px-3 text-sm font-medium text-inkt no-underline hover:opacity-90 disabled:cursor-default disabled:opacity-50'
+const HEAD_BTN = 'inline-flex size-8 items-center justify-center whitespace-nowrap rounded-md border border-transparent bg-transparent p-0 text-sm font-medium text-t2 hover:bg-sk hover:text-tx disabled:cursor-default disabled:opacity-50'
 const CHIP = 'inline-flex h-[26px] items-center gap-[7px] rounded-[7px] px-2.5 text-[13px] font-medium'
 const PKBTN = 'inline-flex cursor-pointer rounded-[7px] bg-transparent p-0 hover:opacity-[.85]'
 const DOT = 'inline-block size-2 shrink-0 rounded-full'
-const MUTED = 'text-t3 text-[13.5px]'
+const MUTED = 'text-t3 text-sm'
 const ERR = 'text-rd text-[13px]'
 const SEC = 'mb-2.5 flex items-center gap-2.5'
 const PSEC = 'border-t border-ln pt-[22px]'
@@ -70,7 +70,7 @@ function histText(a: Activity): string {
 
 function Prop({ icon, label, children }: { icon: string; label: string; children: ReactNode }) {
   return (
-    <div className="grid min-h-[34px] grid-cols-[128px_minmax(0,1fr)] items-center gap-3">
+    <div className="grid min-h-9 grid-cols-[128px_minmax(0,1fr)] items-center gap-3">
       <span className="flex items-center gap-2 text-[13px] text-t3"><Icon name={icon} size={15} sw={1.8} />{label}</span>
       <span className="min-w-0">{children}</span>
     </div>
@@ -94,7 +94,7 @@ export function TaskPanel({ code, mode }: { code: string; mode: 'drawer' | 'page
   const body = <PanelBody code={code} mode={mode} onClose={close} />
   if (mode === 'page') return <section className="flex w-full grow flex-col bg-sf" aria-label={`Задача ${code}`}>{body}</section>
   return (
-    <div className="fixed inset-0 z-50 flex items-stretch justify-end overflow-y-auto bg-[rgba(15,17,22,.45)]" onMouseDown={(e) => e.target === e.currentTarget && close()}>
+    <div className="fixed inset-0 z-50 flex items-stretch justify-end overflow-y-auto bg-black/50" onMouseDown={(e) => e.target === e.currentTarget && close()}>
       <section className="flex w-full max-w-[700px] flex-col overflow-y-auto border-l border-ln bg-sf shadow-pop" role="dialog" aria-label={`Задача ${code}`} data-drawer ref={trap} tabIndex={-1}>{body}</section>
     </div>
   )
@@ -197,12 +197,13 @@ function Title({ d, readOnly, onSave }: { d: TaskDetail; readOnly: boolean; onSa
   return <h1 className={H1}><button type="button" className="cursor-text rounded-md p-0 text-left disabled:cursor-default" disabled={readOnly} title="Нажмите, чтобы изменить" onClick={() => { setV(d.title); setEditing(true) }}>{d.title}</button></h1>
 }
 
-const DATEIN = 'h-7 rounded-lg border border-ln bg-sf px-2 text-[12.5px] text-tx focus:border-ac focus:outline-0'
+const DATEIN = 'h-7 rounded-md border border-ln bg-sf px-2 text-[12.5px] text-tx focus:border-ac focus:outline-0'
 
 function Properties({ d, statuses, labels, fields, readOnly, onPatch }: {
   d: TaskDetail; statuses: Status[]; labels: { id: number; name: string; color: string }[]; fields: Field[]; readOnly: boolean
   onPatch: (b: Record<string, unknown>) => void
 }) {
+  const who = useWho()
   const st = statuses.find((s) => s.key === d.status)
   const pr = PRIORITIES[d.priority]
   const area = labels.find((l) => l.name === d.area)
@@ -242,13 +243,13 @@ function Properties({ d, statuses, labels, fields, readOnly, onPatch }: {
             ))}
             {d.area && <button type="button" className={MENUITEM} onClick={() => { onPatch({ area: '' }); close() }}>Убрать область</button>}
             <form className="p-1" onSubmit={(e) => { e.preventDefault(); if (newArea.trim()) { onPatch({ area: newArea.trim() }); setNewArea(''); close() } }}>
-              <input className="h-[30px] w-full rounded-lg border border-ln bg-sf px-2.5 text-[13.5px] text-tx focus:border-ac focus:outline-0" placeholder="Новая область" aria-label="Новая область" value={newArea} onChange={(e) => setNewArea(e.target.value)} />
+              <input className="h-[30px] w-full rounded-md border border-ln bg-sf px-2.5 text-sm text-tx focus:border-ac focus:outline-0" placeholder="Новая область" aria-label="Новая область" value={newArea} onChange={(e) => setNewArea(e.target.value)} />
             </form>
           </>
         ))}
       </Prop>
       <Prop icon="cal" label="Дата">
-        {menu(d.planned_for ? <span className="text-[13.5px]">{dateLabel(d.planned_for)}</span> : <span className={MUTED}>не задана</span>,
+        {menu(d.planned_for ? <span className="text-sm">{dateLabel(d.planned_for)}</span> : <span className={MUTED}>не задана</span>,
           (close) => (
             <>
               {[todayStr(), addDays(todayStr(), 1)].map((day) => <button key={day} type="button" className={MENUITEM} onClick={() => { onPatch({ planned_for: day }); close() }}>{fmtDay(day)}</button>)}
@@ -268,8 +269,8 @@ function Properties({ d, statuses, labels, fields, readOnly, onPatch }: {
         </Prop>
       )}
       <Prop icon="user" label="Создал">
-        <span className="inline-flex items-center gap-2 text-[13.5px]">
-          {d.created_by === 'claude' ? <ClaudeBadge /> : <b className="font-semibold">Denis</b>}
+        <span className="inline-flex items-center gap-2 text-sm">
+          {d.created_by === 'claude' ? <ClaudeBadge /> : <b className="font-semibold">{who(d.created_by)}</b>}
           <span className="text-t3">{d.created_by === 'claude' ? 'через MCP · ' : ''}{fmtStamp(d.created_at)}</span>
         </span>
       </Prop>
@@ -304,7 +305,7 @@ function FieldProp({ f, d, readOnly, onPatch }: { f: Field; d: TaskDetail; readO
   return <Prop icon={f.type === 'url' ? 'link' : f.type === 'number' ? 'bars' : 'tag'} label={f.name}>{editor}</Prop>
 }
 
-const SEG = 'inline-flex gap-0.5 rounded-lg border border-ln p-0.5 text-[12.5px]'
+const SEG = 'inline-flex gap-0.5 rounded-md border border-ln p-0.5 text-[12.5px]'
 const SEGBTN = 'rounded-md px-2.5 py-[3px] text-t3 aria-pressed:bg-sk aria-pressed:font-semibold aria-pressed:text-tx disabled:cursor-default disabled:opacity-50'
 
 function Description({ d, readOnly, onSave }: { d: TaskDetail; readOnly: boolean; onSave: (md: string) => void }) {
@@ -380,7 +381,7 @@ function Subtasks({ d, statuses, projectKey, readOnly }: { d: TaskDetail; status
         {!readOnly && (
           <label className="flex h-9 items-center gap-2 text-t3 focus-within:rounded-md focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ac">
             <Icon name="plus" size={14} sw={2} />
-            <input className="flex-1 border-0 bg-transparent text-[13.5px] text-tx outline-0" placeholder="Добавить подзадачу" aria-label="Добавить подзадачу" value={title} onChange={(e) => setTitle(e.target.value)} disabled={!projectKey}
+            <input className="flex-1 border-0 bg-transparent text-sm text-tx outline-0" placeholder="Добавить подзадачу" aria-label="Добавить подзадачу" value={title} onChange={(e) => setTitle(e.target.value)} disabled={!projectKey}
               onKeyDown={(e) => e.key === 'Enter' && title.trim() && !add.isPending && add.mutate(title.trim())} />
           </label>
         )}
@@ -391,6 +392,7 @@ function Subtasks({ d, statuses, projectKey, readOnly }: { d: TaskDetail; status
 }
 
 function Notes({ d, readOnly }: { d: TaskDetail; readOnly: boolean }) {
+  const who = useWho()
   const qc = useQueryClient()
   const [text, setText] = useState('')
   const add = useMutation({
@@ -413,7 +415,7 @@ function Notes({ d, readOnly }: { d: TaskDetail; readOnly: boolean }) {
             <span className={'grid size-7 shrink-0 place-items-center rounded-full ' + (n.author === 'claude' ? 'bg-acs text-act' : 'bg-sk text-t2')}><Icon name={n.author === 'claude' ? 'spark' : 'user'} size={14} sw={2} /></span>
             <div className="flex min-w-0 flex-[1_1_0] flex-col gap-[3px]">
               <div className="flex items-baseline gap-2">
-                <b className="text-[13.5px] font-semibold">{n.author === 'claude' ? 'claude' : 'Denis'}</b>
+                <b className="text-sm font-semibold">{who(n.author)}</b>
                 <span className={MONO_T3}>{fmtStamp(n.created_at)}</span>
               </div>
               <div className={MD_NOTE} dangerouslySetInnerHTML={{ __html: renderMarkdown(n.body_md) }} />
@@ -435,6 +437,7 @@ function Notes({ d, readOnly }: { d: TaskDetail; readOnly: boolean }) {
 }
 
 function History({ acts }: { acts: Activity[] }) {
+  const who = useWho()
   const [all, setAll] = useState(false)
   const shown = all ? acts : acts.slice(0, 5)
   return (
@@ -447,7 +450,7 @@ function History({ acts }: { acts: Activity[] }) {
       {shown.map((a) => (
         <div className="flex items-baseline gap-2.5 py-[5px] text-[12.5px] text-t2" key={a.id}>
           <span className={MONO_T3 + ' w-[92px] shrink-0'}>{fmtStamp(a.at)}</span>
-          <span><b className="font-semibold text-tx">{a.actor === 'claude' ? 'claude' : 'Denis'}</b> {histText(a)}</span>
+          <span><b className="font-semibold text-tx">{who(a.actor)}</b> {histText(a)}</span>
         </div>
       ))}
     </section>

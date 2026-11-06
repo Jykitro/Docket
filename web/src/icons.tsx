@@ -38,10 +38,10 @@ const P = {
   monitor: 'M4 5h16v11H4zM9 20h6M12 16v4',
   logo: 'M6 4h5a8 8 0 0 1 0 16H6zM9.5 12.2l2 2 3.2-4',
   chevD: 'M6 9l6 6 6-6',
+  chevUD: 'M8 9l4-4 4 4M16 15l-4 4-4-4',
+  panelL: 'M4 5h16v14H4zM9 5v14',
   expand: 'M14 4h6v6M20 4l-8 8M10 6H5a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5',
 } as const
-
-export type IconName = keyof typeof P
 
 export const PROJECT_ICONS = ['target', 'clover', 'key', 'stack', 'candle', 'bars', 'board', 'plug', 'flag', 'tag', 'doc', 'cal', 'link', 'spark', 'home', 'cart', 'globe'] as const
 export const PROJECT_COLORS = ['#2D5CC9', '#17784C', '#B8620A', '#0E7490', '#C0265F', '#6D3FD0', '#4B5362', '#A12B2B', '#2F7D1F', '#B0791E']

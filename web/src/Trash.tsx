@@ -9,7 +9,7 @@ const MC = 'inline-flex items-center gap-[5px] text-[12px] text-t3'
 const ROW = 'flex items-center gap-3 min-h-[46px] px-4 py-1.5 border-ln no-underline hover:bg-sf2'
 const ROWMAIN = 'flex flex-1 items-center gap-3 min-w-0 self-stretch no-underline'
 const CODE = 'font-mono text-[11.5px] text-t3 w-[58px] flex-[0_0_58px]'
-const BTN = 'inline-flex items-center gap-2 h-[34px] px-3 rounded-lg border bg-sf text-[13.5px] font-medium no-underline whitespace-nowrap cursor-pointer hover:bg-sk disabled:opacity-50 disabled:cursor-default'
+const BTN = 'inline-flex items-center gap-2 h-9 px-3 rounded-md border bg-sf text-sm font-medium no-underline whitespace-nowrap cursor-pointer hover:bg-sk disabled:opacity-50 disabled:cursor-default'
 
 export function Trash() {
   const qc = useQueryClient()
@@ -31,10 +31,10 @@ export function Trash() {
 
   return (
     <>
-      <header className="flex flex-wrap items-center gap-3.5 px-8 pt-6 pb-[18px] border-b border-ln bg-sf max-[640px]:px-4">
+      <header className="flex flex-wrap items-center gap-3.5 px-8 pt-6 pb-4 max-[640px]:px-4">
         <div className="flex flex-col gap-0.5 flex-[1_1_260px] min-w-0">
-          <h1 className="text-[26px] font-bold tracking-[-.02em]">Корзина</h1>
-          <span className="text-[13.5px] text-t3">{total} {plural(total, 'элемент', 'элемента', 'элементов')} · удалённое можно восстановить</span>
+          <h1 className="text-2xl font-bold tracking-tight">Корзина</h1>
+          <span className="text-sm text-t3">{total} {plural(total, 'элемент', 'элемента', 'элементов')} · удалённое можно восстановить</span>
         </div>
         <button type="button" className={BTN + (confirm ? ' border-rd text-rd' : ' border-ln text-tx')} disabled={total === 0 || purge.isPending}
           onClick={() => (confirm ? (setConfirm(false), purge.mutate()) : setConfirm(true))}>

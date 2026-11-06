@@ -1,27 +1,32 @@
+// Sidebar in the shadcn-admin layout: team block on top, labelled nav groups, user card at the bottom.
+// `rail` is the collapsed icon-only mode (desktop); on narrow screens it is an off-canvas drawer.
+import { type ReactNode } from 'react'
 import { useQueries, useQuery } from '@tanstack/react-query'
-import { type Project, type View, api, useProjects } from './api'
+import { type Project, type View, api, useProfile, useProjects } from './api'
 import { Icon, ProjectTile } from './icons'
 import { Link } from './router'
-import { type ThemePref } from './theme'
-import { cap, kbd } from './ui'
+import { cap } from './ui'
 
-const nv = 'flex items-center gap-2.5 h-8 px-2 rounded-lg no-underline text-[13.5px] w-full text-left hover:bg-sk '
-const nvOn = nv + 'bg-sk text-tx font-semibold'
-const nvOff = nv + 'text-t2'
+const nv = 'flex h-8 items-center gap-2 rounded-md px-2 text-sm no-underline w-full text-left text-tx hover:bg-sk '
+const nvOn = nv + 'bg-sk font-medium'
+const nvOff = nv
 const nvName = 'grow min-w-0 overflow-hidden text-ellipsis whitespace-nowrap'
-const nvN = 'text-[11.5px] text-t3 font-mono'
-const nvlist = 'flex flex-col gap-0.5'
+const nvN = 'text-xs font-medium text-t2 tabular-nums'
 
-const THEMES: { id: ThemePref; icon: string; label: string }[] = [
-  { id: 'light', icon: 'sun', label: 'Светлая тема' },
-  { id: 'dark', icon: 'moon', label: 'Тёмная тема' },
-  { id: 'system', icon: 'monitor', label: 'Как в системе' },
-]
+function Group({ label, rail, action, children }: { label: string; rail: boolean; action?: ReactNode; children: ReactNode }) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      {!rail && <div className="flex h-8 items-center px-2"><span className={cap + ' grow'}>{label}</span>{action}</div>}
+      {children}
+    </div>
+  )
+}
 
-export function Sidebar({ path, view, theme, onTheme, onNewProject, onSearch }: {
-  path: string; view: string | null; theme: ThemePref; onTheme: (t: ThemePref) => void; onNewProject: () => void; onSearch: () => void
+export function Sidebar({ path, view, rail, mobileOpen, onClose, onNewProject, onSettings }: {
+  path: string; view: string | null; rail: boolean; mobileOpen: boolean; onClose: () => void; onNewProject: () => void; onSettings: () => void
 }) {
   const projects = useProjects()
+  const name = useProfile().data?.name ?? ''
   const today = useQuery({ queryKey: ['today', 'now'], queryFn: () => api.today() })
   const trash = useQuery({ queryKey: ['trash'], queryFn: api.trash })
   const mcp = useQuery({ queryKey: ['mcp-status'], queryFn: api.mcpStatus })
@@ -39,80 +44,92 @@ export function Sidebar({ path, view, theme, onTheme, onNewProject, onSearch }: 
     { to: '/mcp', label: 'MCP', icon: 'plug', dot: mcp.data ? (mcp.data.online ? 'var(--dn)' : 'var(--rd)') : undefined, on: path === '/mcp' },
     { to: '/trash', label: 'Корзина', icon: 'trash', n: (trash.data?.length ?? 0) + (trashP.data?.length ?? 0), on: path === '/trash' },
   ]
+  // In the icon rail an item is just its icon (centred), with the label as a tooltip.
+  const cls = (on: boolean) => (on ? nvOn : nvOff) + (rail ? ' justify-center px-0' : '')
 
   return (
-    <aside className="flex-[0_0_264px] max-w-full bg-sf border-r border-ln pt-4 px-3 pb-3.5 flex flex-col gap-[18px] max-[899px]:flex-[1_1_100%] max-[899px]:border-r-0 max-[899px]:border-b min-[900px]:sticky min-[900px]:top-0 min-[900px]:h-screen min-[900px]:overflow-y-auto">
-      <div className="flex items-center gap-2.5 px-1.5 py-0.5">
-        <span className="size-7 rounded-lg bg-ink text-inkt grid place-items-center"><Icon name="logo" size={17} sw={2} /></span>
-        <b className="text-[16px] font-bold tracking-[-.01em] grow">Docket</b>
-        <span className="font-mono text-[11px] text-t3">:{location.port || '80'}</span>
-      </div>
-      <button type="button" className="flex items-center gap-2 h-[34px] px-2.5 border border-ln rounded-lg bg-sf2 text-t3 text-[13px] text-left w-full hover:bg-sk" onClick={onSearch}>
-        <Icon name="search" size={15} /><span className="grow">Поиск</span><span className={kbd}>⌘K</span>
-      </button>
-      <nav className={nvlist} aria-label="Разделы">
-        {nav.map((n) => (
-          <Link key={n.label} to={n.to} className={n.on ? nvOn : nvOff} aria-current={n.on ? 'page' : undefined}>
-            <Icon name={n.icon} />
-            <span className={nvName}>{n.label}</span>
-            {n.dot && <span className="inline-block w-[7px] h-[7px] rounded-full flex-[0_0_7px]" style={{ background: n.dot }} role="img" aria-label={n.dot.includes('dn') ? 'онлайн' : 'недоступен'} />}
-            {n.n !== undefined && n.n > 0 && <span className={nvN + ' tabular-nums'}>{n.n}</span>}
-          </Link>
-        ))}
-      </nav>
-      <div className={nvlist}>
-        <div className="flex items-center px-2 pb-1.5">
-          <span className={cap + ' grow'}>Проекты</span>
-          <button type="button" className="inline-grid place-items-center size-6 rounded-md bg-transparent text-t3 p-0 hover:bg-sk hover:text-tx" aria-label="Новый проект" onClick={onNewProject}><Icon name="plus" size={15} sw={2} /></button>
+    <>
+      {mobileOpen && <div className="fixed inset-0 z-40 bg-black/50 min-[900px]:hidden" onClick={onClose} aria-hidden="true" />}
+      {/* Floating variant (shadcn): the aside is a padded slot, the inner card floats with border, radius and shadow. */}
+      <aside
+        className={'z-50 shrink-0 p-2 transition-[width,translate] duration-200 '
+          + 'max-[899px]:fixed max-[899px]:inset-y-0 max-[899px]:left-0 max-[899px]:w-68 min-[900px]:sticky min-[900px]:top-0 min-[900px]:h-screen '
+          + (rail ? 'min-[900px]:w-18 ' : 'min-[900px]:w-68 ') + (mobileOpen ? '' : 'max-[899px]:-translate-x-full')}
+        aria-label="Боковая панель"
+      >
+        <div className="flex h-full flex-col rounded-lg border border-ln bg-sf shadow-sm">
+        <div className={'flex h-16 items-center gap-2 px-3 ' + (rail ? 'justify-center' : '')}>
+          <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-ink text-inkt"><Icon name="logo" size={17} sw={2} /></span>
+          {!rail && <span className="flex min-w-0 grow flex-col leading-tight"><b className="text-sm font-semibold">Docket</b><span className="font-mono text-xs text-t3">:{location.port || '80'}</span></span>}
         </div>
-        {list.map((p) => {
-          const on = path === `/p/${p.slug}` && !view
-          return (
-            <Link key={p.id} to={`/p/${p.slug}`} className={on ? nvOn : nvOff} aria-current={on ? 'page' : undefined}>
-              <ProjectTile icon={p.icon} color={p.color} />
-              <span className={nvName}>{p.name}</span>
-              <span className={nvN + ' tabular-nums'}>{p.open}</span>
-            </Link>
-          )
-        })}
-        {archived.length > 0 && (
-          <details className="group">
-            <summary className={nvOff + ' list-none cursor-pointer group-open:text-tx [&::-webkit-details-marker]:hidden'}><Icon name="stack" /><span className={nvName}>Архив</span><span className={nvN}>{archived.length}</span></summary>
-            {archived.map((p) => (
-              <Link key={p.id} to={`/p/${p.slug}`} className={(path.startsWith(`/p/${p.slug}`) ? nvOn : nvOff) + ' opacity-75'}>
-                <ProjectTile icon={p.icon} color={p.color} /><span className={nvName}>{p.name}</span>
-              </Link>
-            ))}
-          </details>
-        )}
-        {projects.isError && <button type="button" className="py-0 px-2 bg-transparent text-[12.5px] text-rd text-left" onClick={() => projects.refetch()}>Не удалось загрузить проекты · Повторить</button>}
-        {projects.isSuccess && list.length === 0 && <span className="px-2 text-[12.5px] text-t3">Проектов пока нет</span>}
-      </div>
-      {pinned.length > 0 && (
-        <div className={nvlist}>
-          <div className={cap + ' px-2 pb-1.5'}>Виды</div>
-          {pinned.map(({ v, p }) => (
-            <Link key={v.id} to={`/p/${p.slug}?view=${v.id}`} className={view === String(v.id) && path === `/p/${p.slug}` ? nvOn : nvOff}>
-              <Icon name="funnel" />
-              <span className={nvName}>{v.name}</span>
-            </Link>
-          ))}
+
+        <div className="flex min-h-0 grow flex-col gap-3 overflow-y-auto px-2 py-1">
+          <Group label="Общее" rail={rail}>
+            <nav className="flex flex-col gap-0.5" aria-label="Разделы">
+              {nav.map((n) => (
+                <Link key={n.label} to={n.to} className={cls(n.on)} aria-current={n.on ? 'page' : undefined} title={rail ? n.label : undefined}>
+                  <Icon name={n.icon} />
+                  {!rail && <span className={nvName}>{n.label}</span>}
+                  {!rail && n.dot && <span className="inline-block size-[7px] shrink-0 rounded-full" style={{ background: n.dot }} role="img" aria-label={n.dot.includes('dn') ? 'онлайн' : 'недоступен'} />}
+                  {!rail && n.n !== undefined && n.n > 0 && <span className={nvN}>{n.n}</span>}
+                </Link>
+              ))}
+            </nav>
+          </Group>
+
+          <Group label="Проекты" rail={rail}
+            action={<button type="button" className="inline-grid size-6 place-items-center rounded-md bg-transparent p-0 text-t3 hover:bg-sk hover:text-tx" aria-label="Новый проект" onClick={onNewProject}><Icon name="plus" size={15} sw={2} /></button>}>
+            {list.map((p) => {
+              const on = path === `/p/${p.slug}` && !view
+              return (
+                <Link key={p.id} to={`/p/${p.slug}`} className={cls(on)} aria-current={on ? 'page' : undefined} title={rail ? p.name : undefined}>
+                  <ProjectTile icon={p.icon} color={p.color} />
+                  {!rail && <><span className={nvName}>{p.name}</span><span className={nvN}>{p.open}</span></>}
+                </Link>
+              )
+            })}
+            {!rail && archived.length > 0 && (
+              <details className="group">
+                <summary className={nvOff + ' list-none cursor-pointer [&::-webkit-details-marker]:hidden'}><Icon name="stack" /><span className={nvName}>Архив</span><span className={nvN}>{archived.length}</span></summary>
+                {archived.map((p) => (
+                  <Link key={p.id} to={`/p/${p.slug}`} className={(path.startsWith(`/p/${p.slug}`) ? nvOn : nvOff) + ' opacity-75'}>
+                    <ProjectTile icon={p.icon} color={p.color} /><span className={nvName}>{p.name}</span>
+                  </Link>
+                ))}
+              </details>
+            )}
+            {!rail && projects.isError && <button type="button" className="px-2 py-0 text-left text-[12.5px] text-rd" onClick={() => projects.refetch()}>Не удалось загрузить проекты · Повторить</button>}
+            {!rail && projects.isSuccess && list.length === 0 && <span className="px-2 text-[12.5px] text-t3">Проектов пока нет</span>}
+          </Group>
+
+          {pinned.length > 0 && (
+            <Group label="Виды" rail={rail}>
+              {pinned.map(({ v, p }) => (
+                <Link key={v.id} to={`/p/${p.slug}?view=${v.id}`} className={cls(view === String(v.id) && path === `/p/${p.slug}`)} title={rail ? v.name : undefined}>
+                  <Icon name="funnel" />
+                  {!rail && <span className={nvName}>{v.name}</span>}
+                </Link>
+              ))}
+            </Group>
+          )}
         </div>
-      )}
-      <div className="flex items-center gap-2.5 pt-2.5 px-1.5 border-t border-ln mt-auto">
-        <span className="size-[26px] rounded-full bg-sk grid place-items-center font-semibold text-[12px]">D</span>
-        <span className="grow flex flex-col leading-[1.2]">
-          <b className="font-semibold text-[13px]">Denis</b>
-          <span className="text-[11.5px] text-t3">локально · без входа</span>
-        </span>
-        <span className="inline-flex border border-ln rounded-lg p-0.5 gap-0.5" role="group" aria-label="Тема">
-          {THEMES.map((t) => (
-            <button key={t.id} type="button" className="w-6 h-[22px] rounded-md bg-transparent text-t3 grid place-items-center p-0 aria-pressed:bg-sk aria-pressed:text-tx" aria-label={t.label} aria-pressed={theme === t.id} title={t.label} onClick={() => onTheme(t.id)}>
-              <Icon name={t.icon} size={13} sw={2} />
-            </button>
-          ))}
-        </span>
-      </div>
-    </aside>
+
+        <div className="p-2">
+          <button type="button" className={'flex w-full items-center gap-2 rounded-md p-2 text-left hover:bg-sk ' + (rail ? 'justify-center px-0' : '')} aria-label="Настройки" title="Настройки: профиль, тема, платформа" onClick={onSettings}>
+            <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-sk text-sm font-semibold">{name ? name.charAt(0).toUpperCase() : <Icon name="user" size={15} sw={2} />}</span>
+            {!rail && (
+              <>
+                <span className="flex min-w-0 grow flex-col leading-tight">
+                  <b className="truncate text-sm font-semibold">{name || 'Профиль'}</b>
+                  <span className="truncate text-xs text-t3">локально · без входа</span>
+                </span>
+                <span className="text-t3"><Icon name="chevUD" size={16} /></span>
+              </>
+            )}
+          </button>
+        </div>
+        </div>
+      </aside>
+    </>
   )
 }

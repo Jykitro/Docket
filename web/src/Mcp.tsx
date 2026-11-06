@@ -5,21 +5,21 @@ import { type McpTool, api, fmtTime } from './api'
 import { Icon } from './icons'
 import { ConfirmButton, ErrorState, Skeleton, Toggle } from './ui'
 
-const BTN_LOOK = 'items-center gap-2 whitespace-nowrap rounded-lg border font-medium no-underline disabled:cursor-default disabled:opacity-50'
-const BTN_PRI = 'inline-flex h-[34px] px-3 text-[13.5px] border-ink bg-ink text-inkt hover:opacity-90 ' + BTN_LOOK
+const BTN_LOOK = 'items-center gap-2 whitespace-nowrap rounded-md border font-medium no-underline disabled:cursor-default disabled:opacity-50'
+const BTN_PRI = 'inline-flex h-9 px-3 text-sm border-ink bg-ink text-inkt hover:opacity-90 ' + BTN_LOOK
 const BTN_SM = 'inline-flex h-[30px] px-2.5 text-[13px] border-ln bg-sf text-tx hover:bg-sk ' + BTN_LOOK
 const BTN_SM_SQ = 'inline-flex size-[30px] justify-center p-0 text-[13px] border-ln bg-sf text-tx hover:bg-sk ' + BTN_LOOK
 const PANEL = 'overflow-hidden rounded-xl border border-ln bg-sf'
 const PH_ROW = 'flex items-center gap-3 px-5 pt-4'
 const PH_H2 = 'grow text-[16px] font-semibold tracking-[-.01em]'
 const LB = 'flex min-w-0 flex-col gap-1.5 text-[12.5px] font-medium text-t2'
-const FLD = 'flex h-[38px] min-w-0 items-center gap-2 rounded-lg border border-ln bg-sf2 pr-1.5 pl-3 text-[13px]'
+const FLD = 'flex h-[38px] min-w-0 items-center gap-2 rounded-md border border-ln bg-sf2 pr-1.5 pl-3 text-[13px]'
 const HINT = 'text-[12px] font-normal text-t3'
 const ERR_PAD = 'px-5 pb-3.5 text-[13px] text-rd'
 const CK = 'flex flex-wrap items-center gap-3 border-t border-ln px-5 py-[11px]'
 const TL = 'flex items-center gap-3 border-t border-ln px-5 py-2.5'
 const LG = 'items-center gap-2.5 border-t border-ln px-[18px] py-[9px] text-[12.5px]'
-const SEG = 'inline-flex gap-0.5 rounded-lg border border-ln p-0.5 text-[12.5px]'
+const SEG = 'inline-flex gap-0.5 rounded-md border border-ln p-0.5 text-[12.5px]'
 const SEGBTN = 'rounded-md px-2.5 py-[3px] text-t3 disabled:cursor-default disabled:opacity-50 '
 const FC = 'inline-flex h-7 items-center gap-1.5 whitespace-nowrap rounded-full border border-ln bg-sf px-2.5 text-[12.5px] text-t2 hover:bg-sk aria-pressed:border-transparent aria-pressed:bg-acs aria-pressed:font-medium aria-pressed:text-act aria-pressed:hover:bg-sk'
 const MONO = 'font-mono text-[11.5px] text-t3'
@@ -83,11 +83,11 @@ export function Mcp() {
 
   return (
     <>
-      <header className="flex flex-wrap items-center gap-3.5 border-b border-ln bg-sf px-8 pt-6 pb-[18px] max-[640px]:px-4">
+      <header className="flex flex-wrap items-center gap-3.5 px-8 pt-6 pb-4 max-[640px]:px-4">
         <span className="grid size-10 place-items-center rounded-[11px] bg-sk"><Icon name="plug" size={20} sw={1.9} /></span>
         <div className="flex min-w-0 flex-[1_1_260px] flex-col gap-0.5">
-          <h1 className="text-[24px] font-bold tracking-[-.02em]">MCP</h1>
-          <span className="text-[13.5px] text-t3">Так Claude читает и ведёт задачи. Сервер работает внутри Docket, отдельно ничего ставить не нужно.</span>
+          <h1 className="text-2xl font-bold tracking-tight">MCP</h1>
+          <span className="text-sm text-t3">Так Claude читает и ведёт задачи. Сервер работает внутри Docket, отдельно ничего ставить не нужно.</span>
         </div>
         {st && (
           <span className={'inline-flex h-[30px] items-center gap-2 rounded-full px-3 text-[13px] font-semibold ' + (online ? 'bg-dns text-dnt' : 'bg-rds text-rd')} role="status">
@@ -120,7 +120,7 @@ export function Mcp() {
             {result?.checks.map((c) => (
               <div className={CK} key={c.key}>
                 <span className={'grid size-5 shrink-0 place-items-center rounded-full ' + (c.ok ? 'bg-dns text-dnt' : 'bg-rds text-rd')}><Icon name={c.ok ? 'check' : 'x'} size={12} sw={3} /></span>
-                <span className="flex-[0_0_160px] text-[13.5px] font-medium">{c.label}</span>
+                <span className="flex-[0_0_160px] text-sm font-medium">{c.label}</span>
                 <span className="min-w-0 flex-[1_1_180px] font-mono text-[12px] text-t3 [overflow-wrap:anywhere]">{c.detail}</span>
                 <span className="font-mono text-[12px] text-t2">{c.ok ? c.value || 'ок' : 'ошибка'}</span>
                 {!c.ok && c.hint && <span className="basis-full pl-8 text-[12.5px] text-rd">Что делать: {c.hint}</span>}
@@ -179,7 +179,7 @@ export function Mcp() {
             {settings.isPending && <div className={TL}><Skeleton w="70%" /></div>}
             {groups.map(([name, tools]) => (
               <div key={name}>
-                <div className="border-t border-ln bg-sf2 px-5 pt-2 pb-1.5 text-[11px] font-semibold tracking-[.06em] text-t3 uppercase">{name}{name === 'Запись' && readOnly && ' · недоступна в режиме «Только чтение»'}</div>
+                <div className="border-t border-ln bg-sf2 px-5 pt-2 pb-1.5 text-xs font-medium text-t3">{name}{name === 'Запись' && readOnly && ' · недоступна в режиме «Только чтение»'}</div>
                 {tools.map((t) => {
                   const off = name === 'Запись' && readOnly
                   const dim = off ? ' opacity-[.55]' : ''

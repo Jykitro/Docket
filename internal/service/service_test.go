@@ -686,3 +686,21 @@ func TestRussianNamesGetLatinKeys(t *testing.T) {
 		t.Fatalf("duplicate status key = %q, want revyu-2", st2.Key)
 	}
 }
+
+func TestProfile(t *testing.T) {
+	s := newSvc(t)
+	if p, err := s.GetProfile(ctx); err != nil || p.Name != "" {
+		t.Fatalf("fresh database: want empty profile, got %+v, %v", p, err)
+	}
+	for _, bad := range []string{"", "   ", strings.Repeat("я", maxProfileName+1)} {
+		if _, err := s.SetProfile(ctx, bad); err == nil {
+			t.Errorf("SetProfile(%q): want validation error", bad)
+		}
+	}
+	if _, err := s.SetProfile(ctx, "  Аня  "); err != nil {
+		t.Fatal(err)
+	}
+	if p, _ := s.GetProfile(ctx); p.Name != "Аня" {
+		t.Fatalf("want trimmed name, got %q", p.Name)
+	}
+}

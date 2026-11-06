@@ -1,10 +1,12 @@
 @import 'tailwindcss';
 
-/* Design tokens (docs/design/tokens.css) become Tailwind colours: bg-sf, text-t2, border-ln, bg-acs ...
+/* Design tokens follow shadcn-admin (satnaing/shadcn-admin, MIT): slate neutrals, near-black primary, 0.625rem radius.
+   The short names are kept so every screen keeps working: bg/sf = background/card, sk = accent (hover, skeleton),
+   ln = border, tx/t2/t3 = foreground / muted text, ink = primary, ac = ring-coloured accents.
    `inline` keeps utilities pointing at the CSS variables, so the light/dark switch still works. */
 @theme inline {
   --color-bg: var(--bg); --color-sf: var(--sf); --color-sf2: var(--sf2); --color-sk: var(--sk);
-  --color-ln: var(--ln); --color-ln2: var(--ln2);
+  --color-ln: var(--ln); --color-ln2: var(--ln2); --color-ring: var(--ring);
   --color-tx: var(--tx); --color-t2: var(--t2); --color-t3: var(--t3);
   --color-ac: var(--ac); --color-acs: var(--acs); --color-act: var(--act);
   --color-ink: var(--ink); --color-inkt: var(--inkt);
@@ -13,9 +15,14 @@
   --color-dn: var(--dn); --color-dns: var(--dns); --color-dnt: var(--dnt);
   --color-bk: var(--bk); --color-bks: var(--bks); --color-bkt: var(--bkt);
   --color-rd: var(--rd); --color-rds: var(--rds);
-  --font-sans: 'Onest', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
   --shadow-pop: var(--sh);
+  /* shadcn radius scale: rounded-md = controls, rounded-lg = dialogs, rounded-xl = cards */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
   --text-13: 13px; --text-12: 12px; --text-11: 11px;
 }
 
@@ -23,31 +30,39 @@
    and a few base rules. Everything else is Tailwind utilities in the markup. */
 @layer base {
 :root {
-  --bg: #F4F5F7; --sf: #FFFFFF; --sf2: #F8F9FB; --sk: #ECEEF2; --ln: #E3E6EB; --ln2: #CDD2DA;
-  --tx: #14171F; --t2: #4B5362; --t3: #646C7D;
-  --ac: #5A3DF0; --acs: #EEEBFF; --act: #4A2FD8; --ink: #14171F; --inkt: #FFFFFF;
-  --td: #3B6FD9; --tds: #E6EEFC; --tdt: #2650A8;
-  --dg: #C77700; --dgs: #FFF1D6; --dgt: #8A5200;
-  --dn: #1E8E5A; --dns: #DDF3E7; --dnt: #176B43;
-  --bk: #8A93A3; --bks: #ECEEF2; --bkt: #4B5362;
-  --rd: #C9362B; --rds: #FDE7E4;
-  --sh: 0 1px 2px rgba(20, 23, 31, .06), 0 12px 28px rgba(20, 23, 31, .12);
+  --radius: 0.625rem;
+  --bg: oklch(1 0 0); --sf: oklch(1 0 0); --sf2: oklch(0.984 0.003 247.858); --sk: oklch(0.968 0.007 247.896);
+  --ln: oklch(0.929 0.013 255.508); --ln2: oklch(0.869 0.022 252.894); --ring: oklch(0.704 0.04 256.788);
+  --tx: oklch(0.129 0.042 264.695); --t2: oklch(0.446 0.043 257.281); --t3: oklch(0.554 0.046 257.417);
+  --ac: oklch(0.208 0.042 265.755); --acs: oklch(0.968 0.007 247.896); --act: oklch(0.208 0.042 265.755);
+  --ink: oklch(0.208 0.042 265.755); --inkt: oklch(0.984 0.003 247.858);
+  --td: oklch(0.546 0.245 262.881); --tds: oklch(0.97 0.014 254.604); --tdt: oklch(0.488 0.243 264.376);
+  --dg: oklch(0.666 0.179 58.318); --dgs: oklch(0.987 0.022 95.277); --dgt: oklch(0.555 0.163 48.998);
+  --dn: oklch(0.596 0.145 163.225); --dns: oklch(0.979 0.021 166.113); --dnt: oklch(0.508 0.118 165.612);
+  --bk: oklch(0.704 0.04 256.788); --bks: oklch(0.968 0.007 247.896); --bkt: oklch(0.446 0.043 257.281);
+  --rd: oklch(0.577 0.245 27.325); --rds: oklch(0.971 0.013 17.38);
+  --sh: 0 4px 6px -1px rgb(0 0 0 / .1), 0 2px 4px -2px rgb(0 0 0 / .1);
   color-scheme: light;
 }
 html[data-theme='dark'] {
-  --bg: #0F1116; --sf: #171A21; --sf2: #1C2029; --sk: #222732; --ln: #262B36; --ln2: #363C49;
-  --tx: #E8EAF0; --t2: #A9B0BE; --t3: #8B93A4;
-  --ac: #8F7BFF; --acs: #25204A; --act: #B4A6FF; --ink: #E8EAF0; --inkt: #0F1116;
-  --td: #6B9BFF; --tds: #17233F; --tdt: #9DBDFF;
-  --dg: #E2A13B; --dgs: #33270E; --dgt: #F0BE6A;
-  --dn: #4CC98A; --dns: #12301F; --dnt: #7FDDAB;
-  --bk: #6F7889; --bks: #232833; --bkt: #A9B0BE;
-  --rd: #FF7A6E; --rds: #3A1C19;
-  --sh: 0 1px 2px rgba(0, 0, 0, .4), 0 12px 28px rgba(0, 0, 0, .5);
+  /* neutral grays, no blue tint: page #0a0a0a, sidebar/cards #171717, hover/active #262626 */
+  --bg: oklch(0.145 0 0); --sf: oklch(0.205 0 0); --sf2: oklch(0.235 0 0);
+  --sk: oklch(0.269 0 0); --ln: oklch(1 0 0 / 10%); --ln2: oklch(0.371 0 0);
+  --ring: oklch(0.556 0 0);
+  --tx: oklch(0.985 0 0); --t2: oklch(0.87 0 0); --t3: oklch(0.708 0 0);
+  --ac: oklch(0.922 0 0); --acs: oklch(0.269 0 0); --act: oklch(0.985 0 0);
+  --ink: oklch(0.922 0 0); --inkt: oklch(0.205 0 0);
+  --td: oklch(0.707 0.165 254.624); --tds: oklch(0.282 0.091 267.935); --tdt: oklch(0.809 0.105 251.813);
+  --dg: oklch(0.828 0.189 84.429); --dgs: oklch(0.279 0.077 45.635); --dgt: oklch(0.879 0.169 91.605);
+  --dn: oklch(0.765 0.177 163.223); --dns: oklch(0.262 0.051 172.552); --dnt: oklch(0.845 0.143 164.978);
+  --bk: oklch(0.556 0 0); --bks: oklch(0.269 0 0); --bkt: oklch(0.708 0 0);
+  --rd: oklch(0.704 0.191 22.216); --rds: oklch(0.258 0.092 26.042);
+  --sh: 0 4px 6px -1px rgb(0 0 0 / .4), 0 2px 4px -2px rgb(0 0 0 / .4);
   color-scheme: dark;
 }
 button:not(:disabled) { cursor: pointer; }
-:focus-visible { outline: 2px solid var(--ac); outline-offset: 2px; }
+/* shadcn focus ring: outline-ring/50 */
+:focus-visible { outline: 2px solid color-mix(in oklab, var(--ring) 50%, transparent); outline-offset: 2px; }
 /* No visible scrollbars anywhere; scrolling itself (wheel, trackpad, touch, keyboard) still works. */
 * { scrollbar-width: none; }
 *::-webkit-scrollbar { display: none; }

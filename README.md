@@ -9,9 +9,12 @@
 ## Запуск
 
 ```bash
-cp .env.example .env
-docker compose up -d --build
+make rebuild   # создаст .env из .env.example, соберёт образ docket:local и (пере)запустит контейнер
 ```
+
+Та же команда пересобирает и перезапускает контейнер после изменений кода; данные в `./data` остаются.
+Остальное: `make logs`, `make stop`, `make help`. Без `make` то же самое делают `docker build -t docket:local .` и
+`docker run -d --name docket --env-file .env -p 127.0.0.1:7777:7777 -v "$PWD/data:/data" --restart unless-stopped docket:local`.
 
 Открыть: <http://docket.localhost:7777> (Chrome сам резолвит `*.localhost`; для других браузеров подойдёт
 <http://localhost:7777>). Проверка: `curl localhost:7777/healthz`.
@@ -94,10 +97,10 @@ Claude Desktop (`claude_desktop_config.json`):
 
 ```bash
 go test ./...                     # бэкенд (тесты HTTP открывают порт на localhost)
-cd web && npm ci && npm run build # tsc --noEmit + vite build → internal/web/dist
+cd web && bun install && bun run build # tsc --noEmit + vite build → internal/web/dist
 ```
 
-Для фронта с hot reload запустите бэкенд и `cd web && npm run dev` (Vite проксирует `/api` на `:7777`):
+Для фронта с hot reload запустите бэкенд и `cd web && bun run dev` (Vite проксирует `/api` на `:7777`):
 
 ```bash
 DOCKET_DB=./data/dev.db DOCKET_BACKUP_DIR=./data/backups DOCKET_SEED=./seed/seed.json go run ./cmd/docket
@@ -147,5 +150,5 @@ docs/design/        исходные макеты и токены
 - **`/mcp` отвечает 401.** Нужен заголовок `Authorization: Bearer <TOKEN>`; токен смотрите на вкладке MCP. Вкладка **MCP**
   в браузере открывается без токена: для запросов с `Accept: text/html` отдаётся интерфейс.
 - **403 `forbidden_host`.** Добавьте имя хоста в `DOCKET_ALLOWED_HOSTS` и перезапустите контейнер.
-- **Самопроверка красная.** Каждая строка на вкладке MCP объясняет, что делать; логи: `docker compose logs docket`.
+- **Самопроверка красная.** Каждая строка на вкладке MCP объясняет, что делать; логи: `make logs` (или `docker logs docket`).
 - **Начать с нуля.** Остановите контейнер и удалите `./data/docket.db*`; бэкапы лежат в `./data/backups`.

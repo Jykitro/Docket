@@ -9,7 +9,7 @@ import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalList
 import { CSS } from '@dnd-kit/utilities'
 import {
   type Category, type Field, type Label, type Meta, type Project, type Status, type Task, type View, type ViewFilter,
-  api, fmtDay, statusColor, todayStr, useProjects, useProjectsMeta,
+  api, fmtDay, statusColor, todayStr, useProjects, useProjectsMeta, useWho,
 } from './api'
 import { Icon, ProjectTile } from './icons'
 import { useFresh } from './live'
@@ -25,11 +25,10 @@ const PRIO = { P0: 0, P1: 1, P2: 2 }
 const GROUPS: [Group, string][] = [['status', 'Статус'], ['priority', 'Приоритет'], ['area', 'Область']]
 const SORTS: [Sort, string][] = [['manual', 'вручную'], ['priority', 'приоритет'], ['date', 'дата']]
 const DATE_OPTS: [string, string][] = [['today', 'Сегодня'], ['overdue', 'Просрочено'], ['none', 'Без даты']]
-const AUTHOR_OPTS: [string, string][] = [['claude', 'Claude'], ['denis', 'Denis']]
 const DONE_LIMIT = 20
 
 // Shared utility strings (full literals so Tailwind can see them).
-const BTN = 'inline-flex items-center gap-2 rounded-lg border text-[13.5px] font-medium no-underline whitespace-nowrap cursor-pointer disabled:opacity-50 disabled:cursor-default'
+const BTN = 'inline-flex items-center gap-2 rounded-md border text-sm font-medium no-underline whitespace-nowrap cursor-pointer disabled:opacity-50 disabled:cursor-default'
 const BTN_PLAIN = BTN + ' px-3 border-ln bg-sf text-tx hover:bg-sk'
 const BTN_PRI = BTN + ' px-3 border-ink bg-ink text-inkt hover:opacity-90'
 const KBD_PRI = 'font-mono text-[11px] font-medium leading-[normal] border border-current rounded-[5px] px-[5px] py-px bg-transparent text-inkt opacity-70'
@@ -37,12 +36,12 @@ const FC = 'inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full border text
 const FC_OFF = ' border-ln bg-sf text-t2'
 const FC_ON = ' border-transparent bg-acs text-act font-medium'
 const FC_BTN = FC + ' cursor-pointer hover:bg-sk'
-const POP_HEAD = 'px-2 pt-1.5 pb-1 text-[11px] font-semibold tracking-[.06em] uppercase text-t3'
+const POP_HEAD = 'px-2 pt-1.5 pb-1 text-xs font-medium text-t3'
 const POP_ITEM = 'flex items-center gap-2 w-full h-[30px] px-2 border-0 rounded-md bg-transparent text-[13px] text-left cursor-pointer hover:bg-sk'
-const TAB = 'inline-flex items-center gap-2 h-[38px] px-0.5 mr-[18px] border-b-2 rounded-none bg-transparent no-underline font-medium text-[13.5px] cursor-pointer hover:text-tx'
+const TAB = 'inline-flex items-center gap-2 h-[38px] px-0.5 mr-[18px] border-b-2 rounded-none bg-transparent no-underline font-medium text-sm cursor-pointer hover:text-tx'
 const MC = 'inline-flex items-center gap-[5px] text-[12px]'
 const COLBOX = 'flex flex-[1_0_270px] min-w-[270px] flex-col gap-2.5 rounded-[10px]'
-const ADDROW = 'flex items-center gap-2 w-full h-[34px] px-2.5 rounded-lg border-0 bg-transparent text-t3 text-[13px] text-left cursor-pointer hover:bg-sk hover:text-tx'
+const ADDROW = 'flex items-center gap-2 w-full h-9 px-2.5 rounded-md border-0 bg-transparent text-t3 text-[13px] text-left cursor-pointer hover:bg-sk hover:text-tx'
 const CONTENT = 'flex flex-wrap items-start gap-6 px-8 pt-6 pb-8 max-[640px]:px-4'
 const COL_MAIN = 'flex flex-[999_1_520px] flex-col gap-[18px] min-w-0 bg-sf border border-ln rounded-xl'
 const TH = 'text-left px-3 py-2 border-b border-ln'
@@ -152,7 +151,7 @@ function Column({ col, meta, dnd, adding, onAdd, onStopAdd, onCreate, expanded, 
     <div className={COLBOX + (drop.isOver ? ' bg-acs' : '')} ref={drop.setNodeRef}>
       <div className="flex items-center gap-2 px-1 h-[26px]">
         <span className="inline-block w-[9px] h-[9px] flex-[0_0_9px] rounded-full" style={{ background: col.color }} />
-        <b className="font-semibold text-[13.5px]">{col.name}</b>
+        <b className="font-semibold text-sm">{col.name}</b>
         <span className="font-mono grow tabular-nums text-[12px] text-t3">{col.total}</span>
         {col.canAdd && <button type="button" className="inline-grid place-items-center w-6 h-6 p-0 border-0 rounded-md bg-transparent text-t3 cursor-pointer hover:bg-sk hover:text-tx" aria-label={`Добавить задачу в «${col.name}»`} onClick={onAdd}><Icon name="plus" size={15} sw={2} /></button>}
       </div>
@@ -188,6 +187,8 @@ function FilterBar({ filter, setFilter, group, setGroup, sort, setSort, meta, ta
   meta: Meta; tasks: Task[]; project: Project; layout: Layout
 }) {
   const qc = useQueryClient()
+  const me = useWho()('denis')
+  const AUTHOR_OPTS: [string, string][] = [['claude', 'Claude'], ['denis', me]]
   const claudeCount = tasks.filter((t) => t.created_by === 'claude').length
   const toggle = (kind: 'priority' | 'area' | 'date' | 'author', v: string) => {
     const cur = filter[kind] ?? []
@@ -222,7 +223,7 @@ function FilterBar({ filter, setFilter, group, setGroup, sort, setSort, meta, ta
 
   return (
     <div className="flex flex-wrap items-center gap-2 px-7 py-3.5 border-b border-ln">
-      <label className="flex items-center gap-2 h-[30px] w-[220px] px-2.5 border border-ln rounded-lg bg-sf text-t3 focus-within:border-ac focus-within:rounded-md focus-within:outline-2 focus-within:outline-ac focus-within:outline-offset-2">
+      <label className="flex items-center gap-2 h-[30px] w-[220px] px-2.5 border border-ln rounded-md bg-sf text-t3 focus-within:border-ac focus-within:rounded-md focus-within:outline-2 focus-within:outline-ac focus-within:outline-offset-2">
         <Icon name="search" size={14} />
         <input className="w-full border-0 bg-transparent outline-0 text-[13px] text-tx" type="text" placeholder="Фильтр по названию" aria-label="Фильтр по названию" value={filter.q ?? ''}
           onChange={(e) => setFilter({ ...filter, q: e.target.value || undefined })} />
@@ -256,7 +257,7 @@ function FilterBar({ filter, setFilter, group, setGroup, sort, setSort, meta, ta
         <Menu className={FC_BTN + FC_OFF} label={<><Icon name="funnel" size={12} sw={2} />Сохранить как вид</>}>
           {(close) => (
             <form className="flex gap-1.5 p-1" onSubmit={(e) => { e.preventDefault(); if (naming.trim()) { saveView.mutate(naming.trim()); setNaming(''); close() } }}>
-              <input className="w-full h-[30px] px-2.5 border border-ln rounded-lg bg-sf text-[13.5px] text-tx focus:border-ac focus:outline-0" autoFocus placeholder="Название вида" aria-label="Название вида" value={naming} onChange={(e) => setNaming(e.target.value)} />
+              <input className="w-full h-[30px] px-2.5 border border-ln rounded-md bg-sf text-sm text-tx focus:border-ac focus:outline-0" autoFocus placeholder="Название вида" aria-label="Название вида" value={naming} onChange={(e) => setNaming(e.target.value)} />
               <button type="submit" className={BTN_PRI + ' h-[30px]'}>OK</button>
             </form>
           )}
@@ -282,9 +283,9 @@ function ListTable({ tasks, meta }: { tasks: Task[]; meta: Meta }) {
   const color = (s: Status | undefined) => (s ? statusColor(s.color) : 'var(--bk)')
   return (
     <div className="px-7 pt-[18px] pb-7 overflow-x-auto">
-      <table className="w-full border-separate border-spacing-0 text-[13.5px] bg-sf border border-ln rounded-xl">
+      <table className="w-full border-separate border-spacing-0 text-sm bg-sf border border-ln rounded-xl">
         <thead>
-          <tr className="text-[11px] font-semibold tracking-[.06em] uppercase text-t3"><th className={TH}>ID</th><th className={TH}>Название</th><th className={TH}>Статус</th><th className={TH}>Приоритет</th><th className={TH}>Область</th><th className={TH}>Дата</th></tr>
+          <tr className="text-xs font-medium text-t3"><th className={TH}>ID</th><th className={TH}>Название</th><th className={TH}>Статус</th><th className={TH}>Приоритет</th><th className={TH}>Область</th><th className={TH}>Дата</th></tr>
         </thead>
         <tbody>
           {tasks.map((t) => {
@@ -414,17 +415,17 @@ function ProjectBoard({ project, onNewTask }: { project: Project; onNewTask: (o:
 
   return (
     <>
-      <header className="flex flex-col gap-3.5 px-7 pt-[22px] border-b border-ln bg-sf">
+      <header className="flex flex-col gap-3.5 px-7 pt-[22px] border-b border-ln">
         <div className="flex flex-wrap items-center gap-3.5">
           <ProjectTile icon={project.icon} color={project.color} size={40} radius={11} />
           <div className="flex flex-col gap-0.5 flex-[1_1_280px] min-w-0">
-            <h1 className="text-[23px] font-bold tracking-[-.015em] text-balance">{project.name}</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-balance">{project.name}</h1>
             <span className="text-[13px] text-t3">
               {project.description && <>{project.description} · </>}ключ <span className="font-mono">{project.key}</span> · {project.open} открытых, показано {shown.length} из {tasks.length}
             </span>
           </div>
-          <Link to={`/p/${project.slug}/settings`} className={BTN_PLAIN + ' h-[34px]'} aria-label="Настройки проекта"><Icon name="sliders" size={16} />Настройки</Link>
-          <button type="button" className={BTN_PRI + ' h-[34px]'} onClick={() => onNewTask({ project })}><Icon name="plus" size={16} sw={2} />Новая задача<span className={KBD_PRI}>C</span></button>
+          <Link to={`/p/${project.slug}/settings`} className={BTN_PLAIN + ' h-9'} aria-label="Настройки проекта"><Icon name="sliders" size={16} />Настройки</Link>
+          <button type="button" className={BTN_PRI + ' h-9'} onClick={() => onNewTask({ project })}><Icon name="plus" size={16} sw={2} />Новая задача<span className={KBD_PRI}>C</span></button>
         </div>
         <nav className="flex flex-wrap items-end" aria-label="Виды проекта">
           {tab('Доска', 'board', !viewId && layout === 'board', () => plain('board'))}
