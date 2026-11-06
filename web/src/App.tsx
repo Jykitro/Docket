@@ -8,6 +8,7 @@ import { Onboarding } from './Onboarding'
 import { Settings } from './Settings'
 import { NewProjectDialog, NewTaskDialog } from './Dialogs'
 import { useLive } from './live'
+import { tr, useLang } from './i18n'
 import { Header } from './Header'
 import { Link, useRoute } from './router'
 import { SearchDialog } from './Search'
@@ -23,7 +24,7 @@ type NewTaskOpts = { project?: Project; date?: string; status?: string; title?: 
 function Soon({ title, hint }: { title: string; hint: string }) {
   return (
     <div className="px-8 pt-6 pb-8 flex gap-6 flex-wrap items-start max-[640px]:px-4">
-      <div className="flex-[999_1_520px] min-w-0 flex flex-col gap-[18px] bg-sf border border-ln rounded-xl"><EmptyState icon="spark" title={title} hint={hint} action={<Link to="/" className={btn}>На главную</Link>} /></div>
+      <div className="flex-[999_1_520px] min-w-0 flex flex-col gap-[18px] bg-sf border border-ln rounded-xl"><EmptyState icon="spark" title={title} hint={hint} action={<Link to="/" className={btn}>{tr('На главную')}</Link>} /></div>
     </div>
   )
 }
@@ -56,6 +57,7 @@ export function App() {
   const { path, params } = useRoute()
   const qc = useQueryClient()
   useLive(qc)
+  useLang() // re-render the whole app when the language changes
   const theme = useTheme()
   const sidebar = useSidebar(path + (params.get('view') ?? ''))
   const projects = useProjects()
@@ -100,12 +102,12 @@ export function App() {
   else if (taskPage) page = <TaskPanel key={taskPage[1]} code={taskPage[1]} mode="page" />
   else if (path === '/mcp') page = <Mcp />
   else if (path === '/trash') page = <Trash />
-  else page = <Soon title="Страница не найдена" hint={path} />
+  else page = <Soon title={tr('Страница не найдена')} hint={path} />
 
   const task = params.get('task')
   const current = proj ? projects.data?.find((p) => p.slug === proj[1]) : undefined
-  const heading = path === '/' ? 'Сегодня' : path === '/mcp' ? 'MCP' : path === '/trash' ? 'Корзина' : taskPage ? taskPage[1].toUpperCase()
-    : proj ? (current ? current.name + (proj[2] ? ': настройки' : '') : 'Проект') : 'Docket'
+  const heading = path === '/' ? tr('Сегодня') : path === '/mcp' ? 'MCP' : path === '/trash' ? tr('Корзина') : taskPage ? taskPage[1].toUpperCase()
+    : proj ? (current ? current.name + (proj[2] ? `: ${tr('настройки')}` : '') : tr('Проект')) : 'Docket'
   useEffect(() => { document.title = task ? `${task.toUpperCase()} · ${heading} · Docket` : heading === 'Docket' ? 'Docket' : `${heading} · Docket` }, [heading, task])
   if (profile.isPending) return <div className="min-h-screen bg-bg" data-theme={theme.resolved} /> // avoid flashing the app before onboarding
   if (setup) return <div className="min-h-screen bg-bg text-tx" data-theme={theme.resolved}><Onboarding hasProjects={!!active?.length} onDone={() => setSetup(false)} /></div>

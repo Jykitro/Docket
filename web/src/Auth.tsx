@@ -2,10 +2,11 @@
 // shows setup, login or invite screens. In local mode, or with a session, it renders the app untouched.
 import { type ReactNode, useEffect, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { ApiError, type Me, api, ruError, useMe } from './api'
+import { ApiError, type Me, api, errText, useMe } from './api'
 import { Icon } from './icons'
+import { tr, useLang } from './i18n'
 import { navigate, useRoute } from './router'
-import { btnPri, cap } from './ui'
+import { LangSwitch, btnPri, cap } from './ui'
 
 const inputCls = 'h-[38px] border border-ln rounded-md bg-sf px-3 text-[14px] text-tx focus:border-ring focus:ring-[3px] focus:ring-ring/50 focus:outline-none'
 
@@ -21,34 +22,35 @@ function AuthForm({ title, text, fields, submit, onSubmit }: {
     mutationFn: () => onSubmit(values),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['me'] }),
   })
-  const message = send.error && ruError(send.error)
+  const message = send.error && errText(send.error)
   return (
     <main className="min-h-screen grid place-items-center px-4 py-8">
       <div className="w-full max-w-[460px] bg-sf border border-ln rounded-lg shadow-pop p-6 flex flex-col gap-4">
         <div className="flex items-center gap-2.5">
           <span className="size-8 rounded-md bg-ink text-inkt grid place-items-center"><Icon name="logo" size={19} sw={2} /></span>
           <b className="text-[17px] font-bold tracking-[-.01em] grow">Docket</b>
+          <LangSwitch />
         </div>
         <form className="flex flex-col gap-4" onSubmit={(e) => { e.preventDefault(); if (!send.isPending) send.mutate() }}>
           <div className="flex flex-col gap-1">
-            <h1 className="text-[20px] font-semibold tracking-[-.01em]">{title}</h1>
-            <p className="text-sm text-t2">{text}</p>
+            <h1 className="text-[20px] font-semibold tracking-[-.01em]">{tr(title)}</h1>
+            <p className="text-sm text-t2">{tr(text)}</p>
           </div>
           {fields.map((f, i) => (
             <label key={f.key} className="flex flex-col gap-1.5">
-              <span className={cap}>{f.label}</span>
+              <span className={cap}>{tr(f.label)}</span>
               <input
                 className={inputCls} required autoFocus={i === 0} autoComplete={f.autoComplete}
                 type={f.password ? 'password' : 'text'} minLength={f.password && f.autoComplete === 'new-password' ? 10 : undefined}
                 maxLength={f.password ? 128 : undefined} value={values[f.key] ?? ''}
                 onChange={(e) => setValues({ ...values, [f.key]: e.target.value })}
               />
-              {f.hint && <span className="text-xs text-t3">{f.hint}</span>}
+              {f.hint && <span className="text-xs text-t3">{tr(f.hint)}</span>}
             </label>
           ))}
           {message && <div className="text-rd text-[13px]" role="alert">{message}</div>}
           <div className="flex justify-end">
-            <button type="submit" className={btnPri} disabled={send.isPending}>{submit}<Icon name="arrowRight" size={15} sw={2} /></button>
+            <button type="submit" className={btnPri} disabled={send.isPending}>{tr(submit)}<Icon name="arrowRight" size={15} sw={2} /></button>
           </div>
         </form>
       </div>
@@ -102,6 +104,7 @@ export function Gate({ children }: { children: ReactNode }) {
   const qc = useQueryClient()
   const me = useMe()
   const { path } = useRoute()
+  useLang() // re-render the login screens when the language changes (App does the same for the app)
 
   // Session ended (expired, or logout): forget everything cached for the previous profile and put `me` back to
   // pending, which unmounts <App /> (closing its observers and the SSE stream) while `me` is asked again.
@@ -145,8 +148,8 @@ export function Gate({ children }: { children: ReactNode }) {
   return wrap(
     <main className="min-h-screen grid place-items-center px-4 text-center">
       <div className="flex flex-col items-center gap-3">
-        <p className="text-sm text-t2" role="alert">Не удалось связаться с сервером{me.error ? `: ${ruError(me.error)}` : ''}</p>
-        <button type="button" className={btnPri} onClick={() => me.refetch()}>Повторить</button>
+        <p className="text-sm text-t2" role="alert">{tr('Не удалось связаться с сервером')}{me.error ? `: ${errText(me.error)}` : ''}</p>
+        <button type="button" className={btnPri} onClick={() => me.refetch()}>{tr('Повторить')}</button>
       </div>
     </main>,
   )

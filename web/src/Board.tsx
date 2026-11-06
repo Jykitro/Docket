@@ -12,6 +12,7 @@ import {
   api, fmtDay, statusColor, todayStr, useProjects, useProjectsMeta, useWho,
 } from './api'
 import { Icon, ProjectTile } from './icons'
+import { tr, useLang } from './i18n'
 import { useFresh } from './live'
 import { Link, hrefWith, navigate, setParam, useRoute } from './router'
 import { AreaDot, ClaudeBadge, EmptyState, ErrorState, Menu, PriorityChip, Skeleton } from './ui'
@@ -92,7 +93,7 @@ function buildCols(tasks: Task[], total: Task[], group: Group, sort: Sort, meta:
     for (const p of ['P0', 'P1', 'P2']) add({ key: p, name: p, color: p === 'P0' ? 'var(--rd)' : p === 'P1' ? 'var(--t2)' : 'var(--bk)', canAdd: false }, (t) => t.priority === p)
   } else {
     for (const l of meta.labels) add({ key: l.name, name: l.name, color: l.color, canAdd: false }, (t) => t.area === l.name)
-    add({ key: '', name: 'Без области', color: 'var(--bk)', canAdd: false }, (t) => !t.area)
+    add({ key: '', name: tr('Без области'), color: 'var(--bk)', canAdd: false }, (t) => !t.area)
   }
   return cols
 }
@@ -132,7 +133,7 @@ function TaskCard({ t, labels, fields, overlay }: { t: Task; labels: Label[]; fi
           </span>
         )}
         {t.subtask_count > 0 && <span className={MC + ' text-t3 tabular-nums'}><Icon name="subtask" size={13} sw={1.9} />{t.subtask_done}/{t.subtask_count}</span>}
-        {t.description_md && <span className={MC + ' text-t3'} title="Есть описание"><Icon name="doc" size={13} sw={1.9} /></span>}
+        {t.description_md && <span className={MC + ' text-t3'} title={tr('Есть описание')}><Icon name="doc" size={13} sw={1.9} /></span>}
         {fields.filter((f) => f.show_on_card && t.custom[String(f.id)] !== undefined).map((f) => (
           <span key={f.id} className={MC + ' text-t3'}>{f.name}: {String(t.custom[String(f.id)])}</span>
         ))}
@@ -153,7 +154,7 @@ function Column({ col, meta, dnd, adding, onAdd, onStopAdd, onCreate, expanded, 
         <span className="inline-block w-[9px] h-[9px] flex-[0_0_9px] rounded-full" style={{ background: col.color }} />
         <b className="font-semibold text-sm">{col.name}</b>
         <span className="font-mono grow tabular-nums text-[12px] text-t3">{col.total}</span>
-        {col.canAdd && <button type="button" className="inline-grid place-items-center w-6 h-6 p-0 border-0 rounded-md bg-transparent text-t3 cursor-pointer hover:bg-sk hover:text-tx" aria-label={`Добавить задачу в «${col.name}»`} onClick={onAdd}><Icon name="plus" size={15} sw={2} /></button>}
+        {col.canAdd && <button type="button" className="inline-grid place-items-center w-6 h-6 p-0 border-0 rounded-md bg-transparent text-t3 cursor-pointer hover:bg-sk hover:text-tx" aria-label={tr('Добавить задачу в «{name}»', { name: col.name })} onClick={onAdd}><Icon name="plus" size={15} sw={2} /></button>}
       </div>
       <SortableContext items={col.tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
         <div className="flex flex-col gap-2.5 min-h-2">
@@ -161,10 +162,10 @@ function Column({ col, meta, dnd, adding, onAdd, onStopAdd, onCreate, expanded, 
         </div>
       </SortableContext>
       {col.category === 'done' && !expanded && col.total > DONE_LIMIT && (
-        <button type="button" className={ADDROW} onClick={onExpand}>Показать все {col.total}</button>
+        <button type="button" className={ADDROW} onClick={onExpand}>{tr('Показать все {n}', { n: col.total })}</button>
       )}
       {col.canAdd && (adding ? (
-        <input className="w-full px-2.5 py-2 rounded-[10px] border border-ac bg-sf text-[14px] outline-0" autoFocus placeholder="Название, Enter — сохранить" aria-label={`Новая задача в «${col.name}»`} value={title}
+        <input className="w-full px-2.5 py-2 rounded-[10px] border border-ac bg-sf text-[14px] outline-0" autoFocus placeholder={tr('Название, Enter — сохранить')} aria-label={tr('Новая задача в «{name}»', { name: col.name })} value={title}
           onChange={(e) => setTitle(e.target.value)} onBlur={() => !title.trim() && onStopAdd()}
           onKeyDown={(e) => {
             if (e.key === 'Escape') onStopAdd()
@@ -174,7 +175,7 @@ function Column({ col, meta, dnd, adding, onAdd, onStopAdd, onCreate, expanded, 
             }
           }} />
       ) : (
-        <button type="button" className={ADDROW} onClick={onAdd}><Icon name="plus" size={14} sw={2} />Добавить задачу</button>
+        <button type="button" className={ADDROW} onClick={onAdd}><Icon name="plus" size={14} sw={2} />{tr('Добавить задачу')}</button>
       ))}
     </div>
   )
@@ -204,10 +205,10 @@ function FilterBar({ filter, setFilter, group, setGroup, sort, setSort, meta, ta
     setFilter({ ...filter, fields: Object.keys(fields).length ? fields : undefined })
   }
   const chips: { label: string; clear: () => void }[] = []
-  if (filter.priority?.length) chips.push({ label: `Приоритет: ${filter.priority.join(', ')}`, clear: () => setFilter({ ...filter, priority: undefined }) })
-  if (filter.area?.length) chips.push({ label: `Область: ${filter.area.join(', ')}`, clear: () => setFilter({ ...filter, area: undefined }) })
-  if (filter.date?.length) chips.push({ label: `Дата: ${filter.date.map((d) => DATE_OPTS.find((o) => o[0] === d)?.[1]).join(', ')}`, clear: () => setFilter({ ...filter, date: undefined }) })
-  if (filter.author?.length) chips.push({ label: `Автор: ${filter.author.map((a) => AUTHOR_OPTS.find((o) => o[0] === a)?.[1]).join(', ')}`, clear: () => setFilter({ ...filter, author: undefined }) })
+  if (filter.priority?.length) chips.push({ label: `${tr('Приоритет')}: ${filter.priority.join(', ')}`, clear: () => setFilter({ ...filter, priority: undefined }) })
+  if (filter.area?.length) chips.push({ label: `${tr('Область')}: ${filter.area.join(', ')}`, clear: () => setFilter({ ...filter, area: undefined }) })
+  if (filter.date?.length) chips.push({ label: `${tr('Дата')}: ${filter.date.map((d) => tr(DATE_OPTS.find((o) => o[0] === d)?.[1] ?? '')).join(', ')}`, clear: () => setFilter({ ...filter, date: undefined }) })
+  if (filter.author?.length) chips.push({ label: `${tr('Автор')}: ${filter.author.map((a) => AUTHOR_OPTS.find((o) => o[0] === a)?.[1]).join(', ')}`, clear: () => setFilter({ ...filter, author: undefined }) })
   for (const [id, vals] of Object.entries(filter.fields ?? {})) {
     const f = meta.fields.find((x) => String(x.id) === id)
     if (f) chips.push({ label: `${f.name}: ${vals.join(', ')}`, clear: () => { const fields = { ...filter.fields }; delete fields[id]; setFilter({ ...filter, fields }) } })
@@ -225,24 +226,24 @@ function FilterBar({ filter, setFilter, group, setGroup, sort, setSort, meta, ta
     <div className="flex flex-wrap items-center gap-2 px-7 py-3.5 border-b border-ln">
       <label className="flex items-center gap-2 h-[30px] w-[220px] px-2.5 border border-ln rounded-md bg-sf text-t3 focus-within:border-ac focus-within:rounded-md focus-within:outline-2 focus-within:outline-ac focus-within:outline-offset-2">
         <Icon name="search" size={14} />
-        <input className="w-full border-0 bg-transparent outline-0 text-[13px] text-tx" type="text" placeholder="Фильтр по названию" aria-label="Фильтр по названию" value={filter.q ?? ''}
+        <input className="w-full border-0 bg-transparent outline-0 text-[13px] text-tx" type="text" placeholder={tr('Фильтр по названию')} aria-label={tr('Фильтр по названию')} value={filter.q ?? ''}
           onChange={(e) => setFilter({ ...filter, q: e.target.value || undefined })} />
       </label>
       {chips.map((c) => (
         <span key={c.label} className={FC + FC_ON}>{c.label}
-          <button type="button" className="inline-grid place-items-center cursor-pointer" aria-label={`Убрать фильтр: ${c.label}`} onClick={c.clear}><Icon name="x" size={12} sw={2.2} /></button>
+          <button type="button" className="inline-grid place-items-center cursor-pointer" aria-label={tr('Убрать фильтр: {name}', { name: c.label })} onClick={c.clear}><Icon name="x" size={12} sw={2.2} /></button>
         </span>
       ))}
-      <Menu className={FC_BTN + FC_OFF + ' border-dashed'} label={<><Icon name="plus" size={12} sw={2.2} />Фильтр</>}>
+      <Menu className={FC_BTN + FC_OFF + ' border-dashed'} label={<><Icon name="plus" size={12} sw={2.2} />{tr('Фильтр')}</>}>
         {() => (
           <>
-            <div className={POP_HEAD}>Приоритет</div>
+            <div className={POP_HEAD}>{tr('Приоритет')}</div>
             {['P0', 'P1', 'P2'].map((p) => item(p, !!filter.priority?.includes(p), () => toggle('priority', p)))}
-            {meta.labels.length > 0 && <div className={POP_HEAD}>Область</div>}
+            {meta.labels.length > 0 && <div className={POP_HEAD}>{tr('Область')}</div>}
             {meta.labels.map((l) => item(l.name, !!filter.area?.includes(l.name), () => toggle('area', l.name), 'a' + l.id))}
-            <div className={POP_HEAD}>Дата</div>
-            {DATE_OPTS.map(([k, n]) => item(n, !!filter.date?.includes(k), () => toggle('date', k)))}
-            <div className={POP_HEAD}>Автор</div>
+            <div className={POP_HEAD}>{tr('Дата')}</div>
+            {DATE_OPTS.map(([k, n]) => item(tr(n), !!filter.date?.includes(k), () => toggle('date', k)))}
+            <div className={POP_HEAD}>{tr('Автор')}</div>
             {AUTHOR_OPTS.map(([k, n]) => item(n, !!filter.author?.includes(k), () => toggle('author', k)))}
             {meta.fields.filter((f) => f.type === 'select').map((f) => (
               <div key={f.id}>
@@ -254,24 +255,24 @@ function FilterBar({ filter, setFilter, group, setGroup, sort, setSort, meta, ta
         )}
       </Menu>
       {(chips.length > 0 || filter.q) && (
-        <Menu className={FC_BTN + FC_OFF} label={<><Icon name="funnel" size={12} sw={2} />Сохранить как вид</>}>
+        <Menu className={FC_BTN + FC_OFF} label={<><Icon name="funnel" size={12} sw={2} />{tr('Сохранить как вид')}</>}>
           {(close) => (
             <form className="flex gap-1.5 p-1" onSubmit={(e) => { e.preventDefault(); if (naming.trim()) { saveView.mutate(naming.trim()); setNaming(''); close() } }}>
-              <input className="w-full h-[30px] px-2.5 border border-ln rounded-md bg-sf text-sm text-tx focus:border-ac focus:outline-0" autoFocus placeholder="Название вида" aria-label="Название вида" value={naming} onChange={(e) => setNaming(e.target.value)} />
+              <input className="w-full h-[30px] px-2.5 border border-ln rounded-md bg-sf text-sm text-tx focus:border-ac focus:outline-0" autoFocus placeholder={tr('Название вида')} aria-label={tr('Название вида')} value={naming} onChange={(e) => setNaming(e.target.value)} />
               <button type="submit" className={BTN_PRI + ' h-[30px]'}>OK</button>
             </form>
           )}
         </Menu>
       )}
       <span className="grow" />
-      <Menu right label={<>Группа: {GROUPS.find((g) => g[0] === group)![1]}<Icon name="chevD" size={12} sw={2} /></>}>
-        {(close) => GROUPS.map(([k, n]) => item(n, k === group, () => { setGroup(k); close() }))}
+      <Menu right label={<>{tr('Группа')}: {tr(GROUPS.find((g) => g[0] === group)![1])}<Icon name="chevD" size={12} sw={2} /></>}>
+        {(close) => GROUPS.map(([k, n]) => item(tr(n), k === group, () => { setGroup(k); close() }))}
       </Menu>
-      <Menu right label={<>Сортировка: {SORTS.find((s) => s[0] === sort)![1]}<Icon name="chevD" size={12} sw={2} /></>}>
-        {(close) => SORTS.map(([k, n]) => item(n, k === sort, () => { setSort(k); close() }))}
+      <Menu right label={<>{tr('Сортировка')}: {tr(SORTS.find((s) => s[0] === sort)![1])}<Icon name="chevD" size={12} sw={2} /></>}>
+        {(close) => SORTS.map(([k, n]) => item(tr(n), k === sort, () => { setSort(k); close() }))}
       </Menu>
       <button type="button" className={FC_BTN + (filter.author?.includes('claude') ? FC_ON : FC_OFF)} aria-pressed={!!filter.author?.includes('claude')} onClick={() => toggle('author', 'claude')}>
-        <Icon name="plug" size={13} sw={2} />Создано Claude: {claudeCount}
+        <Icon name="plug" size={13} sw={2} />{tr('Создано Claude')}: {claudeCount}
       </button>
     </div>
   )
@@ -285,7 +286,7 @@ function ListTable({ tasks, meta }: { tasks: Task[]; meta: Meta }) {
     <div className="px-7 pt-[18px] pb-7 overflow-x-auto">
       <table className="w-full border-separate border-spacing-0 text-sm bg-sf border border-ln rounded-xl">
         <thead>
-          <tr className="text-xs font-medium text-t3"><th className={TH}>ID</th><th className={TH}>Название</th><th className={TH}>Статус</th><th className={TH}>Приоритет</th><th className={TH}>Область</th><th className={TH}>Дата</th></tr>
+          <tr className="text-xs font-medium text-t3"><th className={TH}>ID</th><th className={TH}>{tr('Название')}</th><th className={TH}>{tr('Статус')}</th><th className={TH}>{tr('Приоритет')}</th><th className={TH}>{tr('Область')}</th><th className={TH}>{tr('Дата')}</th></tr>
         </thead>
         <tbody>
           {tasks.map((t) => {
@@ -316,7 +317,7 @@ export function Board({ slug, onNewTask }: { slug: string; onNewTask: (o: { proj
   if (!project) {
     return projects.isPending
       ? <div className={CONTENT}><Skeleton w="40%" h={28} /></div>
-      : <div className={CONTENT}><div className={COL_MAIN}><EmptyState icon="board" title="Проект не найден" hint={`Нет проекта «${slug}». Возможно, он в архиве.`} /></div></div>
+      : <div className={CONTENT}><div className={COL_MAIN}><EmptyState icon="board" title={tr('Проект не найден')} hint={tr('Нет проекта «{slug}». Возможно, он в архиве.', { slug })} /></div></div>
   }
   return <ProjectBoard key={project.id} project={project} onNewTask={onNewTask} />
 }
@@ -351,7 +352,8 @@ function ProjectBoard({ project, onNewTask }: { project: Project; onNewTask: (o:
   }, [viewId, vq.data])
 
   const shown = useMemo(() => tasks.filter((t) => matches(t, filter)), [tasks, filter])
-  const cols = useMemo(() => buildCols(shown, tasks, group, sort, meta, expanded), [shown, tasks, group, sort, meta, expanded])
+  const lang = useLang() // buildCols translates the "no area" column name, so a language change must rebuild the columns
+  const cols = useMemo(() => buildCols(shown, tasks, group, sort, meta, expanded), [shown, tasks, group, sort, meta, expanded, lang])
   const colOf = new Map<number, string>()
   cols.forEach((c) => c.tasks.forEach((t) => colOf.set(t.id, c.key)))
   const dnd = layout === 'board' && group === 'status'
@@ -421,15 +423,15 @@ function ProjectBoard({ project, onNewTask }: { project: Project; onNewTask: (o:
           <div className="flex flex-col gap-0.5 flex-[1_1_280px] min-w-0">
             <h1 className="text-2xl font-bold tracking-tight text-balance">{project.name}</h1>
             <span className="text-[13px] text-t3">
-              {project.description && <>{project.description} · </>}ключ <span className="font-mono">{project.key}</span> · {project.open} открытых, показано {shown.length} из {tasks.length}
+              {project.description && <>{project.description} · </>}{tr('ключ')} <span className="font-mono">{project.key}</span> · {tr('{open} открытых, показано {shown} из {total}', { open: project.open, shown: shown.length, total: tasks.length })}
             </span>
           </div>
-          <Link to={`/p/${project.slug}/settings`} className={BTN_PLAIN + ' h-9'} aria-label="Настройки проекта"><Icon name="sliders" size={16} />Настройки</Link>
-          <button type="button" className={BTN_PRI + ' h-9'} onClick={() => onNewTask({ project })}><Icon name="plus" size={16} sw={2} />Новая задача<span className={KBD_PRI}>C</span></button>
+          <Link to={`/p/${project.slug}/settings`} className={BTN_PLAIN + ' h-9'} aria-label={tr('Настройки проекта')}><Icon name="sliders" size={16} />{tr('Настройки')}</Link>
+          <button type="button" className={BTN_PRI + ' h-9'} onClick={() => onNewTask({ project })}><Icon name="plus" size={16} sw={2} />{tr('Новая задача')}<span className={KBD_PRI}>C</span></button>
         </div>
-        <nav className="flex flex-wrap items-end" aria-label="Виды проекта">
-          {tab('Доска', 'board', !viewId && layout === 'board', () => plain('board'))}
-          {tab('Список', 'list', !viewId && layout === 'list', () => plain('list'))}
+        <nav className="flex flex-wrap items-end" aria-label={tr('Виды проекта')}>
+          {tab(tr('Доска'), 'board', !viewId && layout === 'board', () => plain('board'))}
+          {tab(tr('Список'), 'list', !viewId && layout === 'list', () => plain('list'))}
           {(vq.data ?? []).filter((v: View) => v.project_id === pid).map((v) => (
             <Link key={v.id} to={`/p/${project.slug}?view=${v.id}`} className={TAB + (viewId === String(v.id) ? ' text-tx border-b-ac' : ' text-t3 border-b-transparent')}><Icon name="funnel" size={14} />{v.name}</Link>
           ))}
@@ -447,8 +449,8 @@ function ProjectBoard({ project, onNewTask }: { project: Project; onNewTask: (o:
       )}
       {tq.isSuccess && tasks.length === 0 && (
         <div className="px-7 pt-[18px]">
-          <div className="bg-sf border border-ln rounded-xl"><EmptyState icon="board" title="В проекте пока нет задач"
-            hint="Добавьте первую задачу в колонке ниже или попросите Claude создать их через MCP." /></div>
+          <div className="bg-sf border border-ln rounded-xl"><EmptyState icon="board" title={tr('В проекте пока нет задач')}
+            hint={tr('Добавьте первую задачу в колонке ниже или попросите Claude создать их через MCP.')} /></div>
         </div>
       )}
       {tq.isSuccess && layout === 'board' && (

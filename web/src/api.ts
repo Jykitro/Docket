@@ -1,5 +1,6 @@
 // REST client, types and shared data hooks. Every list is a TanStack Query; SSE (live.ts) invalidates them.
 import { useQueries, useQuery } from '@tanstack/react-query'
+import { getLang, locale, tr } from './i18n'
 
 export type Category = 'todo' | 'doing' | 'done'
 
@@ -68,24 +69,30 @@ export class ApiError extends Error {
   constructor(public code: string, message: string) { super(message) }
 }
 
-// Server texts shown to the user in Russian; unknown ones fall back to the server's own message.
+// Server texts are English. Each known one maps to [ru, uk]; English and unknown ones show the server's own message.
 // Keys are the exact messages from internal/selfhost/handler.go and internal/auth/db.go: update both together.
-const RU: Record<string, string> = {
-  'invalid username or password': 'Неверное имя пользователя или пароль',
-  'current password is wrong': 'Неверный текущий пароль',
-  'too many failed attempts, try again later': 'Слишком много попыток, подождите несколько минут.',
-  'invalid setup code': 'Неверный код настройки',
-  'username is taken': 'Имя пользователя уже занято',
-  'invalid or expired invite': 'Приглашение недействительно или истекло',
-  'username must be 2-32 characters: a-z, 0-9, _ . -, starting with a letter or digit':
+const SERVER: Record<string, [string, string]> = {
+  'invalid username or password': ['Неверное имя пользователя или пароль', 'Неправильне ім’я користувача або пароль'],
+  'current password is wrong': ['Неверный текущий пароль', 'Неправильний поточний пароль'],
+  'too many failed attempts, try again later': ['Слишком много попыток, подождите несколько минут.', 'Забагато спроб, зачекайте кілька хвилин.'],
+  'invalid setup code': ['Неверный код настройки', 'Неправильний код налаштування'],
+  'username is taken': ['Имя пользователя уже занято', 'Ім’я користувача вже зайняте'],
+  'invalid or expired invite': ['Приглашение недействительно или истекло', 'Запрошення недійсне або втратило чинність'],
+  'username must be 2-32 characters: a-z, 0-9, _ . -, starting with a letter or digit': [
     'Имя пользователя: 2-32 символа, a-z, 0-9, _ . -, начинается с буквы или цифры',
-  'password must be 10-128 characters': 'Пароль должен быть от 10 до 128 символов',
-  'cannot delete yourself': 'Нельзя удалить самого себя',
-  'not logged in': 'Сессия истекла, войдите снова',
-  'admin only': 'Только для администратора',
-  'internal error': 'Внутренняя ошибка сервера, попробуйте позже',
+    'Ім’я користувача: 2-32 символи, a-z, 0-9, _ . -, починається з літери або цифри',
+  ],
+  'password must be 10-128 characters': ['Пароль должен быть от 10 до 128 символов', 'Пароль має бути від 10 до 128 символів'],
+  'cannot delete yourself': ['Нельзя удалить самого себя', 'Не можна видалити самого себе'],
+  'not logged in': ['Сессия истекла, войдите снова', 'Сесія завершилася, увійдіть знову'],
+  'admin only': ['Только для администратора', 'Лише для адміністратора'],
+  'internal error': ['Внутренняя ошибка сервера, попробуйте позже', 'Внутрішня помилка сервера, спробуйте пізніше'],
 }
-export const ruError = (e: unknown): string => (e instanceof Error ? RU[e.message] ?? e.message : String(e))
+export const errText = (e: unknown): string => {
+  if (!(e instanceof Error)) return String(e)
+  const lang = getLang()
+  return (lang !== 'en' && SERVER[e.message]?.[lang === 'ru' ? 0 : 1]) || e.message
+}
 
 async function req<T>(method: string, url: string, body?: unknown): Promise<T> {
   const res = await fetch(url, {
@@ -174,7 +181,7 @@ export const useProfile = () => useQuery({ queryKey: ['profile'], queryFn: api.p
 
 /** Display name of an actor: claude stays "claude", the stored actor "denis" is whoever the profile says. */
 export function useWho() {
-  const name = useProfile().data?.name || 'Вы'
+  const name = useProfile().data?.name || tr('Вы')
   return (actor: string) => (actor === 'claude' ? 'claude' : name)
 }
 
@@ -209,8 +216,6 @@ export const statusColor = (c: string) => (/^(bk|td|dg|dn)$/.test(c) ? `var(--${
 export const statusChip = (c: string) =>
   /^(bk|td|dg|dn)$/.test(c) ? { background: `var(--${c}s)`, color: `var(--${c}t)` } : { background: 'var(--sk)', color: 'var(--t2)' }
 
-const MONTHS = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек']
-
 const pad = (n: number) => String(n).padStart(2, '0')
 export const isoDay = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 export const todayStr = () => isoDay(new Date())
@@ -220,32 +225,25 @@ export function addDays(day: string, n: number) {
   return isoDay(d)
 }
 
-/** "Сегодня", "Завтра" or "4 ноя". */
+/** "Today", "Tomorrow" or "4 Nov" (in the current language). */
 export function fmtDay(day: string) {
   const today = todayStr()
-  if (day === today) return 'Сегодня'
-  if (day === addDays(today, 1)) return 'Завтра'
+  if (day === today) return tr('Сегодня')
+  if (day === addDays(today, 1)) return tr('Завтра')
   const [, m, d] = day.split('-').map(Number)
-  return `${d} ${MONTHS[m - 1]}`
+  return `${d} ${tr('янв фев мар апр мая июн июл авг сен окт ноя дек').split(' ')[m - 1]}`
 }
 
 export function fmtLongDay(day: string) {
   const d = new Date(day + 'T12:00:00')
-  const s = d.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' })
+  const s = d.toLocaleDateString(locale(), { weekday: 'long', day: 'numeric', month: 'long' })
   return s.charAt(0).toUpperCase() + s.slice(1)
 }
 
-export const fmtTime = (iso: string) => new Date(iso).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+export const fmtTime = (iso: string) => new Date(iso).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' })
 
 /** "17:08" for today, "4 ноя, 22:10" for other days (from a stored UTC timestamp). */
 export function fmtStamp(iso: string) {
   const d = new Date(iso)
   return isoDay(d) === todayStr() ? fmtTime(iso) : `${fmtDay(isoDay(d))}, ${fmtTime(iso)}`
-}
-
-export function plural(n: number, one: string, few: string, many: string) {
-  const m = n % 100
-  if (m >= 11 && m <= 14) return many
-  const r = n % 10
-  return r === 1 ? one : r >= 2 && r <= 4 ? few : many
 }

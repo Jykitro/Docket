@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, fmtStamp, plural, useProjects } from './api'
+import { api, fmtStamp, useProjects } from './api'
 import { Icon, ProjectTile } from './icons'
+import { plural, tr } from './i18n'
 import { Link, hrefWith } from './router'
 import { EmptyState, ErrorState, SkeletonRows } from './ui'
 
@@ -33,12 +34,12 @@ export function Trash() {
     <>
       <header className="flex flex-wrap items-center gap-3.5 px-8 pt-6 pb-4 max-[640px]:px-4">
         <div className="flex flex-col gap-0.5 flex-[1_1_260px] min-w-0">
-          <h1 className="text-2xl font-bold tracking-tight">Корзина</h1>
-          <span className="text-sm text-t3">{total} {plural(total, 'элемент', 'элемента', 'элементов')} · удалённое можно восстановить</span>
+          <h1 className="text-2xl font-bold tracking-tight">{tr('Корзина')}</h1>
+          <span className="text-sm text-t3">{plural(total, '{n} элемент|{n} элемента|{n} элементов')} · {tr('удалённое можно восстановить')}</span>
         </div>
         <button type="button" className={BTN + (confirm ? ' border-rd text-rd' : ' border-ln text-tx')} disabled={total === 0 || purge.isPending}
           onClick={() => (confirm ? (setConfirm(false), purge.mutate()) : setConfirm(true))}>
-          <Icon name="trash" size={15} />{confirm ? `Удалить навсегда (${total})?` : 'Очистить корзину'}
+          <Icon name="trash" size={15} />{confirm ? tr('Удалить навсегда ({n})?', { n: total }) : tr('Очистить корзину')}
         </button>
       </header>
       <div className="flex flex-wrap items-start gap-6 px-8 pt-6 pb-8 max-[640px]:px-4">
@@ -46,16 +47,16 @@ export function Trash() {
           <section className="overflow-hidden bg-sf border border-ln rounded-xl">
             {q.isPending && <SkeletonRows n={4} />}
             {q.isError && <ErrorState message={q.error.message} onRetry={() => q.refetch()} />}
-            {q.isSuccess && pq.isSuccess && total === 0 && <EmptyState icon="trash" title="Корзина пуста" hint="Сюда попадают удалённые задачи: из панели задачи или через MCP." />}
+            {q.isSuccess && pq.isSuccess && total === 0 && <EmptyState icon="trash" title={tr('Корзина пуста')} hint={tr('Сюда попадают удалённые задачи: из панели задачи или через MCP.')} />}
             {gone.map((p, i) => (
               <div className={ROW + (i === 0 ? ' border-t-0' : ' border-t')} key={'p' + p.id}>
                 <span className={ROWMAIN}>
                   <ProjectTile icon={p.icon} color={p.color} size={22} radius={7} />
                   <span className={CODE}>{p.key}</span>
-                  <span className="flex-[1_1_200px] min-w-0 font-medium">{p.name} <span className={MC}>· проект целиком</span></span>
-                  {p.deleted_at && <span className={MC}>удалён {fmtStamp(p.deleted_at)}</span>}
+                  <span className="flex-[1_1_200px] min-w-0 font-medium">{p.name} <span className={MC}>· {tr('проект целиком')}</span></span>
+                  {p.deleted_at && <span className={MC}>{tr('удалён {when}', { when: fmtStamp(p.deleted_at) })}</span>}
                 </span>
-                <button type="button" className={BTN + ' border-ln text-tx'} disabled={restoreP.isPending} onClick={() => restoreP.mutate(p.id)}>Восстановить</button>
+                <button type="button" className={BTN + ' border-ln text-tx'} disabled={restoreP.isPending} onClick={() => restoreP.mutate(p.id)}>{tr('Восстановить')}</button>
               </div>
             ))}
             {tasks.map((t, i) => {
@@ -66,9 +67,9 @@ export function Trash() {
                     <span className={CODE}>{t.code}</span>
                     <span className="flex-[1_1_200px] min-w-0 font-medium text-t2">{t.title}</span>
                     {p && <span className={MC}><ProjectTile icon={p.icon} color={p.color} size={16} radius={5} />{p.name}</span>}
-                    {t.deleted_at && <span className={MC}>удалено {fmtStamp(t.deleted_at)}</span>}
+                    {t.deleted_at && <span className={MC}>{tr('удалено {when}', { when: fmtStamp(t.deleted_at) })}</span>}
                   </Link>
-                  <button type="button" className={BTN + ' border-ln text-tx'} disabled={restore.isPending} onClick={() => restore.mutate(t.code)}>Восстановить</button>
+                  <button type="button" className={BTN + ' border-ln text-tx'} disabled={restore.isPending} onClick={() => restore.mutate(t.code)}>{tr('Восстановить')}</button>
                 </div>
               )
             })}

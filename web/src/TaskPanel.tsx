@@ -6,6 +6,7 @@ import {
   useProjects, useProjectsMeta, useWho,
 } from './api'
 import { Icon, ProjectTile } from './icons'
+import { locale, tr } from './i18n'
 import { MD_NOTE, MD_PROSE, renderMarkdown, toggleCheckbox } from './markdown'
 import { Link, hrefWith, navigate, setParam } from './router'
 import { ClaudeBadge, EmptyState, ErrorState, MENUITEM, Menu, SkeletonRows, useFocusTrap } from './ui'
@@ -31,8 +32,8 @@ const MONO_T3 = 'font-mono text-[11.5px] text-t3'
 const CODE = /\b([A-Z][A-Z0-9]{1,4}-\d{1,4})\b/g
 
 function dateLabel(day: string) {
-  const long = new Date(day + 'T12:00:00').toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })
-  const rel = day === todayStr() ? 'Сегодня, ' : day === addDays(todayStr(), 1) ? 'Завтра, ' : ''
+  const long = new Date(day + 'T12:00:00').toLocaleDateString(locale(), { day: 'numeric', month: 'long' })
+  const rel = day === todayStr() ? tr('Сегодня') + ', ' : day === addDays(todayStr(), 1) ? tr('Завтра') + ', ' : ''
   return rel + long
 }
 
@@ -46,24 +47,24 @@ function histText(a: Activity): string {
   const v = (x: unknown) => (x === null || x === undefined || x === '' ? '—' : String(x))
   const parts = Object.entries(d).map(([k, [from, to]]) => {
     switch (k) {
-      case 'status': return `статус: ${v(from)} → ${v(to)}`
-      case 'priority': return `приоритет: ${v(from)} → ${v(to)}`
-      case 'area': return `область: ${v(from)} → ${v(to)}`
-      case 'planned_for': return `дата: ${from ? fmtDay(String(from)) : '—'} → ${to ? fmtDay(String(to)) : '—'}`
-      case 'title': return 'переименовал задачу'
-      case 'description_md': return 'изменил описание'
-      case 'custom': return 'изменил поле'
-      case 'parent_id': return 'изменил родителя'
-      case 'project_id': return 'перенёс в другой проект'
+      case 'status': return `${tr('статус')}: ${v(from)} → ${v(to)}`
+      case 'priority': return `${tr('приоритет')}: ${v(from)} → ${v(to)}`
+      case 'area': return `${tr('область')}: ${v(from)} → ${v(to)}`
+      case 'planned_for': return `${tr('дата')}: ${from ? fmtDay(String(from)) : '—'} → ${to ? fmtDay(String(to)) : '—'}`
+      case 'title': return tr('переименовал задачу')
+      case 'description_md': return tr('изменил описание')
+      case 'custom': return tr('изменил поле')
+      case 'parent_id': return tr('изменил родителя')
+      case 'project_id': return tr('перенёс в другой проект')
       default: return k
     }
   })
   switch (a.action) {
-    case 'created': return 'создал задачу'
-    case 'note_added': return 'добавил заметку'
-    case 'deleted': return 'удалил в корзину'
-    case 'restored': return 'восстановил из корзины'
-    case 'carried_over': return `перенёс на ${fmtDay(String(d.planned_for?.[1] ?? ''))}`
+    case 'created': return tr('создал задачу')
+    case 'note_added': return tr('добавил заметку')
+    case 'deleted': return tr('удалил в корзину')
+    case 'restored': return tr('восстановил из корзины')
+    case 'carried_over': return tr('перенёс на {day}', { day: fmtDay(String(d.planned_for?.[1] ?? '')) })
     default: return parts.join('; ') || a.action
   }
 }
@@ -92,10 +93,10 @@ export function TaskPanel({ code, mode }: { code: string; mode: 'drawer' | 'page
 
   const trap = useFocusTrap<HTMLElement>()
   const body = <PanelBody code={code} mode={mode} onClose={close} />
-  if (mode === 'page') return <section className="flex w-full grow flex-col bg-sf" aria-label={`Задача ${code}`}>{body}</section>
+  if (mode === 'page') return <section className="flex w-full grow flex-col bg-sf" aria-label={tr('Задача {code}', { code })}>{body}</section>
   return (
     <div className="fixed inset-0 z-50 flex items-stretch justify-end overflow-y-auto bg-black/50" onMouseDown={(e) => e.target === e.currentTarget && close()}>
-      <section className="flex w-full max-w-[700px] flex-col overflow-y-auto border-l border-ln bg-sf shadow-pop" role="dialog" aria-label={`Задача ${code}`} data-drawer ref={trap} tabIndex={-1}>{body}</section>
+      <section className="flex w-full max-w-[700px] flex-col overflow-y-auto border-l border-ln bg-sf shadow-pop" role="dialog" aria-label={tr('Задача {code}', { code })} data-drawer ref={trap} tabIndex={-1}>{body}</section>
     </div>
   )
 }
@@ -133,26 +134,26 @@ function PanelBody({ code, mode, onClose }: { code: string; mode: 'drawer' | 'pa
       {project ? <Link to={`/p/${project.slug}`} onClick={() => mode === 'drawer' && setParam('task', null)} className="text-[13px] text-t2 no-underline">{project.name}</Link> : null}
       <span className="text-t3">/</span>
       <span className="grow font-mono text-[12.5px] text-t3">{d?.code ?? code}</span>
-      <button type="button" className={HEAD_BTN} aria-label="Копировать ссылку" title={copied ? 'Скопировано' : 'Копировать ссылку'}
+      <button type="button" className={HEAD_BTN} aria-label={tr('Копировать ссылку')} title={copied ? tr('Скопировано') : tr('Копировать ссылку')}
         onClick={() => navigator.clipboard?.writeText(`${location.origin}/t/${d?.code ?? code}`).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500) })}>
         <Icon name={copied ? 'check' : 'link'} size={16} sw={1.8} />
       </button>
       {mode === 'drawer' && (
-        <button type="button" className={HEAD_BTN} aria-label="Открыть на всю страницу" onClick={() => navigate(`/t/${d?.code ?? code}`)}>
+        <button type="button" className={HEAD_BTN} aria-label={tr('Открыть на всю страницу')} onClick={() => navigate(`/t/${d?.code ?? code}`)}>
           <Icon name="expand" size={16} sw={1.8} />
         </button>
       )}
       {d && !d.deleted_at && (
-        <button type="button" className={HEAD_BTN} aria-label="Удалить в корзину" disabled={del.isPending} onClick={() => del.mutate()}><Icon name="trash" size={16} sw={1.8} /></button>
+        <button type="button" className={HEAD_BTN} aria-label={tr('Удалить в корзину')} disabled={del.isPending} onClick={() => del.mutate()}><Icon name="trash" size={16} sw={1.8} /></button>
       )}
-      <button type="button" className={HEAD_BTN} aria-label="Закрыть" onClick={onClose}><Icon name="x" size={16} sw={2} /></button>
+      <button type="button" className={HEAD_BTN} aria-label={tr('Закрыть')} onClick={onClose}><Icon name="x" size={16} sw={2} /></button>
     </div>
   )
 
   if (q.isPending) return <>{head}<SkeletonRows n={6} /></>
   if (q.isError) {
     return <>{head}{q.error.message.includes('not found') || q.error.message.includes('не найд')
-      ? <EmptyState icon="doc" title="Задача не найдена" hint={`Нет задачи ${code}. Её могли очистить из корзины.`} />
+      ? <EmptyState icon="doc" title={tr('Задача не найдена')} hint={tr('Нет задачи {code}. Её могли очистить из корзины.', { code })} />
       : <ErrorState message={q.error.message} onRetry={() => q.refetch()} />}</>
   }
   const readOnly = !!d!.deleted_at
@@ -161,9 +162,9 @@ function PanelBody({ code, mode, onClose }: { code: string; mode: 'drawer' | 'pa
       {head}
       {readOnly && (
         <div className="flex items-center gap-2 bg-rds px-4 py-2.5 text-[13px] font-medium text-rd" role="status">
-          <Icon name="trash" size={15} />В корзине — редактирование отключено
+          <Icon name="trash" size={15} />{tr('В корзине — редактирование отключено')}
           <span className="grow" />
-          <button type="button" className={BTN} disabled={restore.isPending} onClick={() => restore.mutate()}>Восстановить</button>
+          <button type="button" className={BTN} disabled={restore.isPending} onClick={() => restore.mutate()}>{tr('Восстановить')}</button>
         </div>
       )}
       <div className={'flex flex-col gap-[26px] px-9 pt-[26px] pb-10 max-[640px]:px-4 max-[640px]:pt-5 max-[640px]:pb-8' + (mode === 'page' ? ' mx-auto w-full max-w-[860px]' : '')}>
@@ -187,14 +188,14 @@ function Title({ d, readOnly, onSave }: { d: TaskDetail; readOnly: boolean; onSa
   if (editing) {
     const done = () => { setEditing(false); if (v.trim() && v.trim() !== d.title) onSave(v.trim()) }
     return (
-      <h1 className={H1}><input className="w-full border-0 border-b-2 border-ac bg-transparent px-0 pt-0 pb-1 outline-0" autoFocus aria-label="Название задачи" value={v} onChange={(e) => setV(e.target.value)} onBlur={done}
+      <h1 className={H1}><input className="w-full border-0 border-b-2 border-ac bg-transparent px-0 pt-0 pb-1 outline-0" autoFocus aria-label={tr('Название задачи')} value={v} onChange={(e) => setV(e.target.value)} onBlur={done}
         onKeyDown={(e) => {
           if (e.key === 'Enter') done()
           if (e.key === 'Escape') { e.stopPropagation(); setV(d.title); setEditing(false) }
         }} /></h1>
     )
   }
-  return <h1 className={H1}><button type="button" className="cursor-text rounded-md p-0 text-left disabled:cursor-default" disabled={readOnly} title="Нажмите, чтобы изменить" onClick={() => { setV(d.title); setEditing(true) }}>{d.title}</button></h1>
+  return <h1 className={H1}><button type="button" className="cursor-text rounded-md p-0 text-left disabled:cursor-default" disabled={readOnly} title={tr('Нажмите, чтобы изменить')} onClick={() => { setV(d.title); setEditing(true) }}>{d.title}</button></h1>
 }
 
 const DATEIN = 'h-7 rounded-md border border-ln bg-sf px-2 text-[12.5px] text-tx focus:border-ac focus:outline-0'
@@ -218,7 +219,7 @@ function Properties({ d, statuses, labels, fields, readOnly, onPatch }: {
 
   return (
     <div className="flex flex-col">
-      <Prop icon="clock" label="Статус">
+      <Prop icon="clock" label={tr('Статус')}>
         {menu(<span className={CHIP} style={st ? statusChip(st.color) : undefined}><span className={DOT} style={{ background: st ? statusColor(st.color) : 'var(--bk)' }} />{d.status_name}</span>,
           (close) => statuses.map((s) => (
             <button key={s.id} type="button" className={MENUITEM} onClick={() => { onPatch({ status: s.key }); close() }}>
@@ -226,52 +227,52 @@ function Properties({ d, statuses, labels, fields, readOnly, onPatch }: {
             </button>
           )))}
       </Prop>
-      <Prop icon="flag" label="Приоритет">
-        {menu(<span className={CHIP + ' ' + pr.cls}><span className="font-mono text-[12px] font-semibold">{d.priority}</span>{pr.name}</span>,
+      <Prop icon="flag" label={tr('Приоритет')}>
+        {menu(<span className={CHIP + ' ' + pr.cls}><span className="font-mono text-[12px] font-semibold">{d.priority}</span>{tr(pr.name)}</span>,
           (close) => Object.entries(PRIORITIES).map(([k, p]) => (
-            <button key={k} type="button" className={MENUITEM} onClick={() => { onPatch({ priority: k }); close() }}><span className="font-mono">{k}</span>{p.name}{k === d.priority && <span className={CHK}><Icon name="check" size={14} sw={2.2} /></span>}</button>
+            <button key={k} type="button" className={MENUITEM} onClick={() => { onPatch({ priority: k }); close() }}><span className="font-mono">{k}</span>{tr(p.name)}{k === d.priority && <span className={CHK}><Icon name="check" size={14} sw={2.2} /></span>}</button>
           )))}
       </Prop>
-      <Prop icon="tag" label="Область">
+      <Prop icon="tag" label={tr('Область')}>
         {menu(d.area
           ? <span className={CHIP + ' bg-sk text-t2'}><span className={DOT} style={{ background: area?.color ?? 'var(--bk)' }} />{d.area}</span>
-          : <span className={MUTED}>не задана</span>,
+          : <span className={MUTED}>{tr('не задана')}</span>,
         (close) => (
           <>
             {labels.map((l) => (
               <button key={l.id} type="button" className={MENUITEM} onClick={() => { onPatch({ area: l.name }); close() }}><span className={DOT} style={{ background: l.color }} />{l.name}{l.name === d.area && <span className={CHK}><Icon name="check" size={14} sw={2.2} /></span>}</button>
             ))}
-            {d.area && <button type="button" className={MENUITEM} onClick={() => { onPatch({ area: '' }); close() }}>Убрать область</button>}
+            {d.area && <button type="button" className={MENUITEM} onClick={() => { onPatch({ area: '' }); close() }}>{tr('Убрать область')}</button>}
             <form className="p-1" onSubmit={(e) => { e.preventDefault(); if (newArea.trim()) { onPatch({ area: newArea.trim() }); setNewArea(''); close() } }}>
-              <input className="h-[30px] w-full rounded-md border border-ln bg-sf px-2.5 text-sm text-tx focus:border-ac focus:outline-0" placeholder="Новая область" aria-label="Новая область" value={newArea} onChange={(e) => setNewArea(e.target.value)} />
+              <input className="h-[30px] w-full rounded-md border border-ln bg-sf px-2.5 text-sm text-tx focus:border-ac focus:outline-0" placeholder={tr('Новая область')} aria-label={tr('Новая область')} value={newArea} onChange={(e) => setNewArea(e.target.value)} />
             </form>
           </>
         ))}
       </Prop>
-      <Prop icon="cal" label="Дата">
-        {menu(d.planned_for ? <span className="text-sm">{dateLabel(d.planned_for)}</span> : <span className={MUTED}>не задана</span>,
+      <Prop icon="cal" label={tr('Дата')}>
+        {menu(d.planned_for ? <span className="text-sm">{dateLabel(d.planned_for)}</span> : <span className={MUTED}>{tr('не задана')}</span>,
           (close) => (
             <>
               {[todayStr(), addDays(todayStr(), 1)].map((day) => <button key={day} type="button" className={MENUITEM} onClick={() => { onPatch({ planned_for: day }); close() }}>{fmtDay(day)}</button>)}
-              <button type="button" className={MENUITEM} onClick={() => { onPatch({ planned_for: '' }); close() }}>Без даты</button>
+              <button type="button" className={MENUITEM} onClick={() => { onPatch({ planned_for: '' }); close() }}>{tr('Без даты')}</button>
               <div className="p-1">
-                <input className={DATEIN} type="date" aria-label="Выбрать дату" defaultValue={d.planned_for ?? ''}
+                <input className={DATEIN} type="date" aria-label={tr('Выбрать дату')} defaultValue={d.planned_for ?? ''}
                   onChange={(e) => { if (e.target.value) { onPatch({ planned_for: isoDay(new Date(e.target.value + 'T12:00:00')) }); close() } }} />
               </div>
             </>
           ))}
       </Prop>
       {links.length > 0 && (
-        <Prop icon="link" label="Связано">
+        <Prop icon="link" label={tr('Связано')}>
           <span className="flex flex-wrap gap-1.5">
             {links.map((t) => <Link key={t.id} className="inline-flex min-h-[26px] items-center gap-1.5 rounded-[7px] border border-ln bg-sf2 px-[9px] text-[12.5px] text-act no-underline hover:bg-sk" to={hrefWith('task', t.code)}><span className="font-mono text-[11.5px]">{t.code}</span>{t.title}</Link>)}
           </span>
         </Prop>
       )}
-      <Prop icon="user" label="Создал">
+      <Prop icon="user" label={tr('Создал')}>
         <span className="inline-flex items-center gap-2 text-sm">
           {d.created_by === 'claude' ? <ClaudeBadge /> : <b className="font-semibold">{who(d.created_by)}</b>}
-          <span className="text-t3">{d.created_by === 'claude' ? 'через MCP · ' : ''}{fmtStamp(d.created_at)}</span>
+          <span className="text-t3">{d.created_by === 'claude' ? tr('через MCP · ') : ''}{fmtStamp(d.created_at)}</span>
         </span>
       </Prop>
       {fields.map((f) => <FieldProp key={f.id} f={f} d={d} readOnly={readOnly} onPatch={onPatch} />)}
@@ -285,11 +286,11 @@ function FieldProp({ f, d, readOnly, onPatch }: { f: Field; d: TaskDetail; readO
   let editor: ReactNode
   if (f.type === 'select') {
     editor = readOnly ? <>{cur ?? <span className={MUTED}>—</span>}</> : (
-      <Menu className={PKBTN} label={cur ? <span className={CHIP + ' bg-sk text-t2'}>{String(cur)}</span> : <span className={MUTED}>не задано</span>}>
+      <Menu className={PKBTN} label={cur ? <span className={CHIP + ' bg-sk text-t2'}>{String(cur)}</span> : <span className={MUTED}>{tr('не задано')}</span>}>
         {(close) => (
           <>
             {f.options.map((o) => <button key={o} type="button" className={MENUITEM} onClick={() => { set(o); close() }}>{o}{o === cur && <span className={CHK}><Icon name="check" size={14} sw={2.2} /></span>}</button>)}
-            {cur !== undefined && <button type="button" className={MENUITEM} onClick={() => { set(null); close() }}>Очистить</button>}
+            {cur !== undefined && <button type="button" className={MENUITEM} onClick={() => { set(null); close() }}>{tr('Очистить')}</button>}
           </>
         )}
       </Menu>
@@ -325,17 +326,17 @@ function Description({ d, readOnly, onSave }: { d: TaskDetail; readOnly: boolean
   return (
     <section className={PSEC}>
       <div className={SEC}>
-        <h2 className={'grow ' + SEC_H}>Описание</h2>
-        <span className={SEG} role="group" aria-label="Режим описания">
-          <button type="button" className={SEGBTN} aria-pressed={!edit} onClick={() => { if (edit && draft !== d.description_md) onSave(draft); setEdit(false) }}>Просмотр</button>
+        <h2 className={'grow ' + SEC_H}>{tr('Описание')}</h2>
+        <span className={SEG} role="group" aria-label={tr('Режим описания')}>
+          <button type="button" className={SEGBTN} aria-pressed={!edit} onClick={() => { if (edit && draft !== d.description_md) onSave(draft); setEdit(false) }}>{tr('Просмотр')}</button>
           <button type="button" className={SEGBTN} aria-pressed={edit} disabled={readOnly} onClick={() => { setDraft(d.description_md); setEdit(true) }}>Markdown</button>
         </span>
       </div>
       {edit ? (
-        <textarea className="w-full resize-y rounded-[10px] border border-ln bg-sf2 px-3.5 py-3 font-mono text-[13px] leading-[1.6] text-tx focus:border-ac focus:outline-0" autoFocus aria-label="Описание в markdown" value={draft} rows={Math.max(8, draft.split('\n').length + 1)}
-          onChange={(e) => setDraft(e.target.value)} onBlur={() => draft !== d.description_md && onSave(draft)} placeholder="Markdown: **жирный**, - [ ] чекбокс, [ссылка](https://…)" />
+        <textarea className="w-full resize-y rounded-[10px] border border-ln bg-sf2 px-3.5 py-3 font-mono text-[13px] leading-[1.6] text-tx focus:border-ac focus:outline-0" autoFocus aria-label={tr('Описание в markdown')} value={draft} rows={Math.max(8, draft.split('\n').length + 1)}
+          onChange={(e) => setDraft(e.target.value)} onBlur={() => draft !== d.description_md && onSave(draft)} placeholder={tr('Markdown: **жирный**, - [ ] чекбокс, [ссылка](https://…)')} />
       ) : d.description_md.trim() ? view : (
-        <p className={MUTED}>Описания нет. Нажмите «Markdown», чтобы добавить.</p>
+        <p className={MUTED}>{tr('Описания нет. Нажмите «Markdown», чтобы добавить.')}</p>
       )}
     </section>
   )
@@ -361,9 +362,9 @@ function Subtasks({ d, statuses, projectKey, readOnly }: { d: TaskDetail; status
   return (
     <section className={PSEC}>
       <div className={SEC}>
-        <h2 className={SEC_H}>Подзадачи</h2>
+        <h2 className={SEC_H}>{tr('Подзадачи')}</h2>
         <span className="grow font-mono text-[12px] tabular-nums text-t3">{done} / {d.subtasks.length}</span>
-        {d.subtasks.length > 0 && <span className="block h-1.5 w-[110px] overflow-hidden rounded-[3px] bg-sk" role="img" aria-label={`Готово ${done} из ${d.subtasks.length}`}><span className="block h-full bg-dn" style={{ width: `${(done / d.subtasks.length) * 100}%` }} /></span>}
+        {d.subtasks.length > 0 && <span className="block h-1.5 w-[110px] overflow-hidden rounded-[3px] bg-sk" role="img" aria-label={tr('Готово {done} из {total}', { done, total: d.subtasks.length })}><span className="block h-full bg-dn" style={{ width: `${(done / d.subtasks.length) * 100}%` }} /></span>}
       </div>
       <div>
         {d.subtasks.map((s) => {
@@ -381,7 +382,7 @@ function Subtasks({ d, statuses, projectKey, readOnly }: { d: TaskDetail; status
         {!readOnly && (
           <label className="flex h-9 items-center gap-2 text-t3 focus-within:rounded-md focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ac">
             <Icon name="plus" size={14} sw={2} />
-            <input className="flex-1 border-0 bg-transparent text-sm text-tx outline-0" placeholder="Добавить подзадачу" aria-label="Добавить подзадачу" value={title} onChange={(e) => setTitle(e.target.value)} disabled={!projectKey}
+            <input className="flex-1 border-0 bg-transparent text-sm text-tx outline-0" placeholder={tr('Добавить подзадачу')} aria-label={tr('Добавить подзадачу')} value={title} onChange={(e) => setTitle(e.target.value)} disabled={!projectKey}
               onKeyDown={(e) => e.key === 'Enter' && title.trim() && !add.isPending && add.mutate(title.trim())} />
           </label>
         )}
@@ -408,7 +409,7 @@ function Notes({ d, readOnly }: { d: TaskDetail; readOnly: boolean }) {
   }, [d.notes.length])
   return (
     <section className={PSEC}>
-      <div className={SEC}><h2 className={'grow ' + SEC_H}>Заметки</h2><span className="font-mono text-[12px] text-t3">{d.notes.length}</span></div>
+      <div className={SEC}><h2 className={'grow ' + SEC_H}>{tr('Заметки')}</h2><span className="font-mono text-[12px] text-t3">{d.notes.length}</span></div>
       <div className="flex flex-col gap-3.5">
         {d.notes.map((n) => (
           <div key={n.id} className="flex gap-3">
@@ -425,9 +426,9 @@ function Notes({ d, readOnly }: { d: TaskDetail; readOnly: boolean }) {
         <div ref={end} />
         {!readOnly && (
           <label className="flex items-end gap-2.5 rounded-[10px] border border-ln bg-sf2 py-2 pr-2 pl-3.5 focus-within:border-ac">
-            <textarea className="flex-1 resize-none border-0 bg-transparent text-[14px] leading-[1.5] text-tx outline-0" rows={2} placeholder="Добавить заметку" aria-label="Добавить заметку" value={text} onChange={(e) => setText(e.target.value)}
+            <textarea className="flex-1 resize-none border-0 bg-transparent text-[14px] leading-[1.5] text-tx outline-0" rows={2} placeholder={tr('Добавить заметку')} aria-label={tr('Добавить заметку')} value={text} onChange={(e) => setText(e.target.value)}
               onKeyDown={(e) => (e.metaKey || e.ctrlKey) && e.key === 'Enter' && send()} />
-            <button type="button" className={BTN_PRI} disabled={!text.trim() || add.isPending} onClick={send}>Отправить<span className="rounded-[5px] border border-current bg-transparent px-[5px] py-px font-mono text-[11px] leading-[normal] font-medium text-inkt opacity-70">⌘↵</span></button>
+            <button type="button" className={BTN_PRI} disabled={!text.trim() || add.isPending} onClick={send}>{tr('Отправить')}<span className="rounded-[5px] border border-current bg-transparent px-[5px] py-px font-mono text-[11px] leading-[normal] font-medium text-inkt opacity-70">⌘↵</span></button>
           </label>
         )}
         {add.isError && <div className={ERR} role="alert">{add.error.message}</div>}
@@ -443,10 +444,10 @@ function History({ acts }: { acts: Activity[] }) {
   return (
     <section className={PSEC}>
       <div className={SEC}>
-        <h2 className={'grow ' + SEC_H}>История</h2>
-        {acts.length > 5 && <button type="button" className="p-0 text-[12.5px] text-t3 hover:text-tx" onClick={() => setAll(!all)}>{all ? 'свернуть' : 'показать всё'}</button>}
+        <h2 className={'grow ' + SEC_H}>{tr('История')}</h2>
+        {acts.length > 5 && <button type="button" className="p-0 text-[12.5px] text-t3 hover:text-tx" onClick={() => setAll(!all)}>{all ? tr('свернуть') : tr('показать всё')}</button>}
       </div>
-      {shown.length === 0 && <p className={MUTED}>Изменений пока нет.</p>}
+      {shown.length === 0 && <p className={MUTED}>{tr('Изменений пока нет.')}</p>}
       {shown.map((a) => (
         <div className="flex items-baseline gap-2.5 py-[5px] text-[12.5px] text-t2" key={a.id}>
           <span className={MONO_T3 + ' w-[92px] shrink-0'}>{fmtStamp(a.at)}</span>

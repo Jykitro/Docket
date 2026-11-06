@@ -6,6 +6,7 @@ import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, v
 import { CSS } from '@dnd-kit/utilities'
 import { ApiError, type Field, type Label, type Project, type Status, type View, api, statusColor, useProjects } from './api'
 import { Icon, PROJECT_COLORS, PROJECT_ICONS, ProjectTile } from './icons'
+import { tr } from './i18n'
 import { Link, navigate } from './router'
 import { ConfirmButton, Dialog, EmptyState, ErrorState, Menu, Skeleton, Toggle, MENUITEM } from './ui'
 
@@ -78,7 +79,7 @@ export function Settings({ slug }: { slug: string }) {
   if (!project) {
     return projects.isPending
       ? <div className={CONTENT}><Skeleton w="40%" h={28} /></div>
-      : <div className={CONTENT}><div className={COL_PANEL}><EmptyState icon="board" title="Проект не найден" hint={`Нет проекта «${slug}».`} /></div></div>
+      : <div className={CONTENT}><div className={COL_PANEL}><EmptyState icon="board" title={tr('Проект не найден')} hint={tr('Нет проекта «{slug}».', { slug })} /></div></div>
   }
   return <ProjectSettings key={project.id} project={project} />
 }
@@ -99,18 +100,18 @@ function ProjectSettings({ project }: { project: Project }) {
   return (
     <>
       <header className="flex flex-wrap items-center gap-3.5 px-8 pt-[22px] pb-4">
-        <Link to={`/p/${project.slug}`} className={BTN_SQ} aria-label="Назад к доске"><Icon name="chevL" size={16} sw={2} /></Link>
+        <Link to={`/p/${project.slug}`} className={BTN_SQ} aria-label={tr('Назад к доске')}><Icon name="chevL" size={16} sw={2} /></Link>
         <div className="flex min-w-0 flex-[1_1_260px] flex-col gap-0.5">
-          <span className="text-[13px] text-t3">{project.name}{project.archived_at && ' · в архиве'}</span>
-          <h1 className="text-2xl font-bold tracking-tight">Настройки проекта</h1>
+          <span className="text-[13px] text-t3">{project.name}{project.archived_at && tr(' · в архиве')}</span>
+          <h1 className="text-2xl font-bold tracking-tight">{tr('Настройки проекта')}</h1>
         </div>
-        <span className="inline-flex items-center gap-1.5 text-[12.5px] text-dnt"><Icon name="check" size={14} sw={2.2} />Изменения сохраняются сразу</span>
+        <span className="inline-flex items-center gap-1.5 text-[12.5px] text-dnt"><Icon name="check" size={14} sw={2.2} />{tr('Изменения сохраняются сразу')}</span>
       </header>
       <div className="flex flex-wrap items-start gap-7 px-8 pt-6 pb-10 max-[760px]:px-4 max-[760px]:py-4" ref={root}>
-        <nav className="sticky top-4 flex flex-[0_0_200px] flex-col gap-0.5 max-[760px]:static max-[760px]:basis-full max-[760px]:flex-row max-[760px]:flex-wrap" aria-label="Разделы настроек">
+        <nav className="sticky top-4 flex flex-[0_0_200px] flex-col gap-0.5 max-[760px]:static max-[760px]:basis-full max-[760px]:flex-row max-[760px]:flex-wrap" aria-label={tr('Разделы настроек')}>
           {SECTIONS.map(([id, label]) => (
             <button key={id} type="button" className="flex h-8 w-full items-center gap-2.5 rounded-md bg-transparent px-2.5 text-left text-sm text-t2 hover:bg-sk aria-[current=true]:bg-sk aria-[current=true]:font-semibold aria-[current=true]:text-tx max-[760px]:w-auto" aria-current={active === id ? 'true' : undefined}
-              onClick={() => { setActive(id); document.getElementById('s-' + id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }}>{label}</button>
+              onClick={() => { setActive(id); document.getElementById('s-' + id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }}>{tr(label)}</button>
           ))}
         </nav>
         <div className="flex min-w-0 max-w-[880px] flex-[999_1_520px] flex-col gap-5">
@@ -138,27 +139,27 @@ function General({ project, run }: { project: Project; run: Run }) {
   useEffect(() => setDesc(project.description), [project.description])
   const patch = (b: Record<string, unknown>) => run(() => api.updateProject(project.id, b))
   return (
-    <Panel id="general" title="Основное" hint="Иконка и цвет видны в боковой панели, на карточках «Сегодня» и в поиске.">
+    <Panel id="general" title={tr('Основное')} hint={tr('Иконка и цвет видны в боковой панели, на карточках «Сегодня» и в поиске.')}>
       <div className={PB}>
         <div className="flex flex-wrap items-center gap-4 rounded-[10px] border border-ln bg-sf2 px-4 py-3.5">
           <ProjectTile icon={project.icon} color={project.color} size={52} radius={14} />
           <span className="flex flex-[1_1_200px] flex-col gap-0.5">
             <span className="text-[18px] font-bold tracking-[-.01em]">{project.name}</span>
-            <span className="font-mono text-[12px] text-t3">{project.key} · {project.open} открытых</span>
+            <span className="font-mono text-[12px] text-t3">{project.key} · {tr('{n} открытых', { n: project.open })}</span>
           </span>
           <span className="flex h-8 min-w-[200px] items-center gap-2.5 rounded-md bg-sk px-2 text-sm font-semibold text-tx">
             <ProjectTile icon={project.icon} color={project.color} /><span className="min-w-0 grow truncate">{project.name}</span><span className="font-mono text-[11.5px] text-t3">{project.open}</span>
           </span>
         </div>
-        <div className={LB}>Иконка
-          <div className="flex flex-wrap gap-2" role="group" aria-label="Иконка проекта">
+        <div className={LB}>{tr('Иконка')}
+          <div className="flex flex-wrap gap-2" role="group" aria-label={tr('Иконка проекта')}>
             {PROJECT_ICONS.map((i) => (
               <button key={i} type="button" className="grid size-[38px] place-items-center rounded-[10px] border border-ln bg-sf p-0 text-t2 aria-pressed:border-ac aria-pressed:bg-ac aria-pressed:text-inkt" aria-label={i} aria-pressed={i === project.icon} onClick={() => patch({ icon: i })}><Icon name={i} size={18} /></button>
             ))}
           </div>
         </div>
-        <div className={LB}>Цвет
-          <div className="flex flex-wrap gap-3 px-1 py-[3px]" role="group" aria-label="Цвет проекта">
+        <div className={LB}>{tr('Цвет')}
+          <div className="flex flex-wrap gap-3 px-1 py-[3px]" role="group" aria-label={tr('Цвет проекта')}>
             {PROJECT_COLORS.map((c) => (
               <button key={c} type="button" className={SWATCH + (c.toLowerCase() === project.color.toLowerCase() ? ' ' + RING : '')} style={{ background: c }} aria-label={c} aria-pressed={c.toLowerCase() === project.color.toLowerCase()} onClick={() => patch({ color: c })}>
                 {c.toLowerCase() === project.color.toLowerCase() && <Icon name="check" size={13} sw={3} />}
@@ -167,20 +168,20 @@ function General({ project, run }: { project: Project; run: Run }) {
           </div>
         </div>
         <div className="grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-4">
-          <label className={LB}>Название
+          <label className={LB}>{tr('Название')}
             <input className={IN + ' h-9'} value={name} onChange={(e) => setName(e.target.value)}
               onBlur={() => name.trim() && name.trim() !== project.name ? patch({ name: name.trim() }).then((ok) => !ok && setName(project.name)) : setName(project.name)}
               onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()} />
           </label>
-          <label className={LB}>Ключ задач
+          <label className={LB}>{tr('Ключ задач')}
             <input className={IN + ' h-9 font-mono'} maxLength={5} value={key} onChange={(e) => setKey(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
               onBlur={() => key !== project.key ? patch({ key }).then((ok) => !ok && setKey(project.key)) : undefined}
               onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()} />
-            <span className={HINT}>Префикс ID: {project.key}-12. Меняется для всех задач сразу.</span>
-            {key !== project.key && <span className="text-[12px] font-normal text-dgt">Старые ссылки с прежним ключом {project.key} перестанут работать.</span>}
+            <span className={HINT}>{tr('Префикс ID: {key}-12. Меняется для всех задач сразу.', { key: project.key })}</span>
+            {key !== project.key && <span className="text-[12px] font-normal text-dgt">{tr('Старые ссылки с прежним ключом {key} перестанут работать.', { key: project.key })}</span>}
           </label>
         </div>
-        <label className={LB}>Описание
+        <label className={LB}>{tr('Описание')}
           <textarea className={IN + ' h-auto resize-y py-[9px] leading-[1.5]'} rows={2} value={desc} onChange={(e) => setDesc(e.target.value)}
             onBlur={() => desc !== project.description && patch({ description: desc })} />
         </label>
@@ -198,8 +199,8 @@ function StatusRow({ s, run, onDelete }: { s: Status; run: Run; onDelete: (s: St
   const patch = (b: Record<string, unknown>) => run(() => api.updateStatus(s.id, b))
   return (
     <div className={TR + (sortable.isDragging ? ' bg-sf2 shadow-pop' : '')} ref={sortable.setNodeRef} style={{ transform: CSS.Transform.toString(sortable.transform), transition: sortable.transition }}>
-      <button type="button" className="inline-grid h-7 w-5 cursor-grab touch-none place-items-center border-0 bg-transparent p-0 text-t3" aria-label={`Перетащить статус «${s.name}»`} {...sortable.attributes} {...sortable.listeners}><Icon name="list" size={16} /></button>
-      <Menu className={PKBTN} ariaLabel={`Цвет статуса «${s.name}»`} label={<span className="inline-block size-3.5 shrink-0 rounded-full" style={{ background: statusColor(s.color) }} />}>
+      <button type="button" className="inline-grid h-7 w-5 cursor-grab touch-none place-items-center border-0 bg-transparent p-0 text-t3" aria-label={tr('Перетащить статус «{name}»', { name: s.name })} {...sortable.attributes} {...sortable.listeners}><Icon name="list" size={16} /></button>
+      <Menu className={PKBTN} ariaLabel={tr('Цвет статуса «{name}»', { name: s.name })} label={<span className="inline-block size-3.5 shrink-0 rounded-full" style={{ background: statusColor(s.color) }} />}>
         {(close) => (
           <div className="flex w-[190px] flex-wrap gap-2 p-1.5">
             {STATUS_COLORS.map((c) => (
@@ -208,19 +209,19 @@ function StatusRow({ s, run, onDelete }: { s: Status; run: Run; onDelete: (s: St
           </div>
         )}
       </Menu>
-      <input className={IN_TR + ' max-w-[240px] flex-[1_1_140px]'} aria-label="Название статуса" value={name} onChange={(e) => setName(e.target.value)}
+      <input className={IN_TR + ' max-w-[240px] flex-[1_1_140px]'} aria-label={tr('Название статуса')} value={name} onChange={(e) => setName(e.target.value)}
         onBlur={() => name.trim() && name.trim() !== s.name ? patch({ name: name.trim() }) : setName(s.name)}
         onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()} />
-      <Menu className={SELBTN + ' min-w-[136px]'} ariaLabel="Категория статуса" label={<>{CATEGORIES.find((c) => c[0] === s.category)![1]}<Icon name="chevD" size={13} sw={2} /></>}>
+      <Menu className={SELBTN + ' min-w-[136px]'} ariaLabel={tr('Категория статуса')} label={<>{tr(CATEGORIES.find((c) => c[0] === s.category)![1])}<Icon name="chevD" size={13} sw={2} /></>}>
         {(close) => CATEGORIES.map(([k, n]) => (
-          <button key={k} type="button" className={MENUITEM} onClick={() => { patch({ category: k }); close() }}>{n}{k === s.category && <span className="ml-auto text-act"><Icon name="check" size={14} sw={2.2} /></span>}</button>
+          <button key={k} type="button" className={MENUITEM} onClick={() => { patch({ category: k }); close() }}>{tr(n)}{k === s.category && <span className="ml-auto text-act"><Icon name="check" size={14} sw={2.2} /></span>}</button>
         ))}
       </Menu>
       <span className="grow" />
-      <span className="font-mono text-[12px] tabular-nums text-t3" title="Задач в статусе">{s.task_count}</span>
-      <span className={TLABEL}>На доске</span>
-      <Toggle on={s.show_on_board} label={`На доске: ${s.name}`} onChange={(v) => patch({ show_on_board: v })} />
-      <button type="button" className={BTN_GHOST} aria-label={`Удалить статус «${s.name}»`} onClick={() => onDelete(s)}><Icon name="trash" size={16} sw={1.8} /></button>
+      <span className="font-mono text-[12px] tabular-nums text-t3" title={tr('Задач в статусе')}>{s.task_count}</span>
+      <span className={TLABEL}>{tr('На доске')}</span>
+      <Toggle on={s.show_on_board} label={tr('На доске: {name}', { name: s.name })} onChange={(v) => patch({ show_on_board: v })} />
+      <button type="button" className={BTN_GHOST} aria-label={tr('Удалить статус «{name}»', { name: s.name })} onClick={() => onDelete(s)}><Icon name="trash" size={16} sw={1.8} /></button>
     </div>
   )
 }
@@ -254,7 +255,7 @@ function StatusesSection({ project, run }: { project: Project; run: Run }) {
     if (await run(() => api.createStatus(project.id, { name: name.trim() }))) { setName(''); setAdding(false) }
   }
   return (
-    <Panel id="statuses" title="Статусы" hint="Колонки доски. Категория определяет поведение: «Готово» закрывает задачу и ставит дату закрытия." flush>
+    <Panel id="statuses" title={tr('Статусы')} hint={tr('Колонки доски. Категория определяет поведение: «Готово» закрывает задачу и ставит дату закрытия.')} flush>
       {q.isPending && <div className={TR}><Skeleton w="60%" /></div>}
       {q.isError && <ErrorState message={q.error.message} onRetry={() => q.refetch()} />}
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
@@ -264,13 +265,13 @@ function StatusesSection({ project, run }: { project: Project; run: Run }) {
       </DndContext>
       {adding ? (
         <div className={TR}>
-          <input className={IN_TR + ' max-w-[280px]'} autoFocus placeholder="Название нового статуса" aria-label="Название нового статуса" value={name} onChange={(e) => setName(e.target.value)}
+          <input className={IN_TR + ' max-w-[280px]'} autoFocus placeholder={tr('Название нового статуса')} aria-label={tr('Название нового статуса')} value={name} onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') add(); if (e.key === 'Escape') { setAdding(false); setName('') } }} />
-          <button type="button" className={BTN_SM_PRI} disabled={!name.trim()} onClick={add}>Добавить</button>
-          <button type="button" className={BTN_SM} onClick={() => { setAdding(false); setName('') }}>Отмена</button>
+          <button type="button" className={BTN_SM_PRI} disabled={!name.trim()} onClick={add}>{tr('Добавить')}</button>
+          <button type="button" className={BTN_SM} onClick={() => { setAdding(false); setName('') }}>{tr('Отмена')}</button>
         </div>
       ) : (
-        <button type="button" className={ADDLINE} onClick={() => setAdding(true)}><Icon name="plus" size={14} sw={2} />Добавить статус</button>
+        <button type="button" className={ADDLINE} onClick={() => setAdding(true)}><Icon name="plus" size={14} sw={2} />{tr('Добавить статус')}</button>
       )}
       {moving && <MoveDialog status={moving} others={list.filter((s) => s.id !== moving.id)} onClose={() => setMoving(null)}
         onMove={async (to) => { if (await run(() => api.deleteStatus(moving.id, to))) setMoving(null) }} />}
@@ -281,8 +282,8 @@ function StatusesSection({ project, run }: { project: Project; run: Run }) {
 function MoveDialog({ status, others, onClose, onMove }: { status: Status; others: Status[]; onClose: () => void; onMove: (to: number) => void }) {
   const [to, setTo] = useState(others[0]?.id)
   return (
-    <Dialog title={`Удалить статус «${status.name}»`} onClose={onClose}>
-      <p className="text-t2">В статусе есть задачи{status.task_count > 0 ? ` (${status.task_count})` : ' (в корзине)'}. Выберите, куда их перенести.</p>
+    <Dialog title={tr('Удалить статус «{name}»', { name: status.name })} onClose={onClose}>
+      <p className="text-t2">{tr('В статусе есть задачи{count}. Выберите, куда их перенести.', { count: status.task_count > 0 ? ` (${status.task_count})` : tr(' (в корзине)') })}</p>
       <div className={CHIPS}>
         {others.map((s) => (
           <button key={s.id} type="button" className={choice(s.id === to)} onClick={() => setTo(s.id)}>
@@ -291,8 +292,8 @@ function MoveDialog({ status, others, onClose, onMove }: { status: Status; other
         ))}
       </div>
       <div className="flex items-center justify-end gap-2">
-        <button type="button" className={BTN} onClick={onClose}>Отмена</button>
-        <button type="button" className={BTN_PRI} disabled={!to} onClick={() => to && onMove(to)}>Перенести и удалить</button>
+        <button type="button" className={BTN} onClick={onClose}>{tr('Отмена')}</button>
+        <button type="button" className={BTN_PRI} disabled={!to} onClick={() => to && onMove(to)}>{tr('Перенести и удалить')}</button>
       </div>
     </Dialog>
   )
@@ -304,10 +305,10 @@ function LabelChip({ l, run }: { l: Label; run: Run }) {
   const [name, setName] = useState(l.name)
   useEffect(() => setName(l.name), [l.name])
   return (
-    <Menu className="inline-flex h-[30px] items-center gap-2 rounded-md border border-ln bg-sf2 px-[11px] text-[13px]" ariaLabel={`Метка «${l.name}»`} label={<><span className="inline-block size-[9px] shrink-0 rounded-full" style={{ background: l.color }} />{l.name}<span className="font-mono text-[11.5px] text-t3">{l.task_count}</span></>}>
+    <Menu className="inline-flex h-[30px] items-center gap-2 rounded-md border border-ln bg-sf2 px-[11px] text-[13px]" ariaLabel={tr('Метка «{name}»', { name: l.name })} label={<><span className="inline-block size-[9px] shrink-0 rounded-full" style={{ background: l.color }} />{l.name}<span className="font-mono text-[11.5px] text-t3">{l.task_count}</span></>}>
       {(close) => (
         <div className="flex w-[220px] flex-col gap-2 p-1.5">
-          <input className={IN + ' h-8'} aria-label="Название метки" value={name} onChange={(e) => setName(e.target.value)}
+          <input className={IN + ' h-8'} aria-label={tr('Название метки')} value={name} onChange={(e) => setName(e.target.value)}
             onBlur={() => name.trim() && name.trim() !== l.name && run(() => api.updateLabel(l.id, { name: name.trim() }))}
             onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()} />
           <div className="flex flex-wrap gap-2">
@@ -317,7 +318,7 @@ function LabelChip({ l, run }: { l: Label; run: Run }) {
             ))}
           </div>
           <button type="button" className={MENUITEM + ' text-rd'} onClick={() => { run(() => api.deleteLabel(l.id)); close() }}>
-            <Icon name="trash" size={14} />Удалить{l.task_count ? ` (область очистится у ${l.task_count})` : ''}
+            <Icon name="trash" size={14} />{tr('Удалить')}{l.task_count ? ` (${tr('область очистится у {n}', { n: l.task_count })})` : ''}
           </button>
         </div>
       )}
@@ -334,18 +335,18 @@ function LabelsSection({ project, run }: { project: Project; run: Run }) {
     if (await run(() => api.createLabel(project.id, { name: name.trim() }))) { setName(''); setAdding(false) }
   }
   return (
-    <Panel id="labels" title="Метки областей" hint="Быстрая группировка и фильтр. Цвет метки виден точкой на карточке. Новая область у задачи создаёт метку сама.">
+    <Panel id="labels" title={tr('Метки областей')} hint={tr('Быстрая группировка и фильтр. Цвет метки виден точкой на карточке. Новая область у задачи создаёт метку сама.')}>
       <div className={PB}>
         <div className="flex flex-wrap gap-2">
           {q.data?.map((l) => <LabelChip key={l.id} l={l} run={run} />)}
           {adding ? (
-            <input className={IN + ' h-8 w-[180px]'} autoFocus placeholder="Название метки" aria-label="Название новой метки" value={name} onChange={(e) => setName(e.target.value)}
+            <input className={IN + ' h-8 w-[180px]'} autoFocus placeholder={tr('Название метки')} aria-label={tr('Название новой метки')} value={name} onChange={(e) => setName(e.target.value)}
               onBlur={() => !name.trim() && setAdding(false)} onKeyDown={(e) => { if (e.key === 'Enter') add(); if (e.key === 'Escape') { setAdding(false); setName('') } }} />
           ) : (
-            <button type="button" className="inline-flex h-[30px] items-center gap-2 rounded-md border border-dashed border-ln bg-transparent px-[11px] text-[13px] text-t3" onClick={() => setAdding(true)}><Icon name="plus" size={13} sw={2} />Новая метка</button>
+            <button type="button" className="inline-flex h-[30px] items-center gap-2 rounded-md border border-dashed border-ln bg-transparent px-[11px] text-[13px] text-t3" onClick={() => setAdding(true)}><Icon name="plus" size={13} sw={2} />{tr('Новая метка')}</button>
           )}
         </div>
-        {q.isSuccess && q.data.length === 0 && !adding && <span className={HINT}>Меток пока нет. Они появятся, когда у задач будут области.</span>}
+        {q.isSuccess && q.data.length === 0 && !adding && <span className={HINT}>{tr('Меток пока нет. Они появятся, когда у задач будут области.')}</span>}
         {q.isError && <ErrorState message={q.error.message} onRetry={() => q.refetch()} />}
       </div>
     </Panel>
@@ -364,18 +365,18 @@ function FieldRow({ f, run }: { f: Field; run: Run }) {
   return (
     <div className={TR}>
       <span className="inline-flex text-t3"><Icon name={t[2]} size={16} /></span>
-      <input className={IN_TR + ' max-w-[220px] flex-[1_1_140px]'} aria-label="Название поля" value={name} onChange={(e) => setName(e.target.value)}
+      <input className={IN_TR + ' max-w-[220px] flex-[1_1_140px]'} aria-label={tr('Название поля')} value={name} onChange={(e) => setName(e.target.value)}
         onBlur={() => name.trim() && name.trim() !== f.name ? patch({ name: name.trim() }) : setName(f.name)} onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()} />
-      <span className={SELBTN + ' min-w-[100px]'} title="Тип нельзя изменить после создания">{t[1]}</span>
+      <span className={SELBTN + ' min-w-[100px]'} title={tr('Тип нельзя изменить после создания')}>{tr(t[1])}</span>
       {f.type === 'select' && (
-        <input className={IN_TR + ' max-w-[320px] flex-[1_1_200px]'} aria-label="Варианты через запятую" placeholder="Варианты через запятую" value={opts} onChange={(e) => setOpts(e.target.value)}
+        <input className={IN_TR + ' max-w-[320px] flex-[1_1_200px]'} aria-label={tr('Варианты через запятую')} placeholder={tr('Варианты через запятую')} value={opts} onChange={(e) => setOpts(e.target.value)}
           onBlur={() => opts !== f.options.join(', ') && patch({ options: opts.split(',').map((x) => x.trim()).filter(Boolean) }).then((ok) => !ok && setOpts(f.options.join(', ')))}
           onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()} />
       )}
       <span className="grow" />
-      <span className={TLABEL}>На карточке</span>
-      <Toggle on={f.show_on_card} label={`На карточке: ${f.name}`} onChange={(v) => patch({ show_on_card: v })} />
-      <ConfirmButton className={BTN_GHOST} label="" ariaLabel={`Удалить поле «${f.name}»`} armed="Удалить поле со значениями?" icon={<Icon name="trash" size={16} sw={1.8} />} onConfirm={() => run(() => api.deleteField(f.id))} />
+      <span className={TLABEL}>{tr('На карточке')}</span>
+      <Toggle on={f.show_on_card} label={tr('На карточке: {name}', { name: f.name })} onChange={(v) => patch({ show_on_card: v })} />
+      <ConfirmButton className={BTN_GHOST} label="" ariaLabel={tr('Удалить поле «{name}»', { name: f.name })} armed={tr('Удалить поле со значениями?')} icon={<Icon name="trash" size={16} sw={1.8} />} onConfirm={() => run(() => api.deleteField(f.id))} />
     </div>
   )
 }
@@ -393,21 +394,21 @@ function FieldsSection({ project, run }: { project: Project; run: Run }) {
     if (await run(() => api.createField(project.id, { name: name.trim(), type, options }))) reset()
   }
   return (
-    <Panel id="fields" title="Свои поля" hint="Дополнительные свойства задачи. Появляются в панели задачи и, по желанию, на карточке." flush>
+    <Panel id="fields" title={tr('Свои поля')} hint={tr('Дополнительные свойства задачи. Появляются в панели задачи и, по желанию, на карточке.')} flush>
       {q.data?.map((f) => <FieldRow key={f.id} f={f} run={run} />)}
-      {q.isSuccess && q.data.length === 0 && !adding && <div className={TR + ' text-[13px] text-t3'}>Полей пока нет.</div>}
+      {q.isSuccess && q.data.length === 0 && !adding && <div className={TR + ' text-[13px] text-t3'}>{tr('Полей пока нет.')}</div>}
       {adding ? (
         <div className={TR}>
-          <input className={IN_TR + ' max-w-[200px]'} autoFocus placeholder="Название поля" aria-label="Название нового поля" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} />
-          <div className={CHIPS} role="group" aria-label="Тип поля">
-            {FIELD_TYPES.map(([k, n]) => <button key={k} type="button" className={choice(k === type)} aria-pressed={k === type} onClick={() => setType(k)}>{n}</button>)}
+          <input className={IN_TR + ' max-w-[200px]'} autoFocus placeholder={tr('Название поля')} aria-label={tr('Название нового поля')} value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} />
+          <div className={CHIPS} role="group" aria-label={tr('Тип поля')}>
+            {FIELD_TYPES.map(([k, n]) => <button key={k} type="button" className={choice(k === type)} aria-pressed={k === type} onClick={() => setType(k)}>{tr(n)}</button>)}
           </div>
-          {type === 'select' && <input className={IN_TR + ' max-w-[260px]'} placeholder="Варианты через запятую" aria-label="Варианты через запятую" value={opts} onChange={(e) => setOpts(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} />}
-          <button type="button" className={BTN_SM_PRI} disabled={!name.trim() || (type === 'select' && !opts.trim())} onClick={add}>Добавить</button>
-          <button type="button" className={BTN_SM} onClick={reset}>Отмена</button>
+          {type === 'select' && <input className={IN_TR + ' max-w-[260px]'} placeholder={tr('Варианты через запятую')} aria-label={tr('Варианты через запятую')} value={opts} onChange={(e) => setOpts(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} />}
+          <button type="button" className={BTN_SM_PRI} disabled={!name.trim() || (type === 'select' && !opts.trim())} onClick={add}>{tr('Добавить')}</button>
+          <button type="button" className={BTN_SM} onClick={reset}>{tr('Отмена')}</button>
         </div>
       ) : (
-        <button type="button" className={ADDLINE} onClick={() => setAdding(true)}><Icon name="plus" size={14} sw={2} />Добавить поле</button>
+        <button type="button" className={ADDLINE} onClick={() => setAdding(true)}><Icon name="plus" size={14} sw={2} />{tr('Добавить поле')}</button>
       )}
       {q.isError && <ErrorState message={q.error.message} onRetry={() => q.refetch()} />}
     </Panel>
@@ -422,13 +423,13 @@ const SORT_NAMES: Record<string, string> = { manual: 'вручную', priority:
 
 function describeView(v: View): string {
   const f = v.filter ?? {}
-  const parts: string[] = [v.layout === 'list' ? 'Список' : 'Доска']
+  const parts: string[] = [v.layout === 'list' ? tr('Список') : tr('Доска')]
   if (f.q) parts.push(`«${f.q}»`)
-  if (f.priority?.length) parts.push(`приоритет ${f.priority.join('/')}`)
-  if (f.area?.length) parts.push(`область ${f.area.join('/')}`)
-  if (f.date?.length) parts.push(f.date.map((d) => DATE_NAMES[d] ?? d).join('/'))
-  if (f.author?.length) parts.push(`создали: ${f.author.join('/')}`)
-  parts.push(`группа: ${GROUP_NAMES[v.group_by] ?? v.group_by}`, `сортировка: ${SORT_NAMES[v.sort] ?? v.sort}`)
+  if (f.priority?.length) parts.push(`${tr('приоритет')} ${f.priority.join('/')}`)
+  if (f.area?.length) parts.push(`${tr('область')} ${f.area.join('/')}`)
+  if (f.date?.length) parts.push(f.date.map((d) => tr(DATE_NAMES[d] ?? d)).join('/'))
+  if (f.author?.length) parts.push(`${tr('создали')}: ${f.author.join('/')}`)
+  parts.push(`${tr('группа')}: ${tr(GROUP_NAMES[v.group_by] ?? v.group_by)}`, `${tr('сортировка')}: ${tr(SORT_NAMES[v.sort] ?? v.sort)}`)
   return parts.join(' · ')
 }
 
@@ -439,13 +440,13 @@ function ViewRow({ v, run }: { v: View; run: Run }) {
     <div className={TR}>
       <span className="inline-flex text-t3"><Icon name="funnel" size={16} /></span>
       <span className="flex min-w-0 flex-[1_1_200px] flex-col gap-0.5">
-        <input className={IN_TR + ' max-w-[280px]'} aria-label="Название вида" value={name} onChange={(e) => setName(e.target.value)}
+        <input className={IN_TR + ' max-w-[280px]'} aria-label={tr('Название вида')} value={name} onChange={(e) => setName(e.target.value)}
           onBlur={() => name.trim() && name.trim() !== v.name ? run(() => api.updateView(v.id, { name: name.trim() })) : setName(v.name)} onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()} />
         <span className="text-[12.5px] text-t3">{describeView(v)}</span>
       </span>
-      <span className={TLABEL}>В боковой панели</span>
-      <Toggle on={v.pinned} label={`В боковой панели: ${v.name}`} onChange={(pinned) => run(() => api.updateView(v.id, { pinned }))} />
-      <ConfirmButton className={BTN_GHOST} label="" ariaLabel={`Удалить вид «${v.name}»`} armed="Удалить вид?" icon={<Icon name="trash" size={16} sw={1.8} />} onConfirm={() => run(() => api.deleteView(v.id))} />
+      <span className={TLABEL}>{tr('В боковой панели')}</span>
+      <Toggle on={v.pinned} label={tr('В боковой панели: {name}', { name: v.name })} onChange={(pinned) => run(() => api.updateView(v.id, { pinned }))} />
+      <ConfirmButton className={BTN_GHOST} label="" ariaLabel={tr('Удалить вид «{name}»', { name: v.name })} armed={tr('Удалить вид?')} icon={<Icon name="trash" size={16} sw={1.8} />} onConfirm={() => run(() => api.deleteView(v.id))} />
     </div>
   )
 }
@@ -454,9 +455,9 @@ function ViewsSection({ project, run }: { project: Project; run: Run }) {
   const q = useQuery({ queryKey: ['views', project.id], queryFn: () => api.views(project.id) })
   const mine = (q.data ?? []).filter((v) => v.project_id === project.id)
   return (
-    <Panel id="views" title="Сохранённые виды" hint="Набор фильтров, группировки и сортировки. Закреплённые виды попадают в боковую панель." flush>
+    <Panel id="views" title={tr('Сохранённые виды')} hint={tr('Набор фильтров, группировки и сортировки. Закреплённые виды попадают в боковую панель.')} flush>
       {mine.map((v) => <ViewRow key={v.id} v={v} run={run} />)}
-      {q.isSuccess && mine.length === 0 && <div className={TR + ' text-[13px] text-t3'}>Видов пока нет. Настройте фильтры на доске и нажмите «Сохранить как вид».</div>}
+      {q.isSuccess && mine.length === 0 && <div className={TR + ' text-[13px] text-t3'}>{tr('Видов пока нет. Настройте фильтры на доске и нажмите «Сохранить как вид».')}</div>}
       {q.isError && <ErrorState message={q.error.message} onRetry={() => q.refetch()} />}
     </Panel>
   )
@@ -467,14 +468,14 @@ function ViewsSection({ project, run }: { project: Project; run: Run }) {
 function DataSection({ project, run }: { project: Project; run: Run }) {
   const archived = !!project.archived_at
   return (
-    <Panel id="data" title="Данные и архив" hint="Удалённый проект уходит в корзину вместе с задачами. Вернуть его можно оттуда." flush>
+    <Panel id="data" title={tr('Данные и архив')} hint={tr('Удалённый проект уходит в корзину вместе с задачами. Вернуть его можно оттуда.')} flush>
       <div className="flex flex-wrap gap-2.5 px-5 pt-1.5 pb-5">
-        <a className={BTN} href={`/api/projects/${project.id}/export`} download><Icon name="doc" size={15} />Экспорт проекта в JSON</a>
+        <a className={BTN} href={`/api/projects/${project.id}/export`} download><Icon name="doc" size={15} />{tr('Экспорт проекта в JSON')}</a>
         <button type="button" className={BTN} onClick={() => run(() => api.archiveProject(project.id, !archived)).then((ok) => ok && !archived && navigate('/'))}>
-          <Icon name="stack" size={15} />{archived ? 'Вернуть из архива' : 'Архивировать'}
+          <Icon name="stack" size={15} />{archived ? tr('Вернуть из архива') : tr('Архивировать')}
         </button>
         <span className="grow" />
-        <ConfirmButton className={BTN_DNG} label="Удалить в корзину" armed={`Удалить «${project.name}» вместе с задачами?`} icon={<Icon name="trash" size={15} />}
+        <ConfirmButton className={BTN_DNG} label={tr('Удалить в корзину')} armed={tr('Удалить «{name}» вместе с задачами?', { name: project.name })} icon={<Icon name="trash" size={15} />}
           onConfirm={() => run(() => api.deleteProject(project.id)).then((ok) => ok && navigate('/'))} />
       </div>
     </Panel>

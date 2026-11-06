@@ -2,6 +2,7 @@
 import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { type Label } from './api'
 import { Icon } from './icons'
+import { LANGS, setLang, tr, useLang } from './i18n'
 
 // Shared utility strings (legacy .btn, .btn.pri, .btn.sq, .btn.warn, .kbd, .cap, .mc, .dot).
 const btnBase = 'inline-flex items-center gap-2 h-9 rounded-md border text-sm font-medium no-underline whitespace-nowrap disabled:opacity-50 disabled:cursor-default'
@@ -98,7 +99,7 @@ export function Skeleton({ w = '100%', h = 14 }: { w?: number | string; h?: numb
 
 export function SkeletonRows({ n = 4 }: { n?: number }) {
   return (
-    <div role="status" aria-label="Загрузка" className="flex flex-col gap-3.5 p-4">
+    <div role="status" aria-label={tr('Загрузка')} className="flex flex-col gap-3.5 p-4">
       {Array.from({ length: n }, (_, i) => <Skeleton key={i} w={`${60 + ((i * 17) % 35)}%`} h={16} />)}
     </div>
   )
@@ -122,9 +123,9 @@ export function ErrorState({ message, onRetry }: { message?: string; onRetry: ()
   return (
     <div className={emptyBox} role="alert">
       <span className={emptyIc + 'bg-rds text-rd'}><Icon name="x" size={20} /></span>
-      <b className="text-tx text-[15px]">Не удалось загрузить</b>
-      <span>{message ?? 'Сервер не ответил'}</span>
-      <button type="button" className={btn} onClick={onRetry}>Повторить</button>
+      <b className="text-tx text-[15px]">{tr('Не удалось загрузить')}</b>
+      <span>{message ?? tr('Сервер не ответил')}</span>
+      <button type="button" className={btn} onClick={onRetry}>{tr('Повторить')}</button>
     </div>
   )
 }
@@ -163,8 +164,21 @@ const PRIO: Record<string, string> = {
 export const PriorityChip = ({ p }: { p: string }) => <span className={'font-mono text-[11px] font-semibold leading-[normal] rounded-[5px] ' + (PRIO[p.toLowerCase()] ?? '')}>{p}</span>
 
 export const ClaudeBadge = () => (
-  <span className="inline-flex items-center gap-1 text-[11px] font-medium text-act bg-acs rounded-[5px] py-0.5 pr-1.5 pl-[5px]" title="Создано Claude"><Icon name="spark" size={11} sw={2.2} />claude</span>
+  <span className="inline-flex items-center gap-1 text-[11px] font-medium text-act bg-acs rounded-[5px] py-0.5 pr-1.5 pl-[5px]" title={tr('Создано Claude')}><Icon name="spark" size={11} sw={2.2} />claude</span>
 )
+
+/** EN / RU / UK switch. It subscribes itself, so it works on the login screen too. */
+export function LangSwitch() {
+  const lang = useLang()
+  return (
+    <span className="inline-flex gap-0.5 rounded-md border border-ln p-0.5 text-xs" role="group" aria-label={tr('Язык')}>
+      {LANGS.map((l) => (
+        <button key={l.id} type="button" lang={l.id} title={l.name} aria-pressed={lang === l.id} onClick={() => setLang(l.id)}
+          className="rounded-sm px-2 py-0.5 font-medium text-t3 aria-pressed:bg-sk aria-pressed:font-semibold aria-pressed:text-tx">{l.id.toUpperCase()}</button>
+      ))}
+    </span>
+  )
+}
 
 export function AreaDot({ area, labels }: { area: string; labels: Label[] }) {
   if (!area) return null

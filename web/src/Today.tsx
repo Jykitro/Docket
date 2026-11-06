@@ -2,9 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   type Activity, type Category, type Meta, type Project, type Task, type TodayData, addDays, api, fmtDay, fmtLongDay, fmtTime,
-  plural, todayStr, useProjectsMeta, useWho,
+  todayStr, useProjectsMeta, useWho,
 } from './api'
 import { Icon, ProjectTile } from './icons'
+import { plural, tr } from './i18n'
 import { useFresh } from './live'
 import { Link, hrefWith, navigate, useRoute } from './router'
 import { AreaDot, ClaudeBadge, EmptyState, ErrorState, PriorityChip, SkeletonRows, btn, btnPri, btnSq, btnWarn, cap, kbdPri, mc } from './ui'
@@ -35,7 +36,7 @@ function TaskRow({ t, meta, late, onCycle }: { t: Task; meta?: Meta; late?: bool
   const done = t.status_category === 'done'
   return (
     <div className={'flex items-center gap-3 min-h-[46px] px-4 py-1.5 border-t border-ln no-underline text-inherit hover:bg-sf2' + (fresh ? ' shadow-[inset_0_0_0_2px_var(--ac)]' : '')}>
-      <button type="button" className={'size-[18px] rounded-full flex-[0_0_18px] grid place-items-center p-0 border-[1.5px] text-white ' + SC[t.status_category]} aria-label={`${t.code}: ${t.status_name}. Сменить статус`} onClick={() => onCycle(t)}>
+      <button type="button" className={'size-[18px] rounded-full flex-[0_0_18px] grid place-items-center p-0 border-[1.5px] text-white ' + SC[t.status_category]} aria-label={`${t.code}: ${t.status_name}. ${tr('Сменить статус')}`} onClick={() => onCycle(t)}>
         {done && <Icon name="check" size={11} sw={3.2} />}
       </button>
       <Link to={hrefWith('task', t.code)} className="flex flex-wrap items-center gap-x-3 gap-y-1 flex-1 min-w-0 self-stretch no-underline text-inherit">
@@ -59,19 +60,19 @@ function actText(a: Activity): string {
     /* an unreadable diff just falls back to the generic text */
   }
   switch (a.action) {
-    case 'created': return `создал ${code}`
-    case 'moved': return d.status ? `перевёл ${code} в «${d.status[1]}»` : `переместил ${code}`
+    case 'created': return tr('создал {code}', { code })
+    case 'moved': return d.status ? tr('перевёл {code} в «{status}»', { code, status: String(d.status[1]) }) : tr('переместил {code}', { code })
     case 'updated':
-      if (d.priority) return `изменил приоритет ${code}: ${d.priority[0]} → ${d.priority[1]}`
-      return d.title ? `переименовал ${code}` : `обновил ${code}`
-    case 'deleted': return `удалил ${code}`
-    case 'restored': return `восстановил ${code}`
-    case 'note_added': return `добавил заметку к ${code}`
-    case 'carried_over': return `перенёс ${code} на ${fmtDay(String(d.planned_for?.[1] ?? ''))}`
-    case 'project_created': return 'создал проект'
-    case 'project_updated': return 'обновил проект'
-    case 'project_deleted': return 'удалил проект в корзину'
-    case 'project_restored': return 'восстановил проект'
+      if (d.priority) return tr('изменил приоритет {code}: {from} → {to}', { code, from: String(d.priority[0]), to: String(d.priority[1]) })
+      return d.title ? tr('переименовал {code}', { code }) : tr('обновил {code}', { code })
+    case 'deleted': return tr('удалил {code}', { code })
+    case 'restored': return tr('восстановил {code}', { code })
+    case 'note_added': return tr('добавил заметку к {code}', { code })
+    case 'carried_over': return tr('перенёс {code} на {day}', { code, day: fmtDay(String(d.planned_for?.[1] ?? '')) })
+    case 'project_created': return tr('создал проект')
+    case 'project_updated': return tr('обновил проект')
+    case 'project_deleted': return tr('удалил проект в корзину')
+    case 'project_restored': return tr('восстановил проект')
     default: return a.action
   }
 }
@@ -137,23 +138,26 @@ export function Today({ onNewTask }: { onNewTask: (o: { project?: Project; date:
     <>
       <header className="px-8 pt-6 pb-4 flex items-center gap-3.5 flex-wrap max-[640px]:px-4">
         <div className="flex flex-col gap-0.5 flex-[1_1_260px] min-w-0">
-          <h1 className="text-2xl font-bold tracking-tight">{isToday ? 'Сегодня' : fmtLongDay(date)}</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{isToday ? tr('Сегодня') : fmtLongDay(date)}</h1>
           <span className="text-sm text-t3">
-            {isToday ? fmtLongDay(date) : fmtDay(date)} · {total} {plural(total, 'задача', 'задачи', 'задач')} в {projects.length} {plural(projects.length, 'проекте', 'проектах', 'проектах')}
+            {isToday ? fmtLongDay(date) : fmtDay(date)} · {tr('{tasks} в {projects}', {
+              tasks: plural(total, '{n} задача|{n} задачи|{n} задач'),
+              projects: plural(projects.length, '{n} проекте|{n} проектах|{n} проектах'),
+            })}
           </span>
         </div>
         <span className="inline-flex items-center gap-1.5">
-          <button type="button" className={btnSq} aria-label="Предыдущий день" onClick={() => go(addDays(date, -1))}><Icon name="chevL" size={16} sw={2} /></button>
-          <button type="button" className={btn} onClick={() => go(todayStr())}>Сегодня</button>
-          <button type="button" className={btnSq} aria-label="Следующий день" onClick={() => go(addDays(date, 1))}><Icon name="chevR" size={16} sw={2} /></button>
+          <button type="button" className={btnSq} aria-label={tr('Предыдущий день')} onClick={() => go(addDays(date, -1))}><Icon name="chevL" size={16} sw={2} /></button>
+          <button type="button" className={btn} onClick={() => go(todayStr())}>{tr('Сегодня')}</button>
+          <button type="button" className={btnSq} aria-label={tr('Следующий день')} onClick={() => go(addDays(date, 1))}><Icon name="chevR" size={16} sw={2} /></button>
         </span>
         <button type="button" className={confirm ? btnWarn : btn} disabled={open === 0 || carry.isPending}
           onClick={() => (confirm ? (setConfirm(false), carry.mutate([[date, addDays(date, 1)]])) : setConfirm(true))}>
           <Icon name="arrowRight" size={15} sw={1.8} />
-          {confirm ? `Перенести ${open} на ${fmtDay(addDays(date, 1)).toLowerCase()}?` : 'Незакрытые на завтра'}
+          {confirm ? tr('Перенести {n} на {day}?', { n: open, day: fmtDay(addDays(date, 1)).toLowerCase() }) : tr('Незакрытые на завтра')}
         </button>
         <button type="button" className={btnPri} onClick={() => onNewTask({ date })}>
-          <Icon name="plus" size={16} sw={2} />Новая задача<span className={kbdPri}>C</span>
+          <Icon name="plus" size={16} sw={2} />{tr('Новая задача')}<span className={kbdPri}>C</span>
         </button>
       </header>
 
@@ -166,13 +170,13 @@ export function Today({ onNewTask }: { onNewTask: (o: { project?: Project; date:
               {total > 0 && (
                 <section className={panel + ' py-4 px-[18px] flex flex-col gap-3'}>
                   <div className="flex items-baseline gap-3 flex-wrap">
-                    <span className="text-[20px] font-bold tracking-[-.01em]">{done} из {total} готово</span>
+                    <span className="text-[20px] font-bold tracking-[-.01em]">{tr('{done} из {total} готово', { done, total })}</span>
                     <span className="grow" />
-                    <span className={mc}><span className={dot + 'bg-dn'} />Готово {done}</span>
-                    <span className={mc}><span className={dot + 'bg-dg'} />В работе {doing}</span>
-                    <span className={mc}><span className={dot + 'bg-td'} />К работе {rest}</span>
+                    <span className={mc}><span className={dot + 'bg-dn'} />{tr('Готово {n}', { n: done })}</span>
+                    <span className={mc}><span className={dot + 'bg-dg'} />{tr('В работе {n}', { n: doing })}</span>
+                    <span className={mc}><span className={dot + 'bg-td'} />{tr('К работе {n}', { n: rest })}</span>
                   </div>
-                  <div className="flex gap-[3px] h-2" role="img" aria-label={`Готово ${done}, в работе ${doing}, к работе ${rest}`}>
+                  <div className="flex gap-[3px] h-2" role="img" aria-label={tr('Готово {done}, в работе {doing}, к работе {rest}', { done, doing, rest })}>
                     {done > 0 && <span className="rounded-[4px] bg-dn" style={{ flex: done }} />}
                     {doing > 0 && <span className="rounded-[4px] bg-dg" style={{ flex: doing }} />}
                     {rest > 0 && <span className="rounded-[4px] bg-td opacity-[.55]" style={{ flex: rest }} />}
@@ -184,10 +188,10 @@ export function Today({ onNewTask }: { onNewTask: (o: { project?: Project; date:
                 <section className="bg-sf border border-rd rounded-xl overflow-hidden" ref={overdueRef}>
                   <div className={panelHead}>
                     <span className={dot + 'bg-rd'} />
-                    <b className="font-semibold">Просрочено</b>
+                    <b className="font-semibold">{tr('Просрочено')}</b>
                     <span className="font-mono grow text-[12px] text-t3">{data.overdue.length}</span>
                     <button type="button" className={btn} disabled={carry.isPending} onClick={() => carry.mutate(overdueDates.map((d) => [d, todayStr()]))}>
-                      Перенести всё на сегодня
+                      {tr('Перенести всё на сегодня')}
                     </button>
                   </div>
                   {[...data.overdue].sort(byPriority).map((t) => <TaskRow key={t.id} t={t} late meta={meta[t.project_id]} onCycle={onCycle} />)}
@@ -196,9 +200,9 @@ export function Today({ onNewTask }: { onNewTask: (o: { project?: Project; date:
 
               {total === 0 && (
                 <section className={panel}>
-                  <EmptyState icon="cal" title="На этот день задач нет"
-                    hint="Добавьте задачу вручную или попросите Claude спланировать день через MCP."
-                    action={<button type="button" className={btnPri} onClick={() => onNewTask({ date })}><Icon name="plus" size={16} sw={2} />Новая задача</button>} />
+                  <EmptyState icon="cal" title={tr('На этот день задач нет')}
+                    hint={tr('Добавьте задачу вручную или попросите Claude спланировать день через MCP.')}
+                    action={<button type="button" className={btnPri} onClick={() => onNewTask({ date })}><Icon name="plus" size={16} sw={2} />{tr('Новая задача')}</button>} />
                 </section>
               )}
 
@@ -211,11 +215,11 @@ export function Today({ onNewTask }: { onNewTask: (o: { project?: Project; date:
                       <ProjectTile icon={p.icon} color={p.color} size={22} radius={7} />
                       <Link to={`/p/${p.slug}`} className="font-semibold no-underline">{p.name}</Link>
                       <span className="font-mono grow tabular-nums text-[12px] text-t3">{d} / {ts.length}</span>
-                      <span className="w-24 h-1.5 rounded-[3px] bg-sk overflow-hidden block" role="img" aria-label={`Готово ${d} из ${ts.length}`}><span className="block h-full bg-dn" style={{ width: `${(d / ts.length) * 100}%` }} /></span>
+                      <span className="w-24 h-1.5 rounded-[3px] bg-sk overflow-hidden block" role="img" aria-label={tr('Готово {done} из {total}', { done: d, total: ts.length })}><span className="block h-full bg-dn" style={{ width: `${(d / ts.length) * 100}%` }} /></span>
                     </div>
                     {ts.map((t) => <TaskRow key={t.id} t={t} meta={meta[p.id]} onCycle={onCycle} />)}
                     <button type="button" className="flex items-center gap-2 min-h-10 px-4 py-1 border-t border-ln bg-transparent text-t3 text-[13px] w-full text-left hover:bg-sf2 hover:text-tx" onClick={() => onNewTask({ project: p, date })}>
-                      <Icon name="plus" size={14} sw={2} />Добавить на {isToday ? 'сегодня' : fmtDay(date).toLowerCase()}
+                      <Icon name="plus" size={14} sw={2} />{tr('Добавить на {day}', { day: isToday ? tr('сегодня') : fmtDay(date).toLowerCase() })}
                     </button>
                   </section>
                 )
@@ -228,16 +232,16 @@ export function Today({ onNewTask }: { onNewTask: (o: { project?: Project; date:
           <Link to="/mcp" className={panel + ' flex items-center gap-3 px-4 py-3.5 no-underline text-inherit'}>
             <span className={'size-[34px] rounded-[9px] grid place-items-center ' + (mcp.data && !mcp.data.online ? 'bg-rds text-rd' : 'bg-dns text-dnt')}><Icon name="plug" size={17} sw={1.9} /></span>
             <span className="flex flex-col grow leading-[1.3]">
-              <b className="font-semibold">{mcp.data && !mcp.data.online ? 'MCP не отвечает' : 'Claude подключён'}</b>
+              <b className="font-semibold">{mcp.data && !mcp.data.online ? tr('MCP не отвечает') : tr('Claude подключён')}</b>
               <span className="text-[12.5px] text-t3">
-                {mcp.data ? `${mcp.data.median_ms} мс · ${mcp.data.calls_today} ${plural(mcp.data.calls_today, 'вызов', 'вызова', 'вызовов')} сегодня` : 'проверяю…'}
+                {mcp.data ? tr('{ms} мс · {calls} сегодня', { ms: mcp.data.median_ms, calls: plural(mcp.data.calls_today, '{n} вызов|{n} вызова|{n} вызовов') }) : tr('проверяю…')}
               </span>
             </span>
             <Icon name="chevR" size={16} sw={2} />
           </Link>
           <section className={panel + ' overflow-hidden'}>
-            <div className={panelHead}><b className="font-semibold grow">Активность</b><span className={cap}>последняя</span></div>
-            {data && data.activity.length === 0 && <div className={feed}><span className="text-t3 text-[13px]">Пока ничего не происходило</span></div>}
+            <div className={panelHead}><b className="font-semibold grow">{tr('Активность')}</b><span className={cap}>{tr('последняя')}</span></div>
+            {data && data.activity.length === 0 && <div className={feed}><span className="text-t3 text-[13px]">{tr('Пока ничего не происходило')}</span></div>}
             {data?.activity.map((a) => (
               <div className={feed} key={a.id}>
                 <span className={'size-[26px] rounded-full flex-[0_0_26px] grid place-items-center ' + (a.actor === 'claude' ? 'bg-acs text-act' : 'bg-sk text-t2')}><Icon name={a.actor === 'claude' ? 'spark' : 'user'} size={13} sw={2} /></span>

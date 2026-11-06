@@ -3,6 +3,7 @@ import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { type Hit, type Project, api, statusChip } from './api'
 import { Icon, ProjectTile } from './icons'
+import { plural, tr } from './i18n'
 import { Link, hrefWith, navigate, setParam } from './router'
 import { useFocusTrap } from './ui'
 
@@ -108,29 +109,29 @@ export function SearchDialog({ projects, current, onClose, onCreate }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 px-4 pt-[112px] pb-4" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="flex flex-col self-start w-[680px] max-w-full overflow-hidden bg-sf border border-ln rounded-lg shadow-pop" role="dialog" aria-modal="true" aria-label="Поиск" onKeyDown={key} ref={trap} tabIndex={-1}>
+      <div className="flex flex-col self-start w-[680px] max-w-full overflow-hidden bg-sf border border-ln rounded-lg shadow-pop" role="dialog" aria-modal="true" aria-label={tr('Поиск')} onKeyDown={key} ref={trap} tabIndex={-1}>
         <div className="flex items-center gap-3 px-4 h-[58px] border-b border-ln text-t3">
           <Icon name="search" size={19} sw={1.9} />
-          <input className="flex-1 min-w-0 border-0 bg-transparent outline-0 text-[17px] font-medium text-tx" autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Поиск по задачам и проектам" aria-label="Поиск по задачам, проектам и командам" />
-          <button type="button" className={KBD + ' cursor-pointer'} aria-label="Закрыть поиск" onClick={onClose}>esc</button>
+          <input className="flex-1 min-w-0 border-0 bg-transparent outline-0 text-[17px] font-medium text-tx" autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={tr('Поиск по задачам и проектам')} aria-label={tr('Поиск по задачам, проектам и командам')} />
+          <button type="button" className={KBD + ' cursor-pointer'} aria-label={tr('Закрыть поиск')} onClick={onClose}>esc</button>
         </div>
         <div className="flex flex-wrap gap-1.5 px-4 pt-3 pb-1">
           {([['all', 'Все', total], ['tasks', 'Задачи', (data?.counts.tasks ?? 0) + (data?.counts.descriptions ?? 0)], ['projects', 'Проекты', data?.counts.projects ?? 0]] as const).map(([k, label, n]) => (
             <button key={k} type="button" className={SCH + (scope === k ? ' bg-ink border-ink text-inkt font-medium' : ' border-ln bg-sf text-t2')} aria-pressed={scope === k} onClick={() => setScope(k)}>
-              {label}<span className="font-mono text-[11.5px] opacity-70">{n}</span>
+              {tr(label)}<span className="font-mono text-[11.5px] opacity-70">{n}</span>
             </button>
           ))}
           {current && (
-            <button type="button" className={SCH + (onlyCurrent ? ' bg-ink border-ink text-inkt font-medium' : ' border-ln bg-sf text-t2')} aria-pressed={onlyCurrent} onClick={() => setOnlyCurrent(!onlyCurrent)}>Проект: {current.name}</button>
+            <button type="button" className={SCH + (onlyCurrent ? ' bg-ink border-ink text-inkt font-medium' : ' border-ln bg-sf text-t2')} aria-pressed={onlyCurrent} onClick={() => setOnlyCurrent(!onlyCurrent)}>{tr('Проект: {name}', { name: current.name })}</button>
           )}
         </div>
         <div className="flex flex-col gap-0.5 max-h-[52vh] overflow-y-auto px-2 pt-2 pb-1.5" ref={listRef}>
           {res.isError && <div className="px-3 py-2 text-[13px] text-rd" role="alert">{res.error.message}</div>}
-          {tasks.length > 0 && <div className={RHEAD_CAP}>Задачи · по названию</div>}
+          {tasks.length > 0 && <div className={RHEAD_CAP}>{tr('Задачи · по названию')}</div>}
           {items.filter((i): i is Item & { kind: 'task' } => i.kind === 'task').map((it) => hitRow(it, false))}
-          {descs.length > 0 && <div className={RHEAD_CAP}>В описаниях</div>}
+          {descs.length > 0 && <div className={RHEAD_CAP}>{tr('В описаниях')}</div>}
           {items.filter((i): i is Item & { kind: 'desc' } => i.kind === 'desc').map((it) => hitRow(it, true))}
-          {projs.length > 0 && <div className={RHEAD_CAP}>Проекты</div>}
+          {projs.length > 0 && <div className={RHEAD_CAP}>{tr('Проекты')}</div>}
           {items.filter((i): i is Item & { kind: 'project' } => i.kind === 'project').map((it) => row(it, (
             <>
               <ProjectTile icon={it.project.icon} color={it.project.color} size={22} radius={7} />
@@ -138,28 +139,28 @@ export function SearchDialog({ projects, current, onClose, onCreate }: {
               <span className="flex-1 font-medium"><Highlight text={it.project.name} q={q} /></span>
             </>
           ), `/p/${it.project.slug}`))}
-          {dq !== '' && !res.isFetching && total === 0 && <div className={RHEAD}>Ничего не найдено по «{dq}»</div>}
-          {dq === '' && <div className={RHEAD}>Введите слово из названия или описания, либо код задачи, например TRK-07</div>}
-          <div className={RHEAD_CAP}>Действия</div>
+          {dq !== '' && !res.isFetching && total === 0 && <div className={RHEAD}>{tr('Ничего не найдено по «{q}»', { q: dq })}</div>}
+          {dq === '' && <div className={RHEAD}>{tr('Введите слово из названия или описания, либо код задачи, например TRK-07')}</div>}
+          <div className={RHEAD_CAP}>{tr('Действия')}</div>
           {items.filter((i) => i.kind === 'create').map((it) => row(it, (
             <>
               <span className={SQ + ' bg-ink text-inkt'}><Icon name="plus" size={13} sw={2.4} /></span>
-              <span className="flex-1 font-medium">Создать задачу «{q.trim()}»</span><span className={KBD}>⌘↵</span>
+              <span className="flex-1 font-medium">{tr('Создать задачу «{q}»', { q: q.trim() })}</span><span className={KBD}>⌘↵</span>
             </>
           ), '/'))}
           {items.filter((i) => i.kind === 'mcp').map((it) => row(it, (
             <>
               <span className={SQ + ' bg-sk text-t2'}><Icon name="plug" size={13} sw={2} /></span>
-              <span className="flex-1 font-medium">Открыть MCP и журнал вызовов</span>
+              <span className="flex-1 font-medium">{tr('Открыть MCP и журнал вызовов')}</span>
             </>
           ), '/mcp'))}
         </div>
         <div className="flex flex-wrap items-center gap-4 px-4 py-2.5 border-t border-ln bg-sf2 text-[12px] text-t3">
-          <span><span className={KBD}>↑</span> <span className={KBD}>↓</span> выбрать</span>
-          <span><span className={KBD}>↵</span> открыть</span>
-          <span><span className={KBD}>⌘↵</span> создать</span>
+          <span><span className={KBD}>↑</span> <span className={KBD}>↓</span> {tr('выбрать')}</span>
+          <span><span className={KBD}>↵</span> {tr('открыть')}</span>
+          <span><span className={KBD}>⌘↵</span> {tr('создать')}</span>
           <span className="grow" />
-          <span className="font-mono text-[11.5px]">{data ? `${total} ${total === 1 ? 'результат' : 'результатов'} · ${data.took_ms} мс` : ''}</span>
+          <span className="font-mono text-[11.5px]">{data ? `${plural(total, '{n} результат|{n} результата|{n} результатов')} · ${data.took_ms} ${tr('мс')}` : ''}</span>
         </div>
       </div>
     </div>
