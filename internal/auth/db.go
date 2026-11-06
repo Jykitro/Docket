@@ -35,9 +35,19 @@ type User struct {
 	CreatedAt string `json:"created_at"`
 }
 
-const sessionTTL = 30 * 24 * time.Hour
+const (
+	sessionTTL = 30 * 24 * time.Hour
+	inviteTTL  = 7 * 24 * time.Hour
+)
 
 var usernameRe = regexp.MustCompile(`^[a-z0-9][a-z0-9_.-]{1,31}$`)
+
+// Invite is a pending (unused, unexpired) invite; the token itself is never stored.
+type Invite struct {
+	ID        int64  `json:"id"`
+	CreatedAt string `json:"created_at"`
+	ExpiresAt string `json:"expires_at"`
+}
 
 const schema = `
 CREATE TABLE IF NOT EXISTS users (
@@ -91,14 +101,21 @@ func (d *DB) UserCount() (n int, err error) {
 	return
 }
 
+func validatePassword(password string) error {
+	if n := utf8.RuneCountInString(password); n < 10 || n > 128 {
+		return ValidationError("password must be 10-128 characters")
+	}
+	return nil
+}
+
 // createUser validates and inserts inside the caller's transaction.
 func (d *DB) createUser(tx *sql.Tx, username, password string, admin bool) (User, error) {
 	username = strings.ToLower(strings.TrimSpace(username))
 	if !usernameRe.MatchString(username) {
 		return User{}, ValidationError("username must be 2-32 characters: a-z, 0-9, _ . -, starting with a letter or digit")
 	}
-	if n := utf8.RuneCountInString(password); n < 10 || n > 128 {
-		return User{}, ValidationError("password must be 10-128 characters")
+	if err := validatePassword(password); err != nil {
+		return User{}, err
 	}
 	hash, err := HashPassword(password)
 	if err != nil {
@@ -176,5 +193,152 @@ func (d *DB) UserBySession(token string) (User, error) {
 
 func (d *DB) DeleteSession(token string) error {
 	_, err := d.db.Exec(`DELETE FROM sessions WHERE token_hash = ?`, hashToken(token))
+	return err
+}
+
+// SetupAdmin creates the first user as admin; the emptiness check and insert share one transaction.
+func (d *DB) SetupAdmin(username, password string) (User, error) {
+	tx, err := d.db.Begin()
+	if err != nil {
+		return User{}, err
+	}
+	defer tx.Rollback()
+	var n int
+	if err := tx.QueryRow(`SELECT count(*) FROM users`).Scan(&n); err != nil {
+		return User{}, err
+	}
+	if n > 0 {
+		return User{}, ErrSetupDone
+	}
+	u, err := d.createUser(tx, username, password, true)
+	if err != nil {
+		return User{}, err
+	}
+	return u, tx.Commit()
+}
+
+// NewInvite returns a single-use token valid for 7 days; only its SHA-256 is stored.
+func (d *DB) NewInvite(createdBy int64) (token string, expires time.Time, err error) {
+	token, hash, err := newToken()
+	if err != nil {
+		return "", time.Time{}, err
+	}
+	now := d.now()
+	expires = now.Add(inviteTTL)
+	_, err = d.db.Exec(`INSERT INTO invites (token_hash, created_by, created_at, expires_at) VALUES (?, ?, ?, ?)`,
+		hash, createdBy, now.Unix(), expires.Unix())
+	if err != nil {
+		return "", time.Time{}, err
+	}
+	return token, expires, nil
+}
+
+// AcceptInvite consumes the invite and creates a regular user in one transaction.
+func (d *DB) AcceptInvite(token, username, password string) (User, error) {
+	tx, err := d.db.Begin()
+	if err != nil {
+		return User{}, err
+	}
+	defer tx.Rollback()
+	var id int64
+	err = tx.QueryRow(`SELECT id FROM invites WHERE token_hash = ? AND used_at IS NULL AND expires_at > ?`,
+		hashToken(token), d.now().Unix()).Scan(&id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return User{}, ErrInvalidInvite
+	}
+	if err != nil {
+		return User{}, err
+	}
+	u, err := d.createUser(tx, username, password, false)
+	if err != nil {
+		return User{}, err
+	}
+	if _, err := tx.Exec(`UPDATE invites SET used_at = ? WHERE id = ?`, d.now().Unix(), id); err != nil {
+		return User{}, err
+	}
+	return u, tx.Commit()
+}
+
+func (d *DB) ListInvites() ([]Invite, error) {
+	rows, err := d.db.Query(`SELECT id, created_at, expires_at FROM invites WHERE used_at IS NULL AND expires_at > ? ORDER BY id`, d.now().Unix())
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []Invite{}
+	for rows.Next() {
+		var inv Invite
+		var created, expires int64
+		if err := rows.Scan(&inv.ID, &created, &expires); err != nil {
+			return nil, err
+		}
+		inv.CreatedAt = time.Unix(created, 0).UTC().Format(time.RFC3339)
+		inv.ExpiresAt = time.Unix(expires, 0).UTC().Format(time.RFC3339)
+		out = append(out, inv)
+	}
+	return out, rows.Err()
+}
+
+func (d *DB) ListUsers() ([]User, error) {
+	rows, err := d.db.Query(`SELECT id, username, is_admin, created_at FROM users ORDER BY id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []User{}
+	for rows.Next() {
+		var u User
+		var created int64
+		if err := rows.Scan(&u.ID, &u.Username, &u.IsAdmin, &created); err != nil {
+			return nil, err
+		}
+		u.CreatedAt = time.Unix(created, 0).UTC().Format(time.RFC3339)
+		out = append(out, u)
+	}
+	return out, rows.Err()
+}
+
+// DeleteUser removes the user and their sessions.
+func (d *DB) DeleteUser(id int64) error {
+	tx, err := d.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.Exec(`DELETE FROM sessions WHERE user_id = ?`, id); err != nil {
+		return err
+	}
+	res, err := tx.Exec(`DELETE FROM users WHERE id = ?`, id)
+	if err != nil {
+		return err
+	}
+	if n, err := res.RowsAffected(); err != nil {
+		return err
+	} else if n == 0 {
+		return ErrNotFound
+	}
+	return tx.Commit()
+}
+
+func (d *DB) ChangePassword(userID int64, oldPw, newPw string) error {
+	if err := validatePassword(newPw); err != nil {
+		return err
+	}
+	var hash string
+	err := d.db.QueryRow(`SELECT password_hash FROM users WHERE id = ?`, userID).Scan(&hash)
+	if errors.Is(err, sql.ErrNoRows) {
+		return ErrNotFound
+	}
+	if err != nil {
+		return err
+	}
+	if !CheckPassword(hash, oldPw) {
+		return ErrBadCredentials
+	}
+	newHash, err := HashPassword(newPw)
+	if err != nil {
+		return err
+	}
+	_, err = d.db.Exec(`UPDATE users SET password_hash = ? WHERE id = ?`, newHash, userID)
 	return err
 }
