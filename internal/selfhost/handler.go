@@ -267,17 +267,17 @@ func credentialError(w http.ResponseWriter, err error) {
 }
 
 func (h *handler) setup(w http.ResponseWriter, r *http.Request) {
-	var in struct{ Code, Username, Password string }
-	if !decode(w, r, &in) {
-		return
-	}
 	n, err := h.Auth.UserCount()
 	if err != nil {
 		internalError(w, err)
 		return
 	}
-	if n > 0 {
+	if n > 0 { // before decoding, so a finished setup looks the same whatever the body
 		writeError(w, 404, "not_found", "setup already completed")
+		return
+	}
+	var in struct{ Code, Username, Password string }
+	if !decode(w, r, &in) {
 		return
 	}
 	// An unset code matches nothing (ConstantTimeCompare of two empty strings is 1).

@@ -451,6 +451,9 @@ func TestSetupFlow(t *testing.T) {
 	if rec.Code != 404 || sessionCookie(rec) != nil {
 		t.Fatalf("second setup: %d %s", rec.Code, rec.Body)
 	}
+	if rec := s.do("POST", "/api/auth/setup", "{not json", nil, nil); rec.Code != 404 {
+		t.Fatalf("malformed body after setup: %d %s, want 404", rec.Code, rec.Body)
+	}
 }
 
 func TestSetupEmptyCodeRefuses(t *testing.T) {
@@ -464,8 +467,8 @@ func TestSetupEmptyCodeRefuses(t *testing.T) {
 		req.Host = "localhost"
 		rec := httptest.NewRecorder()
 		h.ServeHTTP(rec, req)
-		if rec.Code != 403 {
-			t.Fatalf("empty configured code: %d %s", rec.Code, rec.Body)
+		if rec.Code != 403 || !strings.Contains(rec.Body.String(), `"forbidden"`) || len(rec.Result().Cookies()) != 0 {
+			t.Fatalf("empty configured code: %d %s %v", rec.Code, rec.Body, rec.Result().Cookies())
 		}
 	}
 	if n, _ := s.db.UserCount(); n != 0 {
