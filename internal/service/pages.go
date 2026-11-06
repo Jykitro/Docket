@@ -205,6 +205,75 @@ func (s *Service) UpdatePage(ctx context.Context, actor string, id int64, patch 
 	return pg, nil
 }
 
+type WritePageInput struct {
+	Title, BodyMD     string
+	Parent            string // parent page title; "" = unchanged on update, top level on create
+	ExpectedUpdatedAt string
+}
+
+// findPage looks up a page by title and, when parentTitle is set, the parent's ID, in one read.
+// shortcut: lookup and write are separate transactions; a racing creator of the same title gets a
+// validation error, a racing editor a conflict (AppendToPage pins updated_at). Fine for one assistant.
+func (s *Service) findPage(ctx context.Context, projectRef, title, parentTitle string) (pg *store.Page, parentID *int64, err error) {
+	err = s.read(ctx, func(tx *store.Tx) error {
+		p, err := resolveProject(tx, projectRef)
+		if err != nil {
+			return err
+		}
+		found, err := tx.PageByTitleKey(p.ID, titleKey(title))
+		if err == nil {
+			pg = &found
+		} else if !errors.Is(err, store.ErrNotFound) {
+			return err
+		}
+		if parentTitle == "" {
+			return nil
+		}
+		par, err := tx.PageByTitleKey(p.ID, titleKey(parentTitle))
+		if errors.Is(err, store.ErrNotFound) {
+			return invalid("parent page %q not found in this project; create it first or leave parent empty", parentTitle)
+		}
+		parentID = &par.ID
+		return err
+	})
+	return pg, parentID, err
+}
+
+// WritePage creates the page titled in.Title or replaces its body (upsert by title, ignoring case).
+func (s *Service) WritePage(ctx context.Context, actor, projectRef string, in WritePageInput) (store.Page, bool, error) {
+	pg, parentID, err := s.findPage(ctx, projectRef, in.Title, in.Parent)
+	if err != nil {
+		return store.Page{}, false, err
+	}
+	if pg == nil {
+		created, err := s.CreatePage(ctx, actor, projectRef, PageInput{Title: in.Title, BodyMD: in.BodyMD, ParentID: parentID})
+		return created, true, err
+	}
+	// The title key is unchanged, so UpdatePage does not rewrite links; it only takes the caller's casing.
+	updated, err := s.UpdatePage(ctx, actor, pg.ID, PagePatch{Title: &in.Title, BodyMD: &in.BodyMD, ParentID: parentID,
+		ExpectedUpdatedAt: in.ExpectedUpdatedAt})
+	return updated, false, err
+}
+
+// AppendToPage adds text after a blank line at the end of the page titled title.
+func (s *Service) AppendToPage(ctx context.Context, actor, projectRef, title, text string) (store.Page, error) {
+	if strings.TrimSpace(text) == "" {
+		return store.Page{}, invalid("text to append is empty")
+	}
+	pg, _, err := s.findPage(ctx, projectRef, title, "")
+	if err != nil {
+		return store.Page{}, err
+	}
+	if pg == nil {
+		return store.Page{}, notFound("no page titled %q in this project", title)
+	}
+	body := text
+	if base := strings.TrimRight(pg.BodyMD, "\n"); base != "" {
+		body = base + "\n\n" + text
+	}
+	return s.UpdatePage(ctx, actor, pg.ID, PagePatch{BodyMD: &body, ExpectedUpdatedAt: pg.UpdatedAt})
+}
+
 // rewriteLinks turns [[old]] into [[newTitle]] in the other pages of self's project (same transaction).
 func rewriteLinks(tx *store.Tx, self store.Page, oldKey, newTitle string) error {
 	pages, err := tx.ListPages(self.ProjectID)

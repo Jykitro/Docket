@@ -51,6 +51,11 @@ var MCPTools = []ToolInfo{
 	{"move_tasks", "write", "Change status (key), planned date and/or project of several tasks at once. Moved tasks go to the end of the " +
 		"target column. planned_for \"\" clears the date."},
 	{"add_note", "write", "Add a markdown note to a task."},
+	{"list_pages", "read", "List the wiki pages of a project (id, title, parent page title, updated_at) without bodies."},
+	{"read_page", "read", "Read a wiki page by title: markdown body, parent, updated_at, backlinks (titles of pages linking here) and linked task IDs."},
+	{"write_page", "write", "Create a wiki page or replace the whole body of the page with that title (read it first so nothing is lost); " +
+		"link pages as [[Title]] and tasks by ID such as TRK-07, and pass the updated_at you read as expected_updated_at so a human's newer edit is not overwritten."},
+	{"append_to_page", "write", "Append markdown to the end of an existing wiki page, after a blank line, without reading it first."},
 	{"carry_over", "write", "Move all open tasks planned for date `from` to date `to`."},
 	{"delete_tasks", "write", "Move tasks (with their subtasks) to the trash. The owner can restore them. Disabled by default."},
 }

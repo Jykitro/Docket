@@ -200,7 +200,7 @@ func TestMCPToolsPolicyAndCallLog(t *testing.T) {
 
 	// delete_tasks is off by default and hidden from tools/list.
 	names := toolNames(t, cs)
-	if len(names) != 11 || names["delete_tasks"] {
+	if len(names) != 15 || names["delete_tasks"] {
 		t.Fatalf("default tools = %v", names)
 	}
 
@@ -247,7 +247,7 @@ func TestMCPToolsPolicyAndCallLog(t *testing.T) {
 		t.Fatal(err)
 	}
 	names = toolNames(t, cs)
-	if len(names) != 5 || names["create_tasks"] || !names["get_board"] {
+	if len(names) != 7 || names["create_tasks"] || names["write_page"] || !names["get_board"] || !names["read_page"] {
 		t.Fatalf("read-only tools = %v", names)
 	}
 	if out, isErr := call("create_tasks", map[string]any{"tasks": []map[string]any{{"project": "TRK", "title": "nope"}}}); !isErr || !strings.HasPrefix(out, "forbidden:") {

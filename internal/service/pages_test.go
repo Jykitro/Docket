@@ -258,3 +258,102 @@ func TestDeletePageReparentsChildren(t *testing.T) {
 	}
 	wantCode(t, s.DeletePage(ctx, ActorDenis, 9999), "not_found")
 }
+
+func TestWritePageUpserts(t *testing.T) {
+	s := newSvc(t)
+	mustProject(t, s, "a")
+	first, created, err := s.WritePage(ctx, ActorDenis, "a", WritePageInput{Title: "Архитектура", BodyMD: "v1"})
+	if err != nil || !created || first.BodyMD != "v1" || first.ParentID != nil {
+		t.Fatalf("create: %v %v %+v", err, created, first)
+	}
+	time.Sleep(2 * time.Millisecond)
+	second, created, err := s.WritePage(ctx, ActorDenis, "a", WritePageInput{Title: "архитектура", BodyMD: "v2"})
+	if err != nil || created || second.ID != first.ID || second.BodyMD != "v2" || second.UpdatedAt == first.UpdatedAt {
+		t.Fatalf("replace: %v %v %+v", err, created, second)
+	}
+	if l, _ := s.ListPages(ctx, "a"); len(l) != 1 {
+		t.Fatalf("want one page, got %+v", l)
+	}
+
+	// parent by title (case-insensitive): on create, kept on update when Parent is empty, moved when set
+	kid, created, err := s.WritePage(ctx, ActorDenis, "a", WritePageInput{Title: "Kid", Parent: "АРХИТЕКТУРА"})
+	if err != nil || !created || kid.ParentID == nil || *kid.ParentID != first.ID {
+		t.Fatalf("parent on create: %v %v %+v", err, created, kid)
+	}
+	kid, _, err = s.WritePage(ctx, ActorDenis, "a", WritePageInput{Title: "Kid", BodyMD: "x"})
+	if err != nil || kid.ParentID == nil || *kid.ParentID != first.ID {
+		t.Fatalf("empty parent must keep it: %v %+v", err, kid)
+	}
+	other, _, _ := s.WritePage(ctx, ActorDenis, "a", WritePageInput{Title: "Other"})
+	kid, _, err = s.WritePage(ctx, ActorDenis, "a", WritePageInput{Title: "Kid", Parent: "other"})
+	if err != nil || kid.ParentID == nil || *kid.ParentID != other.ID {
+		t.Fatalf("move: %v %+v", err, kid)
+	}
+
+	_, _, err = s.WritePage(ctx, ActorDenis, "a", WritePageInput{Title: "Kid", Parent: "нет такой"})
+	wantCode(t, err, "validation")
+	if !strings.Contains(err.Error(), "нет такой") {
+		t.Fatalf("message must name the parent: %v", err)
+	}
+	_, _, err = s.WritePage(ctx, ActorDenis, "a", WritePageInput{Title: "New", Parent: "нет такой"})
+	wantCode(t, err, "validation")
+	_, _, err = s.WritePage(ctx, ActorDenis, "a", WritePageInput{Title: "Other", Parent: "Kid"}) // cycle
+	wantCode(t, err, "validation")
+	_, _, err = s.WritePage(ctx, ActorDenis, "a", WritePageInput{Title: "a]]b"})
+	wantCode(t, err, "validation")
+}
+
+func TestWritePageExpectedUpdatedAt(t *testing.T) {
+	s := newSvc(t)
+	mustProject(t, s, "a")
+	p, _, _ := s.WritePage(ctx, ActorClaude, "a", WritePageInput{Title: "A", BodyMD: "1"})
+	_, _, err := s.WritePage(ctx, ActorClaude, "a", WritePageInput{Title: "A", BodyMD: "2", ExpectedUpdatedAt: "2000-01-01T00:00:00.000Z"})
+	wantCode(t, err, "conflict")
+	if d, _ := s.GetPage(ctx, p.ID); d.BodyMD != "1" {
+		t.Fatalf("stale write must not apply: %q", d.BodyMD)
+	}
+	time.Sleep(2 * time.Millisecond)
+	got, _, err := s.WritePage(ctx, ActorClaude, "a", WritePageInput{Title: "A", BodyMD: "2", ExpectedUpdatedAt: p.UpdatedAt})
+	if err != nil || got.BodyMD != "2" {
+		t.Fatalf("fresh write: %v %+v", err, got)
+	}
+}
+
+func TestWritePageActorClaude(t *testing.T) {
+	s := newSvc(t)
+	mustProject(t, s, "a")
+	if _, created, err := s.WritePage(ctx, ActorClaude, "a", WritePageInput{Title: "A", BodyMD: "x"}); err != nil || !created {
+		t.Fatalf("%v %v", err, created)
+	}
+	if _, err := s.AppendToPage(ctx, ActorClaude, "a", "A", "y"); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestAppendToPage(t *testing.T) {
+	s := newSvc(t)
+	mustProject(t, s, "a")
+	s.WritePage(ctx, ActorClaude, "a", WritePageInput{Title: "Log", BodyMD: "first\n"})
+	got, err := s.AppendToPage(ctx, ActorClaude, "a", "log", "second")
+	if err != nil || got.BodyMD != "first\n\nsecond" {
+		t.Fatalf("append: %v %q", err, got.BodyMD)
+	}
+	s.WritePage(ctx, ActorClaude, "a", WritePageInput{Title: "Empty"})
+	if got, err = s.AppendToPage(ctx, ActorClaude, "a", "Empty", "only"); err != nil || got.BodyMD != "only" {
+		t.Fatalf("append to empty: %v %q", err, got.BodyMD)
+	}
+	_, err = s.AppendToPage(ctx, ActorClaude, "a", "Nope", "x")
+	wantCode(t, err, "not_found")
+	_, err = s.AppendToPage(ctx, ActorClaude, "a", "Log", " \n ")
+	wantCode(t, err, "validation")
+	_, err = s.AppendToPage(ctx, ActorClaude, "a", "Log", strings.Repeat("a", 204800))
+	wantCode(t, err, "validation")
+}
+
+func TestIsWriteToolPages(t *testing.T) {
+	for name, want := range map[string]bool{"write_page": true, "append_to_page": true, "list_pages": false, "read_page": false, "delete_page": false} {
+		if IsWriteTool(name) != want {
+			t.Errorf("IsWriteTool(%q) != %v", name, want)
+		}
+	}
+}

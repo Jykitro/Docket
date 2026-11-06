@@ -37,6 +37,10 @@ func Handler(svc *service.Service, loc *time.Location) http.Handler {
 	add(s, "update_task", t.updateTask)
 	add(s, "move_tasks", t.moveTasks)
 	add(s, "add_note", t.addNote)
+	add(s, "list_pages", t.listPages)
+	add(s, "read_page", t.readPage)
+	add(s, "write_page", t.writePage)
+	add(s, "append_to_page", t.appendToPage)
 	add(s, "carry_over", t.carryOver)
 	add(s, "delete_tasks", t.deleteTasks)
 	s.AddReceivingMiddleware(policy(svc))
@@ -565,6 +569,104 @@ func (t *tools) addNote(ctx context.Context, in addNoteIn) (any, error) {
 		return nil, err
 	}
 	return map[string]any{"task": in.TaskID, "at": t.short(n.CreatedAt)}, nil
+}
+
+type listPagesIn struct {
+	Project string `json:"project" jsonschema:"project key, slug or id"`
+}
+
+// pageTitles maps page IDs of a project to titles, to show parents by title.
+func (t *tools) pageTitles(ctx context.Context, project string) (map[int64]string, []store.Page, error) {
+	pages, err := t.svc.ListPages(ctx, project)
+	if err != nil {
+		return nil, nil, err
+	}
+	titles := make(map[int64]string, len(pages))
+	for _, p := range pages {
+		titles[p.ID] = p.Title
+	}
+	return titles, pages, nil
+}
+
+func parentTitle(titles map[int64]string, p store.Page) string {
+	if p.ParentID == nil {
+		return ""
+	}
+	return titles[*p.ParentID]
+}
+
+func (t *tools) listPages(ctx context.Context, in listPagesIn) (any, error) {
+	titles, pages, err := t.pageTitles(ctx, in.Project)
+	if err != nil {
+		return nil, err
+	}
+	type row struct {
+		ID        int64  `json:"id"`
+		Title     string `json:"title"`
+		Parent    string `json:"parent"`
+		UpdatedAt string `json:"updated_at"`
+	}
+	out := make([]row, len(pages))
+	for i, p := range pages {
+		out[i] = row{p.ID, p.Title, parentTitle(titles, p), p.UpdatedAt}
+	}
+	return out, nil
+}
+
+type readPageIn struct {
+	Project string `json:"project" jsonschema:"project key, slug or id"`
+	Title   string `json:"title" jsonschema:"page title (case-insensitive)"`
+}
+
+func (t *tools) readPage(ctx context.Context, in readPageIn) (any, error) {
+	d, err := t.svc.GetPageByTitle(ctx, in.Project, in.Title)
+	if err != nil {
+		return nil, err
+	}
+	titles, _, err := t.pageTitles(ctx, in.Project)
+	if err != nil {
+		return nil, err
+	}
+	backlinks, tasks := []string{}, []string{}
+	for _, b := range d.Backlinks {
+		backlinks = append(backlinks, b.Title)
+	}
+	for _, k := range d.Links.Tasks {
+		tasks = append(tasks, k.Code)
+	}
+	return map[string]any{"id": d.ID, "title": d.Title, "parent": parentTitle(titles, d.Page), "body_md": d.BodyMD,
+		"updated_at": d.UpdatedAt, "backlinks": backlinks, "tasks": tasks}, nil
+}
+
+type writePageIn struct {
+	Project           string `json:"project" jsonschema:"project key, slug or id"`
+	Title             string `json:"title" jsonschema:"page title; an existing page with this title (any case) is replaced"`
+	BodyMD            string `json:"body_md" jsonschema:"markdown, replaces the whole body; link pages as [[Title]]"`
+	Parent            string `json:"parent,omitempty" jsonschema:"title of the parent page; empty keeps the current parent (top level for a new page)"`
+	ExpectedUpdatedAt string `json:"expected_updated_at,omitempty" jsonschema:"updated_at from read_page; the write fails with conflict if the page changed since"`
+}
+
+func (t *tools) writePage(ctx context.Context, in writePageIn) (any, error) {
+	p, created, err := t.svc.WritePage(ctx, actor, in.Project, service.WritePageInput{Title: in.Title, BodyMD: in.BodyMD,
+		Parent: in.Parent, ExpectedUpdatedAt: in.ExpectedUpdatedAt})
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"id": p.ID, "title": p.Title, "created": created, "updated_at": p.UpdatedAt}, nil
+}
+
+type appendToPageIn struct {
+	Project string `json:"project" jsonschema:"project key, slug or id"`
+	Title   string `json:"title" jsonschema:"title of an existing page"`
+	Text    string `json:"text" jsonschema:"markdown added after a blank line at the end"`
+}
+
+func (t *tools) appendToPage(ctx context.Context, in appendToPageIn) (any, error) {
+	p, err := t.svc.AppendToPage(ctx, actor, in.Project, in.Title, in.Text)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"id": p.ID, "title": p.Title, "updated_at": p.UpdatedAt}, nil
 }
 
 type idsIn struct {
