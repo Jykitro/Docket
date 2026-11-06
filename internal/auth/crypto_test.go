@@ -2,7 +2,9 @@ package auth
 
 import (
 	"os"
+	"strings"
 	"testing"
+	"time"
 )
 
 func TestMain(m *testing.M) {
@@ -50,5 +52,18 @@ func TestNewTokenHash(t *testing.T) {
 	tok2, _, _ := newToken()
 	if tok == tok2 {
 		t.Fatal("tokens equal")
+	}
+}
+
+func TestCheckPasswordIterationCap(t *testing.T) {
+	h, _ := HashPassword("pw")
+	parts := strings.Split(h, "$")
+	parts[1] = "10000001"
+	start := time.Now()
+	if CheckPassword(strings.Join(parts, "$"), "pw") {
+		t.Fatal("hash above the iteration cap accepted")
+	}
+	if time.Since(start) > time.Second {
+		t.Fatal("cap checked after hashing")
 	}
 }
