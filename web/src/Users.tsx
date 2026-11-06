@@ -11,7 +11,7 @@ const item = 'flex items-center gap-3 min-h-10 px-3 rounded-md border border-ln 
 const day = (iso: string) => new Date(iso).toLocaleDateString('ru-RU')
 const when = (iso: string) => new Date(iso).toLocaleString('ru-RU', { dateStyle: 'medium', timeStyle: 'short' })
 
-function ChangePassword() {
+function ChangePassword({ username }: { username: string }) {
   const [old, setOld] = useState('')
   const [next, setNext] = useState('')
   const change = useMutation({
@@ -21,8 +21,10 @@ function ChangePassword() {
   return (
     <form className="flex flex-col gap-1.5" onSubmit={(e) => { e.preventDefault(); if (!change.isPending) change.mutate() }}>
       <span className={cap}>Смена пароля</span>
-      <input className={input} type="password" required autoComplete="current-password" maxLength={128} placeholder="Текущий пароль" aria-label="Текущий пароль" value={old} onChange={(e) => setOld(e.target.value)} />
-      <input className={input} type="password" required autoComplete="new-password" minLength={10} maxLength={128} placeholder="Новый пароль (не короче 10 символов)" aria-label="Новый пароль" value={next} onChange={(e) => setNext(e.target.value)} />
+      {/* Lets password managers file the new password under this account. */}
+      <input className="sr-only" type="text" autoComplete="username" readOnly tabIndex={-1} aria-hidden="true" value={username} />
+      <input className={input} type="password" required autoComplete="current-password" maxLength={128} placeholder="Текущий пароль" aria-label="Текущий пароль" value={old} onChange={(e) => { change.reset(); setOld(e.target.value) }} />
+      <input className={input} type="password" required autoComplete="new-password" minLength={10} maxLength={128} placeholder="Новый пароль (не короче 10 символов)" aria-label="Новый пароль" value={next} onChange={(e) => { change.reset(); setNext(e.target.value) }} />
       <div className="flex items-center gap-3">
         <button type="submit" className={btn} disabled={change.isPending}>Сменить пароль</button>
         {change.isSuccess && <span className="text-[13px] text-t2" role="status">Пароль изменён</span>}
@@ -77,6 +79,7 @@ function Invites() {
           <span className="text-[12.5px] text-t3">до {when(i.expires_at)}</span>
         </div>
       ))}
+      {pending.isPending && <span className="px-3 text-[12.5px] text-t3">Загрузка…</span>}
       {pending.data?.length === 0 && <span className="px-3 text-[12.5px] text-t3">Активных приглашений нет</span>}
     </div>
   )
@@ -93,12 +96,13 @@ function Users({ me }: { me: AuthUser }) {
     <>
       <div className="flex flex-col gap-1.5">
         <span className={cap}>Пользователи</span>
+        {users.isPending && <span className="px-3 text-[12.5px] text-t3">Загрузка…</span>}
         {users.data?.map((u) => (
           <div key={u.id} className={item}>
             <span className="grow min-w-0 truncate">{u.username}{u.id === me.id && <span className="ml-2 text-xs text-t3">вы</span>}</span>
-            <span className="text-[12.5px] text-t3">{day(u.created_at)}</span>
+            <span className="shrink-0 text-[12.5px] text-t3">{day(u.created_at)}</span>
             {u.id !== me.id && (
-              <ConfirmButton className="p-0 text-[12.5px] text-t3 hover:text-rd" label="Удалить" ariaLabel={`Удалить пользователя ${u.username}`} armed="Удалить вместе с данными?" disabled={remove.isPending} onConfirm={() => remove.mutate(u.id)} />
+              <ConfirmButton className="shrink-0 max-w-[65%] p-0 text-right text-[12.5px] text-t3 hover:text-rd" label="Удалить" ariaLabel={`Удалить пользователя ${u.username}`} armed={`Удалить «${u.username}» с данными?`} disabled={remove.isPending} onConfirm={() => remove.mutate(u.id)} />
             )}
           </div>
         ))}
@@ -122,7 +126,7 @@ export function AccountSection({ user }: { user: AuthUser }) {
         </div>
         {logout.isError && <div className="text-rd text-[13px]" role="alert">{ruError(logout.error)}</div>}
       </div>
-      <ChangePassword />
+      <ChangePassword username={user.username} />
       {user.is_admin && <Users me={user} />}
     </>
   )
