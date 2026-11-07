@@ -114,6 +114,17 @@ export function Sidebar({ path, view, rail, mobileOpen, onClose, onNewProject, o
               ))}
             </Group>
           )}
+
+          <Group label={tr('Дополнительно')} rail={rail}>
+            <a href="https://github.com/Jykitro/Docket" target="_blank" rel="noopener noreferrer" className={cls(false)} title={rail ? 'GitHub' : undefined}>
+              <Icon name="github" />
+              {!rail && <span className={nvName}>GitHub</span>}
+            </a>
+            <a href="https://github.com/Jykitro/Docket/issues/new" target="_blank" rel="noopener noreferrer" className={cls(false)} title={rail ? tr('Сообщить о проблеме') : undefined}>
+              <Icon name="flag" />
+              {!rail && <span className={nvName}>{tr('Сообщить о проблеме')}</span>}
+            </a>
+          </Group>
         </div>
 
         <div className="p-2">
