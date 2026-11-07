@@ -77,12 +77,18 @@ function PageEditor({ page, c, dirty, onDone }: { page: Page; c: Ctx; dirty: Ref
   const save = useMutation({
     mutationFn: async (v: { close: boolean; over?: boolean }) => {
       const expected = v.over ? (await api.page(page.id)).updated_at : orig.updated_at // "save over": take the fresh stamp
-      return api.savePage(page.id, {
-        ...(title.trim() !== orig.title && { title }), ...(body !== orig.body_md && { body_md: body }), expected_updated_at: expected,
+      const sent = { title: title.trim() !== orig.title, body: body !== orig.body_md }
+      const p = await api.savePage(page.id, {
+        ...(sent.title && { title }), ...(sent.body && { body_md: body }), expected_updated_at: expected,
       })
+      return { p, sent }
     },
-    onSuccess: (p, v) => {
-      // Only the baseline moves: characters typed while the request was in flight stay in the draft (and keep it dirty).
+    onSuccess: ({ p, sent }, v) => {
+      // The baseline moves to the saved page; characters typed while the request was in flight stay in the draft (and keep it dirty).
+      // A field that was not sent may have been changed by someone else (save over): take their version unless typed in meanwhile,
+      // otherwise the next Save would send the stale draft and silently overwrite it.
+      setTitle((t) => (sent.title || t.trim() !== orig.title ? t : p.title))
+      setBody((b) => (sent.body || b !== orig.body_md ? b : p.body_md))
       setOrig(p); setConflict(false); setError('')
       qc.setQueryData<PageDetail>(['page', page.id], (old) => old && { ...old, ...p })
       qc.invalidateQueries()
