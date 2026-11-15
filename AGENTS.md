@@ -28,7 +28,7 @@ cmd/docket          config, wiring, graceful shutdown, housekeeping (daily backu
 internal/store      SQLite, migrations (migrations/*.sql), all SQL
 internal/service    domain rules, validation, activity log, events, MCP settings
 internal/httpapi    REST, SSE /api/events, host/origin guard, bearer auth for /mcp, MCP self-check
-internal/mcpserver  MCP tools -> service, access policy and call log
+internal/mcpserver  MCP tools -> service, access policy and call log; Code Mode at /mcp/code (codemode.go)
 internal/auth       selfhost users, sessions, password hashing, login rate limiter
 internal/selfhost   one database per profile, routing by session or MCP token
 internal/events     pub/sub for SSE
@@ -54,6 +54,8 @@ web/                React + TypeScript + Vite + Tailwind CSS v4; the design toke
 ## MCP tools
 
 The tool catalogue is `service.MCPTools` in `internal/service/mcp.go`; `internal/mcpserver` registers exactly those and panics at startup if a name is missing. Adding a tool means: an entry in `MCPTools` (name, `read` or `write`, description), a handler registered with `add(...)` in `mcpserver.go`, the README tool table and `skills/docket-reference/SKILL.md`. Write tools are blocked in read-only mode by `IsWriteTool`. Results are compact JSON with IDs like `TRK-07`; keep them small, the assistant pays for every byte.
+
+Code Mode (`/mcp/code`) exposes the same tools as `codemode.<tool>()` inside one `code` tool that runs JavaScript in goja; it derives everything from `MCPTools` and the registered schemas, so a new tool needs no change there. How integrations work and how to add one: `docs/integrations.md`.
 
 ## Agent skills (`skills/`)
 

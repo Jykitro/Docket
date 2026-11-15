@@ -71,7 +71,7 @@ export function SearchDialog({ projects, current, onClose, onCreate }: {
     if (it.kind === 'task' || it.kind === 'desc') setParam('task', it.hit.code, false)
     else if (it.kind === 'project') navigate(`/p/${it.project.slug}`)
     else if (it.kind === 'create') onCreate(q.trim())
-    else navigate('/mcp')
+    else navigate('/integrations')
   }
   const key = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape') { e.preventDefault(); onClose() }
@@ -151,9 +151,9 @@ export function SearchDialog({ projects, current, onClose, onCreate }: {
           {items.filter((i) => i.kind === 'mcp').map((it) => row(it, (
             <>
               <span className={SQ + ' bg-sk text-t2'}><Icon name="plug" size={13} sw={2} /></span>
-              <span className="flex-1 font-medium">{tr('Открыть MCP и журнал вызовов')}</span>
+              <span className="flex-1 font-medium">{tr('Открыть интеграции и журнал вызовов')}</span>
             </>
-          ), '/mcp'))}
+          ), '/integrations'))}
         </div>
         <div className="flex flex-wrap items-center gap-4 px-4 py-2.5 border-t border-ln bg-sf2 text-[12px] text-t3">
           <span><span className={KBD}>↑</span> <span className={KBD}>↓</span> {tr('выбрать')}</span>

@@ -54,14 +54,17 @@ func Router(d Deps) http.Handler {
 	r.Use(middleware.Recoverer, HostGuard(d.AllowedHosts))
 	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) { w.Write([]byte("ok")) })
 	// /mcp is both the MCP endpoint and a screen of the web app: a browser navigation gets the app.
+	// /mcp/code is the same server in Code Mode (mcpserver/codemode.go), behind the same token.
 	mcp := bearer(d.Svc, d.MCP)
-	r.Handle("/mcp", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+	mcpOrApp := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		if req.Method == http.MethodGet && strings.Contains(req.Header.Get("Accept"), "text/html") {
 			d.Web.ServeHTTP(w, req)
 			return
 		}
 		mcp.ServeHTTP(w, req)
-	}))
+	})
+	r.Handle("/mcp", mcpOrApp)
+	r.Handle("/mcp/code", mcpOrApp)
 	r.Route("/api", func(r chi.Router) {
 		r.Get("/auth/me", func(w http.ResponseWriter, _ *http.Request) { writeJSON(w, 200, map[string]string{"mode": "local"}) })
 		r.Get("/projects", a.h(a.listProjects))

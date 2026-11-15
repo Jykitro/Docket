@@ -37,7 +37,7 @@ const HOOK = `{
 // Claude Code: the project file. Codex: its global file (hooks are on by default there).
 const HOOK_PATH = ['.claude/settings.json', '', '~/.codex/hooks.json']
 
-export function McpAgent({ tab, token }: { tab: number; token: () => Promise<string> }) {
+export function McpAgent({ tab, url, token }: { tab: number; url: string; token: () => Promise<string> }) {
   const [copied, setCopied] = useState('')
   const [error, setError] = useState('')
   const copy = async (what: string, text: () => string | Promise<string>) => {
@@ -56,7 +56,7 @@ export function McpAgent({ tab, token }: { tab: number; token: () => Promise<str
     return r.text()
   }
   // The server may sit in Docker and cannot reach the user's home, so the page hands over one command that does everything.
-  const install = async () => `curl -fsSL ${location.origin}/api/mcp/install.sh | DOCKET_URL=${location.origin}/mcp DOCKET_TOKEN=${await token()} sh`
+  const install = async () => `curl -fsSL ${location.origin}/api/mcp/install.sh | DOCKET_URL=${url} DOCKET_TOKEN=${await token()} sh`
   const path = SKILL_PATH[tab]
 
   return (

@@ -229,7 +229,7 @@ export function Today({ onNewTask }: { onNewTask: (o: { project?: Project; date:
         </div>
 
         <aside className="flex-[1_1_300px] max-w-[380px] min-w-0 flex flex-col gap-[18px] max-[640px]:max-w-none">
-          <Link to="/mcp" className={panel + ' flex items-center gap-3 px-4 py-3.5 no-underline text-inherit'}>
+          <Link to="/integrations" className={panel + ' flex items-center gap-3 px-4 py-3.5 no-underline text-inherit'}>
             <span className={'size-[34px] rounded-[9px] grid place-items-center ' + (mcp.data && !mcp.data.online ? 'bg-rds text-rd' : 'bg-dns text-dnt')}><Icon name="plug" size={17} sw={1.9} /></span>
             <span className="flex flex-col grow leading-[1.3]">
               <b className="font-semibold">{mcp.data && !mcp.data.online ? tr('MCP не отвечает') : tr('Claude подключён')}</b>

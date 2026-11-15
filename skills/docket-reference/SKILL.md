@@ -21,6 +21,8 @@ Docket is the user's personal task planner. You reach it over MCP as the actor `
 
 Answers are compact JSON. IDs always look like `TRK-07`; `project` arguments accept a key, a slug or an id.
 
+**Code Mode.** Connected to `/mcp/code` you see one tool, `code`, instead of these. Its argument is JavaScript: an async arrow function or its body, calling the tools below as `await codemode.<tool>(args)` with the same arguments and results. It returns `{result, logs}` (your return value and `console.log` lines). A failed call throws `Error("code: message")`; uncaught, the whole `code` call fails with it. Limits: 30 s (`timeout`), 100 calls, 50 KB result; no fetch or timers. Use it to chain steps and filter big answers, and return only what you need. Access mode, switches and the call log apply to every inner call.
+
 | Tool | Use it for | Behaviour you must know |
 |---|---|---|
 | `list_projects` | Find the project key | `include_archived` optional. Returns key, slug, name, open count, counts per status key |

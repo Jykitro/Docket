@@ -35,7 +35,8 @@ No external services, and in the default local mode no users and no login. The U
 - **Today view.** Day plan, overdue tasks, progress, recent activity and MCP status in one place.
 - **Kanban board and list.** Per-project statuses, drag and drop, filters, grouping, sorting and saved views.
 - **Rich tasks.** Markdown description with clickable checkboxes, subtasks, notes and a full change history.
-- **Claude as a teammate.** 16 MCP tools, a read-only mode, per-tool switches and an audit log of every call.
+- **Claude as a teammate.** 16 MCP tools, or all of them as one Code Mode tool that runs JavaScript, a read-only mode,
+  per-tool switches and an audit log of every call.
 - **Live updates.** Changes made over MCP show up in the browser immediately (server-sent events).
 - **Safe by default.** Bound to `127.0.0.1`, `Host` and `Origin` checks, bearer token for `/mcp`.
 - **Easy to keep.** A single SQLite file, automatic daily backups, a trash bin and a full JSON export.
@@ -128,7 +129,7 @@ before.
 
 Data: `auth.db` (users and sessions) and `users/<id>.db` (one database per profile) sit next to `DOCKET_DB`; profile
 backups are written to `DOCKET_BACKUP_DIR/<id>`, and a profile created later gets its first backup within an hour.
-Every profile has its own MCP token, shown on the **MCP** tab. Claude connects to the same `/mcp` address and the
+Every profile has its own MCP token, shown on the **Integrations** tab. Claude connects to the same `/mcp` address and the
 profile is picked by the token. `DOCKET_SEED` and `DOCKET_MCP_TOKEN` are ignored in this mode (a warning is logged if
 `DOCKET_MCP_TOKEN` is set).
 
@@ -154,7 +155,7 @@ Limits:
 | Project board | `/p/:slug` | Columns per project status, drag and drop, filters, grouping, sorting, a list tab and saved views |
 | Task panel | `?task=TRK-07`, `/t/TRK-07` | Properties, markdown description with clickable checkboxes, subtasks, notes and history |
 | Project settings | `/p/:slug/settings` | Icon, colour, key, statuses, labels, custom fields, views, export, archive and delete |
-| MCP | `/mcp` | Status and self-check, address and token, access mode, tool switches and the call log |
+| Integrations | `/integrations` | MCP or Code Mode: status and self-check, address and token, access mode, tool switches and the call log |
 | Trash | `/trash` | Restore tasks and projects, or empty the trash |
 
 **Keyboard:** `C` creates a task, `⌘K` / `Ctrl+K` opens search, `Esc` closes the panel, search and dialogs.
@@ -168,10 +169,10 @@ its settings and every ID is renumbered, but old links that use the previous key
 ## Connecting Claude (MCP)
 
 On the first start Docket creates a `dkt_…` token, prints it to the log once and stores it in the database. After that it
-is shown (masked, with a "Show" button) on the **MCP** tab, where you can also rotate it and copy a ready-made config.
+is shown (masked, with a "Show" button) on the **Integrations** tab, where you can also rotate it and copy a ready-made config.
 
 <p align="center">
-  <img src="docs/images/mcp-dark.png" alt="The MCP tab: self-check, server address, token and access mode" width="820">
+  <img src="docs/images/mcp-dark.png" alt="The Integrations tab: self-check, server address, token and access mode" width="820">
 </p>
 
 **Claude Code:**
@@ -202,6 +203,16 @@ export DOCKET_MCP_TOKEN=<TOKEN>
 codex mcp add docket --url http://localhost:7777/mcp --bearer-token-env-var DOCKET_MCP_TOKEN
 ```
 
+### Code Mode
+
+The same server is also available at `/mcp/code` (same token, same commands with that address). There the assistant
+sees one tool, `code`, after [Cloudflare's Code Mode](https://developers.cloudflare.com/agents/tools/codemode/): it
+writes JavaScript that calls the 16 tools as `await codemode.get_today({})`, loops and filters inside Docket, and gets
+back only the result. That saves round trips and context on big jobs (triage, bulk moves, reports). The code runs in
+an embedded sandbox with no network or files, for at most 30 seconds and 100 tool calls; access mode, tool switches
+and the call log apply to every call it makes. Pick MCP or Code Mode on the **Integrations** tab: the address, the
+configs and the install command follow. How it works inside: [`docs/integrations.md`](docs/integrations.md).
+
 ### Agent skill: Docket as a personal planner
 
 Three skills in [`skills/`](skills), one `SKILL.md` each:
@@ -213,7 +224,7 @@ Three skills in [`skills/`](skills), one `SKILL.md` each:
 | [`docket-setup`](skills/docket-setup/SKILL.md) | Connecting Claude Code, Claude Desktop and Codex, installing the skills, the hooks, troubleshooting |
 
 - Docket sends the body of `docket` to every client as the MCP server instructions, so a connected agent has the workflow already. A test keeps it under the 2048 bytes Claude Code accepts, which is why the detail lives in the other two skills.
-- To have the skills trigger from the first message, install them. The **MCP** tab has an **Install in one command** button: it
+- To have the skills trigger from the first message, install them. The **Integrations** tab has an **Install in one command** button: it
   copies one line to paste into a terminal (macOS, Linux). The script writes all three skills for Claude Code (`~/.claude/skills`)
   and Codex (`~/.agents/skills`) and registers the MCP server in whichever of the two it finds. It is served at
   `/api/mcp/install.sh` and reads the address and token from `DOCKET_URL` and `DOCKET_TOKEN`, which the button fills in:
@@ -233,7 +244,7 @@ Three skills in [`skills/`](skills), one `SKILL.md` each:
   ```
 
   In selfhost mode the API needs a login: use the Download buttons instead.
-- Optional strict mode, the same JSON for Claude Code and Codex (the snippet is on the **MCP** tab): a `SessionStart`
+- Optional strict mode, the same JSON for Claude Code and Codex (the snippet is on the **Integrations** tab): a `SessionStart`
   hook reminds the agent to find or create the task, and a `Stop` hook makes it run the reconcile step before it
   finishes. It blocks only the first stop of a turn, so it cannot loop. Claude Code: the project's
   `.claude/settings.json`. Codex: `~/.codex/hooks.json` (hooks are on by default). Codex's file is global, so in a repo
@@ -292,13 +303,14 @@ cmd/docket          config, wiring, graceful shutdown, housekeeping (daily backu
 internal/store      SQLite, migrations (migrations/*.sql), all SQL
 internal/service    domain rules, validation, activity, events, MCP settings
 internal/httpapi    REST, SSE /api/events, host/origin guard, bearer auth for /mcp, MCP self-check
-internal/mcpserver  MCP tools → service, access policy and call log
+internal/mcpserver  MCP tools → service, access policy and call log; Code Mode (/mcp/code, codemode.go)
 internal/events     pub/sub for SSE
 internal/web        embedded SPA (dist)
 web/                React + TypeScript + Vite + Tailwind CSS v4 (shadcn-admin look; tokens in web/src/styles.css)
 ```
 
 Layering rule: `httpapi` and `mcpserver` call only `service`, and SQL lives only in `store`.
+How the integrations (MCP, Code Mode) work and how to add one: [`docs/integrations.md`](docs/integrations.md).
 
 ## REST API
 
@@ -332,10 +344,10 @@ path can be given by code (`TRK-07`) or by id.
 
 ## Troubleshooting
 
-- **`/mcp` returns 401.** You need the header `Authorization: Bearer <TOKEN>`; find the token on the MCP tab. The **MCP**
+- **`/mcp` returns 401.** You need the header `Authorization: Bearer <TOKEN>`; find the token on the Integrations tab. The **MCP**
   page itself opens in a browser without a token: requests with `Accept: text/html` get the UI.
 - **403 `forbidden_host`.** Add the host name to `DOCKET_ALLOWED_HOSTS` and restart the container.
-- **The self-check is red.** Each row on the MCP tab explains what to do. Logs: `make logs` (or `docker logs docket`).
+- **The self-check is red.** Each row on the Integrations tab explains what to do. Logs: `make logs` (or `docker logs docket`).
 - **Start from scratch.** Stop the container and delete `./data/docket.db*`; backups are in `./data/backups`.
 
 ## Contributing and license

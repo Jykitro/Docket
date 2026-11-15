@@ -43,7 +43,7 @@ export function Sidebar({ path, view, rail, mobileOpen, onClose, onNewProject, o
   const nav = [
     { to: '/', label: tr('Сегодня'), icon: 'cal', n: today.data?.tasks.length, on: path === '/' },
     { to: '/?focus=overdue', label: tr('Просрочено'), icon: 'clock', n: today.data?.overdue.length, on: false },
-    { to: '/mcp', label: 'MCP', icon: 'plug', dot: mcp.data ? (mcp.data.online ? 'var(--dn)' : 'var(--rd)') : undefined, on: path === '/mcp' },
+    { to: '/integrations', label: tr('Интеграции'), icon: 'plug', dot: mcp.data ? (mcp.data.online ? 'var(--dn)' : 'var(--rd)') : undefined, on: path === '/integrations' || path === '/mcp' },
     { to: '/trash', label: tr('Корзина'), icon: 'trash', n: (trash.data?.length ?? 0) + (trashP.data?.length ?? 0), on: path === '/trash' },
   ]
   // In the icon rail an item is just its icon (centred), with the label as a tooltip.
