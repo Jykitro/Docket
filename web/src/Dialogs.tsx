@@ -2,7 +2,8 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { type Project, addDays, api, fmtDay, todayStr, useProjectsMeta } from './api'
-import { Icon, PROJECT_COLORS, PROJECT_ICONS, ProjectTile } from './icons'
+import { PROJECT_COLORS, ProjectTile } from './icons'
+import { ProjectIconPicker } from './ProjectIconPicker'
 import { tr } from './i18n'
 import { navigate } from './router'
 import { Dialog, btn, btnPri, cap } from './ui'
@@ -16,7 +17,6 @@ const dateinput = 'h-7 border border-ln rounded-md bg-sf px-2 text-[12.5px] text
 const textin = 'h-9 border border-ln rounded-md bg-sf px-2.5 text-sm text-tx focus:border-ring focus:ring-[3px] focus:ring-ring/50 focus:outline-none'
 const errline = 'text-rd text-[13px]'
 const foot = 'flex items-center gap-2 justify-end'
-const pick = 'border bg-sf p-0 aria-pressed:border-ac '
 
 export function NewTaskDialog({ projects, project, date, status, title: initial = '', onClose }: {
   projects: Project[]; project?: Project; date?: string; status?: string; title?: string; onClose: () => void
@@ -52,7 +52,7 @@ export function NewTaskDialog({ projects, project, date, status, title: initial 
         <div className={chips}>
           {projects.map((p) => (
             <button key={p.id} type="button" className={p.id === pid ? choiceOn : choiceOff} onClick={() => { setPid(p.id); setSt(''); setArea('') }}>
-              <ProjectTile icon={p.icon} color={p.color} size={16} radius={5} />{p.name}
+              <ProjectTile project={p} size={16} radius={5} />{p.name}
             </button>
           ))}
         </div>
@@ -112,15 +112,17 @@ export function NewProjectForm({ onCreated, onCancel, cancelLabel = 'Отмен�
   const [name, setName] = useState('')
   const [key, setKey] = useState('')
   const [icon, setIcon] = useState('board')
+  const [png, setPng] = useState<string>()
+  const [iconBusy, setIconBusy] = useState(false)
   const [color, setColor] = useState(PROJECT_COLORS[0])
   const create = useMutation({
-    mutationFn: () => api.createProject({ name: name.trim(), key: key.trim() || undefined, icon, color }),
+    mutationFn: () => api.createProject({ name: name.trim(), key: key.trim() || undefined, icon, icon_png: png, color }),
     onSuccess: (p) => {
       qc.invalidateQueries()
       onCreated(p)
     },
   })
-  const submit = () => name.trim() && !create.isPending && create.mutate()
+  const submit = () => name.trim() && !iconBusy && !create.isPending && create.mutate()
   return (
     <>
       <div className={field}>
@@ -134,11 +136,8 @@ export function NewProjectForm({ onCreated, onCancel, cancelLabel = 'Отмен�
       </div>
       <div className={field}>
         <span className={cap}>{tr('Иконка')}</span>
-        <div className="grid grid-cols-[repeat(9,1fr)] gap-1.5">
-          {PROJECT_ICONS.map((i) => (
-            <button key={i} type="button" className={pick + 'h-8 rounded-md grid place-items-center border-ln text-t2 aria-pressed:bg-acs aria-pressed:text-act'} aria-label={i} aria-pressed={i === icon} onClick={() => setIcon(i)}><Icon name={i} size={16} /></button>
-          ))}
-        </div>
+        <ProjectIconPicker icon={icon} preview={png && 'data:image/png;base64,' + png} disabled={create.isPending} onBusy={setIconBusy}
+          onSelect={(change) => { if (change.icon) setIcon(change.icon); setPng(change.icon_png) }} />
       </div>
       <div className={field}>
         <span className={cap}>{tr('Цвет')}</span>
@@ -151,7 +150,7 @@ export function NewProjectForm({ onCreated, onCancel, cancelLabel = 'Отмен�
       {create.isError && <div className={errline} role="alert">{create.error.message}</div>}
       <div className={foot}>
         <button type="button" className={btn} onClick={onCancel}>{tr(cancelLabel)}</button>
-        <button type="button" className={btnPri} disabled={!name.trim() || create.isPending} onClick={submit}>{tr('Создать')}</button>
+        <button type="button" className={btnPri} disabled={!name.trim() || iconBusy || create.isPending} onClick={submit}>{tr('Создать')}</button>
       </div>
     </>
   )

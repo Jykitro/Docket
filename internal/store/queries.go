@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 )
 
@@ -14,6 +15,8 @@ type Project struct {
 	Slug        string         `json:"slug"`
 	Key         string         `json:"key"`
 	Name        string         `json:"name"`
+	IconURL     string         `json:"icon_url,omitempty"`
+	IconPNG     []byte         `json:"icon_png,omitempty"` // Populated only for JSON export.
 	Icon        string         `json:"icon"`
 	Color       string         `json:"color"`
 	Description string         `json:"description"`
@@ -87,11 +90,15 @@ type SearchHit struct {
 
 // ---- projects ----
 
-const projectCols = `id, slug, key, name, icon, color, description, position, archived_at, deleted_at, created_at, updated_at`
+const projectCols = `id, slug, key, name, icon, color, description, position, archived_at, deleted_at, created_at, updated_at, icon_hash`
 
 func scanProject(r interface{ Scan(...any) error }) (Project, error) {
 	var p Project
-	err := r.Scan(&p.ID, &p.Slug, &p.Key, &p.Name, &p.Icon, &p.Color, &p.Description, &p.Position, &p.ArchivedAt, &p.DeletedAt, &p.CreatedAt, &p.UpdatedAt)
+	var hash string
+	err := r.Scan(&p.ID, &p.Slug, &p.Key, &p.Name, &p.Icon, &p.Color, &p.Description, &p.Position, &p.ArchivedAt, &p.DeletedAt, &p.CreatedAt, &p.UpdatedAt, &hash)
+	if hash != "" {
+		p.IconURL = fmt.Sprintf("/api/projects/%d/icon?v=%s", p.ID, hash)
+	}
 	if errors.Is(err, sql.ErrNoRows) {
 		err = ErrNotFound
 	}
@@ -191,6 +198,20 @@ func (t *Tx) PurgeProject(id int64) (int64, error) {
 		}
 	}
 	return n, nil
+}
+
+func (t *Tx) ProjectIcon(id int64) ([]byte, error) {
+	var data []byte
+	err := t.tx.QueryRow(`SELECT icon_png FROM projects WHERE id = ? AND icon_png IS NOT NULL`, id).Scan(&data)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	return data, err
+}
+
+func (t *Tx) SetProjectIcon(id int64, data []byte, hash string) error {
+	_, err := t.tx.Exec(`UPDATE projects SET icon_png = ?, icon_hash = ? WHERE id = ?`, data, hash, id)
+	return err
 }
 
 func (t *Tx) GetProject(id int64) (Project, error) {
@@ -454,6 +475,9 @@ func (t *Tx) SearchDescriptions(q string, limit int) ([]SearchHit, error) {
 
 func (t *Tx) search(q, col, snippet string, limit int) ([]SearchHit, error) {
 	fq := ftsQuery(q)
+	if t.tx.Postgres() {
+		fq = postgresFTSQuery(q)
+	}
 	out := []SearchHit{}
 	if fq == "" {
 		return out, nil
@@ -487,9 +511,6 @@ func (t *Tx) search(q, col, snippet string, limit int) ([]SearchHit, error) {
 	return out, rows.Err()
 }
 
-	if t.tx.Postgres() {
-		fq = postgresFTSQuery(q)
-	}
 // ---- notes & activity ----
 
 func (t *Tx) InsertNote(n Note) (Note, error) {

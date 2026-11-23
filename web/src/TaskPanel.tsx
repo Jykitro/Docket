@@ -130,7 +130,7 @@ function PanelBody({ code, mode, onClose }: { code: string; mode: 'drawer' | 'pa
 
   const head = (
     <div className="sticky top-0 z-[2] flex items-center gap-1.5 border-b border-ln bg-sf px-4 py-2.5">
-      {project && <ProjectTile icon={project.icon} color={project.color} />}
+      {project && <ProjectTile project={project} />}
       {project ? <Link to={`/p/${project.slug}`} onClick={() => mode === 'drawer' && setParam('task', null)} className="text-[13px] text-t2 no-underline">{project.name}</Link> : null}
       <span className="text-t3">/</span>
       <span className="grow font-mono text-[12.5px] text-t3">{d?.code ?? code}</span>

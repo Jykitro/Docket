@@ -1,0 +1,2 @@
+ALTER TABLE projects ADD COLUMN icon_png BYTEA;
+ALTER TABLE projects ADD COLUMN icon_hash TEXT NOT NULL DEFAULT '';

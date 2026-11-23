@@ -212,7 +212,7 @@ export function Today({ onNewTask }: { onNewTask: (o: { project?: Project; date:
                 return (
                   <section key={p.id} className={panel + ' overflow-hidden'}>
                     <div className={panelHead}>
-                      <ProjectTile icon={p.icon} color={p.color} size={22} radius={7} />
+                      <ProjectTile project={p} size={22} radius={7} />
                       <Link to={`/p/${p.slug}`} className="font-semibold no-underline">{p.name}</Link>
                       <span className="font-mono grow tabular-nums text-[12px] text-t3">{d} / {ts.length}</span>
                       <span className="w-24 h-1.5 rounded-[3px] bg-sk overflow-hidden block" role="img" aria-label={tr('Готово {done} из {total}', { done: d, total: ts.length })}><span className="block h-full bg-dn" style={{ width: `${(d / ts.length) * 100}%` }} /></span>

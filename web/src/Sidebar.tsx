@@ -86,7 +86,7 @@ export function Sidebar({ path, view, rail, mobileOpen, onClose, onNewProject, o
               const on = path === `/p/${p.slug}` && !view
               return (
                 <Link key={p.id} to={`/p/${p.slug}`} className={cls(on)} aria-current={on ? 'page' : undefined} title={rail ? p.name : undefined}>
-                  <ProjectTile icon={p.icon} color={p.color} />
+                  <ProjectTile project={p} />
                   {!rail && <><span className={nvName}>{p.name}</span><span className={nvN}>{p.open}</span></>}
                 </Link>
               )
@@ -96,7 +96,7 @@ export function Sidebar({ path, view, rail, mobileOpen, onClose, onNewProject, o
                 <summary className={nvOff + ' list-none cursor-pointer [&::-webkit-details-marker]:hidden'}><Icon name="stack" /><span className={nvName}>{tr('Архив')}</span><span className={nvN}>{archived.length}</span></summary>
                 {archived.map((p) => (
                   <Link key={p.id} to={`/p/${p.slug}`} className={(path.startsWith(`/p/${p.slug}`) ? nvOn : nvOff) + ' opacity-75'}>
-                    <ProjectTile icon={p.icon} color={p.color} /><span className={nvName}>{p.name}</span>
+                    <ProjectTile project={p} /><span className={nvName}>{p.name}</span>
                   </Link>
                 ))}
               </details>

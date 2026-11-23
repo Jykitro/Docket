@@ -420,7 +420,7 @@ function ProjectBoard({ project, onNewTask, wiki }: { project: Project; onNewTas
     <>
       <header className="flex flex-col gap-3.5 px-7 pt-[22px] border-b border-ln">
         <div className="flex flex-wrap items-center gap-3.5">
-          <ProjectTile icon={project.icon} color={project.color} size={40} radius={11} />
+          <ProjectTile project={project} size={40} radius={11} />
           <div className="flex flex-col gap-0.5 flex-[1_1_280px] min-w-0">
             <h1 className="text-2xl font-bold tracking-tight text-balance">{project.name}</h1>
             <span className="text-[13px] text-t3">
