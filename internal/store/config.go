@@ -118,12 +118,12 @@ func (t *Tx) InsertStatus(s Status) (Status, error) {
 			return s, err
 		}
 	}
-	res, err := t.tx.Exec(`INSERT INTO statuses(project_id, key, name, color, category, show_on_board, position) VALUES (?,?,?,?,?,?,?)`,
-		s.ProjectID, s.Key, s.Name, s.Color, s.Category, s.ShowOnBoard, s.Position)
+	var id int64
+	err := t.tx.QueryRow(`INSERT INTO statuses(project_id, key, name, color, category, show_on_board, position) VALUES (?,?,?,?,?,?,?) RETURNING id`,
+		s.ProjectID, s.Key, s.Name, s.Color, s.Category, s.ShowOnBoard, s.Position).Scan(&id)
 	if err != nil {
 		return s, err
 	}
-	id, _ := res.LastInsertId()
 	return t.GetStatus(id)
 }
 
@@ -190,11 +190,11 @@ func (t *Tx) CountLabels(projectID int64) (n int, err error) {
 }
 
 func (t *Tx) InsertLabel(l Label) (Label, error) {
-	res, err := t.tx.Exec(`INSERT INTO labels(project_id, name, color) VALUES (?,?,?)`, l.ProjectID, l.Name, l.Color)
+	var id int64
+	err := t.tx.QueryRow(`INSERT INTO labels(project_id, name, color) VALUES (?,?,?) RETURNING id`, l.ProjectID, l.Name, l.Color).Scan(&id)
 	if err != nil {
 		return l, err
 	}
-	id, _ := res.LastInsertId()
 	return t.GetLabel(id)
 }
 
@@ -270,12 +270,12 @@ func (t *Tx) InsertField(f Field) (Field, error) {
 	if err != nil {
 		return f, err
 	}
-	res, err := t.tx.Exec(`INSERT INTO custom_fields(project_id, name, type, options, show_on_card, position) VALUES (?,?,?,?,?,?)`,
-		f.ProjectID, f.Name, f.Type, optsJSON(f.Options), f.ShowOnCard, pos)
+	var id int64
+	err = t.tx.QueryRow(`INSERT INTO custom_fields(project_id, name, type, options, show_on_card, position) VALUES (?,?,?,?,?,?) RETURNING id`,
+		f.ProjectID, f.Name, f.Type, optsJSON(f.Options), f.ShowOnCard, pos).Scan(&id)
 	if err != nil {
 		return f, err
 	}
-	id, _ := res.LastInsertId()
 	return t.GetField(id)
 }
 
@@ -287,7 +287,12 @@ func (t *Tx) UpdateField(f Field) error {
 
 // DeleteField removes the field and its values from every task of the project.
 func (t *Tx) DeleteField(f Field) error {
-	if _, err := t.tx.Exec(`UPDATE tasks SET custom = json_remove(custom, ?) WHERE project_id = ?`, fmt.Sprintf(`$."%d"`, f.ID), f.ProjectID); err != nil {
+	q, key := `UPDATE tasks SET custom = json_remove(custom, ?) WHERE project_id = ?`, fmt.Sprintf(`$."%d"`, f.ID)
+	if t.tx.Postgres() {
+		q = `UPDATE tasks SET custom = (custom::jsonb - ?::text)::text WHERE project_id = ?`
+		key = fmt.Sprint(f.ID)
+	}
+	if _, err := t.tx.Exec(q, key, f.ProjectID); err != nil {
 		return err
 	}
 	_, err := t.tx.Exec(`DELETE FROM custom_fields WHERE id = ?`, f.ID)
@@ -333,12 +338,12 @@ func (t *Tx) InsertView(v View) (View, error) {
 	if err != nil {
 		return v, err
 	}
-	res, err := t.tx.Exec(`INSERT INTO saved_views(project_id, name, layout, filter_json, group_by, sort, pinned, position) VALUES (?,?,?,?,?,?,?,?)`,
-		v.ProjectID, v.Name, v.Layout, string(v.FilterJSON), v.GroupBy, v.Sort, v.Pinned, pos)
+	var id int64
+	err = t.tx.QueryRow(`INSERT INTO saved_views(project_id, name, layout, filter_json, group_by, sort, pinned, position) VALUES (?,?,?,?,?,?,?,?) RETURNING id`,
+		v.ProjectID, v.Name, v.Layout, string(v.FilterJSON), v.GroupBy, v.Sort, v.Pinned, pos).Scan(&id)
 	if err != nil {
 		return v, err
 	}
-	id, _ := res.LastInsertId()
 	return t.GetView(id)
 }
 
@@ -384,7 +389,11 @@ func (t *Tx) ListCalls(filter string, writeTools []string, limit int) ([]MCPCall
 	case "error":
 		q += ` WHERE status = 'error'`
 	case "write":
-		q += ` WHERE tool IN (SELECT value FROM json_each(?))`
+		if t.tx.Postgres() {
+			q += ` WHERE tool IN (SELECT jsonb_array_elements_text(?::jsonb))`
+		} else {
+			q += ` WHERE tool IN (SELECT value FROM json_each(?))`
+		}
 		b, _ := json.Marshal(writeTools)
 		args = append(args, string(b))
 	}

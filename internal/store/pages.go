@@ -61,17 +61,17 @@ func (t *Tx) PageByTitleKey(projectID int64, key string) (Page, error) {
 // NextPagePosition is max+1024 among the siblings, 1024 for the first.
 func (t *Tx) NextPagePosition(projectID int64, parentID *int64) (float64, error) {
 	var max float64
-	err := t.tx.QueryRow(`SELECT coalesce(max(position), 0) FROM pages WHERE project_id = ? AND parent_id IS ?`, projectID, parentID).Scan(&max)
+	q := `SELECT coalesce(max(position), 0) FROM pages WHERE project_id = ? AND parent_id IS ?`
+	if t.tx.Postgres() {
+		q = `SELECT coalesce(max(position), 0) FROM pages WHERE project_id = ? AND parent_id IS NOT DISTINCT FROM ?::bigint`
+	}
+	err := t.tx.QueryRow(q, projectID, parentID).Scan(&max)
 	return max + 1024, err
 }
 
 func (t *Tx) InsertPage(p Page, titleKey string) (Page, error) {
-	res, err := t.tx.Exec(`INSERT INTO pages(project_id, parent_id, title, title_key, body_md, position, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?)`,
-		p.ProjectID, p.ParentID, p.Title, titleKey, p.BodyMD, p.Position, p.CreatedAt, p.UpdatedAt)
-	if err != nil {
-		return p, err
-	}
-	p.ID, err = res.LastInsertId()
+	err := t.tx.QueryRow(`INSERT INTO pages(project_id, parent_id, title, title_key, body_md, position, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?) RETURNING id`,
+		p.ProjectID, p.ParentID, p.Title, titleKey, p.BodyMD, p.Position, p.CreatedAt, p.UpdatedAt).Scan(&p.ID)
 	return p, err
 }
 

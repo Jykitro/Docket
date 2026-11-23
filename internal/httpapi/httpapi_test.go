@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -17,7 +18,16 @@ import (
 	"docket/internal/mcpserver"
 	"docket/internal/service"
 	"docket/internal/store"
+	"docket/internal/testutil"
 )
+
+func openTestStore(t *testing.T) (*store.Store, error) {
+	t.Helper()
+	if os.Getenv("DOCKET_TEST_POSTGRES_DSN") != "" {
+		return store.OpenPostgres(testutil.PostgresDSN(t), 1)
+	}
+	return store.Open(filepath.Join(t.TempDir(), "t.db"))
+}
 
 type env struct {
 	srv   *httptest.Server
@@ -27,7 +37,7 @@ type env struct {
 
 func newEnv(t *testing.T) *env {
 	t.Helper()
-	st, err := store.Open(filepath.Join(t.TempDir(), "t.db"))
+	st, err := openTestStore(t)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -385,7 +395,7 @@ func TestSSE(t *testing.T) {
 }
 
 func TestLocalMe(t *testing.T) {
-	st, err := store.Open(filepath.Join(t.TempDir(), "t.db"))
+	st, err := openTestStore(t)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -403,7 +413,7 @@ func TestLocalMe(t *testing.T) {
 }
 
 func TestSelfCheckHints(t *testing.T) {
-	st, err := store.Open(filepath.Join(t.TempDir(), "t.db"))
+	st, err := openTestStore(t)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -565,5 +575,19 @@ func TestPagesREST(t *testing.T) {
 	}
 	if res := do(t, "GET", api+"/pages/"+id(a.ID), "", nil); res.StatusCode != 404 {
 		t.Errorf("deleted page: %d, want 404", res.StatusCode)
+	}
+}
+
+func TestPostgresDatabaseSelfCheck(t *testing.T) {
+	st, err := store.OpenPostgres(testutil.PostgresDSN(t), 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	svc := service.New(st, events.NewBus(), time.UTC)
+	a := &api{svc: svc}
+	c := a.checkDB(context.Background())
+	if !c.OK || !strings.Contains(c.Detail, "PostgreSQL") || strings.Contains(c.Detail, "quick_check") || strings.Contains(c.Detail, "бэкап") {
+		t.Fatalf("check=%+v", c)
 	}
 }

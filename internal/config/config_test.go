@@ -6,6 +6,7 @@ import (
 )
 
 func TestLoadMode(t *testing.T) {
+	t.Setenv("DOCKET_POSTGRES_DSN", "")
 	db := filepath.Join(t.TempDir(), "sub", "docket.db")
 	for _, tc := range []struct {
 		mode     string
@@ -31,5 +32,18 @@ func TestLoadMode(t *testing.T) {
 				t.Fatalf("DataDir = %q, want %q", c.DataDir, filepath.Dir(db))
 			}
 		})
+	}
+}
+
+func TestLoadPostgres(t *testing.T) {
+	t.Setenv("DOCKET_POSTGRES_DSN", "postgres://user:secret@db/docket")
+	t.Setenv("DOCKET_MODE", "local")
+	if _, err := Load(); err == nil {
+		t.Fatal("PostgreSQL in local mode must fail")
+	}
+	t.Setenv("DOCKET_MODE", "selfhost")
+	c, err := Load()
+	if err != nil || c.PostgresDSN != "postgres://user:secret@db/docket" {
+		t.Fatalf("Postgres configuration: %v", err)
 	}
 }

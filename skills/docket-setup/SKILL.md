@@ -12,7 +12,7 @@ Four steps: run Docket, connect the client, install the skills, optionally turn 
 - Docker: `make rebuild` in the Docket repo (creates `.env`, builds `docket:local`, starts the container). Logs: `make logs`. Data stays in `./data`.
 - The UI and MCP share one address, `http://localhost:7777`; MCP is `http://localhost:7777/mcp` (Streamable HTTP). It listens on `127.0.0.1` only.
 - The token looks like `dkt_…`. It is printed to the log once on first start, and is shown (masked, with a Show button) on the Integrations tab. `DOCKET_MCP_TOKEN` in `.env` overrides it and disables rotation.
-- Selfhost mode (`DOCKET_MODE=selfhost`): every user has their own token on their Integrations tab; the same `/mcp` address serves everyone and the token picks the profile.
+- Selfhost mode (`DOCKET_MODE=selfhost`): every user has their own token on their Integrations tab; the same `/mcp` address serves everyone and the token picks the profile. Storage defaults to SQLite; operators can set `DOCKET_POSTGRES_DSN` for a dedicated PostgreSQL database (see README, Self-host). This does not import existing SQLite data; PostgreSQL backups are managed by the operator.
 
 ## 2. Connect the client
 

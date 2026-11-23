@@ -11,13 +11,20 @@ import (
 
 	"docket/internal/events"
 	"docket/internal/store"
+	"docket/internal/testutil"
 )
 
 var ctx = context.Background()
 
 func newSvc(t *testing.T) *Service {
 	t.Helper()
-	st, err := store.Open(filepath.Join(t.TempDir(), "test.db"))
+	var st *store.Store
+	var err error
+	if os.Getenv("DOCKET_TEST_POSTGRES_DSN") != "" {
+		st, err = store.OpenPostgres(testutil.PostgresDSN(t), 1)
+	} else {
+		st, err = store.Open(filepath.Join(t.TempDir(), "test.db"))
+	}
 	if err != nil {
 		t.Fatal(err)
 	}

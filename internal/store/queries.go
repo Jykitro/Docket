@@ -210,12 +210,12 @@ func (t *Tx) InsertProject(p Project) (Project, error) {
 	if err := t.tx.QueryRow(`SELECT coalesce(max(position), 0) FROM projects`).Scan(&max); err != nil {
 		return p, err
 	}
-	res, err := t.tx.Exec(`INSERT INTO projects(slug, key, name, icon, color, description, position) VALUES (?,?,?,?,?,?,?)`,
-		p.Slug, p.Key, p.Name, p.Icon, p.Color, p.Description, max+1024)
+	var id int64
+	err := t.tx.QueryRow(`INSERT INTO projects(slug, key, name, icon, color, description, position) VALUES (?,?,?,?,?,?,?) RETURNING id`,
+		p.Slug, p.Key, p.Name, p.Icon, p.Color, p.Description, max+1024).Scan(&id)
 	if err != nil {
 		return p, err
 	}
-	id, _ := res.LastInsertId()
 	return t.GetProject(id)
 }
 
@@ -329,7 +329,13 @@ func (t *Tx) ListTasks(f TaskFilter) ([]Task, error) {
 	if f.CreatedBy != "" {
 		add("t.created_by = ?", f.CreatedBy)
 	}
-	if q := ftsQuery(f.Q); q != "" {
+	if t.tx.Postgres() {
+		if q := postgresFTSQuery(f.Q); q != "" {
+			add("to_tsvector('simple', t.title || ' ' || t.description_md) @@ to_tsquery('simple', ?)", q)
+		} else if strings.TrimSpace(f.Q) != "" {
+			where = append(where, "FALSE")
+		}
+	} else if q := ftsQuery(f.Q); q != "" {
 		add("t.id IN (SELECT rowid FROM tasks_fts WHERE tasks_fts MATCH ?)", q)
 	}
 	rows, err := t.tx.Query(`SELECT `+taskCols+taskFrom+` WHERE `+strings.Join(where, " AND ")+` ORDER BY `+order, args...)
@@ -349,14 +355,14 @@ func (t *Tx) ListTasks(f TaskFilter) ([]Task, error) {
 }
 
 func (t *Tx) InsertTask(x Task) (Task, error) {
-	res, err := t.tx.Exec(`INSERT INTO tasks(project_id, number, parent_id, title, description_md, status_id, priority, area,
-		planned_for, position, custom, external_id, created_by, done_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+	var id int64
+	err := t.tx.QueryRow(`INSERT INTO tasks(project_id, number, parent_id, title, description_md, status_id, priority, area,
+		planned_for, position, custom, external_id, created_by, done_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING id`,
 		x.ProjectID, x.Number, x.ParentID, x.Title, x.DescriptionMD, x.StatusID, x.Priority, x.Area,
-		x.PlannedFor, x.Position, customJSON(x.Custom), x.ExternalID, x.CreatedBy, x.DoneAt)
+		x.PlannedFor, x.Position, customJSON(x.Custom), x.ExternalID, x.CreatedBy, x.DoneAt).Scan(&id)
 	if err != nil {
 		return x, err
 	}
-	id, _ := res.LastInsertId()
 	return t.GetTask(id)
 }
 
@@ -452,9 +458,21 @@ func (t *Tx) search(q, col, snippet string, limit int) ([]SearchHit, error) {
 	if fq == "" {
 		return out, nil
 	}
-	rows, err := t.tx.Query(`SELECT t.id, t.project_id, p.key || '-' || printf('%02d', t.number), t.title, s.key, s.name, s.color, `+snippet+
+	query := `SELECT t.id, t.project_id, p.key || '-' || printf('%02d', t.number), t.title, s.key, s.name, s.color, ` + snippet +
 		` FROM tasks_fts JOIN tasks t ON t.id = tasks_fts.rowid JOIN statuses s ON s.id = t.status_id JOIN projects p ON p.id = t.project_id
-		WHERE tasks_fts MATCH ? AND t.deleted_at IS NULL AND p.deleted_at IS NULL ORDER BY rank LIMIT ?`, col+` : (`+fq+`)`, limit)
+  WHERE tasks_fts MATCH ? AND t.deleted_at IS NULL AND p.deleted_at IS NULL ORDER BY rank LIMIT ?`
+	args := []any{col + ` : (` + fq + `)`, limit}
+	if t.tx.Postgres() {
+		snippet = `''`
+		if col == "description_md" {
+			snippet = `ts_headline('simple', t.description_md, query, 'StartSel=[, StopSel=], MaxWords=12, MinWords=4')`
+		}
+		query = `SELECT t.id, t.project_id, p.key || '-' || printf('%02d', t.number), t.title, s.key, s.name, s.color, ` + snippet +
+			taskFrom + `, to_tsquery('simple', ?) query WHERE to_tsvector('simple', t.` + col + `) @@ query
+   AND t.deleted_at IS NULL AND p.deleted_at IS NULL ORDER BY ts_rank(to_tsvector('simple', t.` + col + `), query) DESC, t.id LIMIT ?`
+		args = []any{fq, limit}
+	}
+	rows, err := t.tx.Query(query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -469,14 +487,16 @@ func (t *Tx) search(q, col, snippet string, limit int) ([]SearchHit, error) {
 	return out, rows.Err()
 }
 
+	if t.tx.Postgres() {
+		fq = postgresFTSQuery(q)
+	}
 // ---- notes & activity ----
 
 func (t *Tx) InsertNote(n Note) (Note, error) {
-	res, err := t.tx.Exec(`INSERT INTO notes(task_id, author, body_md) VALUES (?, ?, ?)`, n.TaskID, n.Author, n.BodyMD)
+	err := t.tx.QueryRow(`INSERT INTO notes(task_id, author, body_md) VALUES (?, ?, ?) RETURNING id`, n.TaskID, n.Author, n.BodyMD).Scan(&n.ID)
 	if err != nil {
 		return n, err
 	}
-	n.ID, _ = res.LastInsertId()
 	err = t.tx.QueryRow(`SELECT created_at FROM notes WHERE id = ?`, n.ID).Scan(&n.CreatedAt)
 	return n, err
 }

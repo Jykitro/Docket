@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -14,14 +15,23 @@ import (
 	"docket/internal/events"
 	"docket/internal/service"
 	"docket/internal/store"
+	"docket/internal/testutil"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
+func openTestStore(t *testing.T) (*store.Store, error) {
+	t.Helper()
+	if os.Getenv("DOCKET_TEST_POSTGRES_DSN") != "" {
+		return store.OpenPostgres(testutil.PostgresDSN(t), 1)
+	}
+	return store.Open(filepath.Join(t.TempDir(), "t.db"))
+}
+
 // Handler panics at startup when a service.MCPTools entry has no registration (or the reverse); this builds
 // it and drives the wiki tools through JSON-RPC in-process (httptest recorder, no port).
 func TestWikiToolsOverMCP(t *testing.T) {
-	st, err := store.Open(filepath.Join(t.TempDir(), "t.db"))
+	st, err := openTestStore(t)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -22,6 +22,7 @@ import (
 )
 
 const (
+	"docket/internal/testutil"
 	testPassword  = "password-123"
 	testSetupCode = "setup-code-xyz"
 )
@@ -46,7 +47,15 @@ func newServer(t *testing.T) *server {
 func newServerWith(t *testing.T, build func(context.Context, *service.Service, *events.Bus) http.Handler) *server {
 	t.Helper()
 	dir := t.TempDir()
-	db, err := auth.Open(filepath.Join(dir, "auth.db"))
+	var db *auth.DB
+	var err error
+	var dsn string
+	if os.Getenv("DOCKET_TEST_POSTGRES_DSN") != "" {
+		dsn = testutil.PostgresDSN(t)
+		db, err = auth.OpenPostgres(dsn)
+	} else {
+		db, err = auth.Open(filepath.Join(dir, "auth.db"))
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,6 +64,7 @@ func newServerWith(t *testing.T, build func(context.Context, *service.Service, *
 	t.Cleanup(ws.Close)
 	h := Handler(Options{Auth: db, WS: ws, Web: http.NotFoundHandler(), AllowedHosts: hosts, SetupCode: testSetupCode})
 	return &server{t: t, h: h, db: db, ws: ws}
+	ws.UsePostgres(dsn)
 }
 
 // do sends a request from 127.0.0.1:1234 unless hdr overrides "RemoteAddr".
@@ -595,8 +605,10 @@ func TestAdminDeleteUser(t *testing.T) {
 		t.Fatalf("bob before: %d", rec.Code)
 	}
 	file := s.ws.path(wsB.ID)
-	if _, err := os.Stat(file); err != nil {
-		t.Fatal(err)
+	if s.ws.postgresDSN == "" {
+		if _, err := os.Stat(file); err != nil {
+			t.Fatal(err)
+		}
 	}
 	for path, want := range map[string]int{"/api/admin/users/1": 400, "/api/admin/users/abc": 400, "/api/admin/users/99": 404} {
 		if rec := s.do("DELETE", path, "", ca, nil); rec.Code != want {

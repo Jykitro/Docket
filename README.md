@@ -4,7 +4,7 @@
 [![Release](https://img.shields.io/github/v/release/Jykitro/Docket)](https://github.com/Jykitro/Docket/releases)
 [![License: MIT](https://img.shields.io/github/license/Jykitro/Docket)](LICENSE)
 
-A personal task planner that runs locally in Docker: one container, one Go process, one SQLite database.
+A personal task planner that runs locally in Docker: one Go process, SQLite by default, or PostgreSQL in self-hosted mode.
 Claude manages tasks over [MCP](https://modelcontextprotocol.io); you review and edit them in the web UI.
 Both channels go through the same service layer, so validation, change history and live updates behave identically.
 
@@ -104,7 +104,8 @@ Settings are read from `.env` (see `.env.example`):
 |---|---|---|
 | `DOCKET_MODE` | `local` | `local`: one user, no login. `selfhost`: several users behind a login, see [Self-host](#self-host) |
 | `DOCKET_ADDR` | `:7777` | Server address inside the container |
-| `DOCKET_DB` | `/data/docket.db` | Database file |
+| `DOCKET_DB` | `/data/docket.db` | SQLite database file (ignored with PostgreSQL) |
+| `DOCKET_POSTGRES_DSN` | empty | Optional PostgreSQL connection string, requires `DOCKET_MODE=selfhost`; empty keeps SQLite |
 | `DOCKET_BACKUP_DIR` | `/data/backups` | Where backups are written |
 | `DOCKET_MCP_TOKEN` | empty | Optional. If set, it takes precedence over the token stored in the database and rotating it in the UI is disabled |
 | `DOCKET_ALLOWED_HOSTS` | `localhost,127.0.0.1,docket.localhost` | Allowed `Host` and `Origin` values |
@@ -114,8 +115,8 @@ Settings are read from `.env` (see `.env.example`):
 ## Self-host
 
 `DOCKET_MODE=selfhost` turns Docket into a server for several people: everyone logs in with a username and password,
-and every profile has its own database, its own MCP token and its own backups. `local` mode (the default) works as
-before.
+and every profile has its own isolated storage and MCP token. SQLite is the default; PostgreSQL is optional (see below).
+`local` mode (the default) works as before.
 
 1. In `.env`, set `DOCKET_MODE=selfhost` and put your real domain in `DOCKET_ALLOWED_HOSTS` (for example
    `docket.example.com`).
@@ -127,7 +128,7 @@ before.
    every restart prints a new code and the previous one stops working.
 4. The administrator invites everyone else from Settings: an invite link creates a profile.
 
-Data: `auth.db` (users and sessions) and `users/<id>.db` (one database per profile) sit next to `DOCKET_DB`; profile
+With SQLite, `auth.db` (users and sessions) and `users/<id>.db` (one database per profile) sit next to `DOCKET_DB`; SQLite profile
 backups are written to `DOCKET_BACKUP_DIR/<id>`, and a profile created later gets its first backup within an hour.
 Every profile has its own MCP token, shown on the **Integrations** tab. Claude connects to the same `/mcp` address and the
 profile is picked by the token. `DOCKET_SEED` and `DOCKET_MCP_TOKEN` are ignored in this mode (a warning is logged if
@@ -145,7 +146,71 @@ Limits:
 - Behind a reverse proxy, login rate limiting is counted per proxy address, so one client's failed attempts can lock
   a username for everyone for 10 minutes.
 - There is no password reset by email: the administrator deletes the profile and issues a new invite. Deleting a
-  profile removes `users/<id>.db`, but its backups in `DOCKET_BACKUP_DIR/<id>` stay and must be removed by hand.
+  profile removes its database file or PostgreSQL schema. With SQLite, its backups in `DOCKET_BACKUP_DIR/<id>` stay and must be removed by hand.
+
+### PostgreSQL storage
+
+Set both variables to use an existing, **dedicated** PostgreSQL database:
+
+```dotenv
+DOCKET_MODE=selfhost
+DOCKET_POSTGRES_DSN=postgres://docket:password@db.example.com:5432/docket?sslmode=verify-full
+```
+
+The database must exist and the Docket role must own it (or have `CONNECT` and `CREATE` on it). Superuser and
+`CREATEDB` permissions are not needed by the application. Use a private network or verified TLS for remote connections,
+and URL-encode special characters in credentials. The connection string is not exposed by the API or logged.
+
+Docket creates `docket_auth` for accounts, sessions and invitations, and `docket_user_<id>` for each profile's projects,
+tasks, wiki, history, settings and MCP call log. Migrations run automatically at startup/profile creation in a transaction.
+Every connection uses only its assigned schema; the public schema is not a fallback. Profile deletion drops only that
+profile's schema. These are application isolation boundaries, not separate database roles: the server's database
+credential can access every profile and must stay private.
+
+For a new installation with Docker Compose:
+
+```bash
+cp .env.example .env
+# Generate a password with: openssl rand -hex 32
+# Add POSTGRES_PASSWORD=<generated hex password> to .env (do not commit it).
+docker compose -f compose.postgres.yml up -d --build
+docker compose -f compose.postgres.yml logs docket
+```
+
+[`compose.postgres.yml`](compose.postgres.yml) builds the current source and starts PostgreSQL 18.7 with a persistent
+volume; PostgreSQL has no published host port. Docket binds to `127.0.0.1:7777`; use the same HTTPS reverse-proxy and
+allowed-host setup described above for remote access. `sslmode=disable` in this example applies only to the private
+Compose network. The password in this example must be hex/alphanumeric so it is valid in the connection URL.
+
+Operational details:
+
+- `DOCKET_DB` and `DOCKET_BACKUP_DIR` are ignored by PostgreSQL storage; no local SQLite files are created.
+- On a **fresh volume**, set `DOCKET_POSTGRES_IMAGE=postgres:19.0-alpine` to use the major version exercised in CI.
+  Existing Compose volumes default to 18.7. To upgrade from 18 to 19, stop the Docket writer, take a final
+  `pg_dump -Fc`, start version 19 with a separate empty volume, then restore with `pg_restore --exit-on-error`
+  into the dedicated database using the same owner. Verify login, projects and tasks before switching traffic.
+  Keep the old volume and image for rollback before allowing new writes. An image-tag change alone does not migrate data.
+- **Back up PostgreSQL separately** with `pg_dump` or your provider's backups/PITR. Docket does not run `VACUUM INTO`
+  or claim to have created a PostgreSQL backup. MCP call-log retention still runs. For the Compose example, create
+  a full logical backup (including accounts and every profile) with:
+
+  ```bash
+  docker compose -f compose.postgres.yml exec -T postgres pg_dump -U docket -d docket -Fc > docket.dump
+  ```
+
+  Store dumps securely outside the database volume and test restoration into a separate empty database. Do not run
+  `docker compose down -v` on an installation you intend to keep: it deletes the PostgreSQL volume.
+- Existing SQLite accounts and tasks are **not imported**. Selecting PostgreSQL starts a separate installation.
+  To return to the previous SQLite installation, remove `DOCKET_POSTGRES_DSN` and restart with the original data volume.
+  Changes made in PostgreSQL do not appear in SQLite. There is no automatic conversion in either direction.
+- Never reset `docket_auth` while retaining profile schemas: reused user IDs could attach new accounts to old data.
+  Back up and restore the whole database together.
+- Run **one Docket instance per database**: live events, login rate limiting and MCP routing are still kept in process.
+  PostgreSQL does not enable horizontal scaling. Each loaded profile and the auth store use at most one connection;
+  allow for that in PostgreSQL's connection budget (idle connections close after five minutes).
+- The database self-check checks connectivity and reports the profile's table/index size; it does not perform a full
+  PostgreSQL integrity check or verify external backups. Full-text search uses PostgreSQL's `simple` dictionary with
+  prefix matching for Russian, Ukrainian and English; ranking/snippets can differ from SQLite FTS5.
 
 ## Using the UI
 
@@ -285,11 +350,26 @@ Go tests open a port on localhost. Run `make help` for every target:
 | `make web` | Frontend build: `tsc --noEmit` and `vite build` into `internal/web/dist` |
 | `make build` | Builds `bin/docket` with the UI embedded |
 | `make test` | Backend tests (`go test ./...`) |
+| `make test-postgres` | Same domain, auth, REST and MCP tests against PostgreSQL; requires `DOCKET_TEST_POSTGRES_DSN` |
 | `make typecheck`, `make knip` | Frontend checks |
 | `make dev-api` | Backend on `:7777` with a separate `./data/dev.db` |
 | `make dev-web` | Vite with hot reload (proxies `/api` to `:7777`) |
 | `make image`, `make rebuild`, `make stop`, `make logs` | Docker image and container |
 | `make clean` | Removes `bin/` and the built frontend |
+
+To run the PostgreSQL integration tests locally, point `DOCKET_TEST_POSTGRES_DSN` at a disposable PostgreSQL server,
+using a `postgres://` URL and a test role with `CREATEDB`. Each test creates and drops a randomly named database;
+the database in the URL is used only as the administrative connection. Do not use a production server. For example:
+
+```bash
+docker run -d --name docket-pg-tests -e POSTGRES_USER=docket -e POSTGRES_PASSWORD=docket_test_only \
+  -e POSTGRES_DB=docket_test -p 127.0.0.1:55483:5432 postgres:19.0-alpine
+# Wait until: docker exec docket-pg-tests pg_isready -U docket -d docket_test
+DOCKET_TEST_POSTGRES_DSN='postgres://docket:docket_test_only@localhost:55483/docket_test?sslmode=disable' make test-postgres
+docker rm -f docket-pg-tests
+```
+
+CI runs both the default SQLite checks and the PostgreSQL suite.
 
 For frontend work with hot reload, run `make dev-api` in one terminal and `make dev-web` in another.
 
@@ -300,7 +380,8 @@ Working on Docket with an assistant: [`AGENTS.md`](AGENTS.md) (read by Codex and
 
 ```
 cmd/docket          config, wiring, graceful shutdown, housekeeping (daily backup and call-log cleanup)
-internal/store      SQLite, migrations (migrations/*.sql), all SQL
+internal/database   SQLite/PostgreSQL connections, SQL dialect boundary and schema locks
+internal/store      task queries, SQLite/PostgreSQL migrations and SQLite backups
 internal/service    domain rules, validation, activity, events, MCP settings
 internal/httpapi    REST, SSE /api/events, host/origin guard, bearer auth for /mcp, MCP self-check
 internal/mcpserver  MCP tools → service, access policy and call log; Code Mode (/mcp/code, codemode.go)
@@ -309,7 +390,7 @@ internal/web        embedded SPA (dist)
 web/                React + TypeScript + Vite + Tailwind CSS v4 (shadcn-admin look; tokens in web/src/styles.css)
 ```
 
-Layering rule: `httpapi` and `mcpserver` call only `service`, and SQL lives only in `store`.
+Layering rule: `httpapi` and `mcpserver` call only `service`; task SQL lives in `store`, auth SQL in `auth`, and connection/dialect code in `database`.
 How the integrations (MCP, Code Mode) work and how to add one: [`docs/integrations.md`](docs/integrations.md).
 
 ## REST API

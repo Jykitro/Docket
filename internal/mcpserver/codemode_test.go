@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"net/http/httptest"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -12,13 +11,12 @@ import (
 
 	"docket/internal/events"
 	"docket/internal/service"
-	"docket/internal/store"
 )
 
 // Code Mode end to end over /mcp/code: declarations follow the policy, codemode.* calls reach the real tools
 // (and the call log), errors keep their code, and runaway code is stopped.
 func TestCodeMode(t *testing.T) {
-	st, err := store.Open(filepath.Join(t.TempDir(), "t.db"))
+	st, err := openTestStore(t)
 	if err != nil {
 		t.Fatal(err)
 	}
