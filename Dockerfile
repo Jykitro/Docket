@@ -1,5 +1,5 @@
 # 1. frontend → internal/web/dist
-FROM oven/bun:alpine AS web
+FROM oven/bun:1.4.5-alpine AS web
 WORKDIR /src/web
 COPY web/package.json web/bun.lock web/bunfig.toml ./
 RUN bun install --frozen-lockfile
@@ -7,7 +7,7 @@ COPY web/ ./
 RUN bun run build
 
 # 2. static Go binary with the UI embedded
-FROM golang:alpine AS build
+FROM golang:1.27.4-alpine AS build
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
@@ -18,7 +18,7 @@ COPY --from=web /src/internal/web/dist ./internal/web/dist
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/docket ./cmd/docket
 
 # 3. runtime
-FROM gcr.io/distroless/static
+FROM gcr.io/distroless/static-debian13:latest
 COPY --from=build /out/docket /app/docket
 ENV DOCKET_ADDR=:7777 \
     DOCKET_DB=/data/docket.db \
