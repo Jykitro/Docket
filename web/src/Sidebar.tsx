@@ -4,6 +4,7 @@ import { type ReactNode } from 'react'
 import { useQueries, useQuery } from '@tanstack/react-query'
 import { type Project, type View, api, useMe, useProfile, useProjects } from './api'
 import { Icon, ProjectTile } from './icons'
+import { DocketLogo } from './DocketLogo'
 import { tr } from './i18n'
 import { Link } from './router'
 import { cap } from './ui'
@@ -61,8 +62,8 @@ export function Sidebar({ path, view, rail, mobileOpen, onClose, onNewProject, o
       >
         <div className="flex h-full flex-col rounded-lg border border-ln bg-sf shadow-sm">
         <div className={'flex h-16 items-center gap-2 px-3 ' + (rail ? 'justify-center' : '')}>
-          <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-ink text-inkt"><Icon name="logo" size={17} sw={2} /></span>
-          {!rail && <span className="flex min-w-0 grow flex-col leading-tight"><b className="text-sm font-semibold">Docket</b><span className="font-mono text-xs text-t3">:{location.port || '80'}</span></span>}
+          <DocketLogo />
+          {!rail && <span className="flex min-w-0 grow flex-col leading-tight"><b className="text-sm font-semibold">Docket</b></span>}
         </div>
 
         <div className="flex min-h-0 grow flex-col gap-3 overflow-y-auto px-2 py-1">

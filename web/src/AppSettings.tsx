@@ -9,6 +9,7 @@ import { NAME_MAX } from './Onboarding'
 import { Link } from './router'
 import { type ThemePref } from './theme'
 import { Dialog, LangSwitch, btn, btnPri, cap } from './ui'
+import { InstallDocket } from './Pwa'
 import { AccountSection } from './Users'
 
 export const THEMES: { id: ThemePref; icon: string; label: string }[] = [
@@ -57,6 +58,7 @@ export function AppSettings({ theme, onTheme, onClose }: { theme: ThemePref; onT
       </div>
       <div className="flex flex-col gap-1.5">
         <span className={cap}>{tr('Платформа')}</span>
+        <InstallDocket />
         <Link to="/integrations" className={row} onClick={onClose}><Icon name="plug" /><span className="grow">{tr('Интеграции: MCP, Code Mode, токен и доступ')}</span><Icon name="chevR" size={14} /></Link>
         <Link to="/trash" className={row} onClick={onClose}><Icon name="trash" /><span className="grow">{tr('Корзина')}</span><Icon name="chevR" size={14} /></Link>
         <a className={row} href="/api/export" download><Icon name="stack" /><span className="grow">{tr('Скачать все данные (JSON)')}</span><Icon name="arrowRight" size={14} /></a>

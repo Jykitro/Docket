@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#171717">
+  <title>Docket</title>
+  <style>
+    :root { color-scheme: light dark; font: 16px system-ui, sans-serif; }
+    body { min-height: 100dvh; margin: 0; display: grid; place-items: center; text-align: center; }
+    h1 { font-size: 1.5rem; } button { cursor: pointer; font: inherit; padding: .55rem 1rem; border-radius: .5rem; }
+  </style>
+</head>
+<body>
+  <main><h1>Offline</h1><button type="button">Retry</button></main>
+  <script>
+    const labels = { en: ['Offline', 'Retry'], ru: ['Нет связи', 'Повторить'], uk: ['Немає зв’язку', 'Повторити'] }
+    let lang = navigator.languages.map(l => l.slice(0, 2)).find(l => Object.hasOwn(labels, l)) || 'en'
+    try { const saved = localStorage.getItem('docket-lang'); if (Object.hasOwn(labels, saved)) lang = saved } catch {}
+    document.documentElement.lang = lang
+    document.querySelector('h1').textContent = labels[lang][0]
+    const button = document.querySelector('button')
+    button.textContent = labels[lang][1]
+    async function retry() {
+      try { if ((await fetch('/healthz', { cache: 'no-store' })).ok) location.reload() } catch {}
+    }
+    button.addEventListener('click', retry)
+    window.addEventListener('online', retry)
+    setInterval(retry, 5000)
+  </script>
+</body>
+</html>

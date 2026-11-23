@@ -2,6 +2,10 @@
 // {name} placeholders must stay as they are. "a|b|c" keys are plural forms (see plural() in i18n.ts): Russian and
 // Ukrainian take three forms (1, 2-4, 5+), English two (1, other). Add a key here whenever a new tr('…') appears.
 export const MESSAGES: Record<string, [en: string, uk: string]> = {
+  'Установить Docket': ['Install Docket', 'Встановити Docket'],
+  'Установка: «Поделиться» → «На экран Домой».': ['To install, choose Share → Add to Home Screen.', 'Для встановлення виберіть «Поділитися» → «На початковий екран».'],
+  'Установка: в Safari выберите «Файл» → «Добавить в Dock».': ['To install in Safari, choose File → Add to Dock.', 'Для встановлення у Safari виберіть «Файл» → «Додати в Dock».'],
+  'Нет связи': ['Offline', 'Немає зв’язку'],
   // app shell, sidebar, header
   'Вы': ['You', 'Ви'],
   'Сегодня': ['Today', 'Сьогодні'],

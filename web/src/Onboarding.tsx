@@ -5,6 +5,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from './api'
 import { NewProjectForm } from './Dialogs'
 import { Icon } from './icons'
+import { DocketLogo } from './DocketLogo'
 import { tr } from './i18n'
 import { navigate } from './router'
 import { LangSwitch, btnPri, cap } from './ui'
@@ -29,7 +30,7 @@ export function Onboarding({ hasProjects, onDone }: { hasProjects: boolean; onDo
     <main className="min-h-screen grid place-items-center px-4 py-8">
       <div className="w-full max-w-[460px] bg-sf border border-ln rounded-lg shadow-pop p-6 flex flex-col gap-4">
         <div className="flex items-center gap-2.5">
-          <span className="size-8 rounded-md bg-ink text-inkt grid place-items-center"><Icon name="logo" size={19} sw={2} /></span>
+          <DocketLogo />
           <b className="text-[17px] font-bold tracking-[-.01em] grow">Docket</b>
           <LangSwitch />
           {!hasProjects && <span className={cap}>{tr('Шаг {step} из 2', { step })}</span>}

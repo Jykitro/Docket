@@ -108,6 +108,9 @@ async function req<T>(method: string, url: string, body?: unknown): Promise<T> {
     method,
     headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body),
+  }).catch((error: unknown) => {
+    window.dispatchEvent(new Event('docket:disconnected'))
+    throw error
   })
   if (res.status === 204) return undefined as T
   const data = await res.json().catch(() => null)

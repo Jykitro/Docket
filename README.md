@@ -148,6 +148,10 @@ Limits:
 - There is no password reset by email: the administrator deletes the profile and issues a new invite. Deleting a
   profile removes its database file or PostgreSQL schema. With SQLite, its backups in `DOCKET_BACKUP_DIR/<id>` stay and must be removed by hand.
 
+### Installed app
+
+Open Docket over HTTPS or on localhost, then choose **Install Docket** in settings when the browser offers installation. On iPhone or iPad choose **Share → Add to Home Screen**; in Safari on macOS use **File → Add to Dock**. Start the installed app to open Today in its own window. Tasks require a connection. If the connection drops, Docket offers a retry and reopens the same URL when the server returns. The service worker stores only the generic offline page.
+
 ### PostgreSQL storage
 
 Set both variables to use an existing, **dedicated** PostgreSQL database:
