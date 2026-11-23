@@ -5,21 +5,30 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ApiError, type Page, type PageDetail, type Project, type TaskRef, api, errText, fmtStamp } from './api'
 import { Icon } from './icons'
 import { tr } from './i18n'
-import { MD_PROSE, renderWiki } from './markdown'
+import { MD_PROSE, renderWiki, toggleWikiCheckbox } from './markdown'
 import { Link, hrefWith, navigate, setParam } from './router'
+import { WikiTree } from './WikiTree'
 import { ConfirmButton, EmptyState, ErrorState, Skeleton, SkeletonRows, btn, btnPri, cap, mc } from './ui'
 
 const BOX = 'bg-sf border border-ln rounded-xl'
 const SEG = 'inline-flex self-start gap-0.5 rounded-md border border-ln p-0.5 text-[12.5px]'
 const SEGBTN = 'rounded-md px-2.5 py-[3px] text-t3 aria-pressed:bg-sk aria-pressed:font-semibold aria-pressed:text-tx'
-const ROW = 'flex items-center gap-2 min-h-8 rounded-md pr-2 text-sm no-underline text-t2 hover:bg-sk'
 
 type Ctx = { project: Project; pages: Page[]; tasks: TaskRef[]; leave: () => boolean; createByTitle: (title: string) => void }
 
 /** Rendered wiki markdown; clicks on its [[links]] and task chips are handled here by delegation. */
-function Body({ md, c }: { md: string; c: Ctx }) {
+function Body({ md, c, onCheck, busy }: { md: string; c: Ctx; onCheck: (md: string) => void; busy?: boolean }) {
   const html = useMemo(() => renderWiki(md, { slug: c.project.slug, pages: c.pages, tasks: c.tasks }), [md, c.project.slug, c.pages, c.tasks])
   const click = (e: MouseEvent) => {
+    const el = e.target
+    if (el instanceof HTMLInputElement && el.type === 'checkbox' && el.dataset.idx !== undefined) {
+      e.preventDefault()
+      if (!busy) {
+        const next = toggleWikiCheckbox(md, Number(el.dataset.idx), el.defaultChecked)
+        if (next !== undefined) onCheck(next)
+      }
+      return
+    }
     const a = (e.target as HTMLElement).closest('a')
     if (!a || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey) return
     const { wiki, wikiNew, task } = a.dataset
@@ -27,27 +36,9 @@ function Body({ md, c }: { md: string; c: Ctx }) {
     else if (task) { e.preventDefault(); setParam('task', task, false) }
     else if (wikiNew !== undefined) { e.preventDefault(); if (c.leave()) c.createByTitle(wikiNew) }
   }
-  return <div className={MD_PROSE} onClick={click} dangerouslySetInnerHTML={{ __html: html }} />
-}
-
-function Tree({ pages, current, slug, leave }: { pages: Page[]; current?: number; slug: string; leave: () => boolean }) {
-  const kids = new Map<number | null, Page[]>()
-  const ids = new Set(pages.map((p) => p.id))
-  for (const p of [...pages].sort((a, b) => a.position - b.position || a.title.localeCompare(b.title))) {
-    const k = p.parent_id !== null && ids.has(p.parent_id) ? p.parent_id : null
-    kids.set(k, [...(kids.get(k) ?? []), p])
-  }
-  const level = (parent: number | null, depth: number): ReactNode =>
-    kids.get(parent)?.map((p) => (
-      <li key={p.id}>
-        <Link to={`/p/${slug}/wiki/${p.id}`} onClick={(e) => { if (!leave()) e.preventDefault() }} aria-current={p.id === current ? 'page' : undefined}
-          className={ROW + (p.id === current ? ' bg-sk font-medium text-tx' : '')} style={{ paddingLeft: 8 + depth * 16 }}>
-          <Icon name="doc" size={14} /><span className="min-w-0 truncate">{p.title}</span>
-        </Link>
-        {kids.has(p.id) && <ul>{level(p.id, depth + 1)}</ul>}
-      </li>
-    ))
-  return <ul aria-label={tr('Страницы')}>{level(null, 0)}</ul>
+  return <fieldset disabled={busy} aria-busy={busy} className="min-w-0">
+    <div className={MD_PROSE} onClick={click} dangerouslySetInnerHTML={{ __html: html }} />
+  </fieldset>
 }
 
 function Block({ title, children }: { title: string; children: ReactNode }) {
@@ -121,7 +112,7 @@ function PageEditor({ page, c, dirty, onDone }: { page: Page; c: Ctx; dirty: Ref
         <button type="button" className={SEGBTN} aria-pressed={!preview} onClick={() => setPreview(false)}>{tr('Редактор')}</button>
         <button type="button" className={SEGBTN} aria-pressed={preview} onClick={() => setPreview(true)}>{tr('Просмотр')}</button>
       </span>
-      {preview ? <Body md={body} c={c} /> : (
+      {preview ? <Body md={body} c={c} onCheck={setBody} busy={busy} /> : (
         <textarea className="w-full resize-y rounded-[10px] border border-ln bg-sf2 px-3.5 py-3 font-mono text-[13px] leading-[1.6] text-tx focus:border-ac focus:outline-0"
           aria-label={tr('Текст страницы в markdown')} value={body} rows={Math.max(14, body.split('\n').length + 1)} onChange={(e) => setBody(e.target.value)}
           placeholder={tr('Markdown: [[Другая страница]], код задачи вроде TRK-07, **жирный**, - [ ] чекбокс')} />
@@ -139,6 +130,17 @@ function PageArea({ id, c, dirty, startEdit }: { id: number; c: Ctx; dirty: RefO
   const base = `/p/${c.project.slug}/wiki`
   const dq = useQuery({ queryKey: ['page', id], queryFn: () => api.page(id) })
   const [editing, setEditing] = useState(startEdit)
+  const check = useMutation({
+    mutationFn: ({ body, revision }: { body: string; revision: string }) =>
+      api.savePage(id, { body_md: body, expected_updated_at: revision }),
+    onSuccess: (p) => {
+      qc.setQueryData<PageDetail>(['page', id], (old) => old && { ...old, ...p })
+      return qc.invalidateQueries({ queryKey: ['pages', c.project.id] })
+    },
+    onError: (e) => {
+      if (e instanceof ApiError && e.code === 'conflict') return qc.invalidateQueries({ queryKey: ['page', id] })
+    },
+  })
   const del = useMutation({
     mutationFn: () => api.deletePage(id),
     onSuccess: () => { qc.removeQueries({ queryKey: ['page', id] }); qc.invalidateQueries(); navigate(base) },
@@ -160,13 +162,18 @@ function PageArea({ id, c, dirty, startEdit }: { id: number; c: Ctx; dirty: RefO
       <div className="flex flex-wrap items-start gap-2.5">
         <h2 className="min-w-0 flex-[1_1_200px] text-xl font-semibold tracking-tight break-words">{d.title}</h2>
         <span className="flex gap-2">
-          <button type="button" className={btn} onClick={() => setEditing(true)}>{tr('Изменить')}</button>
+          <button type="button" className={btn} disabled={check.isPending} onClick={() => { check.reset(); setEditing(true) }}>{tr('Изменить')}</button>
           <ConfirmButton label={tr('Удалить')} armed={tr('Точно удалить?')} icon={<Icon name="trash" size={15} />} disabled={del.isPending} onConfirm={() => del.mutate()} />
         </span>
       </div>
       <span className={mc}>{tr('Обновлено {when}', { when: fmtStamp(d.updated_at) })}</span>
       {del.isError && <p role="alert" className="rounded-lg bg-rds p-3 text-sm text-rd">{errText(del.error)}</p>}
-      {d.body_md.trim() ? <Body md={d.body_md} c={cc} /> : <p className="text-sm text-t3">{tr('Страница пока пуста. Нажмите «Изменить», чтобы написать.')}</p>}
+      {check.isError && <p role="alert" className="rounded-lg bg-rds p-3 text-sm text-rd">
+        {check.error instanceof ApiError && check.error.code === 'conflict'
+          ? tr('Страница изменилась. Проверьте актуальный чеклист и повторите отметку.') : errText(check.error)}
+      </p>}
+      {d.body_md.trim() ? <Body md={check.isPending ? check.variables.body : d.body_md} c={cc} busy={check.isPending || del.isPending}
+        onCheck={(body) => check.mutate({ body, revision: d.updated_at })} /> : <p className="text-sm text-t3">{tr('Страница пока пуста. Нажмите «Изменить», чтобы написать.')}</p>}
       {d.backlinks.length > 0 && (
         <Block title={tr('Ссылаются сюда')}>
           {d.backlinks.map((b) => <li key={b.id}><Link to={`${base}/${b.id}`} className="text-act">{b.title}</Link></li>)}
@@ -216,7 +223,7 @@ export function Wiki({ project, pageId }: { project: Project; pageId?: number })
         {pq.isPending && <div className="flex flex-col gap-2.5"><Skeleton h={28} /><Skeleton h={28} w="80%" /><Skeleton h={28} w="65%" /></div>}
         {pq.isError && <ErrorState message={pq.error.message} onRetry={() => pq.refetch()} />}
         {pq.isSuccess && pages.length > 0 && (
-          <nav className="max-h-64 overflow-y-auto lg:max-h-none" aria-label={tr('Страницы')}><Tree pages={pages} current={pageId} slug={project.slug} leave={leave} /></nav>
+          <WikiTree key={project.id} pages={pages} current={pageId} project={project} leave={leave} />
         )}
       </aside>
       <section className={BOX + ' w-full min-w-0 flex-1'}>

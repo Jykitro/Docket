@@ -3,6 +3,7 @@
 import DOMPurify from 'dompurify'
 import { Marked } from 'marked'
 import type { PageRef, TaskRef } from './api'
+import { tr } from './i18n'
 
 let counter = 0
 const md = new Marked({
@@ -42,6 +43,13 @@ const titleKey = (t: string) => t.trim().toLowerCase()
 // Inline extensions never run inside code spans or blocks. The lookbehind lives in start(): the tokenizer sees only the rest of the line.
 const mdWiki = new Marked({
   gfm: true,
+  renderer: {
+    checkbox({ checked }) {
+      const index = counter++
+      const label = esc(tr('Пункт чеклиста {n}', { n: index + 1 }))
+      return `<input type="checkbox" data-idx="${index}" aria-label="${label}"${checked ? ' checked' : ''}>`
+    },
+  },
   extensions: [
     {
       name: 'wikilink',
@@ -75,11 +83,45 @@ const mdWiki = new Marked({
 /** Wiki page body: like renderMarkdown, plus [[Title]] links and task codes that exist in ctx.tasks. */
 export function renderWiki(src: string, ctx: WikiCtx): string {
   wiki = ctx
+  counter = 0
   sanitizingWiki = true
   try {
     return DOMPurify.sanitize(mdWiki.parse(src, { async: false }), { ADD_ATTR: ['target'] })
   } finally {
     sanitizingWiki = false
+  }
+}
+
+/** Find the source marker of the rendered GFM item. Examples in code/HTML can have identical text. */
+export function toggleWikiCheckbox(src: string, index: number, checked: boolean): string | undefined {
+  const markers = [...src.matchAll(/(?:[-*+]|\d+[.)])[ \t]+\[[ xX]\](?=\s|$)/g)]
+    .map((m) => m.index! + m[0].length - 2)
+  if (!Number.isInteger(index) || index < 0 || index >= markers.length) return
+  const flip = (offset: number) => src[offset] === ' ' ? 'x' : ' '
+  const toggle = (offset: number) => src.slice(0, offset) + flip(offset) + src.slice(offset + 1)
+  const flippedItem = (candidate: string) => {
+    let ordinal = 0, flipped = false
+    mdWiki.walkTokens(mdWiki.lexer(candidate), (token) => {
+      if (token.type === 'checkbox' && ordinal++ === index) flipped = token.checked !== checked
+    })
+    return flipped
+  }
+  const direct = toggle(markers[index])
+  if (flippedItem(direct)) return direct
+
+  // Some earlier markers were literal text. Flip a prefix in a scratch copy to locate
+  // the rendered item, then verify the single-character edit before returning it.
+  let lo = index + 1, hi = markers.length - 1
+  while (lo < hi) {
+    const mid = Math.floor((lo + hi) / 2)
+    const chars = src.split('')
+    for (let i = 0; i <= mid; i++) chars[markers[i]] = flip(markers[i])
+    if (flippedItem(chars.join(''))) hi = mid
+    else lo = mid + 1
+  }
+  if (lo < markers.length) {
+    const candidate = toggle(markers[lo])
+    if (flippedItem(candidate)) return candidate
   }
 }
 

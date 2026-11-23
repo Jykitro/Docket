@@ -235,6 +235,7 @@ Operational details:
 |---|---|---|
 | Today | `/` | Day plan, overdue tasks, progress, activity and MCP status; the status circle cycles todo → doing → done |
 | Project board | `/p/:slug` | Columns per project status, drag and drop, filters, grouping, sorting, a list tab and saved views |
+| Project wiki | `/p/:slug/wiki` | Right-click a page or open its ⋯ menu to pin it or change its place among siblings. You can also drag pages and tick Markdown checklists while reading. |
 | Task panel | `?task=TRK-07`, `/t/TRK-07` | Properties, markdown description with clickable checkboxes, subtasks, notes and history |
 | Project settings | `/p/:slug/settings` | Icon, colour, key, statuses, labels, custom fields, views, export, archive and delete |
 | Integrations | `/integrations` | MCP or Code Mode: status and self-check, address and token, access mode, tool switches and the call log |
@@ -432,6 +433,7 @@ path can be given by code (`TRK-07`) or by id.
 | `GET /api/tasks/:id/pages` | Wiki pages that mention the task (`[{id, title, project}]`) |
 | `GET/POST /api/projects/:id/pages` | Wiki pages of a project (without bodies); create (`title`, `body_md?`, `parent_id?`) |
 | `GET/PUT/DELETE /api/pages/:id` | A page with backlinks and links; update (`expected_updated_at` returns `conflict` 409 if the page changed); `DELETE` re-parents children |
+| `PUT /api/pages/:id/layout` | Send one of `pinned` (boolean), `before_id` or `after_id` (sibling page ID). Changes navigation without changing the content revision. |
 | `GET /api/search?q=&scope=all\|tasks\|projects` | Tasks by title and description (with a snippet), and projects |
 | `GET /api/trash`, `GET /api/trash/projects`, `DELETE /api/trash` | Trash and emptying it (physical delete) |
 | `GET /api/mcp/status`, `POST /api/mcp/check`, `GET/PATCH /api/mcp/settings` | Status, self-check, mode and tool switches |

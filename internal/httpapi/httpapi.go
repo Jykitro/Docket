@@ -108,6 +108,7 @@ func Router(d Deps) http.Handler {
 		r.Post("/projects/{id}/pages", a.h(a.createPage))
 		r.Get("/pages/{id}", a.h(a.getPage))
 		r.Put("/pages/{id}", a.h(a.updatePage))
+		r.Put("/pages/{id}/layout", a.h(a.setPageLayout))
 		r.Delete("/pages/{id}", a.h(a.deletePage))
 		r.Get("/trash", a.h(a.trash))
 		r.Get("/trash/projects", a.h(a.trashProjects))
@@ -700,6 +701,18 @@ func (a *api) deletePage(r *http.Request) (any, error) {
 		return nil, err
 	}
 	return none{}, a.svc.DeletePage(r.Context(), service.ActorDenis, id)
+}
+
+func (a *api) setPageLayout(r *http.Request) (any, error) {
+	id, err := pathID(r)
+	if err != nil {
+		return nil, err
+	}
+	var in service.PageLayout
+	if err := decode(r, &in); err != nil {
+		return nil, err
+	}
+	return none{}, a.svc.SetPageLayout(r.Context(), service.ActorDenis, id, in)
 }
 
 func (a *api) taskPages(r *http.Request) (any, error) {

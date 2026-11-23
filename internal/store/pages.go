@@ -14,15 +14,16 @@ type Page struct {
 	Title     string  `json:"title"`
 	BodyMD    string  `json:"body_md"`
 	Position  float64 `json:"position"`
+	Pinned    bool    `json:"pinned"`
 	CreatedAt string  `json:"created_at"`
 	UpdatedAt string  `json:"updated_at"`
 }
 
-const pageCols = `id, project_id, parent_id, title, body_md, position, created_at, updated_at`
+const pageCols = `id, project_id, parent_id, title, body_md, position, pinned, created_at, updated_at`
 
 func scanPage(r interface{ Scan(...any) error }) (Page, error) {
 	var p Page
-	err := r.Scan(&p.ID, &p.ProjectID, &p.ParentID, &p.Title, &p.BodyMD, &p.Position, &p.CreatedAt, &p.UpdatedAt)
+	err := r.Scan(&p.ID, &p.ProjectID, &p.ParentID, &p.Title, &p.BodyMD, &p.Position, &p.Pinned, &p.CreatedAt, &p.UpdatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return p, ErrNotFound
 	}
@@ -61,12 +62,29 @@ func (t *Tx) PageByTitleKey(projectID int64, key string) (Page, error) {
 // NextPagePosition is max+1024 among the siblings, 1024 for the first.
 func (t *Tx) NextPagePosition(projectID int64, parentID *int64) (float64, error) {
 	var max float64
-	q := `SELECT coalesce(max(position), 0) FROM pages WHERE project_id = ? AND parent_id IS ?`
-	if t.tx.Postgres() {
-		q = `SELECT coalesce(max(position), 0) FROM pages WHERE project_id = ? AND parent_id IS NOT DISTINCT FROM ?::bigint`
-	}
-	err := t.tx.QueryRow(q, projectID, parentID).Scan(&max)
+	err := t.tx.QueryRow(`SELECT coalesce(max(position), 0) FROM pages WHERE `+t.pageSiblingsFilter(), projectID, parentID).Scan(&max)
 	return max + 1024, err
+}
+
+func (t *Tx) pageSiblingsFilter() string {
+	if t.tx.Postgres() {
+		return `project_id = ? AND parent_id IS NOT DISTINCT FROM ?::bigint`
+	}
+	return `project_id = ? AND parent_id IS ?`
+}
+
+func (t *Tx) PageSiblings(p Page) ([]Pos, error) {
+	return t.positions(`SELECT id, position FROM pages WHERE `+t.pageSiblingsFilter()+` ORDER BY position, id`, p.ProjectID, p.ParentID)
+}
+
+func (t *Tx) SetPagePosition(id int64, pos float64) error {
+	_, err := t.tx.Exec(`UPDATE pages SET position = ? WHERE id = ?`, pos, id)
+	return err
+}
+
+func (t *Tx) SetPagePinned(id int64, pinned bool) error {
+	_, err := t.tx.Exec(`UPDATE pages SET pinned = ? WHERE id = ?`, pinned, id)
+	return err
 }
 
 func (t *Tx) InsertPage(p Page, titleKey string) (Page, error) {

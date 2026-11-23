@@ -61,7 +61,7 @@ export type SearchResult = {
 }
 
 export type Page = {
-  id: number; project_id: number; parent_id: number | null; title: string; body_md: string; position: number
+  id: number; project_id: number; parent_id: number | null; title: string; body_md: string; position: number; pinned: boolean
   created_at: string; updated_at: string
 }
 export type PageRef = { id: number; title: string }
@@ -187,6 +187,8 @@ export const api = {
   page: (id: number) => req<PageDetail>('GET', `/api/pages/${id}`),
   createPage: (pid: number, b: { title: string; body_md?: string; parent_id?: number }) => req<Page>('POST', `/api/projects/${pid}/pages`, b),
   savePage: (id: number, b: { title?: string; body_md?: string; parent_id?: number; expected_updated_at?: string }) => req<Page>('PUT', `/api/pages/${id}`, b),
+  setPageLayout: (id: number, b: { pinned: boolean } | { before_id: number } | { after_id: number }) =>
+    req<void>('PUT', `/api/pages/${id}/layout`, b),
   deletePage: (id: number) => req<void>('DELETE', `/api/pages/${id}`),
   search: (q: string, scope = 'all') => req<SearchResult>('GET', `/api/search?q=${encodeURIComponent(q)}&scope=${scope}&limit=8`),
 }

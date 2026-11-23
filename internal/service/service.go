@@ -1216,9 +1216,13 @@ func place(tx *store.Tx, t store.Task, beforeID, afterID int64) (float64, error)
 	if err != nil {
 		return 0, err
 	}
+	return relativePosition(all, t.ID, beforeID, afterID, tx.SetPosition, "before_id/after_id must be a task in the target column")
+}
+
+func relativePosition(all []store.Pos, moving, beforeID, afterID int64, setPosition func(int64, float64) error, invalidTarget string) (float64, error) {
 	col := all[:0]
 	for _, p := range all {
-		if p.ID != t.ID {
+		if p.ID != moving {
 			col = append(col, p)
 		}
 	}
@@ -1231,7 +1235,7 @@ func place(tx *store.Tx, t store.Task, beforeID, afterID int64) (float64, error)
 		}
 	}
 	if idx < 0 {
-		return 0, invalid("before_id/after_id must be a task in the target column")
+		return 0, invalid("%s", invalidTarget)
 	}
 	for {
 		switch {
@@ -1246,7 +1250,7 @@ func place(tx *store.Tx, t store.Task, beforeID, afterID int64) (float64, error)
 		}
 		for i := range col {
 			col[i].Position = float64(i+1) * 1024
-			if err := tx.SetPosition(col[i].ID, col[i].Position); err != nil {
+			if err := setPosition(col[i].ID, col[i].Position); err != nil {
 				return 0, err
 			}
 		}

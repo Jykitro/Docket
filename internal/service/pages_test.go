@@ -1,9 +1,12 @@
 package service
 
 import (
+	"slices"
 	"strings"
 	"testing"
 	"time"
+
+	"docket/internal/store"
 )
 
 func wantCode(t *testing.T, err error, code string) {
@@ -80,10 +83,83 @@ func TestUpdatePageConflict(t *testing.T) {
 	p, _ := s.CreatePage(ctx, ActorDenis, "a", PageInput{Title: "A"})
 	_, err := s.UpdatePage(ctx, ActorDenis, p.ID, PagePatch{BodyMD: ptr("x"), ExpectedUpdatedAt: "2000-01-01T00:00:00.000Z"})
 	wantCode(t, err, "conflict")
-	time.Sleep(2 * time.Millisecond)
 	got, err := s.UpdatePage(ctx, ActorDenis, p.ID, PagePatch{BodyMD: ptr("x"), ExpectedUpdatedAt: p.UpdatedAt})
 	if err != nil || got.UpdatedAt == p.UpdatedAt || got.BodyMD != "x" {
 		t.Fatalf("update: %v %+v", err, got)
+	}
+	_, err = s.UpdatePage(ctx, ActorDenis, p.ID, PagePatch{BodyMD: ptr("stale"), ExpectedUpdatedAt: p.UpdatedAt})
+	wantCode(t, err, "conflict")
+}
+
+func TestPageLayout(t *testing.T) {
+	s := newSvc(t)
+	mustProject(t, s, "a")
+	mustProject(t, s, "b")
+	create := func(project, title string, parent *int64) store.Page {
+		t.Helper()
+		p, err := s.CreatePage(ctx, ActorDenis, project, PageInput{Title: title, ParentID: parent, BodyMD: "- [ ] review"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+	overview := create("a", "Overview", nil)
+	first := create("a", "Sync", &overview.ID)
+	middle := create("a", "Deploy", &overview.ID)
+	review := create("a", "Review", &overview.ID)
+	child := create("a", "Checklist", &review.ID)
+	other := create("b", "Other project", nil)
+	apply := func(id int64, layout PageLayout) {
+		t.Helper()
+		if err := s.SetPageLayout(ctx, ActorDenis, id, layout); err != nil {
+			t.Fatal(err)
+		}
+	}
+	checkOrder := func(want ...int64) {
+		t.Helper()
+		all, err := s.ListPages(ctx, "a")
+		if err != nil {
+			t.Fatal(err)
+		}
+		var got []int64
+		for _, p := range all {
+			if samePage(p.ParentID, &overview.ID) {
+				got = append(got, p.ID)
+			}
+		}
+		if !slices.Equal(got, want) {
+			t.Fatalf("children: got %v, want %v", got, want)
+		}
+	}
+	apply(review.ID, PageLayout{BeforeID: first.ID})
+	apply(review.ID, PageLayout{BeforeID: first.ID})
+	checkOrder(review.ID, first.ID, middle.ID)
+	apply(review.ID, PageLayout{Pinned: ptr(true)})
+	d, err := s.GetPage(ctx, review.ID)
+	if err != nil || !d.Pinned || d.UpdatedAt != review.UpdatedAt || d.BodyMD != review.BodyMD {
+		t.Fatalf("layout affected content: %+v %v", d, err)
+	}
+	if d, err := s.GetPage(ctx, child.ID); err != nil || !samePage(d.ParentID, &review.ID) {
+		t.Fatalf("lost subtree: %+v %v", d, err)
+	}
+	apply(review.ID, PageLayout{AfterID: first.ID})
+	for _, invalid := range []PageLayout{{}, {BeforeID: review.ID}, {AfterID: child.ID}, {BeforeID: other.ID}, {BeforeID: overview.ID},
+		{BeforeID: first.ID, AfterID: middle.ID}, {Pinned: ptr(false), AfterID: first.ID}} {
+		wantCode(t, s.SetPageLayout(ctx, ActorDenis, review.ID, invalid), "validation")
+	}
+	checkOrder(first.ID, review.ID, middle.ID)
+	draft, err := s.UpdatePage(ctx, ActorDenis, review.ID, PagePatch{BodyMD: ptr("- [x] review"), ExpectedUpdatedAt: review.UpdatedAt})
+	if err != nil || !draft.Pinned {
+		t.Fatalf("saving a draft after a pin: %+v %v", draft, err)
+	}
+	apply(review.ID, PageLayout{Pinned: ptr(false)})
+	if d, err := s.GetPage(ctx, review.ID); err != nil || d.Pinned || d.BodyMD != draft.BodyMD {
+		t.Fatalf("unpin: %+v %v", d, err)
+	}
+	root := create("a", "Second root", nil)
+	apply(root.ID, PageLayout{BeforeID: overview.ID})
+	if d, err := s.GetPage(ctx, root.ID); err != nil || d.Position >= overview.Position || d.ParentID != nil {
+		t.Fatalf("root order: %+v %v", d, err)
 	}
 }
 

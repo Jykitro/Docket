@@ -404,8 +404,12 @@ type Pos struct {
 
 // Column returns live tasks of one board column in order.
 func (t *Tx) Column(projectID, statusID int64) ([]Pos, error) {
-	rows, err := t.tx.Query(`SELECT id, position FROM tasks WHERE project_id = ? AND status_id = ? AND deleted_at IS NULL
+	return t.positions(`SELECT id, position FROM tasks WHERE project_id = ? AND status_id = ? AND deleted_at IS NULL
 		ORDER BY position, id`, projectID, statusID)
+}
+
+func (t *Tx) positions(query string, args ...any) ([]Pos, error) {
+	rows, err := t.tx.Query(query, args...)
 	if err != nil {
 		return nil, err
 	}

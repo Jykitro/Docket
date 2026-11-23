@@ -5,6 +5,7 @@ import (
 	"errors"
 	"regexp"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"docket/internal/store"
@@ -24,6 +25,58 @@ type PagePatch struct {
 	Title, BodyMD     *string
 	ParentID          *int64 // 0 = top level
 	ExpectedUpdatedAt string
+}
+
+type PageLayout struct {
+	Pinned   *bool `json:"pinned"`
+	BeforeID int64 `json:"before_id"`
+	AfterID  int64 `json:"after_id"`
+}
+
+// Page layout changes leave the content revision valid for open editors.
+func (s *Service) SetPageLayout(ctx context.Context, actor string, id int64, in PageLayout) error {
+	move := in.BeforeID != 0 || in.AfterID != 0
+	if (in.Pinned == nil && !move) || (in.Pinned != nil && move) || (in.BeforeID != 0 && in.AfterID != 0) {
+		return invalid("provide exactly one of pinned, before_id or after_id")
+	}
+	return s.write(ctx, actor, func(o *op) error {
+		page, err := getPage(o.tx, id)
+		if err != nil {
+			return err
+		}
+		if in.Pinned != nil {
+			if err := o.tx.SetPagePinned(id, *in.Pinned); err != nil {
+				return err
+			}
+		} else {
+			siblings, err := o.tx.PageSiblings(page)
+			if err != nil {
+				return err
+			}
+			pos, err := relativePosition(siblings, id, in.BeforeID, in.AfterID, o.tx.SetPagePosition, "target must be another page under the same parent")
+			if err != nil {
+				return err
+			}
+			if err := o.tx.SetPagePosition(id, pos); err != nil {
+				return err
+			}
+		}
+		o.emit("page_changed", 0, page.ProjectID)
+		return nil
+	})
+}
+
+// A content revision must advance even when two writes share a millisecond.
+func nextPageRevision(previous string) string {
+	now := nowTS()
+	if now > previous {
+		return now
+	}
+	t, err := time.Parse(time.RFC3339Nano, previous)
+	if err != nil {
+		return now
+	}
+	return t.Add(time.Millisecond).UTC().Format("2006-01-02T15:04:05.000Z")
 }
 
 // titleKey is the uniqueness key of a page title; SQLite lower() folds only ASCII, so it is computed here.
@@ -195,7 +248,7 @@ func (s *Service) UpdatePage(ctx context.Context, actor string, id int64, patch 
 				}
 			}
 		}
-		cur.UpdatedAt = nowTS()
+		cur.UpdatedAt = nextPageRevision(cur.UpdatedAt)
 		if err := o.tx.UpdatePage(cur, titleKey(cur.Title)); err != nil {
 			return err
 		}
@@ -298,7 +351,6 @@ func rewriteLinks(tx *store.Tx, self store.Page, oldKey, newTitle string) error 
 	if err != nil {
 		return err
 	}
-	now := nowTS()
 	for _, p := range pages {
 		if p.ID == self.ID {
 			continue
@@ -307,7 +359,7 @@ func rewriteLinks(tx *store.Tx, self store.Page, oldKey, newTitle string) error 
 		if body == p.BodyMD {
 			continue
 		}
-		p.BodyMD, p.UpdatedAt = body, now
+		p.BodyMD, p.UpdatedAt = body, nextPageRevision(p.UpdatedAt)
 		if err := tx.UpdatePage(p, titleKey(p.Title)); err != nil {
 			return err
 		}
