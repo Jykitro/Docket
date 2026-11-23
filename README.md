@@ -4,7 +4,7 @@
 [![Release](https://img.shields.io/github/v/release/Jykitro/Docket)](https://github.com/Jykitro/Docket/releases)
 [![License: MIT](https://img.shields.io/github/license/Jykitro/Docket)](LICENSE)
 
-A personal task planner that runs locally in Docker: one container, one Go process, one SQLite database.
+A personal task planner that runs locally in Docker: one Go process, SQLite by default, or PostgreSQL in self-hosted mode.
 Claude manages tasks over [MCP](https://modelcontextprotocol.io); you review and edit them in the web UI.
 Both channels go through the same service layer, so validation, change history and live updates behave identically.
 
@@ -35,7 +35,8 @@ No external services, and in the default local mode no users and no login. The U
 - **Today view.** Day plan, overdue tasks, progress, recent activity and MCP status in one place.
 - **Kanban board and list.** Per-project statuses, drag and drop, filters, grouping, sorting and saved views.
 - **Rich tasks.** Markdown description with clickable checkboxes, subtasks, notes and a full change history.
-- **Claude as a teammate.** 16 MCP tools, a read-only mode, per-tool switches and an audit log of every call.
+- **Claude as a teammate.** 16 MCP tools, or all of them as one Code Mode tool that runs JavaScript, a read-only mode,
+  per-tool switches and an audit log of every call.
 - **Live updates.** Changes made over MCP show up in the browser immediately (server-sent events).
 - **Safe by default.** Bound to `127.0.0.1`, `Host` and `Origin` checks, bearer token for `/mcp`.
 - **Easy to keep.** A single SQLite file, automatic daily backups, a trash bin and a full JSON export.
@@ -103,7 +104,8 @@ Settings are read from `.env` (see `.env.example`):
 |---|---|---|
 | `DOCKET_MODE` | `local` | `local`: one user, no login. `selfhost`: several users behind a login, see [Self-host](#self-host) |
 | `DOCKET_ADDR` | `:7777` | Server address inside the container |
-| `DOCKET_DB` | `/data/docket.db` | Database file |
+| `DOCKET_DB` | `/data/docket.db` | SQLite database file (ignored with PostgreSQL) |
+| `DOCKET_POSTGRES_DSN` | empty | Optional PostgreSQL connection string, requires `DOCKET_MODE=selfhost`; empty keeps SQLite |
 | `DOCKET_BACKUP_DIR` | `/data/backups` | Where backups are written |
 | `DOCKET_MCP_TOKEN` | empty | Optional. If set, it takes precedence over the token stored in the database and rotating it in the UI is disabled |
 | `DOCKET_ALLOWED_HOSTS` | `localhost,127.0.0.1,docket.localhost` | Allowed `Host` and `Origin` values |
@@ -113,8 +115,8 @@ Settings are read from `.env` (see `.env.example`):
 ## Self-host
 
 `DOCKET_MODE=selfhost` turns Docket into a server for several people: everyone logs in with a username and password,
-and every profile has its own database, its own MCP token and its own backups. `local` mode (the default) works as
-before.
+and every profile has its own isolated storage and MCP token. SQLite is the default; PostgreSQL is optional (see below).
+`local` mode (the default) works as before.
 
 1. In `.env`, set `DOCKET_MODE=selfhost` and put your real domain in `DOCKET_ALLOWED_HOSTS` (for example
    `docket.example.com`).
@@ -126,9 +128,9 @@ before.
    every restart prints a new code and the previous one stops working.
 4. The administrator invites everyone else from Settings: an invite link creates a profile.
 
-Data: `auth.db` (users and sessions) and `users/<id>.db` (one database per profile) sit next to `DOCKET_DB`; profile
+With SQLite, `auth.db` (users and sessions) and `users/<id>.db` (one database per profile) sit next to `DOCKET_DB`; SQLite profile
 backups are written to `DOCKET_BACKUP_DIR/<id>`, and a profile created later gets its first backup within an hour.
-Every profile has its own MCP token, shown on the **MCP** tab. Claude connects to the same `/mcp` address and the
+Every profile has its own MCP token, shown on the **Integrations** tab. Claude connects to the same `/mcp` address and the
 profile is picked by the token. `DOCKET_SEED` and `DOCKET_MCP_TOKEN` are ignored in this mode (a warning is logged if
 `DOCKET_MCP_TOKEN` is set).
 
@@ -144,7 +146,79 @@ Limits:
 - Behind a reverse proxy, login rate limiting is counted per proxy address, so one client's failed attempts can lock
   a username for everyone for 10 minutes.
 - There is no password reset by email: the administrator deletes the profile and issues a new invite. Deleting a
-  profile removes `users/<id>.db`, but its backups in `DOCKET_BACKUP_DIR/<id>` stay and must be removed by hand.
+  profile removes its database file or PostgreSQL schema. With SQLite, its backups in `DOCKET_BACKUP_DIR/<id>` stay and must be removed by hand.
+
+### Project icons and installed app
+
+Upload a PNG, JPEG, WebP or SVG (up to 2 MiB) when creating a project or in its general settings. A transparent 128 × 128 PNG travels with the project in backups and JSON exports. Select any built-in glyph to remove the upload.
+
+The project create and patch endpoints accept an optional `icon_png` containing a base64-encoded 128 × 128 PNG (up to 128 KiB decoded). Project responses include an `icon_url` for custom icons. Read the PNG with `GET /api/projects/{id}/icon` in the same profile. Patching only `icon` switches to the built-in glyph.
+
+Open Docket over HTTPS or on localhost, then choose **Install Docket** in settings when the browser offers installation. On iPhone or iPad choose **Share → Add to Home Screen**; in Safari on macOS use **File → Add to Dock**. Start the installed app to open Today in its own window. Tasks require a connection. If the connection drops, Docket offers a retry and reopens the same URL when the server returns. The service worker stores only the generic offline page.
+
+### PostgreSQL storage
+
+Set both variables to use an existing, **dedicated** PostgreSQL database:
+
+```dotenv
+DOCKET_MODE=selfhost
+DOCKET_POSTGRES_DSN=postgres://docket:password@db.example.com:5432/docket?sslmode=verify-full
+```
+
+The database must exist and the Docket role must own it (or have `CONNECT` and `CREATE` on it). Superuser and
+`CREATEDB` permissions are not needed by the application. Use a private network or verified TLS for remote connections,
+and URL-encode special characters in credentials. The connection string is not exposed by the API or logged.
+
+Docket creates `docket_auth` for accounts, sessions and invitations, and `docket_user_<id>` for each profile's projects,
+tasks, wiki, history, settings and MCP call log. Migrations run automatically at startup/profile creation in a transaction.
+Every connection uses only its assigned schema; the public schema is not a fallback. Profile deletion drops only that
+profile's schema. These are application isolation boundaries, not separate database roles: the server's database
+credential can access every profile and must stay private.
+
+For a new installation with Docker Compose:
+
+```bash
+cp .env.example .env
+# Generate a password with: openssl rand -hex 32
+# Add POSTGRES_PASSWORD=<generated hex password> to .env (do not commit it).
+docker compose -f compose.postgres.yml up -d --build
+docker compose -f compose.postgres.yml logs docket
+```
+
+[`compose.postgres.yml`](compose.postgres.yml) builds the current source and starts PostgreSQL 18.7 with a persistent
+volume; PostgreSQL has no published host port. Docket binds to `127.0.0.1:7777`; use the same HTTPS reverse-proxy and
+allowed-host setup described above for remote access. `sslmode=disable` in this example applies only to the private
+Compose network. The password in this example must be hex/alphanumeric so it is valid in the connection URL.
+
+Operational details:
+
+- `DOCKET_DB` and `DOCKET_BACKUP_DIR` are ignored by PostgreSQL storage; no local SQLite files are created.
+- On a **fresh volume**, set `DOCKET_POSTGRES_IMAGE=postgres:19.0-alpine` to use the major version exercised in CI.
+  Existing Compose volumes default to 18.7. To upgrade from 18 to 19, stop the Docket writer, take a final
+  `pg_dump -Fc`, start version 19 with a separate empty volume, then restore with `pg_restore --exit-on-error`
+  into the dedicated database using the same owner. Verify login, projects and tasks before switching traffic.
+  Keep the old volume and image for rollback before allowing new writes. An image-tag change alone does not migrate data.
+- **Back up PostgreSQL separately** with `pg_dump` or your provider's backups/PITR. Docket does not run `VACUUM INTO`
+  or claim to have created a PostgreSQL backup. MCP call-log retention still runs. For the Compose example, create
+  a full logical backup (including accounts and every profile) with:
+
+  ```bash
+  docker compose -f compose.postgres.yml exec -T postgres pg_dump -U docket -d docket -Fc > docket.dump
+  ```
+
+  Store dumps securely outside the database volume and test restoration into a separate empty database. Do not run
+  `docker compose down -v` on an installation you intend to keep: it deletes the PostgreSQL volume.
+- Existing SQLite accounts and tasks are **not imported**. Selecting PostgreSQL starts a separate installation.
+  To return to the previous SQLite installation, remove `DOCKET_POSTGRES_DSN` and restart with the original data volume.
+  Changes made in PostgreSQL do not appear in SQLite. There is no automatic conversion in either direction.
+- Never reset `docket_auth` while retaining profile schemas: reused user IDs could attach new accounts to old data.
+  Back up and restore the whole database together.
+- Run **one Docket instance per database**: live events, login rate limiting and MCP routing are still kept in process.
+  PostgreSQL does not enable horizontal scaling. Each loaded profile and the auth store use at most one connection;
+  allow for that in PostgreSQL's connection budget (idle connections close after five minutes).
+- The database self-check checks connectivity and reports the profile's table/index size; it does not perform a full
+  PostgreSQL integrity check or verify external backups. Full-text search uses PostgreSQL's `simple` dictionary with
+  prefix matching for Russian, Ukrainian and English; ranking/snippets can differ from SQLite FTS5.
 
 ## Using the UI
 
@@ -154,7 +228,7 @@ Limits:
 | Project board | `/p/:slug` | Columns per project status, drag and drop, filters, grouping, sorting, a list tab and saved views |
 | Task panel | `?task=TRK-07`, `/t/TRK-07` | Properties, markdown description with clickable checkboxes, subtasks, notes and history |
 | Project settings | `/p/:slug/settings` | Icon, colour, key, statuses, labels, custom fields, views, export, archive and delete |
-| MCP | `/mcp` | Status and self-check, address and token, access mode, tool switches and the call log |
+| Integrations | `/integrations` | MCP or Code Mode: status and self-check, address and token, access mode, tool switches and the call log |
 | Trash | `/trash` | Restore tasks and projects, or empty the trash |
 
 **Keyboard:** `C` creates a task, `⌘K` / `Ctrl+K` opens search, `Esc` closes the panel, search and dialogs.
@@ -168,10 +242,10 @@ its settings and every ID is renumbered, but old links that use the previous key
 ## Connecting Claude (MCP)
 
 On the first start Docket creates a `dkt_…` token, prints it to the log once and stores it in the database. After that it
-is shown (masked, with a "Show" button) on the **MCP** tab, where you can also rotate it and copy a ready-made config.
+is shown (masked, with a "Show" button) on the **Integrations** tab, where you can also rotate it and copy a ready-made config.
 
 <p align="center">
-  <img src="docs/images/mcp-dark.png" alt="The MCP tab: self-check, server address, token and access mode" width="820">
+  <img src="docs/images/mcp-dark.png" alt="The Integrations tab: self-check, server address, token and access mode" width="820">
 </p>
 
 **Claude Code:**
@@ -202,6 +276,16 @@ export DOCKET_MCP_TOKEN=<TOKEN>
 codex mcp add docket --url http://localhost:7777/mcp --bearer-token-env-var DOCKET_MCP_TOKEN
 ```
 
+### Code Mode
+
+The same server is also available at `/mcp/code` (same token, same commands with that address). There the assistant
+sees one tool, `code`, after [Cloudflare's Code Mode](https://developers.cloudflare.com/agents/tools/codemode/): it
+writes JavaScript that calls the 16 tools as `await codemode.get_today({})`, loops and filters inside Docket, and gets
+back only the result. That saves round trips and context on big jobs (triage, bulk moves, reports). The code runs in
+an embedded sandbox with no network or files, for at most 30 seconds and 100 tool calls; access mode, tool switches
+and the call log apply to every call it makes. Pick MCP or Code Mode on the **Integrations** tab: the address, the
+configs and the install command follow. How it works inside: [`docs/integrations.md`](docs/integrations.md).
+
 ### Agent skill: Docket as a personal planner
 
 Three skills in [`skills/`](skills), one `SKILL.md` each:
@@ -213,7 +297,7 @@ Three skills in [`skills/`](skills), one `SKILL.md` each:
 | [`docket-setup`](skills/docket-setup/SKILL.md) | Connecting Claude Code, Claude Desktop and Codex, installing the skills, the hooks, troubleshooting |
 
 - Docket sends the body of `docket` to every client as the MCP server instructions, so a connected agent has the workflow already. A test keeps it under the 2048 bytes Claude Code accepts, which is why the detail lives in the other two skills.
-- To have the skills trigger from the first message, install them. The **MCP** tab has an **Install in one command** button: it
+- To have the skills trigger from the first message, install them. The **Integrations** tab has an **Install in one command** button: it
   copies one line to paste into a terminal (macOS, Linux). The script writes all three skills for Claude Code (`~/.claude/skills`)
   and Codex (`~/.agents/skills`) and registers the MCP server in whichever of the two it finds. It is served at
   `/api/mcp/install.sh` and reads the address and token from `DOCKET_URL` and `DOCKET_TOKEN`, which the button fills in:
@@ -233,7 +317,7 @@ Three skills in [`skills/`](skills), one `SKILL.md` each:
   ```
 
   In selfhost mode the API needs a login: use the Download buttons instead.
-- Optional strict mode, the same JSON for Claude Code and Codex (the snippet is on the **MCP** tab): a `SessionStart`
+- Optional strict mode, the same JSON for Claude Code and Codex (the snippet is on the **Integrations** tab): a `SessionStart`
   hook reminds the agent to find or create the task, and a `Stop` hook makes it run the reconcile step before it
   finishes. It blocks only the first stop of a turn, so it cannot loop. Claude Code: the project's
   `.claude/settings.json`. Codex: `~/.codex/hooks.json` (hooks are on by default). Codex's file is global, so in a repo
@@ -274,11 +358,26 @@ Go tests open a port on localhost. Run `make help` for every target:
 | `make web` | Frontend build: `tsc --noEmit` and `vite build` into `internal/web/dist` |
 | `make build` | Builds `bin/docket` with the UI embedded |
 | `make test` | Backend tests (`go test ./...`) |
+| `make test-postgres` | Same domain, auth, REST and MCP tests against PostgreSQL; requires `DOCKET_TEST_POSTGRES_DSN` |
 | `make typecheck`, `make knip` | Frontend checks |
 | `make dev-api` | Backend on `:7777` with a separate `./data/dev.db` |
 | `make dev-web` | Vite with hot reload (proxies `/api` to `:7777`) |
 | `make image`, `make rebuild`, `make stop`, `make logs` | Docker image and container |
 | `make clean` | Removes `bin/` and the built frontend |
+
+To run the PostgreSQL integration tests locally, point `DOCKET_TEST_POSTGRES_DSN` at a disposable PostgreSQL server,
+using a `postgres://` URL and a test role with `CREATEDB`. Each test creates and drops a randomly named database;
+the database in the URL is used only as the administrative connection. Do not use a production server. For example:
+
+```bash
+docker run -d --name docket-pg-tests -e POSTGRES_USER=docket -e POSTGRES_PASSWORD=docket_test_only \
+  -e POSTGRES_DB=docket_test -p 127.0.0.1:55483:5432 postgres:19.0-alpine
+# Wait until: docker exec docket-pg-tests pg_isready -U docket -d docket_test
+DOCKET_TEST_POSTGRES_DSN='postgres://docket:docket_test_only@localhost:55483/docket_test?sslmode=disable' make test-postgres
+docker rm -f docket-pg-tests
+```
+
+CI runs both the default SQLite checks and the PostgreSQL suite.
 
 For frontend work with hot reload, run `make dev-api` in one terminal and `make dev-web` in another.
 
@@ -289,16 +388,18 @@ Working on Docket with an assistant: [`AGENTS.md`](AGENTS.md) (read by Codex and
 
 ```
 cmd/docket          config, wiring, graceful shutdown, housekeeping (daily backup and call-log cleanup)
-internal/store      SQLite, migrations (migrations/*.sql), all SQL
+internal/database   SQLite/PostgreSQL connections, SQL dialect boundary and schema locks
+internal/store      task queries, SQLite/PostgreSQL migrations and SQLite backups
 internal/service    domain rules, validation, activity, events, MCP settings
 internal/httpapi    REST, SSE /api/events, host/origin guard, bearer auth for /mcp, MCP self-check
-internal/mcpserver  MCP tools → service, access policy and call log
+internal/mcpserver  MCP tools → service, access policy and call log; Code Mode (/mcp/code, codemode.go)
 internal/events     pub/sub for SSE
 internal/web        embedded SPA (dist)
 web/                React + TypeScript + Vite + Tailwind CSS v4 (shadcn-admin look; tokens in web/src/styles.css)
 ```
 
-Layering rule: `httpapi` and `mcpserver` call only `service`, and SQL lives only in `store`.
+Layering rule: `httpapi` and `mcpserver` call only `service`; task SQL lives in `store`, auth SQL in `auth`, and connection/dialect code in `database`.
+How the integrations (MCP, Code Mode) work and how to add one: [`docs/integrations.md`](docs/integrations.md).
 
 ## REST API
 
@@ -332,10 +433,10 @@ path can be given by code (`TRK-07`) or by id.
 
 ## Troubleshooting
 
-- **`/mcp` returns 401.** You need the header `Authorization: Bearer <TOKEN>`; find the token on the MCP tab. The **MCP**
+- **`/mcp` returns 401.** You need the header `Authorization: Bearer <TOKEN>`; find the token on the Integrations tab. The **MCP**
   page itself opens in a browser without a token: requests with `Accept: text/html` get the UI.
 - **403 `forbidden_host`.** Add the host name to `DOCKET_ALLOWED_HOSTS` and restart the container.
-- **The self-check is red.** Each row on the MCP tab explains what to do. Logs: `make logs` (or `docker logs docket`).
+- **The self-check is red.** Each row on the Integrations tab explains what to do. Logs: `make logs` (or `docker logs docket`).
 - **Start from scratch.** Stop the container and delete `./data/docket.db*`; backups are in `./data/backups`.
 
 ## Contributing and license

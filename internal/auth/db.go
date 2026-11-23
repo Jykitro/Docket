@@ -4,15 +4,13 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
 	"time"
 	"unicode/utf8"
 
-	_ "modernc.org/sqlite"
+	"docket/internal/database"
 )
 
 var (
@@ -71,23 +69,46 @@ CREATE TABLE IF NOT EXISTS invites (
 	used_at INTEGER
 );`
 
-// DB holds users, sessions and invites in a dedicated SQLite file.
+// DB holds users, sessions and invites in a dedicated SQLite file or PostgreSQL schema.
 type DB struct {
-	db  *sql.DB
+	db  *database.DB
 	now func() time.Time
 }
 
 func Open(path string) (*DB, error) {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return nil, err
-	}
-	dsn := "file:" + path + "?_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)"
-	db, err := sql.Open("sqlite", dsn)
+	db, err := database.OpenSQLite(path)
 	if err != nil {
 		return nil, err
 	}
-	db.SetMaxOpenConns(1)
-	if _, err := db.Exec(schema); err != nil {
+	return initialize(db)
+}
+
+func OpenPostgres(dsn string) (*DB, error) {
+	db, err := database.OpenPostgres(dsn, "docket_auth")
+	if err != nil {
+		return nil, err
+	}
+	return initialize(db)
+}
+
+func initialize(db *database.DB) (*DB, error) {
+	body := schema
+	if db.Postgres {
+		body = strings.ReplaceAll(body, "INTEGER PRIMARY KEY AUTOINCREMENT", "BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY")
+		body = strings.ReplaceAll(body, "INTEGER", "BIGINT")
+	}
+	tx, err := db.Begin()
+	if err == nil {
+		defer tx.Rollback()
+		err = db.CreateSchema(tx)
+		if err == nil {
+			_, err = tx.Exec(body)
+		}
+		if err == nil {
+			err = tx.Commit()
+		}
+	}
+	if err != nil {
 		db.Close()
 		return nil, fmt.Errorf("auth schema: %w", err)
 	}
@@ -109,7 +130,7 @@ func validatePassword(password string) error {
 }
 
 // createUser validates and inserts inside the caller's transaction.
-func (d *DB) createUser(tx *sql.Tx, username, password string, admin bool) (User, error) {
+func (d *DB) createUser(tx *database.Tx, username, password string, admin bool) (User, error) {
 	username = strings.ToLower(strings.TrimSpace(username))
 	if !usernameRe.MatchString(username) {
 		return User{}, ValidationError("username must be 2-32 characters: a-z, 0-9, _ . -, starting with a letter or digit")
@@ -122,15 +143,12 @@ func (d *DB) createUser(tx *sql.Tx, username, password string, admin bool) (User
 		return User{}, err
 	}
 	created := d.now().Unix()
-	res, err := tx.Exec(`INSERT INTO users (username, password_hash, is_admin, created_at) VALUES (?, ?, ?, ?)`, username, hash, admin, created)
+	var id int64
+	err = tx.QueryRow(`INSERT INTO users (username, password_hash, is_admin, created_at) VALUES (?, ?, ?, ?) RETURNING id`, username, hash, admin, created).Scan(&id)
 	if err != nil {
-		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
+		if database.IsUniqueViolation(err) {
 			return User{}, ErrTaken
 		}
-		return User{}, err
-	}
-	id, err := res.LastInsertId()
-	if err != nil {
 		return User{}, err
 	}
 	return User{ID: id, Username: username, IsAdmin: admin, CreatedAt: time.Unix(created, 0).UTC().Format(time.RFC3339)}, nil

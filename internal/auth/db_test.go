@@ -1,7 +1,9 @@
 package auth
 
 import (
+	"docket/internal/testutil"
 	"errors"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -10,7 +12,13 @@ import (
 
 func openTest(t *testing.T) *DB {
 	t.Helper()
-	d, err := Open(filepath.Join(t.TempDir(), "auth.db"))
+	var d *DB
+	var err error
+	if os.Getenv("DOCKET_TEST_POSTGRES_DSN") != "" {
+		d, err = OpenPostgres(testutil.PostgresDSN(t))
+	} else {
+		d, err = Open(filepath.Join(t.TempDir(), "auth.db"))
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -158,7 +166,11 @@ func TestNewSessionPurgesExpired(t *testing.T) {
 
 func TestInvitesSchema(t *testing.T) {
 	d := openTest(t)
-	rows, err := d.db.Query(`SELECT name FROM pragma_table_info('invites')`)
+	q := `SELECT name FROM pragma_table_info('invites')`
+	if d.db.Postgres {
+		q = `SELECT column_name FROM information_schema.columns WHERE table_schema=current_schema() AND table_name='invites'`
+	}
+	rows, err := d.db.Query(q)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -17,16 +17,21 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { App } from './App'
+import { ConnectionGate } from './Pwa'
 import { Gate } from './Auth'
 
 const client = new QueryClient({ defaultOptions: { queries: { retry: 1, staleTime: 5_000 } } })
 
+if (import.meta.env.PROD && window.isSecureContext && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    void navigator.serviceWorker.register('/sw.js').catch(err => console.warn('Docket service worker', err))
+  })
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={client}>
-      <Gate>
-        <App />
-      </Gate>
+      <ConnectionGate><Gate><App /></Gate></ConnectionGate>
     </QueryClientProvider>
   </StrictMode>,
 )

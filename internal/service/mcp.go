@@ -365,10 +365,12 @@ func (s *Service) Maintenance(ctx context.Context, backupDir string) (string, er
 	if err != nil {
 		return "", err
 	}
-	if err := s.st.WithTx(ctx, func(tx *store.Tx) error {
-		return tx.SetSetting(settingBackup, now.UTC().Format("2006-01-02T15:04:05.000Z"))
-	}); err != nil {
-		return path, err
+	if path != "" {
+		if err := s.st.WithTx(ctx, func(tx *store.Tx) error {
+			return tx.SetSetting(settingBackup, now.UTC().Format("2006-01-02T15:04:05.000Z"))
+		}); err != nil {
+			return path, err
+		}
 	}
 	_, err = s.PurgeOldMCPCalls(ctx)
 	return path, err

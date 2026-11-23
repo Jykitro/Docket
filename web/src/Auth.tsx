@@ -4,6 +4,7 @@ import { type ReactNode, useEffect, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ApiError, type Me, api, errText, useMe } from './api'
 import { Icon } from './icons'
+import { DocketLogo } from './DocketLogo'
 import { tr, useLang } from './i18n'
 import { navigate, useRoute } from './router'
 import { LangSwitch, btnPri, cap } from './ui'
@@ -27,7 +28,7 @@ function AuthForm({ title, text, fields, submit, onSubmit }: {
     <main className="min-h-screen grid place-items-center px-4 py-8">
       <div className="w-full max-w-[460px] bg-sf border border-ln rounded-lg shadow-pop p-6 flex flex-col gap-4">
         <div className="flex items-center gap-2.5">
-          <span className="size-8 rounded-md bg-ink text-inkt grid place-items-center"><Icon name="logo" size={19} sw={2} /></span>
+          <DocketLogo />
           <b className="text-[17px] font-bold tracking-[-.01em] grow">Docket</b>
           <LangSwitch />
         </div>

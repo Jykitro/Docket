@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
+  <title>Docket</title>
+  <rect width="64" height="64" rx="14" fill="#F1F1EF"/>
+  <path d="M16 11H30C44.5 11 52 19 52 32C52 45 44.5 53 30 53H16C13.8 53 12 51.2 12 49V15C12 12.8 13.8 11 16 11Z" fill="#171717"/>
+  <path d="M22 32L29 39L42 25" stroke="#F1F1EF" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

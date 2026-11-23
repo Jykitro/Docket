@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"docket/internal/auth"
+	"docket/internal/database"
 	"docket/internal/events"
 	"docket/internal/service"
 	"docket/internal/store"
@@ -32,12 +33,13 @@ type Workspace struct {
 	cancel context.CancelFunc
 }
 
-// Workspaces lazily opens one SQLite file per user at <dir>/users/<id>.db.
+// Workspaces opens one SQLite file or PostgreSQL schema per user.
 type Workspaces struct {
-	parent context.Context
-	dir    string
-	loc    *time.Location
-	build  func(context.Context, *service.Service, *events.Bus) http.Handler
+	parent      context.Context
+	dir         string
+	postgresDSN string
+	loc         *time.Location
+	build       func(context.Context, *service.Service, *events.Bus) http.Handler
 
 	mu      sync.Mutex
 	m       map[int64]*Workspace
@@ -49,6 +51,9 @@ func NewWorkspaces(parent context.Context, dir string, loc *time.Location,
 	build func(context.Context, *service.Service, *events.Bus) http.Handler) *Workspaces {
 	return &Workspaces{parent: parent, dir: dir, loc: loc, build: build, m: map[int64]*Workspace{}, removed: map[int64]bool{}}
 }
+
+// UsePostgres selects PostgreSQL for every workspace. Configure it before opening any profile.
+func (w *Workspaces) UsePostgres(dsn string) { w.postgresDSN = dsn }
 
 func (w *Workspaces) path(id int64) string {
 	return filepath.Join(w.dir, "users", fmt.Sprintf("%d.db", id))
@@ -65,7 +70,13 @@ func (w *Workspaces) Open(ctx context.Context, u auth.User) (*Workspace, error) 
 	if w.removed[u.ID] {
 		return nil, ErrRemoved
 	}
-	st, err := store.Open(w.path(u.ID))
+	var st *store.Store
+	var err error
+	if w.postgresDSN != "" {
+		st, err = store.OpenPostgres(w.postgresDSN, u.ID)
+	} else {
+		st, err = store.Open(w.path(u.ID))
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +124,7 @@ func (w *Workspaces) All() []*Workspace {
 	return all
 }
 
-// Remove closes the user's store, deletes the database files and refuses to open the id again.
+// Remove closes the user's store, deletes its files or schema and refuses to open the id again.
 func (w *Workspaces) Remove(id int64) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
@@ -121,8 +132,23 @@ func (w *Workspaces) Remove(id int64) error {
 	var errs []error
 	if ws, ok := w.m[id]; ok {
 		ws.cancel()
+		if w.postgresDSN != "" {
+			err := ws.st.DeletePostgres()
+			closeErr := ws.st.Close()
+			delete(w.m, id)
+			return errors.Join(err, closeErr)
+		}
 		errs = append(errs, ws.st.Close())
 		delete(w.m, id)
+	}
+	if w.postgresDSN != "" {
+		// An unopened profile can still have a schema left from an earlier run.
+		db, err := database.OpenPostgres(w.postgresDSN, database.UserSchema(id))
+		if err != nil {
+			return err
+		}
+		defer db.Close()
+		return db.DropSchema()
 	}
 	p := w.path(id)
 	for _, f := range []string{p, p + "-wal", p + "-shm"} {

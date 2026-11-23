@@ -51,7 +51,7 @@ export function Trash() {
             {gone.map((p, i) => (
               <div className={ROW + (i === 0 ? ' border-t-0' : ' border-t')} key={'p' + p.id}>
                 <span className={ROWMAIN}>
-                  <ProjectTile icon={p.icon} color={p.color} size={22} radius={7} />
+                  <ProjectTile project={p} size={22} radius={7} />
                   <span className={CODE}>{p.key}</span>
                   <span className="flex-[1_1_200px] min-w-0 font-medium">{p.name} <span className={MC}>· {tr('проект целиком')}</span></span>
                   {p.deleted_at && <span className={MC}>{tr('удалён {when}', { when: fmtStamp(p.deleted_at) })}</span>}
@@ -66,7 +66,7 @@ export function Trash() {
                   <Link to={hrefWith('task', t.code)} className={ROWMAIN}>
                     <span className={CODE}>{t.code}</span>
                     <span className="flex-[1_1_200px] min-w-0 font-medium text-t2">{t.title}</span>
-                    {p && <span className={MC}><ProjectTile icon={p.icon} color={p.color} size={16} radius={5} />{p.name}</span>}
+                    {p && <span className={MC}><ProjectTile project={p} size={16} radius={5} />{p.name}</span>}
                     {t.deleted_at && <span className={MC}>{tr('удалено {when}', { when: fmtStamp(t.deleted_at) })}</span>}
                   </Link>
                   <button type="button" className={BTN + ' border-ln text-tx'} disabled={restore.isPending} onClick={() => restore.mutate(t.code)}>{tr('Восстановить')}</button>

@@ -1,9 +1,12 @@
 package selfhost
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"image"
+	"image/png"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -19,6 +22,7 @@ import (
 	"docket/internal/httpapi"
 	"docket/internal/mcpserver"
 	"docket/internal/service"
+	"docket/internal/testutil"
 )
 
 const (
@@ -46,12 +50,21 @@ func newServer(t *testing.T) *server {
 func newServerWith(t *testing.T, build func(context.Context, *service.Service, *events.Bus) http.Handler) *server {
 	t.Helper()
 	dir := t.TempDir()
-	db, err := auth.Open(filepath.Join(dir, "auth.db"))
+	var db *auth.DB
+	var err error
+	var dsn string
+	if os.Getenv("DOCKET_TEST_POSTGRES_DSN") != "" {
+		dsn = testutil.PostgresDSN(t)
+		db, err = auth.OpenPostgres(dsn)
+	} else {
+		db, err = auth.Open(filepath.Join(dir, "auth.db"))
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { db.Close() })
 	ws := NewWorkspaces(context.Background(), dir, time.UTC, build)
+	ws.UsePostgres(dsn)
 	t.Cleanup(ws.Close)
 	h := Handler(Options{Auth: db, WS: ws, Web: http.NotFoundHandler(), AllowedHosts: hosts, SetupCode: testSetupCode})
 	return &server{t: t, h: h, db: db, ws: ws}
@@ -360,6 +373,39 @@ func TestLoginRateLimitParallel(t *testing.T) {
 	}
 }
 
+func TestProjectIconIsolation(t *testing.T) {
+	s := newServer(t)
+	alice, _ := s.addUser("alice")
+	bob, _ := s.addUser("bob")
+	var b bytes.Buffer
+	if err := png.Encode(&b, image.NewNRGBA(image.Rect(0, 0, 128, 128))); err != nil {
+		t.Fatal(err)
+	}
+	payload, err := json.Marshal(map[string]any{"name": "logo", "icon_png": b.Bytes()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	aliceProject := s.do("POST", "/api/projects", string(payload), alice, nil)
+	bobProject := s.do("POST", "/api/projects", `{"name":"second"}`, bob, nil)
+	var p struct {
+		ID  int64
+		URL string `json:"icon_url"`
+	}
+	if aliceProject.Code != 201 || bobProject.Code != 201 || json.Unmarshal(aliceProject.Body.Bytes(), &p) != nil || p.URL == "" {
+		t.Fatalf("project responses %d / %d", aliceProject.Code, bobProject.Code)
+	}
+	got := s.do("GET", p.URL, "", alice, nil)
+	if got.Code != 200 || got.Header().Get("Content-Type") != "image/png" || got.Header().Get("Cache-Control") != "private, no-store" || !bytes.Equal(got.Body.Bytes(), b.Bytes()) {
+		t.Fatalf("image response %d", got.Code)
+	}
+	if got := s.do("GET", p.URL, "", bob, nil); got.Code != 404 {
+		t.Fatalf("other workspace: %d", got.Code)
+	}
+	if got := s.do("GET", p.URL, "", nil, nil); got.Code != 401 {
+		t.Fatalf("anonymous: %d", got.Code)
+	}
+}
+
 func TestIsolation(t *testing.T) {
 	s := newServer(t)
 	ca, wsA := s.addUser("alice")
@@ -595,8 +641,10 @@ func TestAdminDeleteUser(t *testing.T) {
 		t.Fatalf("bob before: %d", rec.Code)
 	}
 	file := s.ws.path(wsB.ID)
-	if _, err := os.Stat(file); err != nil {
-		t.Fatal(err)
+	if s.ws.postgresDSN == "" {
+		if _, err := os.Stat(file); err != nil {
+			t.Fatal(err)
+		}
 	}
 	for path, want := range map[string]int{"/api/admin/users/1": 400, "/api/admin/users/abc": 400, "/api/admin/users/99": 404} {
 		if rec := s.do("DELETE", path, "", ca, nil); rec.Code != want {

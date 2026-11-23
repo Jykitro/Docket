@@ -1,3 +1,5 @@
+import type { Project } from './api'
+
 // Icon set plus the few UI glyphs the screens use. viewBox 24, stroke 1.75, round caps.
 const P = {
   // project icons (the database stores these names)
@@ -37,7 +39,6 @@ const P = {
   sun: 'M12 8a4 4 0 1 0 0 8a4 4 0 0 0 0-8zM12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4',
   moon: 'M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z',
   monitor: 'M4 5h16v11H4zM9 20h6M12 16v4',
-  logo: 'M6 4h5a8 8 0 0 1 0 16H6zM9.5 12.2l2 2 3.2-4',
   chevD: 'M6 9l6 6 6-6',
   chevUD: 'M8 9l4-4 4 4M16 15l-4 4-4-4',
   panelL: 'M4 5h16v14H4zM9 5v14',
@@ -59,10 +60,11 @@ export function Icon({ name, size = 16, sw = 1.75 }: { name: string; size?: numb
 }
 
 /** Coloured tile with a project's icon (sidebar 20px, headers 40px). */
-export function ProjectTile({ icon, color, size = 20, radius = 6 }: { icon: string; color: string; size?: number; radius?: number }) {
+export function ProjectTile({ project, size = 20, radius = 6 }: { project: Pick<Project, 'icon' | 'color' | 'icon_url'>; size?: number; radius?: number }) {
   return (
-    <span className="grid place-items-center text-white" style={{ width: size, height: size, flex: `0 0 ${size}px`, borderRadius: radius, background: color }}>
-      <Icon name={icon} size={Math.round(size * 0.6)} sw={size > 28 ? 1.9 : 2} />
+    <span className="grid place-items-center text-white" style={{ width: size, height: size, flex: `0 0 ${size}px`, borderRadius: radius, background: project.color }}>
+      {project.icon_url ? <img src={project.icon_url} alt="" width={size} height={size} className="size-full rounded-[inherit] object-contain" />
+        : <Icon name={project.icon} size={Math.round(size * 0.6)} sw={size > 28 ? 1.9 : 2} />}
     </span>
   )
 }

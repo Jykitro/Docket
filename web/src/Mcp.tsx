@@ -1,4 +1,5 @@
-// MCP tab: connection status and self-check, connection settings and token, tool switches, live call log.
+// Integrations tab: the ways an assistant reaches Docket (MCP, Code Mode) and what they share: status and
+// self-check, token and access mode, tool switches, live call log. See docs/integrations.md.
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { type McpTool, api, fmtTime } from './api'
@@ -26,6 +27,11 @@ const SEGBTN = 'rounded-md px-2.5 py-[3px] text-t3 disabled:cursor-default disab
 const FC = 'inline-flex h-7 items-center gap-1.5 whitespace-nowrap rounded-full border border-ln bg-sf px-2.5 text-[12.5px] text-t2 hover:bg-sk aria-pressed:border-transparent aria-pressed:bg-acs aria-pressed:font-medium aria-pressed:text-act aria-pressed:hover:bg-sk'
 const MONO = 'font-mono text-[11.5px] text-t3'
 const CODE_TAB = ['Claude Code', 'Claude Desktop', 'Codex'] as const
+// Both endpoints take the same token and run the same tools (mcpserver/codemode.go); a client connects to one.
+const INTEGRATIONS = [
+  ['MCP', '/mcp', 'Инструмент на каждое действие: ассистент вызывает их по одному. Работает в любом MCP-клиенте.'],
+  ['Code Mode', '/mcp/code', 'Один инструмент code: ассистент пишет JavaScript, который вызывает те же инструменты (codemode.get_today() и другие), и получает только итог. Меньше шагов и контекста на больших задачах.'],
+] as const
 
 // The server writes its check texts in Russian. Fixed parts go through tr(); a trailing ": value" or timestamp stays as is.
 const detail = (s: string) => s.split(' · ').map((p) => {
@@ -65,6 +71,7 @@ export function Mcp() {
   })
 
   const [tab, setTab] = useState(0)
+  const [kind, setKind] = useState(0) // index in INTEGRATIONS
   const [token, setToken] = useState<string | null>(null) // full token once revealed or rotated
   const [rotated, setRotated] = useState(false)
   const reveal = useMutation({ mutationFn: api.mcpToken, onSuccess: (t) => setToken(t.token) })
@@ -77,7 +84,7 @@ export function Mcp() {
   const flash = (what: string) => { setCopied(what); setTimeout(() => setCopied(''), 1500) }
   const fullToken = async () => token ?? (await api.mcpToken()).token
 
-  const address = `${location.protocol}//${location.host}/mcp`
+  const address = `${location.protocol}//${location.host}${INTEGRATIONS[kind][1]}`
   const s = settings.data
   const st = status.data
   const result = st?.check
@@ -97,8 +104,8 @@ export function Mcp() {
       <header className="flex flex-wrap items-center gap-3.5 px-8 pt-6 pb-4 max-[640px]:px-4">
         <span className="grid size-10 place-items-center rounded-[11px] bg-sk"><Icon name="plug" size={20} sw={1.9} /></span>
         <div className="flex min-w-0 flex-[1_1_260px] flex-col gap-0.5">
-          <h1 className="text-2xl font-bold tracking-tight">MCP</h1>
-          <span className="text-sm text-t3">{tr('Так Claude читает и ведёт задачи. Сервер работает внутри Docket, отдельно ничего ставить не нужно.')}</span>
+          <h1 className="text-2xl font-bold tracking-tight">{tr('Интеграции')}</h1>
+          <span className="text-sm text-t3">{tr('Так ассистент читает и ведёт задачи: через MCP или Code Mode. Оба работают внутри Docket, отдельно ничего ставить не нужно.')}</span>
         </div>
         {st && (
           <span className={'inline-flex h-[30px] items-center gap-2 rounded-full px-3 text-[13px] font-semibold ' + (online ? 'bg-dns text-dnt' : 'bg-rds text-rd')} role="status">
@@ -150,6 +157,12 @@ export function Mcp() {
               </span>
             </div>
             <div className="flex flex-col gap-4 px-5 pb-5">
+              <div className="flex flex-col items-start gap-2">
+                <span className={SEG} role="tablist" aria-label={tr('Интеграция')}>
+                  {INTEGRATIONS.map(([n], i) => <button key={n} type="button" role="tab" aria-selected={kind === i} className={SEGBTN + 'aria-selected:bg-sk aria-selected:font-semibold aria-selected:text-tx'} onClick={() => setKind(i)}>{n}</button>)}
+                </span>
+                <span className="text-[13px] text-t2">{tr(INTEGRATIONS[kind][2])}</span>
+              </div>
               <div className="grid grid-cols-[repeat(auto-fit,minmax(260px,1fr))] gap-4">
                 <div className={LB}>{tr('Адрес сервера')}
                   <div className={FLD}><span className="flex-1 truncate font-mono">{address}</span>
@@ -184,7 +197,7 @@ export function Mcp() {
             </div>
           </section>
 
-          <McpAgent tab={tab} token={fullToken} />
+          <McpAgent tab={tab} url={address} token={fullToken} />
 
           <section className={PANEL}>
             <div className={PH_ROW + ' pb-3'}><h2 className={PH_H2}>{tr('Инструменты')}</h2><span className="text-[13px] text-t3">{tr('{n} из {total} включено', { n: enabled, total: s?.tools.length ?? 0 })}</span></div>
@@ -207,7 +220,7 @@ export function Mcp() {
                 })}
               </div>
             ))}
-            <div className="border-t border-ln px-5 py-3 text-[12.5px] text-t3">{tr('Число справа: вызовы за 7 дней. Выключенный инструмент пропадает из списка, который видит Claude.')}</div>
+            <div className="border-t border-ln px-5 py-3 text-[12.5px] text-t3">{tr('Число справа: вызовы за 7 дней. Выключенный инструмент пропадает из списка, который видит Claude, и из codemode в Code Mode.')}</div>
             {patch.isError && <div className={ERR_PAD} role="alert">{patch.error.message}</div>}
           </section>
         </div>

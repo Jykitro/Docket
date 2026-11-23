@@ -1,9 +1,8 @@
-// Package store owns the SQLite database: opening, migrations, queries, backups.
+// Package store owns task storage: opening, migrations, queries and SQLite backups.
 package store
 
 import (
 	"context"
-	"database/sql"
 	"embed"
 	"fmt"
 	"os"
@@ -12,30 +11,22 @@ import (
 	"strings"
 	"time"
 
-	_ "modernc.org/sqlite"
+	"docket/internal/database"
 )
 
-//go:embed migrations/*.sql
+//go:embed migrations/*.sql migrations/postgres/*.sql
 var migrations embed.FS
 
 type Store struct {
-	db   *sql.DB
+	db   *database.DB
 	path string
 }
 
 func Open(path string) (*Store, error) {
-	if dir := filepath.Dir(path); dir != "" {
-		if err := os.MkdirAll(dir, 0o755); err != nil {
-			return nil, err
-		}
-	}
-	dsn := "file:" + path + "?_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)"
-	db, err := sql.Open("sqlite", dsn)
+	db, err := database.OpenSQLite(path)
 	if err != nil {
 		return nil, err
 	}
-	// One connection serializes writes; a single-user app never needs more.
-	db.SetMaxOpenConns(1)
 	s := &Store{db: db, path: path}
 	if err := s.migrate(); err != nil {
 		db.Close()
@@ -44,10 +35,37 @@ func Open(path string) (*Store, error) {
 	return s, nil
 }
 
+// OpenPostgres opens one isolated profile schema in a dedicated Docket database.
+func OpenPostgres(dsn string, userID int64) (*Store, error) {
+	db, err := database.OpenPostgres(dsn, database.UserSchema(userID))
+	if err != nil {
+		return nil, err
+	}
+	s := &Store{db: db}
+	if err := s.migrate(); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("migrate PostgreSQL profile: %w", err)
+	}
+	return s, nil
+}
+
+// DeletePostgres removes this profile's schema without affecting other profiles.
+func (s *Store) DeletePostgres() error { return s.db.DropSchema() }
+
 func (s *Store) Close() error { return s.db.Close() }
 
 // Health runs PRAGMA quick_check and reports the journal mode and the database file size in bytes.
 func (s *Store) Health() (quick, journal string, size int64, err error) {
+	if s.db.Postgres {
+		var n int
+		if err = s.db.QueryRow(`SELECT 1`).Scan(&n); err != nil {
+			return
+		}
+		err = s.db.QueryRow(`SELECT coalesce(sum(pg_total_relation_size(c.oid)),0)::bigint FROM pg_class c
+   JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=current_schema() AND c.relkind='r'`).Scan(&size)
+		return "ok", "postgresql", size, err
+	}
+
 	if err = s.db.QueryRow(`PRAGMA quick_check`).Scan(&quick); err != nil {
 		return
 	}
@@ -61,41 +79,51 @@ func (s *Store) Health() (quick, journal string, size int64, err error) {
 }
 
 func (s *Store) migrate() error {
-	if _, err := s.db.Exec(`CREATE TABLE IF NOT EXISTS schema_migrations (version TEXT PRIMARY KEY, applied_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')))`); err != nil {
-		return err
+	dir := "migrations"
+	if s.db.Postgres {
+		dir += "/postgres"
 	}
-	files, err := migrations.ReadDir("migrations")
+	files, err := migrations.ReadDir(dir)
 	if err != nil {
 		return err
 	}
-	for _, f := range files { // ReadDir returns entries sorted by name
-		var n int
-		if err := s.db.QueryRow(`SELECT count(*) FROM schema_migrations WHERE version = ?`, f.Name()).Scan(&n); err != nil {
+	// The schema lock and all migrations share a transaction: concurrent starts cannot partially
+	// initialize a schema, and failed migrations roll back the schema as well.
+	return s.WithTx(context.Background(), func(tx *Tx) error {
+		if err := s.db.CreateSchema(tx.tx); err != nil {
 			return err
 		}
-		if n > 0 {
-			continue
-		}
-		body, err := migrations.ReadFile("migrations/" + f.Name())
-		if err != nil {
+		if _, err := tx.tx.Exec(`CREATE TABLE IF NOT EXISTS schema_migrations (version TEXT PRIMARY KEY, applied_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')))`); err != nil {
 			return err
 		}
-		err = s.WithTx(context.Background(), func(tx *Tx) error {
+		for _, f := range files {
+			if f.IsDir() {
+				continue
+			}
+			var n int
+			if err := tx.tx.QueryRow(`SELECT count(*) FROM schema_migrations WHERE version = ?`, f.Name()).Scan(&n); err != nil {
+				return err
+			}
+			if n > 0 {
+				continue
+			}
+			body, err := migrations.ReadFile(dir + "/" + f.Name())
+			if err != nil {
+				return err
+			}
 			if _, err := tx.tx.Exec(string(body)); err != nil {
 				return fmt.Errorf("%s: %w", f.Name(), err)
 			}
-			_, err := tx.tx.Exec(`INSERT INTO schema_migrations(version) VALUES (?)`, f.Name())
-			return err
-		})
-		if err != nil {
-			return err
+			if _, err := tx.tx.Exec(`INSERT INTO schema_migrations(version) VALUES (?)`, f.Name()); err != nil {
+				return err
+			}
 		}
-	}
-	return nil
+		return nil
+	})
 }
 
 // Tx is the only way to run queries; every service operation is one transaction.
-type Tx struct{ tx *sql.Tx }
+type Tx struct{ tx *database.Tx }
 
 func (s *Store) WithTx(ctx context.Context, fn func(*Tx) error) error {
 	tx, err := s.db.BeginTx(ctx, nil)
@@ -111,6 +139,10 @@ func (s *Store) WithTx(ctx context.Context, fn func(*Tx) error) error {
 
 // Backup writes a VACUUM INTO copy named docket-YYYYMMDD-HHMM.db and keeps the newest `keep` copies.
 func (s *Store) Backup(dir string, keep int, now time.Time) (string, error) {
+	if s.db.Postgres {
+		return "", nil
+	} // PostgreSQL backups belong to the operator (pg_dump/PITR).
+
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", err
 	}

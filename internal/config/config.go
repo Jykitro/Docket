@@ -18,6 +18,7 @@ type Config struct {
 	Seed         string
 	Loc          *time.Location
 	SelfHost     bool   // DOCKET_MODE=selfhost: many users, each with their own database
+	PostgresDSN  string // optional selfhost PostgreSQL database; empty keeps SQLite
 	DataDir      string // directory of DB; holds auth.db and users/<id>.db in selfhost mode
 }
 
@@ -27,6 +28,7 @@ func Load() (Config, error) {
 		DB:           env("DOCKET_DB", "/data/docket.db"),
 		BackupDir:    env("DOCKET_BACKUP_DIR", "/data/backups"),
 		MCPToken:     os.Getenv("DOCKET_MCP_TOKEN"),
+		PostgresDSN:  os.Getenv("DOCKET_POSTGRES_DSN"),
 		AllowedHosts: strings.Split(env("DOCKET_ALLOWED_HOSTS", "localhost,127.0.0.1,docket.localhost"), ","),
 		Seed:         os.Getenv("DOCKET_SEED"),
 		Loc:          time.Local,
@@ -38,6 +40,9 @@ func Load() (Config, error) {
 		c.SelfHost = true
 	default:
 		return c, fmt.Errorf("DOCKET_MODE: unknown mode %q (want local or selfhost)", m)
+	}
+	if c.PostgresDSN != "" && !c.SelfHost {
+		return c, fmt.Errorf("DOCKET_POSTGRES_DSN requires DOCKET_MODE=selfhost")
 	}
 	if tz := os.Getenv("TZ"); tz != "" {
 		loc, err := time.LoadLocation(tz)

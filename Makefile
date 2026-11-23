@@ -2,7 +2,7 @@
 IMAGE := docket:local
 NAME  := docket
 
-.PHONY: help install web build test typecheck knip check dev-api dev-web image rebuild stop logs clean
+.PHONY: help install web build test test-postgres typecheck knip check dev-api dev-web image rebuild stop logs clean
 
 help: ## список целей
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-10s %s\n", $$1, $$2}'
@@ -17,6 +17,10 @@ build: web ## бинарь bin/docket с вшитым UI
 	CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o bin/docket ./cmd/docket
 
 test: ## тесты бэкенда (HTTP-тесты открывают порт на localhost)
+	go test ./...
+
+test-postgres: ## тесты с PostgreSQL (нужен DOCKET_TEST_POSTGRES_DSN, отдельный тестовый сервер)
+	@test -n "$$DOCKET_TEST_POSTGRES_DSN" || (echo "Set DOCKET_TEST_POSTGRES_DSN to a disposable PostgreSQL server (role needs CREATEDB)"; exit 1)
 	go test ./...
 
 typecheck: ## tsc --noEmit

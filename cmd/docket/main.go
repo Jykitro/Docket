@@ -85,7 +85,13 @@ func runSelfHost(ctx context.Context, cfg config.Config) error {
 	if cfg.MCPToken != "" { // DOCKET_SEED is ignored silently: .env.example sets it, and the README says so
 		slog.Warn("DOCKET_MCP_TOKEN is ignored in selfhost mode: every profile has its own token")
 	}
-	ad, err := auth.Open(filepath.Join(cfg.DataDir, "auth.db"))
+	var ad *auth.DB
+	var err error
+	if cfg.PostgresDSN != "" {
+		ad, err = auth.OpenPostgres(cfg.PostgresDSN)
+	} else {
+		ad, err = auth.Open(filepath.Join(cfg.DataDir, "auth.db"))
+	}
 	if err != nil {
 		return fmt.Errorf("open auth database: %w", err)
 	}
@@ -97,6 +103,7 @@ func runSelfHost(ctx context.Context, cfg config.Config) error {
 			MCP: mcpserver.Handler(svc, cfg.Loc), Web: web.Handler(),
 		})
 	})
+	ws.UsePostgres(cfg.PostgresDSN)
 	defer ws.Close()
 
 	// Every workspace is opened now so MCP bearer lookup knows all users right after a restart.
@@ -108,6 +115,9 @@ func runSelfHost(ctx context.Context, cfg config.Config) error {
 		if _, err := ws.Open(ctx, u); err != nil {
 			return fmt.Errorf("open workspace for user %d (%s): %w", u.ID, u.Username, err)
 		}
+	}
+	if cfg.PostgresDSN != "" {
+		slog.Info("PostgreSQL storage enabled; configure external database backups (pg_dump or PITR)")
 	}
 	go maintainAll(ctx, ws, cfg.BackupDir)
 
@@ -176,7 +186,7 @@ func maintainAll(ctx context.Context, ws *selfhost.Workspaces, backupDir string)
 		maintainPass(ws.All(), last, time.Now(), func(w *selfhost.Workspace) {
 			if path, err := w.Svc.Maintenance(ctx, filepath.Join(backupDir, strconv.FormatInt(w.ID, 10))); err != nil {
 				slog.Error("maintenance failed", "err", err)
-			} else {
+			} else if path != "" {
 				slog.Info("backup written", "path", path)
 			}
 		})

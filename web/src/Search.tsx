@@ -71,7 +71,7 @@ export function SearchDialog({ projects, current, onClose, onCreate }: {
     if (it.kind === 'task' || it.kind === 'desc') setParam('task', it.hit.code, false)
     else if (it.kind === 'project') navigate(`/p/${it.project.slug}`)
     else if (it.kind === 'create') onCreate(q.trim())
-    else navigate('/mcp')
+    else navigate('/integrations')
   }
   const key = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape') { e.preventDefault(); onClose() }
@@ -94,7 +94,7 @@ export function SearchDialog({ projects, current, onClose, onCreate }: {
     const p = projects.find((x) => x.id === h.project_id)
     return row(it, (
       <>
-        {p && <ProjectTile icon={p.icon} color={p.color} size={22} radius={7} />}
+        {p && <ProjectTile project={p} size={22} radius={7} />}
         <span className="font-mono text-[11.5px] text-t3 flex-[0_0_52px]">{h.code}</span>
         <span className="flex flex-[1_1_0] flex-col gap-0.5 min-w-0">
           <span className="text-[14px] font-medium leading-[1.35]">{snippet ? h.title : <Highlight text={h.title} q={q} />}</span>
@@ -134,7 +134,7 @@ export function SearchDialog({ projects, current, onClose, onCreate }: {
           {projs.length > 0 && <div className={RHEAD_CAP}>{tr('Проекты')}</div>}
           {items.filter((i): i is Item & { kind: 'project' } => i.kind === 'project').map((it) => row(it, (
             <>
-              <ProjectTile icon={it.project.icon} color={it.project.color} size={22} radius={7} />
+              <ProjectTile project={it.project} size={22} radius={7} />
               <span className="font-mono text-[11.5px] text-t3 flex-[0_0_52px]">{it.project.key}</span>
               <span className="flex-1 font-medium"><Highlight text={it.project.name} q={q} /></span>
             </>
@@ -151,9 +151,9 @@ export function SearchDialog({ projects, current, onClose, onCreate }: {
           {items.filter((i) => i.kind === 'mcp').map((it) => row(it, (
             <>
               <span className={SQ + ' bg-sk text-t2'}><Icon name="plug" size={13} sw={2} /></span>
-              <span className="flex-1 font-medium">{tr('Открыть MCP и журнал вызовов')}</span>
+              <span className="flex-1 font-medium">{tr('Открыть интеграции и журнал вызовов')}</span>
             </>
-          ), '/mcp'))}
+          ), '/integrations'))}
         </div>
         <div className="flex flex-wrap items-center gap-4 px-4 py-2.5 border-t border-ln bg-sf2 text-[12px] text-t3">
           <span><span className={KBD}>↑</span> <span className={KBD}>↓</span> {tr('выбрать')}</span>

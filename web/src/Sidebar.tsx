@@ -4,6 +4,7 @@ import { type ReactNode } from 'react'
 import { useQueries, useQuery } from '@tanstack/react-query'
 import { type Project, type View, api, useMe, useProfile, useProjects } from './api'
 import { Icon, ProjectTile } from './icons'
+import { DocketLogo } from './DocketLogo'
 import { tr } from './i18n'
 import { Link } from './router'
 import { cap } from './ui'
@@ -43,7 +44,7 @@ export function Sidebar({ path, view, rail, mobileOpen, onClose, onNewProject, o
   const nav = [
     { to: '/', label: tr('Сегодня'), icon: 'cal', n: today.data?.tasks.length, on: path === '/' },
     { to: '/?focus=overdue', label: tr('Просрочено'), icon: 'clock', n: today.data?.overdue.length, on: false },
-    { to: '/mcp', label: 'MCP', icon: 'plug', dot: mcp.data ? (mcp.data.online ? 'var(--dn)' : 'var(--rd)') : undefined, on: path === '/mcp' },
+    { to: '/integrations', label: tr('Интеграции'), icon: 'plug', dot: mcp.data ? (mcp.data.online ? 'var(--dn)' : 'var(--rd)') : undefined, on: path === '/integrations' || path === '/mcp' },
     { to: '/trash', label: tr('Корзина'), icon: 'trash', n: (trash.data?.length ?? 0) + (trashP.data?.length ?? 0), on: path === '/trash' },
   ]
   // In the icon rail an item is just its icon (centred), with the label as a tooltip.
@@ -61,8 +62,8 @@ export function Sidebar({ path, view, rail, mobileOpen, onClose, onNewProject, o
       >
         <div className="flex h-full flex-col rounded-lg border border-ln bg-sf shadow-sm">
         <div className={'flex h-16 items-center gap-2 px-3 ' + (rail ? 'justify-center' : '')}>
-          <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-ink text-inkt"><Icon name="logo" size={17} sw={2} /></span>
-          {!rail && <span className="flex min-w-0 grow flex-col leading-tight"><b className="text-sm font-semibold">Docket</b><span className="font-mono text-xs text-t3">:{location.port || '80'}</span></span>}
+          <DocketLogo />
+          {!rail && <span className="flex min-w-0 grow flex-col leading-tight"><b className="text-sm font-semibold">Docket</b></span>}
         </div>
 
         <div className="flex min-h-0 grow flex-col gap-3 overflow-y-auto px-2 py-1">
@@ -85,7 +86,7 @@ export function Sidebar({ path, view, rail, mobileOpen, onClose, onNewProject, o
               const on = path === `/p/${p.slug}` && !view
               return (
                 <Link key={p.id} to={`/p/${p.slug}`} className={cls(on)} aria-current={on ? 'page' : undefined} title={rail ? p.name : undefined}>
-                  <ProjectTile icon={p.icon} color={p.color} />
+                  <ProjectTile project={p} />
                   {!rail && <><span className={nvName}>{p.name}</span><span className={nvN}>{p.open}</span></>}
                 </Link>
               )
@@ -95,7 +96,7 @@ export function Sidebar({ path, view, rail, mobileOpen, onClose, onNewProject, o
                 <summary className={nvOff + ' list-none cursor-pointer [&::-webkit-details-marker]:hidden'}><Icon name="stack" /><span className={nvName}>{tr('Архив')}</span><span className={nvN}>{archived.length}</span></summary>
                 {archived.map((p) => (
                   <Link key={p.id} to={`/p/${p.slug}`} className={(path.startsWith(`/p/${p.slug}`) ? nvOn : nvOff) + ' opacity-75'}>
-                    <ProjectTile icon={p.icon} color={p.color} /><span className={nvName}>{p.name}</span>
+                    <ProjectTile project={p} /><span className={nvName}>{p.name}</span>
                   </Link>
                 ))}
               </details>

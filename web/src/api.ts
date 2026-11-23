@@ -5,7 +5,7 @@ import { getLang, locale, tr } from './i18n'
 export type Category = 'todo' | 'doing' | 'done'
 
 export type Project = {
-  id: number; slug: string; key: string; name: string; icon: string; color: string; description: string
+  id: number; slug: string; key: string; name: string; icon: string; icon_url?: string; color: string; description: string
   position: number; archived_at: string | null; deleted_at: string | null; counts: Record<string, number>; open: number
 }
 export type Status = {
@@ -108,6 +108,9 @@ async function req<T>(method: string, url: string, body?: unknown): Promise<T> {
     method,
     headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body),
+  }).catch((error: unknown) => {
+    window.dispatchEvent(new Event('docket:disconnected'))
+    throw error
   })
   if (res.status === 204) return undefined as T
   const data = await res.json().catch(() => null)
@@ -135,7 +138,7 @@ export const api = {
   profile: () => req<Profile>('GET', '/api/profile'),
   setProfile: (name: string) => req<Profile>('PUT', '/api/profile', { name }),
   projects: () => req<Project[]>('GET', '/api/projects?include_archived=1'),
-  createProject: (b: { name: string; key?: string; icon?: string; color?: string }) => req<Project>('POST', '/api/projects', b),
+  createProject: (b: { name: string; key?: string; icon?: string; icon_png?: string; color?: string }) => req<Project>('POST', '/api/projects', b),
   statuses: (pid: number) => req<Status[]>('GET', `/api/projects/${pid}/statuses`),
   labels: (pid: number) => req<Label[]>('GET', `/api/projects/${pid}/labels`),
   fields: (pid: number) => req<Field[]>('GET', `/api/projects/${pid}/fields`),

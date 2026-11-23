@@ -5,7 +5,8 @@ import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, us
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { ApiError, type Field, type Label, type Project, type Status, type View, api, statusColor, useProjects } from './api'
-import { Icon, PROJECT_COLORS, PROJECT_ICONS, ProjectTile } from './icons'
+import { Icon, PROJECT_COLORS, ProjectTile } from './icons'
+import { ProjectIconPicker } from './ProjectIconPicker'
 import { tr } from './i18n'
 import { Link, navigate } from './router'
 import { ConfirmButton, Dialog, EmptyState, ErrorState, Menu, Skeleton, Toggle, MENUITEM } from './ui'
@@ -142,21 +143,17 @@ function General({ project, run }: { project: Project; run: Run }) {
     <Panel id="general" title={tr('Основное')} hint={tr('Иконка и цвет видны в боковой панели, на карточках «Сегодня» и в поиске.')}>
       <div className={PB}>
         <div className="flex flex-wrap items-center gap-4 rounded-[10px] border border-ln bg-sf2 px-4 py-3.5">
-          <ProjectTile icon={project.icon} color={project.color} size={52} radius={14} />
+          <ProjectTile project={project} size={52} radius={14} />
           <span className="flex flex-[1_1_200px] flex-col gap-0.5">
             <span className="text-[18px] font-bold tracking-[-.01em]">{project.name}</span>
             <span className="font-mono text-[12px] text-t3">{project.key} · {tr('{n} открытых', { n: project.open })}</span>
           </span>
           <span className="flex h-8 min-w-[200px] items-center gap-2.5 rounded-md bg-sk px-2 text-sm font-semibold text-tx">
-            <ProjectTile icon={project.icon} color={project.color} /><span className="min-w-0 grow truncate">{project.name}</span><span className="font-mono text-[11.5px] text-t3">{project.open}</span>
+            <ProjectTile project={project} /><span className="min-w-0 grow truncate">{project.name}</span><span className="font-mono text-[11.5px] text-t3">{project.open}</span>
           </span>
         </div>
         <div className={LB}>{tr('Иконка')}
-          <div className="flex flex-wrap gap-2" role="group" aria-label={tr('Иконка проекта')}>
-            {PROJECT_ICONS.map((i) => (
-              <button key={i} type="button" className="grid size-[38px] place-items-center rounded-[10px] border border-ln bg-sf p-0 text-t2 aria-pressed:border-ac aria-pressed:bg-ac aria-pressed:text-inkt" aria-label={i} aria-pressed={i === project.icon} onClick={() => patch({ icon: i })}><Icon name={i} size={18} /></button>
-            ))}
-          </div>
+          <ProjectIconPicker icon={project.icon} preview={project.icon_url} onSelect={patch} />
         </div>
         <div className={LB}>{tr('Цвет')}
           <div className="flex flex-wrap gap-3 px-1 py-[3px]" role="group" aria-label={tr('Цвет проекта')}>

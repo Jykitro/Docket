@@ -5,14 +5,14 @@ description: Use when connecting an assistant to Docket (Claude Code, Claude Des
 
 # Docket setup
 
-Four steps: run Docket, connect the client, install the skills, optionally turn on the hooks. The MCP tab in Docket (`/mcp` in the browser) shows the user's exact address and token and has a "Проверить соединение" self-check.
+Four steps: run Docket, connect the client, install the skills, optionally turn on the hooks. The Integrations tab in Docket (`/integrations` in the browser) shows the user's exact address and token and has a "Проверить соединение" self-check.
 
 ## 1. Docket is running
 
 - Docker: `make rebuild` in the Docket repo (creates `.env`, builds `docket:local`, starts the container). Logs: `make logs`. Data stays in `./data`.
 - The UI and MCP share one address, `http://localhost:7777`; MCP is `http://localhost:7777/mcp` (Streamable HTTP). It listens on `127.0.0.1` only.
-- The token looks like `dkt_…`. It is printed to the log once on first start, and is shown (masked, with a Show button) on the MCP tab. `DOCKET_MCP_TOKEN` in `.env` overrides it and disables rotation.
-- Selfhost mode (`DOCKET_MODE=selfhost`): every user has their own token on their MCP tab; the same `/mcp` address serves everyone and the token picks the profile.
+- The token looks like `dkt_…`. It is printed to the log once on first start, and is shown (masked, with a Show button) on the Integrations tab. `DOCKET_MCP_TOKEN` in `.env` overrides it and disables rotation.
+- Selfhost mode (`DOCKET_MODE=selfhost`): every user has their own token on their Integrations tab; the same `/mcp` address serves everyone and the token picks the profile. Storage defaults to SQLite; operators can set `DOCKET_POSTGRES_DSN` for a dedicated PostgreSQL database (see README, Self-host). This does not import existing SQLite data; PostgreSQL backups are managed by the operator.
 
 ## 2. Connect the client
 
@@ -55,9 +55,11 @@ bearer_token_env_var = "DOCKET_MCP_TOKEN"
 }
 ```
 
-Check it: ask the assistant to call `list_projects`. Sixteen tools exist (seven read, nine write) and `delete_tasks` is off by default, so a fresh install lists fifteen; fewer means some are switched off on the MCP tab.
+Check it: ask the assistant to call `list_projects`. Sixteen tools exist (seven read, nine write) and `delete_tasks` is off by default, so a fresh install lists fifteen; fewer means some are switched off on the Integrations tab.
 
-**Docket on a server or in selfhost mode:** use its public address instead of `localhost:7777`, for example `https://docket.example.com/mcp`, and the token from your own MCP tab. For Claude Desktop with an `https` address drop `--allow-http` (it is only for plain `http`). Put the host name (no scheme, no port) in `DOCKET_ALLOWED_HOSTS` in `.env` and restart the container, or every call gets `403`. TLS is the reverse proxy's job; the README's Self-host section explains it. Re-adding a server after a token change needs a remove first: `claude mcp remove docket` or `codex mcp remove docket`.
+**Code Mode** (optional): the same commands with `/mcp/code` instead of `/mcp`. The client then sees one tool, `code`, and writes JavaScript that calls the tools as `codemode.list_projects({})`; fewer round trips on big jobs. Same token, switches and log. Keep one of the two registered as `docket`; the Integrations tab switches the address and the install command.
+
+**Docket on a server or in selfhost mode:** use its public address instead of `localhost:7777`, for example `https://docket.example.com/mcp`, and the token from your own Integrations tab. For Claude Desktop with an `https` address drop `--allow-http` (it is only for plain `http`). Put the host name (no scheme, no port) in `DOCKET_ALLOWED_HOSTS` in `.env` and restart the container, or every call gets `403`. TLS is the reverse proxy's job; the README's Self-host section explains it. Re-adding a server after a token change needs a remove first: `claude mcp remove docket` or `codex mcp remove docket`.
 
 ## 3. Install the skills
 
@@ -69,7 +71,7 @@ The server already sends the `docket` workflow to every connected client as MCP 
 | Codex | `~/.agents/skills/<name>/SKILL.md` |
 | Claude Desktop | no folder: paste the text into the project instructions |
 
-Fastest on macOS and Linux: the MCP tab's "Install in one command" button copies one line. It installs all three skills and registers the server in Claude Code and Codex, whichever are in PATH. Codex still needs `DOCKET_MCP_TOKEN` in the shell profile; the script prints the line to add. The line is `curl -fsSL http://localhost:7777/api/mcp/install.sh | DOCKET_URL=http://localhost:7777/mcp DOCKET_TOKEN=<token> sh`; the script holds no secrets, so it is public even in selfhost mode. By hand:
+Fastest on macOS and Linux: the Integrations tab's "Install in one command" button copies one line. It installs all three skills and registers the server in Claude Code and Codex, whichever are in PATH. Codex still needs `DOCKET_MCP_TOKEN` in the shell profile; the script prints the line to add. The line is `curl -fsSL http://localhost:7777/api/mcp/install.sh | DOCKET_URL=http://localhost:7777/mcp DOCKET_TOKEN=<token> sh`; the script holds no secrets, so it is public even in selfhost mode. By hand:
 
 ```bash
 for s in docket docket-reference docket-setup; do
@@ -78,7 +80,7 @@ for s in docket docket-reference docket-setup; do
 done
 ```
 
-In selfhost mode the API needs a login, so use the Download buttons on the MCP tab, or copy the folders from the repo's `skills/` directory. Skills are `docket` (the workflow), `docket-reference` (tools, fields, errors, conventions), `docket-setup` (this one).
+In selfhost mode the API needs a login, so use the Download buttons on the Integrations tab, or copy the folders from the repo's `skills/` directory. Skills are `docket` (the workflow), `docket-reference` (tools, fields, errors, conventions), `docket-setup` (this one).
 
 ## 4. Hooks (optional, strict mode)
 
@@ -109,13 +111,13 @@ Hooks make the workflow mandatory instead of advised. One JSON works for both cl
 
 | Symptom | Cause and fix |
 |---|---|
-| `401` on every call | Wrong or rotated token, or a missing `Bearer ` prefix. Copy the current token from the MCP tab, remove the server (`claude mcp remove docket`, `codex mcp remove docket`) and add it again; for Codex export the new `DOCKET_MCP_TOKEN` first; for Desktop edit `AUTH`. Rotating invalidates the old token. If `.env` sets `DOCKET_MCP_TOKEN`, that value is the token and rotation is off |
+| `401` on every call | Wrong or rotated token, or a missing `Bearer ` prefix. Copy the current token from the Integrations tab, remove the server (`claude mcp remove docket`, `codex mcp remove docket`) and add it again; for Codex export the new `DOCKET_MCP_TOKEN` first; for Desktop edit `AUTH`. Rotating invalidates the old token. If `.env` sets `DOCKET_MCP_TOKEN`, that value is the token and rotation is off |
 | `403` | `Host` or `Origin` is not allowed. Add the host name (no scheme, no port) to `DOCKET_ALLOWED_HOSTS` in `.env` (default `localhost,127.0.0.1,docket.localhost`) and restart the container |
 | Connection refused | Container is down: `docker ps`, `make logs`, `make rebuild`. Check the port `7777` |
 | Codex says the token variable is not set | `DOCKET_MCP_TOKEN` must exist in the shell that starts Codex; export it in the shell profile |
-| Tools missing or `tool_disabled` | Switched off on the MCP tab. `delete_tasks` is off by default on purpose |
-| `forbidden` on writes | Access mode is "Только чтение" on the MCP tab. Reads still work; the user switches to "Чтение и запись" if they want writes. Tell them, don't work around it |
+| Tools missing or `tool_disabled` | Switched off on the Integrations tab. `delete_tasks` is off by default on purpose |
+| `forbidden` on writes | Access mode is "Только чтение" on the Integrations tab. Reads still work; the user switches to "Чтение и запись" if they want writes. Tell them, don't work around it |
 | Desktop shows no server | `npx` not found or the JSON is invalid. Restart Desktop after editing the file |
 | Hooks do nothing | Claude Code: check `/hooks` and that the JSON is valid and merged. Codex: the file must be exactly `~/.codex/hooks.json` |
 
-Still failing: press "Проверить соединение" on the MCP tab. It runs five checks (server, MCP protocol, token, host and origin, database) and prints what to do for the one that fails. Don't work around a refusal: tell the user what you saw.
+Still failing: press "Проверить соединение" on the Integrations tab. It runs five checks (server, MCP protocol, token, host and origin, database) and prints what to do for the one that fails. Don't work around a refusal: tell the user what you saw.

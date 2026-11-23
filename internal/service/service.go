@@ -169,6 +169,7 @@ func (s *Service) GetProject(ctx context.Context, id int64) (p store.Project, er
 }
 
 type ProjectInput struct {
+	IconPNG     []byte `json:"icon_png,omitempty"`
 	Name        string `json:"name"`
 	Slug        string `json:"slug"`
 	Key         string `json:"key"`
@@ -238,6 +239,14 @@ func createProject(o *op, in ProjectInput) (store.Project, error) {
 	if err != nil {
 		return p, err
 	}
+	if len(in.IconPNG) > 0 {
+		if err := setProjectIcon(o.tx, p.ID, in.IconPNG); err != nil {
+			return p, err
+		}
+		if p, err = o.tx.GetProject(p.ID); err != nil {
+			return p, err
+		}
+	}
 	for i, st := range defaultStatuses {
 		st.ProjectID, st.ShowOnBoard, st.Position = p.ID, true, float64(i+1)*1024
 		if _, err := o.tx.InsertStatus(st); err != nil {
@@ -290,6 +299,7 @@ func slugify(name string) string {
 }
 
 type ProjectPatch struct {
+	IconPNG     *[]byte  `json:"icon_png,omitempty"`
 	Name        *string  `json:"name"`
 	Key         *string  `json:"key"`
 	Icon        *string  `json:"icon"`
@@ -328,6 +338,15 @@ func (s *Service) UpdateProject(ctx context.Context, actor string, id int64, in 
 			}
 			p.Icon = *in.Icon
 		}
+		if in.IconPNG != nil {
+			if err := setProjectIcon(o.tx, p.ID, *in.IconPNG); err != nil {
+				return err
+			}
+		} else if in.Icon != nil && p.IconURL != "" {
+			if err := o.tx.SetProjectIcon(p.ID, nil, ""); err != nil {
+				return err
+			}
+		}
 		if in.Description != nil {
 			p.Description = strings.TrimSpace(*in.Description)
 		}
@@ -355,6 +374,7 @@ func (s *Service) UpdateProject(ctx context.Context, actor string, id int64, in 
 		if p, err = o.tx.GetProject(id); err != nil {
 			return err
 		}
+		cmp(d, "icon_url", old.IconURL, p.IconURL)
 		return o.log("project_updated", 0, p.ID, d)
 	})
 	return p, err
@@ -563,7 +583,12 @@ func (s *Service) Export(ctx context.Context, projectID int64) (e Export, err er
 		}
 		e.Statuses, e.Labels, e.Fields, e.Views = []store.Status{}, []store.Label{}, []store.Field{}, []store.View{}
 		e.Pages = []store.Page{}
-		for _, p := range e.Projects {
+		for i, p := range e.Projects {
+			if p.IconURL != "" {
+				if e.Projects[i].IconPNG, err = tx.ProjectIcon(p.ID); err != nil {
+					return err
+				}
+			}
 			ss, err := tx.ListStatuses(p.ID)
 			if err != nil {
 				return err

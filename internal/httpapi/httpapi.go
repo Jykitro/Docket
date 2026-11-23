@@ -54,18 +54,22 @@ func Router(d Deps) http.Handler {
 	r.Use(middleware.Recoverer, HostGuard(d.AllowedHosts))
 	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) { w.Write([]byte("ok")) })
 	// /mcp is both the MCP endpoint and a screen of the web app: a browser navigation gets the app.
+	// /mcp/code is the same server in Code Mode (mcpserver/codemode.go), behind the same token.
 	mcp := bearer(d.Svc, d.MCP)
-	r.Handle("/mcp", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+	mcpOrApp := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		if req.Method == http.MethodGet && strings.Contains(req.Header.Get("Accept"), "text/html") {
 			d.Web.ServeHTTP(w, req)
 			return
 		}
 		mcp.ServeHTTP(w, req)
-	}))
+	})
+	r.Handle("/mcp", mcpOrApp)
+	r.Handle("/mcp/code", mcpOrApp)
 	r.Route("/api", func(r chi.Router) {
 		r.Get("/auth/me", func(w http.ResponseWriter, _ *http.Request) { writeJSON(w, 200, map[string]string{"mode": "local"}) })
 		r.Get("/projects", a.h(a.listProjects))
 		r.Post("/projects", a.h(a.createProject))
+		r.Get("/projects/{id}/icon", a.h(a.projectIcon))
 		r.Patch("/projects/{id}", a.h(a.updateProject))
 		r.Delete("/projects/{id}", a.h(a.deleteProject))
 		r.Post("/projects/{id}/restore", a.h(a.restoreProject))
@@ -234,6 +238,11 @@ func (a *api) h(fn func(*http.Request) (any, error)) http.HandlerFunc {
 		switch c := v.(type) {
 		case created:
 			writeJSON(w, 201, c.v)
+		case projectPNG:
+			w.Header().Set("Cache-Control", "private, no-store")
+			w.Header().Set("X-Content-Type-Options", "nosniff")
+			w.Header().Set("Content-Type", "image/png")
+			w.Write(c)
 		case none:
 			w.WriteHeader(204)
 		default:
@@ -287,6 +296,17 @@ func truthy(s string) bool { return s == "1" || s == "true" }
 
 func (a *api) listProjects(r *http.Request) (any, error) {
 	return a.svc.ListProjects(r.Context(), truthy(r.URL.Query().Get("include_archived")))
+}
+
+type projectPNG []byte
+
+func (a *api) projectIcon(r *http.Request) (any, error) {
+	id, err := pathID(r)
+	if err != nil {
+		return nil, err
+	}
+	data, err := a.svc.ProjectIcon(r.Context(), id)
+	return projectPNG(data), err
 }
 
 func (a *api) createProject(r *http.Request) (any, error) {

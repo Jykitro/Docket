@@ -22,7 +22,8 @@ import (
 
 const actor = service.ActorClaude
 
-// Handler returns the /mcp handler. Host checks and auth are done by the caller's middleware.
+// Handler returns the handler for /mcp (one MCP tool per Docket tool) and /mcp/code (Code Mode: one `code`
+// tool that runs JavaScript calling the same tools). Host checks and auth are done by the caller's middleware.
 func Handler(svc *service.Service, loc *time.Location) http.Handler {
 	s := mcp.NewServer(&mcp.Implementation{Name: "docket", Version: "1.0.0"}, &mcp.ServerOptions{Instructions: skills.Instructions()})
 	t := &tools{svc: svc, loc: loc}
@@ -44,12 +45,22 @@ func Handler(svc *service.Service, loc *time.Location) http.Handler {
 	add(s, "carry_over", t.carryOver)
 	add(s, "delete_tasks", t.deleteTasks)
 	s.AddReceivingMiddleware(policy(svc))
+	code := codeServer(svc, s)
 
-	return mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return s }, &mcp.StreamableHTTPOptions{
+	opts := &mcp.StreamableHTTPOptions{
 		Stateless:    true,
 		JSONResponse: true,
 		// Our own middleware checks Host against DOCKET_ALLOWED_HOSTS (incl. docket.localhost).
 		DisableLocalhostProtection: true,
+	}
+	classic := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return s }, opts)
+	codeMode := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return code }, opts)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/code") { // /mcp/code: Code Mode, see codemode.go
+			codeMode.ServeHTTP(w, r)
+			return
+		}
+		classic.ServeHTTP(w, r)
 	})
 }
 
@@ -151,7 +162,7 @@ func call(ctx context.Context, svc *service.Service, method string, req mcp.Requ
 }
 
 var knownCodes = map[string]bool{"not_found": true, "invalid_argument": true, "forbidden": true, "tool_disabled": true,
-	"status_in_use": true, "conflict": true, "internal": true}
+	"status_in_use": true, "conflict": true, "internal": true, "timeout": true}
 
 // resultCode returns "" for a successful call, else the error code taken from the "code: message" text.
 func resultCode(res mcp.Result, err error) string {

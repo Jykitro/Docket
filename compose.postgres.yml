@@ -1,0 +1,32 @@
+services:
+  postgres:
+    image: ${DOCKET_POSTGRES_IMAGE:-postgres:18.7-alpine}
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: docket
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set a hex POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: docket
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U docket -d docket"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  docket:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:7777:7777"
+    environment:
+      DOCKET_MODE: selfhost
+      DOCKET_POSTGRES_DSN: postgres://docket:${POSTGRES_PASSWORD:?Set a hex POSTGRES_PASSWORD in .env}@postgres:5432/docket?sslmode=disable
+      DOCKET_ALLOWED_HOSTS: ${DOCKET_ALLOWED_HOSTS:-localhost,127.0.0.1,docket.localhost}
+      TZ: ${TZ:-Asia/Ho_Chi_Minh}
+
+volumes:
+  postgres_data:
