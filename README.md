@@ -50,13 +50,22 @@ No external services, and in the default local mode no users and no login. The U
 
 ## Quick start
 
-Requirements: [Docker](https://docs.docker.com/get-docker/). [`make`](https://www.gnu.org/software/make/) is optional but convenient.
+Install [Docker](https://docs.docker.com/get-docker/) and run the following command from the directory where you want to keep your data.
 
-Prebuilt image (published with every release, `linux/amd64` and `linux/arm64`):
+Start the newest tested build of `main` on Intel/AMD or ARM64:
 
 ```bash
-docker run -d --name docket -p 127.0.0.1:7777:7777 -v "$PWD/data:/data" --restart unless-stopped \
-  ghcr.io/jykitro/docket:latest
+docker run -d --name docket --pull=always -p 127.0.0.1:7777:7777 -v "$PWD/data:/data" --restart unless-stopped ghcr.io/jykitro/docket:main
+```
+
+Open <http://localhost:7777>. The image includes the web UI, API and SQLite. GitHub Actions updates
+`:main` after the SQLite and PostgreSQL checks pass. Use `:sha-<full-commit-sha>` to pin a particular main build,
+or `:latest` to follow tagged stable releases.
+
+To update an existing container started with the command above, use the **same directory** and run:
+
+```bash
+docker pull ghcr.io/jykitro/docket:main && docker stop docket && docker rm docket && docker run -d --name docket -p 127.0.0.1:7777:7777 -v "$PWD/data:/data" --restart unless-stopped ghcr.io/jykitro/docket:main
 ```
 
 Or download a binary for Linux, macOS or Windows from the [releases page](https://github.com/Jykitro/Docket/releases)
