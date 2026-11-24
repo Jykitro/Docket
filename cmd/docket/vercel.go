@@ -19,8 +19,11 @@ import (
 )
 
 func runVercel(ctx context.Context, cfg config.Config) error {
+	if cfg.PostgresDSN == "" {
+		cfg.PostgresDSN = os.Getenv("DATABASE_URL_UNPOOLED")
+	}
 	if !cfg.SelfHost || cfg.PostgresDSN == "" {
-		return errors.New("Vercel requires DOCKET_MODE=selfhost and a dedicated DOCKET_POSTGRES_DSN")
+		return errors.New("Vercel requires DOCKET_MODE=selfhost and DOCKET_POSTGRES_DSN or DATABASE_URL_UNPOOLED")
 	}
 	if os.Getenv("DOCKET_ALLOWED_HOSTS") == "" {
 		return errors.New("configure DOCKET_ALLOWED_HOSTS for the planner domain")

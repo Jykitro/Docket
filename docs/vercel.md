@@ -18,7 +18,7 @@ Use an exact public HTTPS hostname for each environment. Give previews and devel
 | --- | --- |
 | `PORT` | Set to `8080` for the cloud deployment so both non-root containers listen on an unprivileged port. |
 | `DOCKET_MODE` | `selfhost` |
-| `DOCKET_POSTGRES_DSN` | A dedicated PostgreSQL database URL with TLS. The role must own the database or have permission to create and manage its schemas. Use a direct or session-pooled connection that preserves the connection's `search_path`. |
+| `DOCKET_POSTGRES_DSN` | A dedicated PostgreSQL database URL with TLS. The role must own the database or have permission to create and manage its schemas. Use a direct or session-pooled connection that preserves the connection's `search_path`. With Vercel's Neon integration, leave this unset so Plandillo reads the integration-managed `DATABASE_URL_UNPOOLED` directly. |
 | `DOCKET_ALLOWED_HOSTS` | Comma-separated exact hostnames of the planner, without scheme or port |
 | `DOCKET_PASSKEY_ORIGIN` | Optional exact HTTPS origin for WebAuthn, such as `https://planner.example.com` |
 | `PLANDILLO_SETUP_CODE` | Private first-admin setup code, at least 32 characters on a fresh database. Remove it from settings after setup and redeploy. |
