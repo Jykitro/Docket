@@ -77,7 +77,7 @@ export type PageDetail = Page & { documents?: HTMLDocumentInfo[]; backlinks: Pag
 export type AuthUser = { id: number; username: string; is_admin: boolean; blocked?: boolean; created_at: string }
 export type Registration = 'open' | 'invite' | 'closed'
 type Recovery = { recovery_code: string }
-export type Me = { mode: 'local' | 'selfhost'; setup?: boolean; user?: AuthUser }
+export type Me = { mode: 'local' | 'selfhost'; setup?: boolean; setup_source?: 'environment'; user?: AuthUser }
 export type AdminInvite = { id: number; created_at: string; expires_at: string }
 export type NewInvite = { url: string; expires_at: string }
 

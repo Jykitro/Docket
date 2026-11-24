@@ -16,6 +16,9 @@ type tokenIndex struct {
 func (i *tokenIndex) replace(ws *Workspace, token string) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
+	if ws.endToken != nil && token != "" && ws.tokenDigest == sha256.Sum256([]byte(token)) && ws.ctx.Err() == nil {
+		return
+	}
 	i.detach(ws)
 	if token == "" || ws.ctx.Err() != nil {
 		return

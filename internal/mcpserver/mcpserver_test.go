@@ -149,7 +149,7 @@ func TestAgentAttributionOverHTTP(t *testing.T) {
 	if _, err := svc.CreateProject(ctx, service.ActorDenis, service.ProjectInput{Name: "Agents", Key: "AG"}); err != nil {
 		t.Fatal(err)
 	}
-	h := workspaceHandler(svc, time.UTC, runCode)
+	h := WithEvaluator(svc, time.UTC, runCode)
 	call := func(path, client, userAgent, tool string, args any) {
 		t.Helper()
 		params := map[string]any{"name": tool, "arguments": args}

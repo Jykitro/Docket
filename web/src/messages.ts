@@ -132,6 +132,7 @@ export const MESSAGES: Record<string, [en: string, uk: string]> = {
   'Создайте администратора. Он сможет приглашать других пользователей.': ['Create an administrator. They will be able to invite other users.', 'Створіть адміністратора. Він зможе запрошувати інших користувачів.'],
   'Создать': ['Create', 'Створити'],
   'Код настройки': ['Setup code', 'Код налаштування'],
+  'Введите код из переменной PLANDILLO_SETUP_CODE в настройках проекта Vercel.': ['Enter the code from PLANDILLO_SETUP_CODE in your Vercel project settings.', 'Введіть код зі змінної PLANDILLO_SETUP_CODE в налаштуваннях проєкту Vercel.'],
   'Получите код командой plandillo setup-code на сервере. В Docker выполните docker compose -f compose.selfhost.yml exec docket /app/plandillo setup-code.': ['Run plandillo setup-code on the server. In Docker, run docker compose -f compose.selfhost.yml exec docket /app/plandillo setup-code.', 'Отримайте код командою plandillo setup-code на сервері. У Docker виконайте docker compose -f compose.selfhost.yml exec docket /app/plandillo setup-code.'],
   'Приглашение': ['Invitation', 'Запрошення'],
   'Вас пригласили в Plandillo. Придумайте имя пользователя и пароль.': ['You have been invited to Plandillo. Choose a username and password.', 'Вас запросили до Plandillo. Придумайте ім’я користувача та пароль.'],

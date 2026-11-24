@@ -2,6 +2,7 @@ package mcpserver
 
 import (
 	"context"
+	"docket/internal/codeeval"
 	"encoding/json"
 	"errors"
 	"io"
@@ -35,7 +36,7 @@ func TestRunnerAdmissionAndCancellation(t *testing.T) {
 		if _, e = io.ReadFull(conn, command[:]); e != nil {
 			return
 		}
-		if _, e = receive(conn); e != nil {
+		if _, e = codeeval.Receive(conn); e != nil {
 			return
 		}
 		close(entered)

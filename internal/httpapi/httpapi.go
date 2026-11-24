@@ -28,11 +28,12 @@ import (
 )
 
 type Deps struct {
-	Svc          *service.Service
-	Bus          *events.Bus
-	AllowedHosts []string
-	MCP          http.Handler
-	Web          http.Handler
+	OnDemandCheck bool
+	Svc           *service.Service
+	Bus           *events.Bus
+	AllowedHosts  []string
+	MCP           http.Handler
+	Web           http.Handler
 	// SelfAddr is host:port the process listens on; the MCP self-check calls /healthz there. Empty disables
 	// the background check.
 	SelfAddr string
@@ -43,8 +44,8 @@ type Deps struct {
 }
 
 func Router(d Deps) http.Handler {
-	a := &api{svc: d.Svc, bus: d.Bus, mcp: d.MCP, selfAddr: d.SelfAddr, hosts: d.AllowedHosts, selfHost: d.SelfHost}
-	if d.SelfAddr != "" {
+	a := &api{svc: d.Svc, bus: d.Bus, mcp: d.MCP, selfAddr: d.SelfAddr, hosts: d.AllowedHosts, selfHost: d.SelfHost, onDemandCheck: d.OnDemandCheck}
+	if d.SelfAddr != "" && !d.OnDemandCheck {
 		ctx := d.Ctx
 		if ctx == nil {
 			ctx = context.Background()
@@ -253,13 +254,14 @@ func bearer(svc *service.Service, next http.Handler) http.Handler {
 // ---- helpers ----
 
 type api struct {
-	svc      *service.Service
-	bus      *events.Bus
-	mcp      http.Handler
-	selfAddr string
-	hosts    []string
-	selfHost bool
-	last     lastCheck
+	onDemandCheck bool
+	svc           *service.Service
+	bus           *events.Bus
+	mcp           http.Handler
+	selfAddr      string
+	hosts         []string
+	selfHost      bool
+	last          lastCheck
 }
 
 type created struct{ v any } // makes h() answer 201

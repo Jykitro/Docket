@@ -25,6 +25,14 @@ import (
 // ErrRemoved is returned by Open for a profile that was deleted while the process runs.
 var ErrRemoved = errors.New("profile removed")
 
+type workspaceOwnerKey struct{}
+
+// WorkspaceOwner identifies the verified generation for cross-replica worker admission.
+func WorkspaceOwner(ctx context.Context) string {
+	owner, _ := ctx.Value(workspaceOwnerKey{}).(string)
+	return owner
+}
+
 // Workspace is one user's own database, service and HTTP router.
 type Workspace struct {
 	generation  string
@@ -43,6 +51,7 @@ type Workspace struct {
 
 // Workspaces opens one SQLite file or PostgreSQL schema per user.
 type Workspaces struct {
+	cluster     bool
 	parent      context.Context
 	dir         string
 	postgresDSN string
@@ -124,11 +133,14 @@ func (w *Workspaces) open(ctx context.Context, u auth.User, allowCreate bool) (*
 	}
 	bus := events.NewBus()
 	svc := service.New(st, bus, w.loc)
+	if w.cluster {
+		svc.UseClusterEvents(u.WorkspaceKey)
+	}
 	if err := w.init(ctx, svc, u.Username); err != nil {
 		return nil, errors.Join(err, st.Close())
 	}
 	wctx, cancel := context.WithCancel(w.parent)
-	ws := &Workspace{ID: u.ID, generation: u.WorkspaceKey, Svc: svc, Router: w.build(wctx, svc, bus), st: st, ctx: wctx, cancel: cancel}
+	ws := &Workspace{ID: u.ID, generation: u.WorkspaceKey, Svc: svc, Router: w.build(context.WithValue(wctx, workspaceOwnerKey{}, u.WorkspaceKey), svc, bus), st: st, ctx: wctx, cancel: cancel}
 	if err := svc.ObserveMCPToken(ctx, func(token string) { w.tokens.replace(ws, token) }); err != nil {
 		cancel()
 		return nil, errors.Join(err, st.Close())

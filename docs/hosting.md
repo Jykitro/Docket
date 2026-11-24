@@ -216,9 +216,9 @@ Operational details:
   Changes made in PostgreSQL do not appear in SQLite. There is no automatic conversion in either direction.
 - Never reset `docket_auth` while retaining profile schemas: reused user IDs could attach new accounts to old data.
   Back up and restore the whole database together.
-- Run **one Plandillo instance per database**: live events, login rate limiting and MCP routing are still kept in process.
+- For Docker, Compose or a standalone binary, run **one Plandillo instance per database**: live events, login rate limiting and MCP routing are still kept in process.
   PostgreSQL does not enable horizontal scaling. Each loaded profile and the auth store use at most one connection;
-  allow for that in PostgreSQL's connection budget (idle connections close after five minutes).
+  allow for that in PostgreSQL's connection budget (idle connections close after five minutes). The [Vercel deployment](vercel.md) adds coordination for multiple app replicas.
 - The database self-check checks connectivity and reports the profile's table/index size; it does not perform a full
   PostgreSQL integrity check or verify external backups. Full-text search uses PostgreSQL's `simple` dictionary with
   prefix matching for Russian, Ukrainian and English; ranking/snippets can differ from SQLite FTS5.

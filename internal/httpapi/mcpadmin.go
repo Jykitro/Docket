@@ -239,6 +239,15 @@ func (a *api) mcpStatus(r *http.Request) (any, error) {
 		return nil, err
 	}
 	last := a.last.get()
+	if a.onDemandCheck {
+		var checked time.Time
+		if last != nil {
+			checked, _ = time.Parse(time.RFC3339Nano, last.At)
+		}
+		if time.Since(checked) > 30*time.Second {
+			last = a.runAndStore(r.Context())
+		}
+	}
 	return struct {
 		service.MCPStats
 		Online bool         `json:"online"`

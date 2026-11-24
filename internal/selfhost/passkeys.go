@@ -2,6 +2,7 @@ package selfhost
 
 import (
 	"crypto/rand"
+	"database/sql"
 	"errors"
 	"net"
 	"net/http"
@@ -95,6 +96,8 @@ type passkeyRequest struct {
 }
 
 type passkeyRequests struct {
+	db      *sql.DB
+	auth    *auth.DB
 	mu      sync.Mutex
 	pending map[string]passkeyRequest
 }
@@ -110,6 +113,10 @@ func passkeyCookie(site *webauthn.WebAuthn) *http.Cookie {
 }
 
 func (s *passkeyRequests) begin(w http.ResponseWriter, r *http.Request, flow passkeyRequest, options any) {
+	if s.db != nil {
+		s.beginShared(w, r, flow, options)
+		return
+	}
 	now := time.Now()
 	flow.expires = now.Add(passkeyTTL)
 	c := passkeyCookie(flow.site)
@@ -142,6 +149,11 @@ func (s *passkeyRequests) take(w http.ResponseWriter, r *http.Request, site *web
 	cookie, err := r.Cookie(c.Name)
 	if err != nil {
 		return passkeyRequest{}, false
+	}
+	if s.db != nil {
+		c.MaxAge = -1
+		http.SetCookie(w, c)
+		return s.takeShared(r, site, cookie.Value)
 	}
 	s.mu.Lock()
 	flow, ok := s.pending[cookie.Value]

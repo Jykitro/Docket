@@ -15,6 +15,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"docket/internal/codeeval"
 	"docket/internal/service"
 	"docket/internal/store"
 	"docket/skills"
@@ -57,10 +58,10 @@ func Handler(svc *service.Service, loc *time.Location) http.Handler {
 
 // IsolatedHandler sends every Code Mode invocation for this workspace to the resource-limited runner.
 func IsolatedHandler(svc *service.Service, loc *time.Location, runner *Runner) http.Handler {
-	return workspaceHandler(svc, loc, runner.workspace())
+	return WithEvaluator(svc, loc, runner.workspace())
 }
 
-func workspaceHandler(svc *service.Service, loc *time.Location, execute evaluator) http.Handler {
+func WithEvaluator(svc *service.Service, loc *time.Location, execute evaluator) http.Handler {
 	s := mcp.NewServer(&mcp.Implementation{Name: "plandillo", Title: "Plandillo", Version: "1.0.0"}, &mcp.ServerOptions{Instructions: skills.Instructions()})
 	t := &tools{svc: svc, loc: loc}
 
@@ -213,9 +214,6 @@ func call(ctx context.Context, svc *service.Service, method string, req mcp.Requ
 	return res, err
 }
 
-var knownCodes = map[string]bool{"page_too_large": true, "quota_exceeded": true, "not_found": true, "invalid_argument": true, "forbidden": true, "tool_disabled": true,
-	"status_in_use": true, "conflict": true, "internal": true, "timeout": true, "unavailable": true, "rate_limited": true}
-
 // resultCode returns "" for a successful call, else the error code taken from the "code: message" text.
 func resultCode(res mcp.Result, err error) string {
 	if err != nil {
@@ -227,7 +225,7 @@ func resultCode(res mcp.Result, err error) string {
 	}
 	for _, c := range cr.Content {
 		if tc, ok := c.(*mcp.TextContent); ok {
-			if code, _, found := strings.Cut(tc.Text, ":"); found && knownCodes[code] {
+			if code, _, found := strings.Cut(tc.Text, ":"); found && codeeval.KnownCodes[code] {
 				return code
 			}
 		}

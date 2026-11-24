@@ -1,0 +1,10 @@
+CREATE TABLE IF NOT EXISTS vercel_state (singleton boolean PRIMARY KEY CHECK (singleton), epoch bigint NOT NULL, cleaned timestamptz);
+INSERT INTO vercel_state(singleton,epoch) VALUES (true,0) ON CONFLICT DO NOTHING;
+CREATE TABLE IF NOT EXISTS vercel_jobs (id text PRIMARY KEY, owner text NOT NULL, expires timestamptz NOT NULL, seq integer NOT NULL DEFAULT 0, reply bytea);
+CREATE TABLE IF NOT EXISTS vercel_events (id bigserial PRIMARY KEY, owner text NOT NULL, event json NOT NULL, created timestamptz NOT NULL DEFAULT now());
+CREATE INDEX IF NOT EXISTS vercel_events_owner ON vercel_events(owner,id);
+CREATE INDEX IF NOT EXISTS vercel_events_created ON vercel_events(created);
+CREATE TABLE IF NOT EXISTS vercel_flows (key text PRIMARY KEY, expires timestamptz NOT NULL, flow json NOT NULL);
+CREATE TABLE IF NOT EXISTS vercel_attempts (key text NOT NULL, expires timestamptz NOT NULL);
+CREATE INDEX IF NOT EXISTS vercel_attempts_key ON vercel_attempts(key,expires);
+CREATE INDEX IF NOT EXISTS vercel_attempts_expires ON vercel_attempts(expires);

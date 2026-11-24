@@ -26,6 +26,7 @@ import (
 	"docket/internal/selfhost"
 	"docket/internal/service"
 	"docket/internal/store"
+	"docket/internal/vercelrun"
 	"docket/internal/web"
 )
 
@@ -46,6 +47,8 @@ func run() error {
 
 	if len(os.Args) > 1 {
 		switch os.Args[1] {
+		case "vercel":
+			return runVercel(ctx, cfg)
 		case "setup-code":
 			return printSetupCode(cfg.DataDir, os.Stdout)
 		case "code-runner":
@@ -57,7 +60,7 @@ func run() error {
 		}
 	}
 	if cfg.SelfHost {
-		return runSelfHost(ctx, cfg)
+		return runSelfHost(ctx, cfg, nil)
 	}
 
 	st, err := store.Open(cfg.DB)
@@ -94,7 +97,7 @@ func run() error {
 
 // runSelfHost serves many users, each with their own database, behind a login. The shared env token and
 // the seed are not used here: a token shared by all users would make MCP routing ambiguous.
-func runSelfHost(ctx context.Context, cfg config.Config) error {
+func runSelfHost(ctx context.Context, cfg config.Config, remote *vercelrun.App) error {
 	if cfg.MCPToken != "" { // DOCKET_SEED is ignored silently: .env.example sets it, and the README says so
 		slog.Warn("DOCKET_MCP_TOKEN is ignored in selfhost mode: every profile has its own token")
 	}
@@ -118,53 +121,104 @@ func runSelfHost(ctx context.Context, cfg config.Config) error {
 		return err
 	}
 	runner := mcpserver.NewRunner(cfg.RunnerSocket)
-	ws := selfhost.NewWorkspaces(ctx, cfg.DataDir, cfg.Loc, func(wctx context.Context, svc *service.Service, bus *events.Bus) http.Handler {
+	webHandler := web.Handler()
+	buildRouter := func(wctx context.Context, svc *service.Service, bus *events.Bus) http.Handler {
 		return httpapi.Router(httpapi.Deps{
 			Svc: svc, Bus: bus, AllowedHosts: cfg.AllowedHosts, SelfAddr: cfg.Addr, Ctx: wctx, SelfHost: cfg.SelfHost,
 			MCP: mcpserver.IsolatedHandler(svc, cfg.Loc, runner), Web: web.Handler(),
 		})
-	})
+	}
+	var cluster *selfhost.Cluster
+	ready := runner.Ready
+	if remote != nil {
+		cluster, err = selfhost.OpenCluster(ctx, cfg.PostgresDSN)
+		if err != nil {
+			return err
+		}
+		defer cluster.Close()
+		remote.DB = cluster.DB
+		ready = remote.Ready
+		webHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == "/mcp" || r.URL.Path == "/mcp/code" {
+				target := "/integrations"
+				if r.URL.RawQuery != "" {
+					target += "?" + r.URL.RawQuery
+				}
+				http.Redirect(w, r, target, http.StatusTemporaryRedirect)
+				return
+			}
+			http.NotFound(w, r)
+		})
+		buildRouter = cloudRouter(cfg, remote, webHandler)
+	}
+	ws := selfhost.NewWorkspaces(ctx, cfg.DataDir, cfg.Loc, buildRouter)
 	ws.UsePostgres(cfg.PostgresDSN)
 	defer ws.Close()
 
-	// Every workspace is opened now so MCP bearer lookup knows all users right after a restart.
-	users, err := ad.ListUsers()
-	if err != nil {
-		return err
-	}
-	if err = ws.VerifyOwners(ctx, users, ad); err != nil {
-		return err
-	}
-	for _, u := range users {
-		if _, err := ws.Open(ctx, u); err != nil {
-			return fmt.Errorf("open workspace for user %d (%s): %w", u.ID, u.Username, err)
+	var code string
+	var clearSetup func()
+	if cluster != nil {
+		if err = cluster.Initialize(ctx, ws, ad); err != nil {
+			return err
+		}
+		n, err := ad.UserCount()
+		if err != nil {
+			return err
+		}
+		code = os.Getenv("PLANDILLO_SETUP_CODE")
+		if n == 0 && len(code) < 32 {
+			return errors.New("first setup requires PLANDILLO_SETUP_CODE with at least 32 characters")
+		}
+	} else {
+		users, err := ad.ListUsers()
+		if err != nil {
+			return err
+		}
+		if err = ws.VerifyOwners(ctx, users, ad); err != nil {
+			return err
+		}
+		for _, u := range users {
+			if _, err := ws.Open(ctx, u); err != nil {
+				return fmt.Errorf("open workspace for user %d: %w", u.ID, err)
+			}
+		}
+		go maintainAll(ctx, ws, cfg.BackupDir)
+		setupPath := filepath.Join(cfg.DataDir, "setup-code")
+		clearSetup = func() {
+			if err := os.Remove(setupPath); err != nil && !os.IsNotExist(err) {
+				slog.Error("remove consumed setup code", "err", err)
+			}
+		}
+		if len(users) == 0 {
+			code, err = createSetupCode(cfg.DataDir)
+			if err != nil {
+				return err
+			}
+			slog.Info("first run: retrieve the administrator setup code with plandillo setup-code")
+		} else {
+			clearSetup()
 		}
 	}
 	if cfg.PostgresDSN != "" {
 		slog.Info("PostgreSQL storage enabled; configure external database backups (pg_dump or PITR)")
 	}
-	go maintainAll(ctx, ws, cfg.BackupDir)
-
-	setupPath := filepath.Join(cfg.DataDir, "setup-code")
-	clearSetup := func() {
-		if err := os.Remove(setupPath); err != nil && !os.IsNotExist(err) {
-			slog.Error("remove consumed setup code", "err", err)
+	handler := selfhost.Handler(selfhost.Options{Cluster: cluster, VercelIngress: cluster != nil && os.Getenv("VERCEL") == "1" && (os.Getenv("VERCEL_ENV") == "production" || os.Getenv("VERCEL_ENV") == "preview"),
+		SetupComplete: clearSetup, TrustedProxies: proxies, Passkeys: sites, Auth: ad, WS: ws, Web: webHandler, AllowedHosts: cfg.AllowedHosts, SetupCode: code, RunnerReady: ready,
+	})
+	if remote != nil {
+		if os.Getenv("VERCEL_ENV") == "development" {
+			handler = developmentOrigin(handler, cfg.PasskeyOrigin)
 		}
+		public := handler
+		handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == "/_plandillo/reply" {
+				remote.Reply(w, r)
+				return
+			}
+			public.ServeHTTP(w, r)
+		})
 	}
-	var code string
-	if len(users) == 0 {
-		code, err = createSetupCode(cfg.DataDir)
-		if err != nil {
-			return err
-		}
-		slog.Info("first run: retrieve the administrator setup code with plandillo setup-code")
-	} else {
-		clearSetup()
-	}
-
-	return serve(ctx, cfg.Addr, selfhost.Handler(selfhost.Options{
-		SetupComplete: clearSetup, TrustedProxies: proxies, Passkeys: sites, Auth: ad, WS: ws, Web: web.Handler(), AllowedHosts: cfg.AllowedHosts, SetupCode: code, RunnerReady: runner.Ready,
-	}))
+	return serve(ctx, cfg.Addr, handler)
 }
 
 // createSetupCode publishes each process's bootstrap credential only after the file is complete.

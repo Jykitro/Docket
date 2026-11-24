@@ -1,0 +1,13 @@
+.env
+.env.*
+data/
+outputs/
+.git/
+.idea/
+.claude/
+.vercel/
+bin/
+landing/
+web/node_modules/
+web/dist/
+internal/web/dist/

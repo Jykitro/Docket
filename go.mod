@@ -8,6 +8,7 @@ require (
 	github.com/go-webauthn/webauthn v0.18.2
 	github.com/jackc/pgx/v5 v5.13.0
 	github.com/modelcontextprotocol/go-sdk v1.8.0
+	github.com/tetratelabs/wazero v1.12.0
 	modernc.org/sqlite v1.63.0
 )
 

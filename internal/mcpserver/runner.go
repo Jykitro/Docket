@@ -2,7 +2,6 @@ package mcpserver
 
 import (
 	"context"
-	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"io"
@@ -12,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"docket/internal/codeeval"
 	"docket/internal/service"
 )
 
@@ -26,56 +26,12 @@ type Runner struct {
 // NewRunner limits admission across all of the server's workspaces.
 func NewRunner(socket string) *Runner { return &Runner{socket: socket, slots: make(chan struct{}, 2)} }
 
-const (
-	maxFrame = 16 << 20 // accommodates the HTML document limit and JSON escaping
-	maxCode  = 256 << 10
-)
+const maxCode = codeeval.MaxCode
 
 var errBusy = errors.New("rate_limited: Code Mode is busy, try again later")
 
-type message struct {
-	Kind  string          `json:"kind"`
-	Text  string          `json:"text,omitempty"`
-	Args  json.RawMessage `json:"args,omitempty"`
-	Error string          `json:"error,omitempty"`
-}
-
 // closeIPC releases a listener or an IPC stream. A peer may already have closed it on cancellation.
 func closeIPC(c io.Closer) { _ = c.Close() }
-
-func send(w io.Writer, m message) error {
-	b, err := json.Marshal(m)
-	if err != nil {
-		return err
-	}
-	if len(b) > maxFrame {
-		return errors.New("message exceeds the Code Mode limit")
-	}
-	var size [4]byte
-	binary.BigEndian.PutUint32(size[:], uint32(len(b)))
-	if _, err = w.Write(size[:]); err != nil {
-		return err
-	}
-	_, err = w.Write(b)
-	return err
-}
-func receive(r io.Reader) (message, error) {
-	var size [4]byte
-	var m message
-	if _, err := io.ReadFull(r, size[:]); err != nil {
-		return m, err
-	}
-	n := binary.BigEndian.Uint32(size[:])
-	if n == 0 || n > maxFrame {
-		return m, errors.New("invalid Code Mode frame size")
-	}
-	b := make([]byte, n)
-	if _, err := io.ReadFull(r, b); err != nil {
-		return m, err
-	}
-	err := json.Unmarshal(b, &m)
-	return m, err
-}
 
 func (r *Runner) dial(ctx context.Context) (net.Conn, error) {
 	d := net.Dialer{Timeout: time.Second}
@@ -139,11 +95,11 @@ func (r *Runner) workspace() evaluator {
 		if _, err = c.Write([]byte{'R'}); err != nil {
 			return "", err
 		}
-		if err = send(c, message{Kind: "run", Text: code}); err != nil {
+		if err = codeeval.Send(c, codeeval.Message{Kind: "run", Text: code}); err != nil {
 			return "", err
 		}
 		for calls := 0; ; calls++ {
-			m, err := receive(c)
+			m, err := codeeval.Receive(c)
 			if err != nil {
 				return "", errors.New("unavailable: isolated Code Mode execution ended")
 			}
@@ -164,11 +120,11 @@ func (r *Runner) workspace() evaluator {
 					return "", err
 				}
 				result, callErr := call(m.Text, m.Args)
-				reply := message{Kind: "reply", Text: result}
+				reply := codeeval.Message{Kind: "reply", Text: result}
 				if callErr != nil {
 					reply.Error = callErr.Error()
 				}
-				if err = send(c, reply); err != nil {
+				if err = codeeval.Send(c, reply); err != nil {
 					return "", err
 				}
 			default:
@@ -186,40 +142,7 @@ func registeredTool(name string) bool {
 	return false
 }
 
-// Evaluate runs one job on stdin/stdout in a disposable child of the isolated runner.
-func Evaluate(in io.Reader, out io.Writer) error {
-	first, err := receive(in)
-	if err != nil {
-		return err
-	}
-	if first.Kind != "run" || len(first.Text) > maxCode {
-		return errors.New("invalid Code Mode job")
-	}
-	result, err := runCode(context.Background(), first.Text, func(name string, args json.RawMessage) (string, error) {
-		if err := send(out, message{Kind: "call", Text: name, Args: args}); err != nil {
-			return "", err
-		}
-		m, err := receive(in)
-		if err != nil {
-			return "", err
-		}
-		if m.Kind != "reply" {
-			return "", errors.New("invalid tool reply")
-		}
-		if m.Error != "" {
-			return "", errors.New(m.Error)
-		}
-		return m.Text, nil
-	})
-	reply := message{Kind: "done", Text: result}
-	if err != nil {
-		reply.Error = err.Error()
-		if len(reply.Error) > 4096 {
-			reply.Error = reply.Error[:4096]
-		}
-	}
-	return send(out, reply)
-}
+func Evaluate(in io.Reader, out io.Writer) error { return codeeval.Evaluate(in, out) }
 
 // ServeRunner supervises disposable evaluators. Deploy this command with OS memory and CPU limits.
 func ServeRunner(ctx context.Context, path string) error {

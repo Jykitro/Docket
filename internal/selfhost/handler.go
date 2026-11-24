@@ -27,6 +27,8 @@ const (
 )
 
 type Options struct {
+	VercelIngress  bool
+	Cluster        *Cluster
 	Auth           *auth.DB
 	WS             *Workspaces
 	Web            http.Handler
@@ -99,6 +101,16 @@ func Handler(o Options) http.Handler {
 	h := &handler{Options: o, passkeyLimit: auth.NewLimiter(120, 10*time.Minute), limiter: auth.NewLimiter(5, 10*time.Minute), clients: auth.NewLimiter(20, 10*time.Minute), accountAttempts: auth.NewLimiter(20, 10*time.Minute), credentials: make(chan struct{}, 8)}
 	r := chi.NewRouter()
 	r.Use(middleware.Recoverer, httpapi.HostGuard(o.AllowedHosts), browserGuard)
+	if o.Cluster != nil {
+		r.Use(o.Cluster.middleware(h))
+		h.flows.db = o.Cluster.DB
+		h.flows.auth = o.Auth
+		h.limiter.UsePostgres(o.Cluster.DB, "credentials")
+		h.passkeyLimit.UsePostgres(o.Cluster.DB, "passkeys")
+		h.clients.UsePostgres(o.Cluster.DB, "clients")
+		h.accountAttempts.UsePostgres(o.Cluster.DB, "accounts")
+		r.Get("/api/events", func(w http.ResponseWriter, r *http.Request) { o.Cluster.stream(h, w, r) })
+	}
 	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) { w.Write([]byte("ok")) })
 	r.Get("/api/auth/me", h.me)
 	r.Get("/api/auth/registration", h.registration)
@@ -182,7 +194,11 @@ func (h *handler) me(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if n == 0 {
-		writeJSON(w, 200, map[string]any{"mode": "selfhost", "setup": true})
+		result := map[string]any{"mode": "selfhost", "setup": true}
+		if h.Cluster != nil {
+			result["setup_source"] = "environment"
+		}
+		writeJSON(w, 200, result)
 		return
 	}
 	writeError(w, 401, "unauthorized", "not logged in")

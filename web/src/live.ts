@@ -46,6 +46,7 @@ export function useLive(qc: QueryClient) {
         void qc.invalidateQueries(undefined, { cancelRefetch: false })
       }, 120)
     }
+    es.onopen = refresh
     es.onmessage = (m) => {
       try {
         const e = JSON.parse(m.data) as { actor: string; task_id?: number }

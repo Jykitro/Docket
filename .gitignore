@@ -6,3 +6,6 @@ web/node_modules/
 bin/
 internal/web/dist/*
 !internal/web/dist/.gitkeep
+
+.vercel/
+web/dist/

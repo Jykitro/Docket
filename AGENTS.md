@@ -58,11 +58,11 @@ PostgreSQL is opt-in via `DOCKET_POSTGRES_DSN` and requires `DOCKET_MODE=selfhos
 `docket_auth` stores accounts and `docket_user_<id>` stores each profile. Both dialects must keep the same service
 contract. PostgreSQL migrations live in `internal/store/migrations/postgres`; do not change existing SQLite migrations
 to add PostgreSQL support. Test both backends. PostgreSQL backups are external (`pg_dump`/PITR); never claim a file
-backup ran. No automatic SQLite import or multi-instance support exists. See the [hosting guide](docs/hosting.md#postgresql-storage) and `compose.postgres.yml`.
+backup ran. Docker and native installations run one instance per database. The Vercel entrypoint coordinates replicas in PostgreSQL as documented in [the Vercel guide](docs/vercel.md). There is no automatic SQLite import. See the [hosting guide](docs/hosting.md#postgresql-storage) and `compose.postgres.yml`.
 
 ## MCP tools
 
-The tool catalogue is `service.MCPTools` in `internal/service/mcp.go`; `internal/mcpserver` registers exactly those and panics at startup if a name is missing. Adding a tool means: an entry in `MCPTools` (name, `read` or `write`, description), a handler registered with `add(...)` in `mcpserver.go`, the [MCP tool table](docs/agents.md#tools) and `skills/plandillo-reference/SKILL.md`. Write tools are blocked in read-only mode by `IsWriteTool`. Results are compact JSON with IDs like `TRK-07`; keep them small, the assistant pays for every byte.
+The shared tool catalogue is `MCPTools` in `internal/toolcatalog/catalog.go` (exposed as `service.MCPTools`); `internal/mcpserver` registers exactly those and panics at startup if a name is missing. Adding a tool means: an entry in `MCPTools` (name, `read` or `write`, description), a handler registered with `add(...)` in `mcpserver.go`, the [MCP tool table](docs/agents.md#tools) and `skills/plandillo-reference/SKILL.md`. Write tools are blocked in read-only mode by `IsWriteTool`. Results are compact JSON with IDs like `TRK-07`; keep them small, the assistant pays for every byte.
 
 Code Mode (`/mcp/code`) exposes the same tools as `codemode.<tool>()` inside one `code` tool that runs JavaScript in goja; it derives everything from `MCPTools` and the registered schemas, so a new tool needs no change there. How integrations work and how to add one: `docs/integrations.md`.
 
