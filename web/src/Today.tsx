@@ -1,20 +1,20 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  type Activity, type Category, type Meta, type Project, type Task, type TodayData, addDays, api, fmtDay, fmtLongDay, fmtTime,
+  type Activity, type Category, type Meta, type Project, type Task, type TodayData, addDays, api, fmtDay, fmtLongDay, fmtTime, mcpHealthLabel, mcpLastCallLabel,
   todayStr, useProjectsMeta, useWho,
 } from './api'
 import { Icon, ProjectTile } from './icons'
 import { plural, tr } from './i18n'
 import { useFresh } from './live'
-import { Link, hrefWith, navigate, useRoute } from './router'
-import { AreaDot, ClaudeBadge, EmptyState, ErrorState, PriorityChip, SkeletonRows, btn, btnPri, btnSq, btnWarn, cap, kbdPri, mc } from './ui'
+import { Link, hrefWith, navigate, scrollToSection, useRoute } from './router'
+import { AreaDot, ClaudeBadge, ConfirmButton, EmptyState, ErrorState, Menu, PriorityChip, SkeletonRows, btn, btnPri, btnSq, cap, kbdPri, mc } from './ui'
 
 const panel = 'bg-sf border border-ln rounded-xl'
 const panelHead = 'flex flex-wrap items-center gap-2.5 px-4 py-3'
 const dot = 'inline-block w-2 h-2 rounded-full flex-[0_0_8px] '
 const feed = 'flex gap-3 px-4 py-3 border-t border-ln'
-const content = 'px-8 pt-6 pb-8 flex gap-6 flex-wrap items-start max-[640px]:px-4'
+const content = 'flex flex-wrap items-start gap-4 px-4 pb-8 pt-3 sm:gap-6 sm:px-8 sm:pt-6'
 const SC: Record<Category, string> = {
   todo: 'border-t3 bg-transparent hover:border-ac',
   doing: 'border-dg bg-[linear-gradient(90deg,var(--dg)_50%,transparent_50%)]',
@@ -36,12 +36,12 @@ function TaskRow({ t, meta, late, onCycle }: { t: Task; meta?: Meta; late?: bool
   const done = t.status_category === 'done'
   return (
     <div className={'flex items-center gap-3 min-h-[46px] px-4 py-1.5 border-t border-ln no-underline text-inherit hover:bg-sf2' + (fresh ? ' shadow-[inset_0_0_0_2px_var(--ac)]' : '')}>
-      <button type="button" className={'size-[18px] rounded-full flex-[0_0_18px] grid place-items-center p-0 border-[1.5px] text-white ' + SC[t.status_category]} aria-label={`${t.code}: ${t.status_name}. ${tr('Сменить статус')}`} onClick={() => onCycle(t)}>
-        {done && <Icon name="check" size={11} sw={3.2} />}
+      <button type="button" className="-mx-2 grid size-9 shrink-0 place-items-center rounded-md hover:bg-sk" aria-label={`${t.code}: ${t.status_name}. ${tr('Сменить статус')}`} onClick={() => onCycle(t)}>
+        <span className={'grid size-[18px] place-items-center rounded-full border-[1.5px] text-white ' + SC[t.status_category]}>{done && <Icon name="check" size={11} sw={3.2} />}</span>
       </button>
       <Link to={hrefWith('task', t.code)} className="flex flex-wrap items-center gap-x-3 gap-y-1 flex-1 min-w-0 self-stretch no-underline text-inherit">
         <span className="font-mono text-[11.5px] text-t3 w-[58px] flex-[0_0_58px]">{t.code}</span>
-        <span className={'flex-[1_1_200px] min-w-0 font-medium' + (done ? ' text-t3 line-through' : '')}>{t.title}</span>
+        <span className={'flex-[1_1_200px] min-w-0 wrap-anywhere font-medium' + (done ? ' text-t3 line-through' : '')}>{t.title}</span>
         {late && t.planned_for && <span className="inline-flex items-center gap-[5px] text-[12px] text-rd font-medium">{fmtDay(t.planned_for)}</span>}
         {t.created_by === 'claude' && <ClaudeBadge />}
         {!late && <AreaDot area={t.area} labels={meta?.labels ?? []} />}
@@ -60,19 +60,19 @@ function actText(a: Activity): string {
     /* an unreadable diff just falls back to the generic text */
   }
   switch (a.action) {
-    case 'created': return tr('создал {code}', { code })
-    case 'moved': return d.status ? tr('перевёл {code} в «{status}»', { code, status: String(d.status[1]) }) : tr('переместил {code}', { code })
+    case 'created': return tr('Создана задача {code}', { code })
+    case 'moved': return d.status ? tr('{code} → {status}', { code, status: String(d.status[1]) }) : tr('Задача {code} перемещена', { code })
     case 'updated':
-      if (d.priority) return tr('изменил приоритет {code}: {from} → {to}', { code, from: String(d.priority[0]), to: String(d.priority[1]) })
-      return d.title ? tr('переименовал {code}', { code }) : tr('обновил {code}', { code })
-    case 'deleted': return tr('удалил {code}', { code })
-    case 'restored': return tr('восстановил {code}', { code })
-    case 'note_added': return tr('добавил заметку к {code}', { code })
-    case 'carried_over': return tr('перенёс {code} на {day}', { code, day: fmtDay(String(d.planned_for?.[1] ?? '')) })
-    case 'project_created': return tr('создал проект')
-    case 'project_updated': return tr('обновил проект')
-    case 'project_deleted': return tr('удалил проект в корзину')
-    case 'project_restored': return tr('восстановил проект')
+      if (d.priority) return tr('Приоритет {code} · {from} → {to}', { code, from: String(d.priority[0]), to: String(d.priority[1]) })
+      return d.title ? tr('Задача {code} переименована', { code }) : tr('Задача {code} обновлена', { code })
+    case 'deleted': return tr('Задача {code} удалена', { code })
+    case 'restored': return tr('Задача {code} восстановлена', { code })
+    case 'note_added': return tr('Добавлена заметка к {code}', { code })
+    case 'carried_over': return tr('Задача {code} перенесена на {day}', { code, day: fmtDay(String(d.planned_for?.[1] ?? '')) })
+    case 'project_created': return tr('Проект создан')
+    case 'project_updated': return tr('Проект обновлён')
+    case 'project_deleted': return tr('Проект перемещён в корзину')
+    case 'project_restored': return tr('Проект восстановлен')
     default: return a.action
   }
 }
@@ -111,17 +111,10 @@ export function Today({ onNewTask }: { onNewTask: (o: { project?: Project; date:
     mutationFn: async (pairs: [string, string][]) => { for (const [from, to] of pairs) await api.carryOver(from, to) },
     onSettled: () => qc.invalidateQueries(),
   })
-  const [confirm, setConfirm] = useState(false)
-  useEffect(() => {
-    if (!confirm) return
-    const t = setTimeout(() => setConfirm(false), 4000)
-    return () => clearTimeout(t)
-  }, [confirm])
-
   const overdueRef = useRef<HTMLElement>(null)
   const focus = params.get('focus')
   useEffect(() => {
-    if (focus === 'overdue' && data) overdueRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    if (focus === 'overdue' && data) scrollToSection(overdueRef.current)
   }, [focus, data])
 
   const date = data?.date ?? dateParam ?? todayStr()
@@ -134,10 +127,17 @@ export function Today({ onNewTask }: { onNewTask: (o: { project?: Project; date:
   const go = (d: string) => navigate(d === todayStr() ? '/' : `/?date=${d}`)
   const overdueDates = [...new Set((data?.overdue ?? []).map((t) => t.planned_for!))]
 
+  const carryButton = (close?: () => void) => (
+    <ConfirmButton key={date} icon={<Icon name="arrowRight" size={15} />} disabled={open === 0 || carry.isPending}
+      label={tr('Незакрытые на завтра')} armed={tr('Перенести {n} на {day}?', { n: open, day: fmtDay(addDays(date, 1)).toLowerCase() })}
+      onConfirm={() => { close?.(); carry.mutate([[date, addDays(date, 1)]]) }} />
+  )
+  const checked = !mcp.isError && mcp.data?.check
+
   return (
     <>
-      <header className="px-8 pt-6 pb-4 flex items-center gap-3.5 flex-wrap max-[640px]:px-4">
-        <div className="flex flex-col gap-0.5 flex-[1_1_260px] min-w-0">
+      <header className="flex flex-wrap items-center gap-2 px-4 pt-4 pb-2 sm:gap-3.5 sm:px-8 sm:pt-6 sm:pb-4">
+        <div className="flex flex-col gap-0.5 basis-full min-w-0 sm:flex-[1_1_260px]">
           <h1 className="text-2xl font-bold tracking-tight">{isToday ? tr('Сегодня') : fmtLongDay(date)}</h1>
           <span className="text-sm text-t3">
             {isToday ? fmtLongDay(date) : fmtDay(date)} · {tr('{tasks} в {projects}', {
@@ -146,19 +146,16 @@ export function Today({ onNewTask }: { onNewTask: (o: { project?: Project; date:
             })}
           </span>
         </div>
-        <span className="inline-flex items-center gap-1.5">
-          <button type="button" className={btnSq} aria-label={tr('Предыдущий день')} onClick={() => go(addDays(date, -1))}><Icon name="chevL" size={16} sw={2} /></button>
-          <button type="button" className={btn} onClick={() => go(todayStr())}>{tr('Сегодня')}</button>
-          <button type="button" className={btnSq} aria-label={tr('Следующий день')} onClick={() => go(addDays(date, 1))}><Icon name="chevR" size={16} sw={2} /></button>
+        <span className="inline-flex items-center gap-1 sm:gap-1.5">
+          <button type="button" className={btnSq + ' max-sm:w-8'} aria-label={tr('Предыдущий день')} onClick={() => go(addDays(date, -1))}><Icon name="chevL" size={16} sw={2} /></button>
+          <button type="button" className={btn + ' max-sm:px-2'} onClick={() => go(todayStr())}>{tr('Сегодня')}</button>
+          <button type="button" className={btnSq + ' max-sm:w-8'} aria-label={tr('Следующий день')} onClick={() => go(addDays(date, 1))}><Icon name="chevR" size={16} sw={2} /></button>
         </span>
-        <button type="button" className={confirm ? btnWarn : btn} disabled={open === 0 || carry.isPending}
-          onClick={() => (confirm ? (setConfirm(false), carry.mutate([[date, addDays(date, 1)]])) : setConfirm(true))}>
-          <Icon name="arrowRight" size={15} sw={1.8} />
-          {confirm ? tr('Перенести {n} на {day}?', { n: open, day: fmtDay(addDays(date, 1)).toLowerCase() }) : tr('Незакрытые на завтра')}
+        <div className="hidden sm:block">{carryButton()}</div>
+        <button type="button" className={btnPri + ' max-sm:ml-auto max-sm:gap-1 max-sm:px-2'} onClick={() => onNewTask({ date })}>
+          <Icon name="plus" size={16} sw={2} />{tr('Новая задача')}<span className={kbdPri + ' max-sm:hidden'}>C</span>
         </button>
-        <button type="button" className={btnPri} onClick={() => onNewTask({ date })}>
-          <Icon name="plus" size={16} sw={2} />{tr('Новая задача')}<span className={kbdPri}>C</span>
-        </button>
+        <div className="sm:hidden"><Menu right className={btnSq + ' max-sm:w-8'} ariaLabel={tr('Действия дня')} label={<Icon name="more" />}>{carryButton}</Menu></div>
       </header>
 
       <div className={content}>
@@ -185,7 +182,7 @@ export function Today({ onNewTask }: { onNewTask: (o: { project?: Project; date:
               )}
 
               {data.overdue.length > 0 && (
-                <section className="bg-sf border border-rd rounded-xl overflow-hidden" ref={overdueRef}>
+                <section className="scroll-mt-20 bg-sf border border-ln rounded-xl overflow-hidden" ref={overdueRef}>
                   <div className={panelHead}>
                     <span className={dot + 'bg-rd'} />
                     <b className="font-semibold">{tr('Просрочено')}</b>
@@ -230,11 +227,12 @@ export function Today({ onNewTask }: { onNewTask: (o: { project?: Project; date:
 
         <aside className="flex-[1_1_300px] max-w-[380px] min-w-0 flex flex-col gap-[18px] max-[640px]:max-w-none">
           <Link to="/integrations" className={panel + ' flex items-center gap-3 px-4 py-3.5 no-underline text-inherit'}>
-            <span className={'size-[34px] rounded-[9px] grid place-items-center ' + (mcp.data && !mcp.data.online ? 'bg-rds text-rd' : 'bg-dns text-dnt')}><Icon name="plug" size={17} sw={1.9} /></span>
+            <span className={'size-[34px] rounded-[9px] grid place-items-center ' + (!checked ? 'bg-sk text-t3' : mcp.data?.online ? 'bg-dns text-dnt' : 'bg-rds text-rd')}><Icon name="plug" size={17} sw={1.9} /></span>
             <span className="flex flex-col grow leading-[1.3]">
-              <b className="font-semibold">{mcp.data && !mcp.data.online ? tr('MCP не отвечает') : tr('Claude подключён')}</b>
+              <b className="font-semibold">{mcpHealthLabel(mcp.data, mcp.isError)}</b>
               <span className="text-[12.5px] text-t3">
-                {mcp.data ? tr('{ms} мс · {calls} сегодня', { ms: mcp.data.median_ms, calls: plural(mcp.data.calls_today, '{n} вызов|{n} вызова|{n} вызовов') }) : tr('проверяю…')}
+                {mcp.data && mcpLastCallLabel(mcp.data)}
+                {!!mcp.data?.calls_today && <span className="block">{tr('{calls} сегодня · медиана {ms} мс', { calls: mcp.data.calls_today, ms: mcp.data.median_ms })}</span>}
               </span>
             </span>
             <Icon name="chevR" size={16} sw={2} />
@@ -246,8 +244,8 @@ export function Today({ onNewTask }: { onNewTask: (o: { project?: Project; date:
               <div className={feed} key={a.id}>
                 <span className={'size-[26px] rounded-full flex-[0_0_26px] grid place-items-center ' + (a.actor === 'claude' ? 'bg-acs text-act' : 'bg-sk text-t2')}><Icon name={a.actor === 'claude' ? 'spark' : 'user'} size={13} sw={2} /></span>
                 <span className="flex-[1_1_0] min-w-0 flex flex-col gap-0.5 text-[13px] leading-[1.4]">
-                  <span><b className="font-semibold">{who(a.actor)}</b> {actText(a)}</span>
-                  <span className="font-mono text-[11.5px] text-t3">{fmtTime(a.at)}</span>
+                  <span>{actText(a)}</span>
+                  <span className="text-xs text-t3">{who(a.actor)} · <time dateTime={a.at} className="tabular-nums">{fmtTime(a.at)}</time></span>
                 </span>
               </div>
             ))}

@@ -229,6 +229,19 @@ export function useProjectsMeta(ids: number[]): Record<number, Meta> {
 
 // ---- display helpers ----
 
+export function mcpHealthLabel(status: McpStatus | undefined, failed: boolean) {
+  if (failed) return tr('Не удалось получить статус MCP')
+  if (!status) return tr('Загрузка…')
+  if (!status.check) return tr('MCP ещё не проверен')
+  if (!status.online) return tr('Самопроверка MCP не пройдена')
+  return status.last_call_at || status.token_last_used_at ? tr('Сервер MCP доступен') : tr('MCP готов к подключению')
+}
+
+export function mcpLastCallLabel(status: McpStatus) {
+  return status.last_call_at ? tr('Последний вызов · {when}', { when: fmtStamp(status.last_call_at) }) : tr('В журнале пока нет вызовов')
+}
+
+
 /** Status colour: one of the four theme tokens or a custom hex. */
 export const statusColor = (c: string) => (/^(bk|td|dg|dn)$/.test(c) ? `var(--${c})` : c)
 

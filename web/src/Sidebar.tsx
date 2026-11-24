@@ -7,7 +7,7 @@ import { Icon, ProjectTile } from './icons'
 import { DocketLogo } from './DocketLogo'
 import { tr } from './i18n'
 import { Link } from './router'
-import { cap } from './ui'
+import { cap, useFocusTrap } from './ui'
 
 const nv = 'flex h-8 items-center gap-2 rounded-md px-2 text-sm no-underline w-full text-left text-tx hover:bg-sk '
 const nvOn = nv + 'bg-sk font-medium'
@@ -24,9 +24,10 @@ function Group({ label, rail, action, children }: { label: string; rail: boolean
   )
 }
 
-export function Sidebar({ path, view, rail, mobileOpen, onClose, onNewProject, onSettings }: {
-  path: string; view: string | null; rail: boolean; mobileOpen: boolean; onClose: () => void; onNewProject: () => void; onSettings: () => void
+export function Sidebar({ path, view, overdue, rail, mobileOpen, onClose, onNewProject, onSettings }: {
+  path: string; view: string | null; overdue: boolean; rail: boolean; mobileOpen: boolean; onClose: () => void; onNewProject: () => void; onSettings: () => void
 }) {
+  const trap = useFocusTrap<HTMLElement>(mobileOpen)
   const projects = useProjects()
   const name = useProfile().data?.name ?? ''
   const me = useMe().data
@@ -42,9 +43,9 @@ export function Sidebar({ path, view, rail, mobileOpen, onClose, onNewProject, o
     (views[i]?.data ?? []).filter((v) => v.pinned && v.project_id === p.id).map((v) => ({ v, p })))
 
   const nav = [
-    { to: '/', label: tr('Сегодня'), icon: 'cal', n: today.data?.tasks.length, on: path === '/' },
-    { to: '/?focus=overdue', label: tr('Просрочено'), icon: 'clock', n: today.data?.overdue.length, on: false },
-    { to: '/integrations', label: tr('Интеграции'), icon: 'plug', dot: mcp.data ? (mcp.data.online ? 'var(--dn)' : 'var(--rd)') : undefined, on: path === '/integrations' || path === '/mcp' },
+    { to: '/', label: tr('Сегодня'), icon: 'cal', n: today.data?.tasks.length, on: path === '/' && !overdue },
+    { to: '/?focus=overdue', label: tr('Просрочено'), icon: 'clock', n: today.data?.overdue.length, on: overdue },
+    { to: '/integrations', label: tr('Интеграции'), icon: 'plug', dot: mcp.data?.check && !mcp.isError ? (mcp.data.online ? 'var(--dn)' : 'var(--rd)') : undefined, on: path === '/integrations' || path === '/mcp' },
     { to: '/trash', label: tr('Корзина'), icon: 'trash', n: (trash.data?.length ?? 0) + (trashP.data?.length ?? 0), on: path === '/trash' },
   ]
   // In the icon rail an item is just its icon (centred), with the label as a tooltip.
@@ -55,15 +56,19 @@ export function Sidebar({ path, view, rail, mobileOpen, onClose, onNewProject, o
       {mobileOpen && <div className="fixed inset-0 z-40 bg-black/50 min-[900px]:hidden" onClick={onClose} aria-hidden="true" />}
       {/* Floating variant (shadcn): the aside is a padded slot, the inner card floats with border, radius and shadow. */}
       <aside
-        className={'z-50 shrink-0 p-2 transition-[width,translate] duration-200 '
-          + 'max-[899px]:fixed max-[899px]:inset-y-0 max-[899px]:left-0 max-[899px]:w-68 min-[900px]:sticky min-[900px]:top-0 min-[900px]:h-screen '
-          + (rail ? 'min-[900px]:w-18 ' : 'min-[900px]:w-68 ') + (mobileOpen ? '' : 'max-[899px]:-translate-x-full')}
+        className={'z-50 shrink-0 p-2 motion-safe:transition-[width,translate] motion-safe:duration-200 '
+          + 'max-[900px]:fixed max-[900px]:inset-y-0 max-[900px]:left-0 max-[900px]:w-68 min-[900px]:sticky min-[900px]:top-0 min-[900px]:h-screen '
+          + (rail ? 'min-[900px]:w-18 ' : 'min-[900px]:w-68 ') + (mobileOpen ? '' : 'max-[900px]:invisible max-[900px]:-translate-x-full')}
+        id="app-sidebar" ref={trap} tabIndex={mobileOpen ? -1 : undefined} role={mobileOpen ? 'dialog' : undefined} aria-modal={mobileOpen || undefined}
+        onKeyDown={e => { if (mobileOpen && e.key === 'Escape') { e.stopPropagation(); onClose() } }}
+        onClick={e => { if (mobileOpen && (e.target as Element).closest('a[href]') && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) onClose() }}
         aria-label={tr('Боковая панель')}
       >
         <div className="flex h-full flex-col rounded-lg border border-ln bg-sf shadow-sm">
         <div className={'flex h-16 items-center gap-2 px-3 ' + (rail ? 'justify-center' : '')}>
           <DocketLogo />
           {!rail && <span className="flex min-w-0 grow flex-col leading-tight"><b className="text-sm font-semibold">Docket</b></span>}
+          {mobileOpen && <button type="button" className="grid size-8 place-items-center rounded-md text-t2 hover:bg-sk" aria-label={tr('Закрыть')} onClick={onClose}><Icon name="x" /></button>}
         </div>
 
         <div className="flex min-h-0 grow flex-col gap-3 overflow-y-auto px-2 py-1">

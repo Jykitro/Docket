@@ -32,7 +32,7 @@
 :root {
   --radius: 0.625rem;
   --bg: oklch(1 0 0); --sf: oklch(1 0 0); --sf2: oklch(0.984 0.003 247.858); --sk: oklch(0.968 0.007 247.896);
-  --ln: oklch(0.929 0.013 255.508); --ln2: oklch(0.869 0.022 252.894); --ring: oklch(0.704 0.04 256.788);
+  --ln: oklch(0.929 0.013 255.508); --ln2: oklch(0.869 0.022 252.894); --ring: var(--t3);
   --tx: oklch(0.129 0.042 264.695); --t2: oklch(0.446 0.043 257.281); --t3: oklch(0.554 0.046 257.417);
   --ac: oklch(0.208 0.042 265.755); --acs: oklch(0.968 0.007 247.896); --act: oklch(0.208 0.042 265.755);
   --ink: oklch(0.208 0.042 265.755); --inkt: oklch(0.984 0.003 247.858);
@@ -48,7 +48,6 @@ html[data-theme='dark'] {
   /* neutral grays, no blue tint: page #0a0a0a, sidebar/cards #171717, hover/active #262626 */
   --bg: oklch(0.145 0 0); --sf: oklch(0.205 0 0); --sf2: oklch(0.235 0 0);
   --sk: oklch(0.269 0 0); --ln: oklch(1 0 0 / 10%); --ln2: oklch(0.371 0 0);
-  --ring: oklch(0.556 0 0);
   --tx: oklch(0.985 0 0); --t2: oklch(0.87 0 0); --t3: oklch(0.708 0 0);
   --ac: oklch(0.922 0 0); --acs: oklch(0.269 0 0); --act: oklch(0.985 0 0);
   --ink: oklch(0.922 0 0); --inkt: oklch(0.205 0 0);
@@ -61,8 +60,7 @@ html[data-theme='dark'] {
   color-scheme: dark;
 }
 button:not(:disabled) { cursor: pointer; }
-/* shadcn focus ring: outline-ring/50 */
-:focus-visible { outline: 2px solid color-mix(in oklab, var(--ring) 50%, transparent); outline-offset: 2px; }
+:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
 /* No visible scrollbars anywhere; scrolling itself (wheel, trackpad, touch, keyboard) still works. */
 * { scrollbar-width: none; }
 *::-webkit-scrollbar { display: none; }

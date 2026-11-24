@@ -38,12 +38,12 @@ export function Onboarding({ hasProjects, onDone }: { hasProjects: boolean; onDo
         {step === 1 ? (
           <form className="flex flex-col gap-4" onSubmit={(e) => { e.preventDefault(); submit() }}>
             <div className="flex flex-col gap-1">
-              <h1 className="text-[20px] font-semibold tracking-[-.01em]">{tr('Добро пожаловать')}</h1>
-              <p className="text-sm text-t2">{tr('Docket работает локально и без входа. Как вас зовут? Имя увидите вы и те, кто пользуется этой копией: оно подписывает ваши задачи, заметки и историю.')}</p>
+              <h1 className="text-[20px] font-semibold tracking-[-.01em]">{tr('Как вас называть?')}</h1>
+              <p className="text-sm text-t2">{tr('Это имя будет видно рядом с вашими задачами, заметками и действиями.')}</p>
             </div>
             <label className="flex flex-col gap-1.5">
               <span className={cap}>{tr('Ваше имя')}</span>
-              <input className="h-[38px] border border-ln rounded-md bg-sf px-3 text-[14px] text-tx focus:border-ring focus:ring-[3px] focus:ring-ring/50 focus:outline-none" autoFocus maxLength={NAME_MAX} value={name} onChange={(e) => setName(e.target.value)} />
+              <input className="h-[38px] border border-ln rounded-md bg-sf px-3 text-[14px] text-tx focus:border-ring focus:ring-[3px] focus:ring-ring focus:outline-none" autoFocus maxLength={NAME_MAX} value={name} onChange={(e) => setName(e.target.value)} />
             </label>
             {save.isError && <div className="text-rd text-[13px]" role="alert">{save.error.message}</div>}
             <div className="flex justify-end">

@@ -24,6 +24,7 @@ const P = {
   // UI glyphs
   pin: 'M8 3h8l-1 7 3 3v2H6v-2l3-3zM12 15v6',
   more: 'M5 12h.1M12 12h.1M19 12h.1',
+  grip: 'M9 6h.1M15 6h.1M9 12h.1M15 12h.1M9 18h.1M15 18h.1',
   up: 'M12 20V5M6 11l6-6 6 6',
   down: 'M12 4v15M6 13l6 6 6-6',
   top: 'M5 4h14M12 21V9M7 14l5-5 5 5',

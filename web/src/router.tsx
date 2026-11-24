@@ -26,6 +26,11 @@ export function navigate(to: string, replace = false) {
   window.dispatchEvent(new Event(EVENT))
 }
 
+export function scrollToSection(element: HTMLElement | null) {
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  element?.scrollIntoView({ behavior: reducedMotion ? 'instant' : 'smooth', block: 'start' })
+}
+
 /** Sets or removes one query parameter of the current URL (null removes it). */
 export function setParam(key: string, value: string | null, replace = true) {
   const p = new URLSearchParams(location.search)

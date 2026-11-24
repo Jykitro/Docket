@@ -9,7 +9,7 @@ import { tr, useLang } from './i18n'
 import { navigate, useRoute } from './router'
 import { LangSwitch, btnPri, cap } from './ui'
 
-const inputCls = 'h-[38px] border border-ln rounded-md bg-sf px-3 text-[14px] text-tx focus:border-ring focus:ring-[3px] focus:ring-ring/50 focus:outline-none'
+const inputCls = 'h-[38px] border border-ln rounded-md bg-sf px-3 text-[14px] text-tx focus:border-ring focus:ring-[3px] focus:ring-ring focus:outline-none'
 
 type FieldDef = { key: string; label: string; password?: boolean; autoComplete: string; hint?: string }
 

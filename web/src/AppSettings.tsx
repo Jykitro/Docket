@@ -36,7 +36,7 @@ export function AppSettings({ theme, onTheme, onClose }: { theme: ThemePref; onT
       <form className="flex flex-col gap-1.5" onSubmit={(e) => { e.preventDefault(); dirty && !save.isPending && save.mutate() }}>
         <span className={cap}>{tr('Профиль')}</span>
         <div className="flex gap-2">
-          <input className="h-9 grow min-w-0 border border-ln rounded-md bg-sf px-2.5 text-sm text-tx focus:border-ring focus:ring-[3px] focus:ring-ring/50 focus:outline-none" maxLength={NAME_MAX} value={name} onChange={(e) => setName(e.target.value)} aria-label={tr('Имя')} />
+          <input className="h-9 grow min-w-0 border border-ln rounded-md bg-sf px-2.5 text-sm text-tx focus:border-ring focus:ring-[3px] focus:ring-ring focus:outline-none" maxLength={NAME_MAX} value={name} onChange={(e) => setName(e.target.value)} aria-label={tr('Имя')} />
           <button type="submit" className={btnPri} disabled={!dirty || save.isPending}>{tr('Сохранить')}</button>
         </div>
         {save.isError && <div className="text-rd text-[13px]" role="alert">{save.error.message}</div>}

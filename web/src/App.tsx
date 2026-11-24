@@ -40,7 +40,7 @@ function useSidebar(closeOn: string) {
   const [open, setOpen] = useState(false)
   useEffect(() => {
     const mq = matchMedia(WIDE)
-    const on = () => setWide(mq.matches)
+    const on = () => { setWide(mq.matches); setOpen(false) }
     mq.addEventListener('change', on)
     return () => mq.removeEventListener('change', on)
   }, [])
@@ -50,7 +50,7 @@ function useSidebar(closeOn: string) {
     setCollapsed(!collapsed)
     try { localStorage.setItem('docket-sidebar', collapsed ? 'open' : 'rail') } catch { /* storage can be blocked: the choice just is not remembered */ }
   }
-  return { rail: wide && collapsed, open, close: () => setOpen(false), toggle }
+  return { rail: wide && collapsed, expanded: wide ? !collapsed : open, open, close: () => setOpen(false), toggle }
 }
 
 export function App() {
@@ -59,7 +59,7 @@ export function App() {
   useLive(qc)
   useLang() // re-render the whole app when the language changes
   const theme = useTheme()
-  const sidebar = useSidebar(path + (params.get('view') ?? ''))
+  const sidebar = useSidebar(path + '?' + params.toString())
   const projects = useProjects()
   const active = projects.data?.filter((p) => !p.archived_at)
   const [newTask, setNewTask] = useState<NewTaskOpts | null>(null)
@@ -77,7 +77,7 @@ export function App() {
     const key = (e: KeyboardEvent) => {
       if (e.key.toLowerCase() === 'k' && (e.metaKey || e.ctrlKey)) {
         e.preventDefault()
-        setSearch(true)
+        if (!document.querySelector('[role="dialog"]')) setSearch(true)
         return
       }
       if (e.key.toLowerCase() !== 'c' || e.metaKey || e.ctrlKey || e.altKey) return
@@ -113,9 +113,10 @@ export function App() {
   if (setup) return <div className="min-h-screen bg-bg text-tx" data-theme={theme.resolved}><Onboarding hasProjects={!!active?.length} onDone={() => setSetup(false)} /></div>
   return (
     <div className="min-h-screen flex items-stretch bg-bg text-tx" data-theme={theme.resolved}>
-      <Sidebar path={path} view={params.get('view')} rail={sidebar.rail} mobileOpen={sidebar.open} onClose={sidebar.close} onNewProject={() => setNewProject(true)} onSettings={() => setSettings(true)} />
+      <Sidebar path={path} view={params.get('view')} overdue={path === '/' && params.get('focus') === 'overdue'} rail={sidebar.rail} mobileOpen={sidebar.open} onClose={sidebar.close}
+        onNewProject={() => { sidebar.close(); setNewProject(true) }} onSettings={() => { sidebar.close(); setSettings(true) }} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <Header onToggle={sidebar.toggle} onSearch={() => setSearch(true)} theme={theme.pref} resolved={theme.resolved} onTheme={theme.set} onSettings={() => setSettings(true)} />
+        <Header onToggle={sidebar.toggle} sidebarExpanded={sidebar.expanded} onSearch={() => setSearch(true)} theme={theme.pref} resolved={theme.resolved} onTheme={theme.set} onSettings={() => setSettings(true)} />
         <main className="flex min-w-0 flex-1 flex-col">{page}</main>
       </div>
       {task && <TaskPanel key={task} code={task} mode="drawer" />}

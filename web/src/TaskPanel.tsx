@@ -51,20 +51,20 @@ function histText(a: Activity): string {
       case 'priority': return `${tr('приоритет')}: ${v(from)} → ${v(to)}`
       case 'area': return `${tr('область')}: ${v(from)} → ${v(to)}`
       case 'planned_for': return `${tr('дата')}: ${from ? fmtDay(String(from)) : '—'} → ${to ? fmtDay(String(to)) : '—'}`
-      case 'title': return tr('переименовал задачу')
-      case 'description_md': return tr('изменил описание')
-      case 'custom': return tr('изменил поле')
-      case 'parent_id': return tr('изменил родителя')
-      case 'project_id': return tr('перенёс в другой проект')
+      case 'title': return tr('Задача переименована')
+      case 'description_md': return tr('Описание изменено')
+      case 'custom': return tr('Поле изменено')
+      case 'parent_id': return tr('Родительская задача изменена')
+      case 'project_id': return tr('Задача перенесена в другой проект')
       default: return k
     }
   })
   switch (a.action) {
-    case 'created': return tr('создал задачу')
-    case 'note_added': return tr('добавил заметку')
-    case 'deleted': return tr('удалил в корзину')
-    case 'restored': return tr('восстановил из корзины')
-    case 'carried_over': return tr('перенёс на {day}', { day: fmtDay(String(d.planned_for?.[1] ?? '')) })
+    case 'created': return tr('Задача создана')
+    case 'note_added': return tr('Добавлена заметка')
+    case 'deleted': return tr('Задача перемещена в корзину')
+    case 'restored': return tr('Задача восстановлена из корзины')
+    case 'carried_over': return tr('Задача перенесена на {day}', { day: fmtDay(String(d.planned_for?.[1] ?? '')) })
     default: return parts.join('; ') || a.action
   }
 }
@@ -196,7 +196,7 @@ function Title({ d, readOnly, onSave }: { d: TaskDetail; readOnly: boolean; onSa
         }} /></h1>
     )
   }
-  return <h1 className={H1}><button type="button" className="cursor-text rounded-md p-0 text-left disabled:cursor-default" disabled={readOnly} title={tr('Нажмите, чтобы изменить')} onClick={() => { setV(d.title); setEditing(true) }}>{d.title}</button></h1>
+  return <h1 className={H1}><button type="button" className="max-w-full cursor-text wrap-anywhere rounded-md p-0 text-left disabled:cursor-default" disabled={readOnly} title={tr('Нажмите, чтобы изменить')} onClick={() => { setV(d.title); setEditing(true) }}>{d.title}</button></h1>
 }
 
 const DATEIN = 'h-7 rounded-md border border-ln bg-sf px-2 text-[12.5px] text-tx focus:border-ac focus:outline-0'
@@ -375,7 +375,7 @@ function Subtasks({ d, statuses, projectKey, readOnly }: { d: TaskDetail; status
               <button type="button" className="grid size-[17px] shrink-0 place-items-center rounded-[5px] border-[1.5px] border-ln2 bg-transparent p-0 text-white aria-checked:border-dn aria-checked:bg-dn" role="checkbox" aria-checked={on} aria-label={s.title} disabled={readOnly} onClick={() => toggle.mutate(s)}>
                 {on && <Icon name="check" size={11} sw={3.4} />}
               </button>
-              <Link to={hrefWith('task', s.code)} className={'grow ' + (on ? 'text-t3 line-through' : 'no-underline')}>{s.title}</Link>
+              <Link to={hrefWith('task', s.code)} className={'grow wrap-anywhere ' + (on ? 'text-t3 line-through' : 'no-underline')}>{s.title}</Link>
               <span className={MONO_T3}>{s.code}</span>
             </div>
           )
@@ -465,7 +465,7 @@ function History({ acts }: { acts: Activity[] }) {
       {shown.map((a) => (
         <div className="flex items-baseline gap-2.5 py-[5px] text-[12.5px] text-t2" key={a.id}>
           <span className={MONO_T3 + ' w-[92px] shrink-0'}>{fmtStamp(a.at)}</span>
-          <span><b className="font-semibold text-tx">{who(a.actor)}</b> {histText(a)}</span>
+          <span>{histText(a)} · <span className="text-t3">{who(a.actor)}</span></span>
         </div>
       ))}
     </section>

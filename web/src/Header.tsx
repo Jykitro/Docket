@@ -8,13 +8,13 @@ import { MENUITEM, Menu, kbd } from './ui'
 
 const ghost = 'inline-grid size-8 place-items-center rounded-md bg-transparent p-0 text-tx hover:bg-sk'
 
-export function Header({ onToggle, onSearch, theme, resolved, onTheme, onSettings }: {
-  onToggle: () => void; onSearch: () => void; theme: ThemePref; resolved: 'light' | 'dark'; onTheme: (t: ThemePref) => void; onSettings: () => void
+export function Header({ onToggle, sidebarExpanded, onSearch, theme, resolved, onTheme, onSettings }: {
+  onToggle: () => void; sidebarExpanded: boolean; onSearch: () => void; theme: ThemePref; resolved: 'light' | 'dark'; onTheme: (t: ThemePref) => void; onSettings: () => void
 }) {
   const name = useProfile().data?.name ?? ''
   return (
     <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-3 border-b border-ln bg-bg/80 px-4 backdrop-blur-lg sm:gap-4">
-      <button type="button" className="inline-grid size-7 place-items-center rounded-md border border-ln bg-sf p-0 text-tx shadow-xs hover:bg-sk max-md:scale-125" aria-label={tr('Боковая панель')} onClick={onToggle}>
+      <button type="button" className="inline-grid size-7 place-items-center rounded-md border border-ln bg-sf p-0 text-tx shadow-xs hover:bg-sk max-md:scale-125" aria-label={tr('Боковая панель')} aria-controls="app-sidebar" aria-expanded={sidebarExpanded} onClick={onToggle}>
         <Icon name="panelL" size={16} />
       </button>
       <span className="h-6 w-px bg-ln" role="separator" aria-orientation="vertical" />

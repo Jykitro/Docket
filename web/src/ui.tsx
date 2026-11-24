@@ -9,7 +9,7 @@ const btnBase = 'inline-flex items-center gap-2 h-9 rounded-md border text-sm fo
 export const btn = `${btnBase} px-3 border-ln bg-sf text-tx shadow-xs hover:bg-sk`
 export const btnPri = `${btnBase} px-3 border-ink bg-ink text-inkt shadow-xs hover:bg-ink/90`
 export const btnSq = `${btnBase} w-9 p-0 justify-center border-ln bg-sf text-tx shadow-xs hover:bg-sk`
-export const btnWarn = `${btnBase} px-3 border-rd bg-sf text-rd shadow-xs hover:bg-sk`
+const btnWarn = `${btnBase} px-3 border-rd bg-sf text-rd shadow-xs hover:bg-sk`
 const kbdBase = 'font-mono text-[11px] font-medium leading-[normal] rounded-sm px-1.5 py-px border'
 export const kbd = `${kbdBase} text-t3 border-ln bg-sk`
 export const kbdPri = `${kbdBase} bg-transparent text-inkt border-current opacity-70`
@@ -50,12 +50,13 @@ export function Menu({ label, className = fc, right, up, ariaLabel, children }: 
   )
 }
 
-const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'
+const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),textarea:not([disabled]),summary,[tabindex]:not([tabindex="-1"])'
 
 /** Keeps Tab inside a dialog and gives focus back to what opened it when it closes. Put the ref on a tabIndex={-1} element. */
-export function useFocusTrap<T extends HTMLElement>() {
+export function useFocusTrap<T extends HTMLElement>(enabled = true) {
   const ref = useRef<T>(null)
   useEffect(() => {
+    if (!enabled) return
     const prev = document.activeElement as HTMLElement | null
     const el = ref.current
     if (el && !el.contains(document.activeElement)) el.focus()
@@ -70,9 +71,9 @@ export function useFocusTrap<T extends HTMLElement>() {
     document.addEventListener('keydown', key)
     return () => {
       document.removeEventListener('keydown', key)
-      if (prev && document.contains(prev)) prev.focus()
+      if (prev && document.contains(prev) && (el?.contains(document.activeElement) || document.activeElement === document.body)) prev.focus({ preventScroll: true })
     }
-  }, [])
+  }, [enabled])
   return ref
 }
 
@@ -94,7 +95,7 @@ export function Dialog({ title, onClose, children }: { title: string; onClose: (
 }
 
 export function Skeleton({ w = '100%', h = 14 }: { w?: number | string; h?: number }) {
-  return <span className="block rounded-md bg-sk animate-pulse" style={{ width: w, height: h }} aria-hidden="true" />
+  return <span className="block rounded-md bg-sk motion-safe:animate-pulse" style={{ width: w, height: h }} aria-hidden="true" />
 }
 
 export function SkeletonRows({ n = 4 }: { n?: number }) {
@@ -132,7 +133,7 @@ export function ErrorState({ message, onRetry }: { message?: string; onRetry: ()
 
 // shadcn Switch: 32x18.4px track, 16px thumb
 const tg = 'block relative w-8 h-[1.15rem] flex-[0_0_32px] rounded-full p-0 border border-transparent shadow-xs bg-ln2 aria-checked:bg-ink disabled:opacity-50 disabled:cursor-default '
-  + "after:content-[''] after:absolute after:top-px after:left-px after:size-4 after:rounded-full after:bg-bg after:transition-[left] after:duration-[120ms] after:ease-[ease] aria-checked:after:left-[calc(100%-17px)]"
+  + "after:content-[''] after:absolute after:top-px after:left-px after:size-4 after:rounded-full after:bg-bg motion-safe:after:transition-[left] motion-safe:after:duration-[120ms] after:ease-[ease] aria-checked:after:left-[calc(100%-17px)]"
 
 /** An on/off switch. */
 export function Toggle({ on, onChange, label, disabled }: { on: boolean; onChange: (v: boolean) => void; label: string; disabled?: boolean }) {

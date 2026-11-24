@@ -2,7 +2,7 @@
 // self-check, token and access mode, tool switches, live call log. See docs/integrations.md.
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { type McpTool, api, fmtTime } from './api'
+import { type McpTool, api, mcpHealthLabel, mcpLastCallLabel, fmtStamp } from './api'
 import { Icon } from './icons'
 import { locale, tr } from './i18n'
 import { McpAgent } from './McpAgent'
@@ -59,10 +59,9 @@ export function Mcp() {
   const calls = useQuery({ queryKey: ['mcp-calls', filter], queryFn: () => api.mcpCalls(filter) })
   const errors = useQuery({ queryKey: ['mcp-calls', 'error'], queryFn: () => api.mcpCalls('error') })
 
-  const [checked, setChecked] = useState(false)
   const check = useMutation({
     mutationFn: api.mcpCheck,
-    onSuccess: () => { setChecked(true); qc.invalidateQueries({ queryKey: ['mcp-status'] }) },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['mcp-status'] }),
   })
   const patch = useMutation({
     mutationFn: api.patchMcpSettings,
@@ -107,7 +106,7 @@ export function Mcp() {
           <h1 className="text-2xl font-bold tracking-tight">{tr('Интеграции')}</h1>
           <span className="text-sm text-t3">{tr('Так ассистент читает и ведёт задачи: через MCP или Code Mode. Оба работают внутри Docket, отдельно ничего ставить не нужно.')}</span>
         </div>
-        {st && (
+        {result && !status.isError && (
           <span className={'inline-flex h-[30px] items-center gap-2 rounded-full px-3 text-[13px] font-semibold ' + (online ? 'bg-dns text-dnt' : 'bg-rds text-rd')} role="status">
             <span className={'inline-block size-2 shrink-0 rounded-full ' + (online ? 'bg-dn' : 'bg-rd')} />
             {online ? tr('Онлайн · {v}', { v: unit(result?.checks.find((c) => c.key === 'server')?.value ?? '') }) : tr('Недоступен')}
@@ -119,18 +118,18 @@ export function Mcp() {
         <div className="flex min-w-0 flex-[999_1_540px] flex-col gap-5">
           <section className={PANEL}>
             <div className="flex flex-wrap items-center gap-4 p-5">
-              <span className={'grid size-[46px] shrink-0 place-items-center rounded-full ' + (online || !result ? 'bg-dns text-dnt' : 'bg-rds text-rd')}>
-                <Icon name={online || !result ? 'check' : 'x'} size={22} sw={2.2} />
+              <span className={'grid size-[46px] shrink-0 place-items-center rounded-full ' + (!result || status.isError ? 'bg-sk text-t3' : online ? 'bg-dns text-dnt' : 'bg-rds text-rd')}>
+                <Icon name={!result || status.isError ? 'plug' : online ? 'check' : 'x'} size={22} sw={2.2} />
               </span>
               <div className="flex min-w-0 flex-[1_1_220px] flex-col gap-0.5">
-                <span className="text-[19px] font-bold tracking-[-.01em]">{!result ? tr('Проверка…') : online ? tr('Подключено') : tr('Есть проблемы')}</span>
+                <span className="text-[19px] font-bold tracking-[-.01em]">{mcpHealthLabel(st, status.isError)}</span>
                 <span className="text-[13px] text-t3">
-                  {st?.last_call_at ? tr('Последний вызов в {time}. ', { time: fmtTime(st.last_call_at) }) : tr('Вызовов ещё не было. ')}
-                  {result && tr('Проверка: {when}, {ok} из {n}.', { when: checked ? tr('только что') : fmtTime(result.at), ok: result.checks.filter((c) => c.ok).length, n: result.checks.length })}
+                  {st && <span className="block">{mcpLastCallLabel(st)}</span>}
+                  {result && tr('Проверка: {when}, {ok} из {n}.', { when: fmtStamp(result.at), ok: result.checks.filter((c) => c.ok).length, n: result.checks.length })}
                 </span>
               </div>
               <button type="button" className={BTN_PRI} disabled={check.isPending} onClick={() => check.mutate()}>
-                <Icon name="clock" size={15} />{check.isPending ? tr('Проверяю…') : checked ? tr('Проверено только что') : tr('Проверить соединение')}
+                <Icon name="clock" size={15} />{check.isPending ? tr('Проверяю…') : tr('Проверить соединение')}
               </button>
             </div>
             {status.isError && <ErrorState message={status.error.message} onRetry={() => status.refetch()} />}
@@ -168,7 +167,7 @@ export function Mcp() {
                   <div className={FLD}><span className="flex-1 truncate font-mono">{address}</span>
                     <button type="button" className={BTN_SM_SQ} aria-label={tr('Копировать адрес')} onClick={() => copyText(address)?.then(() => flash('addr'))}><Icon name={copied === 'addr' ? 'check' : 'link'} size={15} /></button>
                   </div>
-                  <span className={HINT}>{tr('Транспорт: Streamable HTTP. Слушает только 127.0.0.1.')}</span>
+                  <span className={HINT}>{tr('Транспорт — Streamable HTTP')}</span>
                 </div>
                 <div className={LB}>{tr('Токен')}
                   <div className={FLD}><Icon name="key" size={15} /><span className="flex-1 truncate font-mono">{shownToken}</span>
@@ -229,7 +228,6 @@ export function Mcp() {
           <section className={PANEL}>
             <div className={PH_ROW + ' pb-2.5'}>
               <h2 className={PH_H2}>{tr('Журнал вызовов')}</h2>
-              <span className="inline-flex items-center gap-1.5 font-mono text-[11px] leading-[normal] font-semibold tracking-[.06em] text-dnt"><span className="inline-block size-[7px] shrink-0 rounded-full bg-dn" />LIVE</span>
             </div>
             <div className="flex flex-wrap items-center gap-2 px-[18px] pb-3">
               {([['all', tr('Все')], ['write', tr('Запись')], ['error', tr('Ошибки: {n}', { n: errors.data?.length ?? 0 })]] as const).map(([k, n]) => (
@@ -240,7 +238,7 @@ export function Mcp() {
             </div>
             {calls.isError && <ErrorState message={calls.error.message} onRetry={() => calls.refetch()} />}
             {calls.isPending && <div className={'grid grid-cols-[62px_20px_minmax(0,1fr)_auto] ' + LG}><Skeleton w={40} /><span /><Skeleton /><span /></div>}
-            {calls.isSuccess && calls.data.length === 0 && <div className={'block text-t3 ' + LG}>{tr('Вызовов пока нет. Они появятся здесь, как только Claude обратится к Docket.')}</div>}
+            {calls.isSuccess && calls.data.length === 0 && <div className={'block text-t3 ' + LG}>{filter === 'all' ? tr('В журнале пока нет вызовов') : tr('Вызовов по этому фильтру нет')}</div>}
             {calls.data?.map((c) => (
               <div className={'grid grid-cols-[62px_20px_minmax(0,1fr)_auto] ' + LG} key={c.id}>
                 <span className="font-mono text-t3">{new Date(c.at).toLocaleTimeString(locale())}</span>

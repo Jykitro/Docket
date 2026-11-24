@@ -8,7 +8,7 @@ import { ApiError, type Field, type Label, type Project, type Status, type View,
 import { Icon, PROJECT_COLORS, ProjectTile } from './icons'
 import { ProjectIconPicker } from './ProjectIconPicker'
 import { tr } from './i18n'
-import { Link, navigate } from './router'
+import { Link, navigate, scrollToSection } from './router'
 import { ConfirmButton, Dialog, EmptyState, ErrorState, Menu, Skeleton, Toggle, MENUITEM } from './ui'
 
 const CATEGORIES: [Status['category'], string][] = [['todo', 'К работе'], ['doing', 'В работе'], ['done', 'Готово']]
@@ -112,7 +112,7 @@ function ProjectSettings({ project }: { project: Project }) {
         <nav className="sticky top-4 flex flex-[0_0_200px] flex-col gap-0.5 max-[760px]:static max-[760px]:basis-full max-[760px]:flex-row max-[760px]:flex-wrap" aria-label={tr('Разделы настроек')}>
           {SECTIONS.map(([id, label]) => (
             <button key={id} type="button" className="flex h-8 w-full items-center gap-2.5 rounded-md bg-transparent px-2.5 text-left text-sm text-t2 hover:bg-sk aria-[current=true]:bg-sk aria-[current=true]:font-semibold aria-[current=true]:text-tx max-[760px]:w-auto" aria-current={active === id ? 'true' : undefined}
-              onClick={() => { setActive(id); document.getElementById('s-' + id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }}>{tr(label)}</button>
+              onClick={() => { setActive(id); scrollToSection(document.getElementById('s-' + id)) }}>{tr(label)}</button>
           ))}
         </nav>
         <div className="flex min-w-0 max-w-[880px] flex-[999_1_520px] flex-col gap-5">
