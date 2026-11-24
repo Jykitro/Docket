@@ -3,6 +3,8 @@
 Thanks for helping. Bug reports, small fixes and ideas are all welcome; for anything bigger, open an issue or a
 discussion first so we agree on the direction before you write code.
 
+Our [Code of Conduct](CODE_OF_CONDUCT.md) explains what participants can expect from one another and how to raise a concern privately.
+
 The planner and the public site share this repository. For the site on `plandillo.dev`, see [landing/README.md](landing/README.md). For planner architecture, build targets and the API reference, see the [development guide](docs/development/README.md).
 
 ## Setup
