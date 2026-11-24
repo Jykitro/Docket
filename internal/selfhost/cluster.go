@@ -31,11 +31,11 @@ type Cluster struct {
 }
 
 func OpenCluster(ctx context.Context, dsn string) (*Cluster, error) {
-	db, err := database.OpenPostgres(dsn, "docket_auth")
+	db, err := database.OpenPostgres(dsn, database.AuthSchema)
 	if err != nil {
 		return nil, err
 	}
-	gates, err := database.OpenPostgres(dsn, "docket_auth")
+	gates, err := database.OpenPostgres(dsn, database.AuthSchema)
 	if err != nil {
 		db.Close()
 		return nil, err

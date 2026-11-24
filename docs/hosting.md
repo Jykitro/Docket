@@ -153,7 +153,9 @@ The database must exist and the Plandillo role must own it (or have `CONNECT` an
 `CREATEDB` permissions are not needed by the application. Use a private network or verified TLS for remote connections,
 and URL-encode special characters in credentials. The connection string is not exposed by the API or logged.
 
-Plandillo creates `docket_auth` for accounts, sessions and invitations, and `docket_user_<id>` for each profile's projects,
+Existing Docket installations keep their `docket_auth` and `docket_user_<id>` schemas. Fresh installations use the Plandillo prefix.
+
+Plandillo creates `plandillo_auth` for accounts, sessions and invitations, and `plandillo_user_<id>` for each profile's projects,
 tasks, wiki, history, settings and MCP call log. Migrations run automatically at startup/profile creation in a transaction.
 Every connection uses only its assigned schema; the public schema is not a fallback. Profile deletion drops only that
 profile's schema. These are application isolation boundaries, not separate database roles: the server's database
@@ -214,7 +216,7 @@ Operational details:
 - Existing SQLite accounts and tasks are **not imported**. Selecting PostgreSQL starts a separate installation.
   To return to the previous SQLite installation, remove `DOCKET_POSTGRES_DSN` and restart with the original data volume.
   Changes made in PostgreSQL do not appear in SQLite. There is no automatic conversion in either direction.
-- Never reset `docket_auth` while retaining profile schemas: reused user IDs could attach new accounts to old data.
+- Never reset the auth schema while retaining profile schemas: reused user IDs could attach new accounts to old data.
   Back up and restore the whole database together.
 - For Docker, Compose or a standalone binary, run **one Plandillo instance per database**: live events, login rate limiting and MCP routing are still kept in process.
   PostgreSQL does not enable horizontal scaling. Each loaded profile and the auth store use at most one connection;

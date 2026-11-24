@@ -86,17 +86,17 @@ func (a App) admit(ctx context.Context, owner, key string) error {
 	if _, err = tx.ExecContext(ctx, "SELECT pg_advisory_xact_lock(720403251)"); err != nil {
 		return err
 	}
-	if _, err = tx.ExecContext(ctx, "DELETE FROM docket_auth.vercel_jobs WHERE expires <= clock_timestamp()"); err != nil {
+	if _, err = tx.ExecContext(ctx, "DELETE FROM vercel_jobs WHERE expires <= clock_timestamp()"); err != nil {
 		return err
 	}
 	var busy bool
-	if err = tx.QueryRowContext(ctx, "SELECT count(*) >= 2 OR count(*) FILTER (WHERE owner=$1)>0 FROM docket_auth.vercel_jobs", owner).Scan(&busy); err != nil {
+	if err = tx.QueryRowContext(ctx, "SELECT count(*) >= 2 OR count(*) FILTER (WHERE owner=$1)>0 FROM vercel_jobs", owner).Scan(&busy); err != nil {
 		return err
 	}
 	if busy {
 		return errors.New("rate_limited: Code Mode is busy, try again later")
 	}
-	if _, err = tx.ExecContext(ctx, "INSERT INTO docket_auth.vercel_jobs (id,owner,expires) VALUES ($1,$2,clock_timestamp()+interval '35 seconds')", digest(key), owner); err != nil {
+	if _, err = tx.ExecContext(ctx, "INSERT INTO vercel_jobs (id,owner,expires) VALUES ($1,$2,clock_timestamp()+interval '35 seconds')", digest(key), owner); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -119,7 +119,7 @@ func (a App) Execute(ctx context.Context, owner, code string, call func(string, 
 	defer func() {
 		cleanup, stop := context.WithTimeout(context.Background(), 2*time.Second)
 		defer stop()
-		_, _ = a.DB.ExecContext(cleanup, "DELETE FROM docket_auth.vercel_jobs WHERE id=$1", digest(key))
+		_, _ = a.DB.ExecContext(cleanup, "DELETE FROM vercel_jobs WHERE id=$1", digest(key))
 	}()
 	req, err := http.NewRequestWithContext(ctx, "POST", dest, strings.NewReader(code))
 	if err != nil {
@@ -172,7 +172,7 @@ func (a App) Execute(ctx context.Context, owner, code string, call func(string, 
 			if err != nil || len(data) > codeeval.MaxFrame {
 				return "", errors.New("Code Mode reply too large")
 			}
-			if _, err = a.DB.ExecContext(ctx, "UPDATE docket_auth.vercel_jobs SET seq=$2,reply=$3 WHERE id=$1", digest(key), seq, data); err != nil {
+			if _, err = a.DB.ExecContext(ctx, "UPDATE vercel_jobs SET seq=$2,reply=$3 WHERE id=$1", digest(key), seq, data); err != nil {
 				return "", err
 			}
 		default:
@@ -199,7 +199,7 @@ func (a Replies) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	for {
 		var n int
 		var data []byte
-		err = a.DB.QueryRowContext(ctx, "SELECT seq,reply FROM docket_auth.vercel_jobs WHERE id=$1 AND expires>clock_timestamp()", digest(key)).Scan(&n, &data)
+		err = a.DB.QueryRowContext(ctx, "SELECT seq,reply FROM vercel_jobs WHERE id=$1 AND expires>clock_timestamp()", digest(key)).Scan(&n, &data)
 		if err != nil || n > seq {
 			http.NotFound(w, r)
 			return

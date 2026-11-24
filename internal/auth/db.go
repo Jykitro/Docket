@@ -118,7 +118,7 @@ func Open(path string) (*DB, error) {
 }
 
 func OpenPostgres(dsn string) (*DB, error) {
-	db, err := database.OpenPostgres(dsn, "docket_auth")
+	db, err := database.OpenPostgres(dsn, database.AuthSchema)
 	if err != nil {
 		return nil, err
 	}

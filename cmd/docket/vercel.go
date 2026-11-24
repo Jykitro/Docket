@@ -32,7 +32,7 @@ func runVercel(ctx context.Context, cfg config.Config, command string) error {
 		return err
 	}
 	if command == "vercel-replies" {
-		db, err := database.OpenPostgres(cfg.PostgresDSN, "docket_auth")
+		db, err := database.OpenPostgres(cfg.PostgresDSN, database.AuthSchema)
 		if err != nil {
 			return err
 		}

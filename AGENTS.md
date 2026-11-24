@@ -55,7 +55,7 @@ web/                React + TypeScript + Vite + Tailwind CSS v4; the design toke
 **Data safety.** Never commit `.env`, `data/` or any database. No bundled personal data: Plandillo ships without a seed (`DOCKET_SEED` is optional and empty by default). The `/mcp` endpoint is behind a bearer token and the Host/Origin guard; don't weaken either.
 
 PostgreSQL is opt-in via `DOCKET_POSTGRES_DSN` and requires `DOCKET_MODE=selfhost`. Use a dedicated database:
-`docket_auth` stores accounts and `docket_user_<id>` stores each profile. Both dialects must keep the same service
+`plandillo_auth` stores accounts and `plandillo_user_<id>` stores each profile. Existing Docket databases keep their `docket_*` schemas. Both dialects must keep the same service
 contract. PostgreSQL migrations live in `internal/store/migrations/postgres`; do not change existing SQLite migrations
 to add PostgreSQL support. Test both backends. PostgreSQL backups are external (`pg_dump`/PITR); never claim a file
 backup ran. Docker and native installations run one instance per database. The Vercel entrypoint coordinates replicas in PostgreSQL as documented in [the Vercel guide](docs/vercel.md). There is no automatic SQLite import. See the [hosting guide](docs/hosting.md#postgresql-storage) and `compose.postgres.yml`.

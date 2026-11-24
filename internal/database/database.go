@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -97,7 +98,29 @@ func PrivateFile(path string, create bool) error {
 	return nil
 }
 
-var schemaName = regexp.MustCompile(`^docket_(auth|user_[1-9][0-9]*)$`)
+const AuthSchema = "plandillo_auth"
+
+var schemaName = regexp.MustCompile(`^plandillo_(auth|user_[1-9][0-9]*)$`)
+var errSchemaLayout = errors.New("conflicting Plandillo schemas or application tables in public; reconcile the dedicated database before startup")
+
+func resolveSchema(ctx context.Context, conn *pgx.Conn, name string) (string, error) {
+	var current, legacy, misplaced bool
+	err := conn.QueryRow(ctx, `SELECT
+		EXISTS (SELECT 1 FROM pg_catalog.pg_namespace WHERE nspname ~ '^plandillo_(auth|user_[1-9][0-9]*)$'),
+		EXISTS (SELECT 1 FROM pg_catalog.pg_namespace WHERE nspname ~ '^docket_(auth|user_[1-9][0-9]*)$'),
+		(pg_catalog.to_regclass('public.workspace_bindings') IS NOT NULL AND pg_catalog.to_regclass('public.users') IS NOT NULL)
+		OR (pg_catalog.to_regclass('public.schema_migrations') IS NOT NULL AND pg_catalog.to_regclass('public.settings') IS NOT NULL)`).Scan(&current, &legacy, &misplaced)
+	if err != nil {
+		return "", err
+	}
+	if misplaced || (current && legacy) {
+		return "", errSchemaLayout
+	}
+	if legacy {
+		return "docket_" + strings.TrimPrefix(name, "plandillo_"), nil
+	}
+	return name, nil
+}
 
 // OpenPostgres pins search_path on every connection, including reconnects. No public-schema fallback
 // is allowed: a missing profile schema must never resolve another profile's tables.
@@ -109,26 +132,40 @@ func OpenPostgres(dsn, schema string) (*DB, error) {
 	if err != nil {
 		return nil, errors.New("invalid DOCKET_POSTGRES_DSN")
 	} // parser errors can contain credentials
-	cfg.RuntimeParams["search_path"] = schema
 	cfg.ConnectTimeout = 10 * time.Second
-	raw := stdlib.OpenDB(*cfg)
+	// Some managed endpoints ignore startup search_path. Set it in SQL on every
+	// physical connection, using the same schema family throughout this pool.
+	var detect sync.Once
+	var physical string
+	var layoutErr error
+	raw := stdlib.OpenDB(*cfg, stdlib.OptionAfterConnect(func(ctx context.Context, conn *pgx.Conn) error {
+		detect.Do(func() { physical, layoutErr = resolveSchema(ctx, conn, schema) })
+		if layoutErr != nil {
+			return layoutErr
+		}
+		_, err := conn.Exec(ctx, "SELECT pg_catalog.set_config('search_path', $1, false)", physical)
+		return err
+	}))
 	raw.SetMaxOpenConns(1) // preserve the existing serialized per-profile transaction model
 	raw.SetConnMaxIdleTime(5 * time.Minute)
-	db := &DB{DB: raw, Postgres: true, schema: schema}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	if err := raw.PingContext(ctx); err != nil {
 		raw.Close()
+		if errors.Is(err, errSchemaLayout) {
+			return nil, errSchemaLayout
+		}
 		return nil, errors.New("cannot connect to PostgreSQL; check DOCKET_POSTGRES_DSN and server availability")
 	}
-	return db, nil
+	return &DB{DB: raw, Postgres: true, schema: physical}, nil
 }
 
-func UserSchema(id int64) string { return "docket_user_" + strconv.FormatInt(id, 10) }
+func UserSchema(id int64) string { return "plandillo_user_" + strconv.FormatInt(id, 10) }
 
 // WorkspaceSchemas enumerates generated tenant schemas in the dedicated PostgreSQL database.
 func (d *DB) WorkspaceSchemas(ctx context.Context) ([]int64, error) {
-	rows, err := d.QueryContext(ctx, "SELECT substring(nspname from 13)::bigint FROM pg_catalog.pg_namespace WHERE nspname ~ '^docket_user_[1-9][0-9]*$'")
+	prefix, _, _ := strings.Cut(d.schema, "_")
+	rows, err := d.QueryContext(ctx, "SELECT split_part(nspname, '_', 3)::bigint FROM pg_catalog.pg_namespace WHERE nspname ~ $1", "^"+prefix+"_user_[1-9][0-9]*$")
 	if err != nil {
 		return nil, err
 	}
@@ -172,7 +209,7 @@ func (d *DB) CreateSchema(tx *Tx) error {
 
 // DropSchema deletes only this generated profile schema. The auth schema cannot be dropped here.
 func (d *DB) DropSchema() error {
-	if !d.Postgres || d.schema == "docket_auth" {
+	if !d.Postgres || strings.HasSuffix(d.schema, "_auth") {
 		return errors.New("not a PostgreSQL profile")
 	}
 	tx, err := d.Begin()
@@ -265,3 +302,9 @@ func (t *Tx) QueryRow(q string, args ...any) *sql.Row {
 	return t.Tx.QueryRow(t.db.SQL(q), argsForSQL(args)...)
 }
 func (t *Tx) Postgres() bool { return t.db.Postgres }
+
+// AuthSchema returns the catalog paired with this transaction's workspace.
+func (t *Tx) AuthSchema() string {
+	prefix, _, _ := strings.Cut(t.db.schema, "_")
+	return pgx.Identifier{prefix + "_auth"}.Sanitize()
+}
