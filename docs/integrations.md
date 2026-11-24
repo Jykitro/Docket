@@ -102,10 +102,7 @@ code throws `Error("not_found: …")`; the code may catch it. If it is not caugh
    Errors: `timeout`, `invalid_argument` (syntax error, a thrown `TypeError`, too many calls, result too large) or the
    tool's own code.
 
-**Security.** The code runs inside the Docket process, with the token holder's rights and no more: it can only reach
-data through the same tools, under the same policy. goja has no memory limit, so a hostile script could exhaust memory;
-that is accepted because only the token holder can send code. If Code Mode is ever opened to untrusted callers, run it
-in a separate process with a memory limit.
+**Execution.** Docket sends each invocation to a disposable evaluator in the Code Mode container. The application admits one execution per workspace and two globally. Excess calls return `rate_limited`. The worker has a 256 MiB memory limit, one CPU, a read-only root filesystem and no network. The Unix socket carries the program and its tool calls. Only the application has workspace storage and validates each callback against the initiating owner's current tool policy. A disconnected or stopped worker fails its request with `unavailable`. Single-user installations use the same worker. The local Compose example provisions it, and standalone installations set `DOCKET_CODE_SOCKET` to their worker socket.
 
 ## Recipes
 

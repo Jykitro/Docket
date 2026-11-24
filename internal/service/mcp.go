@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"sort"
 	"time"
-	"unicode/utf8"
 
 	"docket/internal/store"
 )
@@ -55,10 +54,10 @@ var MCPTools = []ToolInfo{
 	{"report_issue", "write", "Immediately record a finding, link its source task, or add evidence to an existing open issue. Returns the issue ID."},
 	{"add_note", "write", "Add a markdown note to a task."},
 	{"list_pages", "read", "List the wiki pages of a project (id, title, parent page title, updated_at) without bodies."},
-	{"read_page", "read", "Read a wiki page by title: markdown body, parent, updated_at, backlinks (titles of pages linking here) and linked task IDs."},
+	{"read_page", "read", "Read a wiki page by title: Markdown or HTML body, parent, updated_at, backlinks (titles of pages linking here) and linked task IDs."},
 	{"write_page", "write", "Create a wiki page or replace the whole body of the page with that title (read it first so nothing is lost); " +
 		"link pages as [[Title]] and tasks by ID such as TRK-07, and pass the updated_at you read as expected_updated_at so a human's newer edit is not overwritten."},
-	{"append_to_page", "write", "Append markdown to the end of an existing wiki page, after a blank line, without reading it first."},
+	{"append_to_page", "write", "Append markdown to the end of an existing Markdown wiki page, after a blank line, without reading it first."},
 	{"carry_over", "write", "Move all open tasks planned for date `from` to date `to`."},
 	{"delete_tasks", "write", "Move tasks (with their subtasks) to the trash. The owner can restore them. Disabled by default."},
 }
@@ -98,10 +97,36 @@ func maskToken(t string) string {
 }
 
 // SetEnvToken makes DOCKET_MCP_TOKEN win over the stored token (and disables rotation in the UI).
-func (s *Service) SetEnvToken(t string) { s.envToken = t }
+func (s *Service) SetEnvToken(t string) {
+	s.tokenMu.Lock()
+	defer s.tokenMu.Unlock()
+	s.envToken = t
+	if s.tokenChanged != nil {
+		token, _ := s.mcpToken(context.Background()) // A failed read removes the entry until restart.
+		s.tokenChanged(token)
+	}
+}
+
+// ObserveMCPToken publishes the initial token and every committed rotation in commit order.
+func (s *Service) ObserveMCPToken(ctx context.Context, changed func(string)) error {
+	s.tokenMu.Lock()
+	defer s.tokenMu.Unlock()
+	token, err := s.mcpToken(ctx)
+	if err != nil {
+		return err
+	}
+	s.tokenChanged = changed
+	changed(token)
+	return nil
+}
 
 // MCPToken returns the token the /mcp endpoint accepts.
 func (s *Service) MCPToken(ctx context.Context) (tok string, err error) {
+	s.tokenMu.Lock()
+	defer s.tokenMu.Unlock()
+	return s.mcpToken(ctx)
+}
+func (s *Service) mcpToken(ctx context.Context) (tok string, err error) {
 	if s.envToken != "" {
 		return s.envToken, nil
 	}
@@ -112,6 +137,8 @@ func (s *Service) MCPToken(ctx context.Context) (tok string, err error) {
 // EnsureMCPSettings fills defaults on first start: a generated token (returned once so it can be logged),
 // read-write mode and delete_tasks switched off.
 func (s *Service) EnsureMCPSettings(ctx context.Context) (newToken string, err error) {
+	s.tokenMu.Lock()
+	defer s.tokenMu.Unlock()
 	err = s.st.WithTx(ctx, func(tx *store.Tx) error {
 		if _, ok, err := tx.Setting(settingToken); err != nil {
 			return err
@@ -135,6 +162,9 @@ func (s *Service) EnsureMCPSettings(ctx context.Context) (newToken string, err e
 		}
 		return nil
 	})
+	if err == nil && newToken != "" && s.tokenChanged != nil {
+		s.tokenChanged(newToken)
+	}
 	return newToken, err
 }
 
@@ -145,12 +175,16 @@ type TokenInfo struct {
 }
 
 func (s *Service) RevealMCPToken(ctx context.Context) (TokenInfo, error) {
-	tok, err := s.MCPToken(ctx)
+	s.tokenMu.Lock()
+	defer s.tokenMu.Unlock()
+	tok, err := s.mcpToken(ctx)
 	return TokenInfo{Token: tok, Masked: maskToken(tok), FromEnv: s.envToken != ""}, err
 }
 
 // RotateMCPToken replaces the stored token; refused while DOCKET_MCP_TOKEN is set.
 func (s *Service) RotateMCPToken(ctx context.Context) (TokenInfo, error) {
+	s.tokenMu.Lock()
+	defer s.tokenMu.Unlock()
 	if s.envToken != "" {
 		return TokenInfo{}, invalid("the token is set by DOCKET_MCP_TOKEN: change it in .env and restart")
 	}
@@ -159,6 +193,9 @@ func (s *Service) RotateMCPToken(ctx context.Context) (TokenInfo, error) {
 		o.emit("settings_changed", 0, 0)
 		return o.tx.SetSetting(settingToken, tok)
 	})
+	if err == nil && s.tokenChanged != nil {
+		s.tokenChanged(tok)
+	}
 	return TokenInfo{Token: tok, Masked: maskToken(tok)}, err
 }
 
@@ -214,21 +251,21 @@ func (s *Service) GetMCPSettings(ctx context.Context) (out MCPSettings, err erro
 		if err != nil {
 			return err
 		}
-		st, err := tx.CallStats(weekAgo, weekAgo)
+		counts, err := tx.ToolCallCounts(weekAgo)
 		if err != nil {
 			return err
 		}
 		out.AccessMode = pol.Mode
 		for _, t := range MCPTools {
-			out.Tools = append(out.Tools, MCPToolState{ToolInfo: t, Enabled: !pol.Disabled[t.Name], Calls7d: st.PerTool[t.Name]})
+			out.Tools = append(out.Tools, MCPToolState{ToolInfo: t, Enabled: !pol.Disabled[t.Name], Calls7d: counts[t.Name]})
 		}
 		return nil
 	})
 	if err != nil {
 		return out, err
 	}
-	tok, err := s.MCPToken(ctx)
-	out.TokenMasked, out.TokenFromEnv = maskToken(tok), s.envToken != ""
+	info, err := s.RevealMCPToken(ctx)
+	out.TokenMasked, out.TokenFromEnv = info.Masked, info.FromEnv
 	return out, err
 }
 
@@ -280,10 +317,36 @@ func (s *Service) UpdateMCPSettings(ctx context.Context, in MCPSettingsPatch) (M
 	return s.GetMCPSettings(ctx)
 }
 
+// LogToolName keeps audit cardinality within the published catalogue, including Code Mode.
+func LogToolName(name string) string {
+	if name == "code" {
+		return name
+	}
+	for _, t := range MCPTools {
+		if name == t.Name {
+			return t.Name
+		}
+	}
+	return "unknown"
+}
+
+func shortAuditText(text string) string {
+	n := 0
+	for i := range text {
+		if n == 119 {
+			return text[:i] + "…"
+		}
+		n++
+	}
+	return text
+}
+
 // RecordMCPCall appends one line to the call log; errCode "" means the call succeeded.
 func (s *Service) RecordMCPCall(ctx context.Context, actor, tool, args string, dur time.Duration, errCode string) error {
-	if utf8.RuneCountInString(args) > 120 {
-		args = string([]rune(args)[:119]) + "…"
+	args = shortAuditText(args)
+	tool = LogToolName(tool)
+	if len(errCode) > 48 {
+		errCode = "internal"
 	}
 	c := store.MCPCall{At: nowTS(), Tool: tool, ArgsSummary: args, DurationMS: dur.Milliseconds(), Status: "ok", Actor: actor}
 	if errCode != "" {
@@ -333,9 +396,9 @@ type MCPStats struct {
 func (s *Service) MCPStats(ctx context.Context) (out MCPStats, err error) {
 	n := time.Now().In(s.loc)
 	startOfDay := time.Date(n.Year(), n.Month(), n.Day(), 0, 0, 0, 0, s.loc).UTC().Format("2006-01-02T15:04:05.000Z")
-	weekAgo := time.Now().UTC().Add(-7 * 24 * time.Hour).Format("2006-01-02T15:04:05.000Z")
+
 	err = s.read(ctx, func(tx *store.Tx) error {
-		st, err := tx.CallStats(startOfDay, weekAgo)
+		st, err := tx.CallStats(startOfDay)
 		if err != nil {
 			return err
 		}

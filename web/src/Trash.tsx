@@ -1,10 +1,9 @@
-import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, fmtStamp, useProjects } from './api'
+import { api, errText, fmtStamp, useProjects } from './api'
 import { Icon, ProjectTile } from './icons'
 import { plural, tr } from './i18n'
 import { Link, hrefWith } from './router'
-import { EmptyState, ErrorState, SkeletonRows } from './ui'
+import { ConfirmButton, EmptyState, ErrorState, SkeletonRows } from './ui'
 
 const MC = 'inline-flex items-center gap-[5px] text-[12px] text-t3'
 const ROW = 'flex items-center gap-3 min-h-[46px] px-4 py-1.5 border-ln no-underline hover:bg-sf2'
@@ -20,15 +19,13 @@ export function Trash() {
   const restoreP = useMutation({ mutationFn: (id: number) => api.restoreProject(id), onSettled: () => qc.invalidateQueries() })
   const restore = useMutation({ mutationFn: (code: string) => api.restoreTask(code), onSettled: () => qc.invalidateQueries() })
   const purge = useMutation({ mutationFn: api.purgeTrash, onSettled: () => qc.invalidateQueries() })
-  const [confirm, setConfirm] = useState(false)
-  useEffect(() => {
-    if (!confirm) return
-    const t = setTimeout(() => setConfirm(false), 4000)
-    return () => clearTimeout(t)
-  }, [confirm])
   const tasks = q.data ?? []
   const gone = pq.data ?? []
   const total = tasks.length + gone.length
+  const versions = (rows: { id: number; deleted_at: string | null }[]) =>
+    rows.flatMap(row => row.deleted_at ? [{ id: row.id, deleted_at: row.deleted_at }] : [])
+  const snapshot = { tasks: versions(tasks), projects: versions(gone) }
+  const ready = q.isSuccess && pq.isSuccess && snapshot.tasks.length + snapshot.projects.length === total
 
   return (
     <>
@@ -37,15 +34,16 @@ export function Trash() {
           <h1 className="text-2xl font-bold tracking-tight">{tr('Корзина')}</h1>
           <span className="text-sm text-t3">{plural(total, '{n} элемент|{n} элемента|{n} элементов')} · {tr('удалённое можно восстановить')}</span>
         </div>
-        <button type="button" className={BTN + (confirm ? ' border-rd text-rd' : ' border-ln text-tx')} disabled={total === 0 || purge.isPending}
-          onClick={() => (confirm ? (setConfirm(false), purge.mutate()) : setConfirm(true))}>
-          <Icon name="trash" size={15} />{confirm ? tr('Удалить навсегда ({n})?', { n: total }) : tr('Очистить корзину')}
-        </button>
+        <ConfirmButton key={JSON.stringify(snapshot)} className={BTN + ' border-ln text-tx [&.warn]:border-rd [&.warn]:text-rd'}
+          label={tr('Очистить корзину')} armed={tr('Удалить навсегда ({n})?', { n: total })}
+          disabled={!ready || total === 0 || purge.isPending} icon={<Icon name="trash" size={15} />}
+          onConfirm={() => purge.mutate(snapshot)} />
       </header>
       <div className="flex flex-wrap items-start gap-6 px-8 pt-6 pb-8 max-[640px]:px-4">
         <div className="flex flex-[999_1_520px] flex-col gap-[18px] min-w-0">
           <section className="overflow-hidden bg-sf border border-ln rounded-xl">
-            {q.isPending && <SkeletonRows n={4} />}
+            {(q.isPending || pq.isPending) && <SkeletonRows n={4} />}
+            {pq.isError && <ErrorState message={pq.error.message} onRetry={() => pq.refetch()} />}
             {q.isError && <ErrorState message={q.error.message} onRetry={() => q.refetch()} />}
             {q.isSuccess && pq.isSuccess && total === 0 && <EmptyState icon="trash" title={tr('Корзина пуста')} hint={tr('Сюда попадают удалённые задачи: из панели задачи или через MCP.')} />}
             {gone.map((p, i) => (
@@ -74,6 +72,7 @@ export function Trash() {
               )
             })}
           </section>
+          {purge.isError && <div className="text-[13px] text-rd" role="alert">{errText(purge.error)}</div>}
           {restore.isError && <div className="text-[13px] text-rd" role="alert">{restore.error.message}</div>}
         </div>
       </div>

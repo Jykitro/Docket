@@ -115,7 +115,9 @@ func TestForeignHostAndOrigin(t *testing.T) {
 		{"POST", "/mcp", map[string]string{"Host": "attacker.example", "Authorization": "Bearer " + e.token}, 403},
 		{"POST", "/api/projects", map[string]string{"Origin": "https://evil.com"}, 403},
 		{"GET", "/api/projects", map[string]string{"Host": "docket.localhost:7777"}, 200},
-		{"POST", "/api/projects", map[string]string{"Origin": "http://docket.localhost:7777"}, 201},
+		{"POST", "/api/projects", map[string]string{"Origin": "http://docket.localhost:7777"}, 403},
+		{"POST", "/api/projects", map[string]string{"Origin": e.srv.URL}, 201},
+		{"POST", "/api/projects", map[string]string{"Sec-Fetch-Site": "cross-site"}, 403},
 	}
 	for _, c := range cases {
 		res := do(t, c.method, e.srv.URL+c.path, `{"name":"X"}`, c.hdr)
@@ -592,5 +594,96 @@ func TestPostgresDatabaseSelfCheck(t *testing.T) {
 	c := a.checkDB(context.Background())
 	if !c.OK || !strings.Contains(c.Detail, "PostgreSQL") || strings.Contains(c.Detail, "quick_check") || strings.Contains(c.Detail, "бэкап") {
 		t.Fatalf("check=%+v", c)
+	}
+}
+
+func TestLocalBrowserBoundary(t *testing.T) {
+	handler := localBrowserGuard(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(204) }))
+	for _, tc := range []struct {
+		method, path, origin string
+		status               int
+	}{
+		{"GET", "/", "", 204},
+		{"POST", "/api/projects", "http://127.0.0.1:5173", 403},
+		{"POST", "/api/projects", "https://127.0.0.1:7777", 403},
+		{"POST", "/api/projects", "http://127.0.0.1:7777", 204},
+	} {
+		req := httptest.NewRequest(tc.method, "http://127.0.0.1:7777"+tc.path, nil)
+		req.Header.Set("Origin", tc.origin)
+		w := httptest.NewRecorder()
+		handler.ServeHTTP(w, req)
+		if w.Code != tc.status || w.Header().Get("X-Frame-Options") != "DENY" || w.Header().Get("Content-Security-Policy") != "frame-ancestors 'none'" {
+			t.Fatal(tc, w.Code, w.Header())
+		}
+	}
+	req := httptest.NewRequest("POST", "http://localhost:7777/api/projects", strings.NewReader("{}"))
+	req.Header.Set("Origin", "http://localhost:7777")
+	req.Header.Set("Content-Type", "text/plain")
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+	if w.Code != http.StatusUnsupportedMediaType {
+		t.Fatal("browser body", w.Code)
+	}
+
+}
+
+func TestTrashPurgeRequiresDisplayedVersion(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	project, err := e.svc.CreateProject(ctx, service.ActorDenis, service.ProjectInput{Name: "Review"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	first, err := e.svc.DeleteProject(ctx, service.ActorDenis, project.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	url := e.srv.URL + "/api/trash"
+	if got := do(t, "DELETE", url, "{}", nil).StatusCode; got != 400 {
+		t.Fatal(got)
+	}
+	if _, err := e.svc.RestoreProject(ctx, service.ActorDenis, project.ID); err != nil {
+		t.Fatal(err)
+	}
+	second, err := e.svc.DeleteProject(ctx, service.ActorDenis, project.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := func(stamp string) string {
+		b, err := json.Marshal(service.TrashSnapshot{Tasks: []store.TrashEntry{}, Projects: []store.TrashEntry{{ID: project.ID, DeletedAt: stamp}}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(b)
+	}
+	if got := do(t, "DELETE", url, body(*first.DeletedAt), nil).StatusCode; got != 409 {
+		t.Fatal(got)
+	}
+	if got := do(t, "DELETE", url, body(*second.DeletedAt), nil).StatusCode; got != 200 {
+		t.Fatal(got)
+	}
+}
+
+type deadlineRecorder struct {
+	*httptest.ResponseRecorder
+	deadline time.Time
+}
+
+func (r *deadlineRecorder) SetWriteDeadline(d time.Time) error { r.deadline = d; return nil }
+
+func TestExportRefreshesAndCapsWriteDeadline(t *testing.T) {
+	r := &deadlineRecorder{ResponseRecorder: httptest.NewRecorder()}
+	now := time.Now()
+	end := now.Add(time.Minute)
+	w := exportWriter{w: r, controller: http.NewResponseController(r), deadline: end}
+	if _, err := w.Write([]byte("one")); err != nil {
+		t.Fatal(err)
+	}
+	if r.deadline.Before(now.Add(29*time.Second)) || r.deadline.After(now.Add(31*time.Second)) {
+		t.Fatal(r.deadline)
+	}
+	w.deadline = now.Add(time.Second)
+	if _, err := w.Write([]byte("two")); err != nil || !r.deadline.Equal(w.deadline) {
+		t.Fatal(r.deadline, err)
 	}
 }

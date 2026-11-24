@@ -8,7 +8,8 @@ import {
 import { HtmlDocuments } from './HtmlDocuments'
 import { Icon, ProjectTile } from './icons'
 import { locale, tr } from './i18n'
-import { MD_NOTE, MD_PROSE, renderMarkdown, toggleCheckbox } from './markdown'
+import { MD_NOTE, renderMarkdown, toggleMarkdownCheckbox } from './markdown'
+import { InsertHTML, MarkdownBody } from './MarkdownBody'
 import { Link, hrefWith, navigate, setParam } from './router'
 import { AgentBadge, EmptyState, ErrorState, MENUITEM, Menu, SkeletonRows, useFocusTrap } from './ui'
 
@@ -177,7 +178,6 @@ function PanelBody({ code, mode, onClose }: { code: string; mode: 'drawer' | 'pa
         <Description d={d!} readOnly={readOnly} onSave={(description_md) => patch.mutate({ description_md })} />
         {!d!.parent_id && <Subtasks d={d!} statuses={meta?.statuses ?? []} projectKey={project?.key} readOnly={readOnly} />}
         <Notes d={d!} readOnly={readOnly} />
-        {!readOnly && <HtmlDocuments key={d!.id} docs={d!.documents} owner={{task:d!.code}} />}
         <WikiMentions code={code} />
         <History acts={d!.activity} />
       </div>
@@ -317,16 +317,18 @@ const SEGBTN = 'rounded-md px-2.5 py-[3px] text-t3 aria-pressed:bg-sk aria-press
 function Description({ d, readOnly, onSave }: { d: TaskDetail; readOnly: boolean; onSave: (md: string) => void }) {
   const [edit, setEdit] = useState(false)
   const [draft, setDraft] = useState(d.description_md)
+  const editor = useRef<HTMLTextAreaElement>(null)
   const view = (
-    <div className={MD_PROSE}
+    <div className="space-y-2"
       onClick={(e) => {
         const el = e.target as HTMLElement
         if (el instanceof HTMLInputElement && el.type === 'checkbox' && el.dataset.idx !== undefined) {
           if (readOnly) return e.preventDefault()
-          onSave(toggleCheckbox(d.description_md, Number(el.dataset.idx)))
+          const next = toggleMarkdownCheckbox(d.description_md, Number(el.dataset.idx), el.defaultChecked)
+          if (next !== undefined) onSave(next)
         }
       }}
-      dangerouslySetInnerHTML={{ __html: renderMarkdown(d.description_md) }} />
+    ><MarkdownBody source={d.description_md} /></div>
   )
   return (
     <section className={PSEC}>
@@ -337,12 +339,14 @@ function Description({ d, readOnly, onSave }: { d: TaskDetail; readOnly: boolean
           <button type="button" className={SEGBTN} aria-pressed={edit} disabled={readOnly} onClick={() => { setDraft(d.description_md); setEdit(true) }}>Markdown</button>
         </span>
       </div>
-      {edit ? (
-        <textarea className="w-full resize-y rounded-[10px] border border-ln bg-sf2 px-3.5 py-3 font-mono text-[13px] leading-[1.6] text-tx focus:border-ac focus:outline-0" autoFocus aria-label={tr('Описание в markdown')} value={draft} rows={Math.max(8, draft.split('\n').length + 1)}
+      {edit ? (<div className="grid gap-2">
+        <InsertHTML editor={editor} change={setDraft} />
+        <textarea ref={editor} className="w-full resize-y rounded-[10px] border border-ln bg-sf2 px-3.5 py-3 font-mono text-[13px] leading-[1.6] text-tx focus:border-ac focus:outline-0" autoFocus aria-label={tr('Описание в markdown')} value={draft} rows={Math.max(8, draft.split('\n').length + 1)}
           onChange={(e) => setDraft(e.target.value)} onBlur={() => draft !== d.description_md && onSave(draft)} placeholder={tr('Markdown: **жирный**, - [ ] чекбокс, [ссылка](https://…)')} />
-      ) : d.description_md.trim() ? view : (
+      </div>) : d.description_md.trim() ? view : (readOnly || !d.documents?.length) && (
         <p className={MUTED}>{tr('Описания нет. Нажмите «Markdown», чтобы добавить.')}</p>
       )}
+      {!edit && !readOnly && <div className="mt-2"><HtmlDocuments key={d.id} docs={d.documents} owner={{ task: d.code }} /></div>}
     </section>
   )
 }

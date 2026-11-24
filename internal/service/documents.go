@@ -2,11 +2,18 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"unicode/utf8"
 
 	"docket/internal/store"
+)
+
+const (
+	maxHTMLBytes            = 2 << 20
+	maxProfileRevisionBytes = 64 << 20
+	maxProfileRevisions     = 4096
 )
 
 type PublishHTMLInput struct {
@@ -17,7 +24,11 @@ type PublishHTMLInput struct {
 	ExpectedVersion int    `json:"expected_version,omitempty" jsonschema:"0 for new, current version for an update"`
 }
 
-func (s *Service) PublishHTML(ctx context.Context, actor string, in PublishHTMLInput) (d store.HTMLDocument, err error) {
+func (s *Service) PublishHTML(ctx context.Context, actor string, in PublishHTMLInput) (store.HTMLDocument, error) {
+	return s.publishHTML(ctx, actor, in, maxProfileRevisionBytes, maxProfileRevisions)
+}
+
+func (s *Service) publishHTML(ctx context.Context, actor string, in PublishHTMLInput, maxBytes int64, maxRevisions int) (d store.HTMLDocument, err error) {
 	in.Title = strings.TrimSpace(in.Title)
 	if (in.Task == "") == (in.PageID == 0) || in.PageID < 0 {
 		return d, invalid("provide exactly one task or page_id")
@@ -25,7 +36,7 @@ func (s *Service) PublishHTML(ctx context.Context, actor string, in PublishHTMLI
 	if in.Title == "" || utf8.RuneCountInString(in.Title) > 120 || strings.ContainsAny(in.Title, "\r\n") {
 		return d, invalid("document title must be one line, 1–120 characters")
 	}
-	if strings.TrimSpace(in.HTML) == "" || len(in.HTML) > 2<<20 {
+	if strings.TrimSpace(in.HTML) == "" || len(in.HTML) > maxHTMLBytes {
 		return d, invalid("HTML must be between 1 byte and 2 MiB")
 	}
 	if in.ExpectedVersion < 0 {
@@ -51,17 +62,15 @@ func (s *Service) PublishHTML(ctx context.Context, actor string, in PublishHTMLI
 		if err := requireLiveProject(o.tx, projectID); err != nil {
 			return err
 		}
-		docs, err := o.tx.Documents(taskID, in.PageID)
-		if err != nil {
-			return err
-		}
 		key := titleKey(in.Title)
-		d.Title = in.Title
-		for _, old := range docs {
-			if titleKey(old.Title) == key {
-				d = old
-				break
-			}
+		old, err := o.tx.DocumentByTitle(taskID, in.PageID, key)
+		switch {
+		case err == nil:
+			d = old
+		case errors.Is(err, store.ErrNotFound):
+			d.Title = in.Title
+		default:
+			return err
 		}
 		if d.Version != in.ExpectedVersion {
 			// A retry after a committed write may have lost its response.
@@ -75,6 +84,13 @@ func (s *Service) PublishHTML(ctx context.Context, actor string, in PublishHTMLI
 				}
 			}
 			return conflict("document version is %d; read it before publishing", d.Version)
+		}
+		used, count, err := o.tx.RevisionUsage(maxRevisions)
+		if err != nil {
+			return err
+		}
+		if count >= maxRevisions || used+int64(len(in.HTML)) > maxBytes {
+			return &Error{Code: "quota_exceeded", Message: fmt.Sprintf("profile HTML history limit reached (%d bytes or %d revisions); delete documents to free space", maxBytes, maxRevisions)}
 		}
 		d.Version++
 		d.Author = actor

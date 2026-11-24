@@ -11,8 +11,10 @@ import (
 	"os"
 	"reflect"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -46,10 +48,12 @@ func conflict(format string, a ...any) error {
 }
 
 type Service struct {
-	st       *store.Store
-	bus      *events.Bus
-	loc      *time.Location
-	envToken string // DOCKET_MCP_TOKEN: wins over the stored token
+	st           *store.Store
+	bus          *events.Bus
+	loc          *time.Location
+	tokenMu      sync.Mutex
+	tokenChanged func(string)
+	envToken     string // DOCKET_MCP_TOKEN: wins over the stored token
 }
 
 func New(st *store.Store, bus *events.Bus, loc *time.Location) *Service {
@@ -115,6 +119,9 @@ func (s *Service) read(ctx context.Context, fn func(*store.Tx) error) error {
 }
 
 func mapErr(err error) error {
+	if errors.Is(err, store.ErrPageTooLarge) {
+		return &Error{Code: "page_too_large", Message: err.Error()}
+	}
 	if errors.Is(err, store.ErrNotFound) {
 		return notFound("not found")
 	}
@@ -122,6 +129,8 @@ func mapErr(err error) error {
 }
 
 func nowTS() string { return time.Now().UTC().Format("2006-01-02T15:04:05.000Z") }
+
+func deletionStamp() string { return time.Now().UTC().Format("2006-01-02T15:04:05.000000000Z") }
 
 // ---- validation ----
 
@@ -158,9 +167,20 @@ func checkDate(field, v string) error {
 
 // ---- projects ----
 
-func (s *Service) ListProjects(ctx context.Context, includeArchived bool) (out []store.Project, err error) {
-	err = s.read(ctx, func(tx *store.Tx) error { out, err = tx.ListProjects(includeArchived); return err })
-	return out, err
+func (s *Service) ListProjects(ctx context.Context, includeArchived bool) ([]store.Project, error) {
+	return s.ProjectPage(ctx, includeArchived, false, false, ReadPage{})
+}
+
+func (s *Service) ProjectPage(ctx context.Context, includeArchived, deleted, compact bool, p ReadPage) (out []store.Project, err error) {
+	p, err = p.normalized()
+	if err != nil {
+		return
+	}
+	err = s.read(ctx, func(tx *store.Tx) error {
+		out, err = tx.ProjectPage(includeArchived, deleted, compact, p.Limit, p.Offset)
+		return err
+	})
+	return
 }
 
 func (s *Service) GetProject(ctx context.Context, id int64) (p store.Project, err error) {
@@ -195,13 +215,13 @@ func createProject(o *op, in ProjectInput) (store.Project, error) {
 	if name == "" {
 		return store.Project{}, invalid("project name is required")
 	}
-	all, err := o.tx.ListProjects(true)
+	count, err := o.tx.CountLiveProjects()
 	if err != nil {
 		return store.Project{}, err
 	}
 	color := in.Color
 	if color == "" {
-		color = projectColors[len(all)%len(projectColors)]
+		color = projectColors[count%len(projectColors)]
 	} else if !colorRe.MatchString(color) {
 		return store.Project{}, invalid("color must look like #rrggbb")
 	}
@@ -218,6 +238,8 @@ func createProject(o *op, in ProjectInput) (store.Project, error) {
 		}
 		if _, err := o.tx.GetProjectBySlug(slug); err == nil {
 			return store.Project{}, invalid("slug %q is taken", slug)
+		} else if !errors.Is(err, store.ErrNotFound) {
+			return store.Project{}, err
 		}
 	} else {
 		base := slugify(name)
@@ -225,13 +247,18 @@ func createProject(o *op, in ProjectInput) (store.Project, error) {
 		for i := 2; ; i++ {
 			if _, err := o.tx.GetProjectBySlug(slug); errors.Is(err, store.ErrNotFound) {
 				break
+			} else if err != nil {
+				return store.Project{}, err
 			}
 			slug = fmt.Sprintf("%s-%d", base, i)
 		}
 	}
 	key := strings.ToUpper(strings.TrimSpace(in.Key))
 	if key == "" {
-		key = deriveKey(o.tx, slug)
+		key, err = deriveKey(o.tx, slug)
+		if err != nil {
+			return store.Project{}, err
+		}
 	} else if err := checkKey(o.tx, key, 0); err != nil {
 		return store.Project{}, err
 	}
@@ -263,12 +290,14 @@ func checkKey(tx *store.Tx, key string, selfID int64) error {
 	}
 	if p, err := tx.GetProjectByKey(key); err == nil && p.ID != selfID {
 		return invalid("key %q is taken", key)
+	} else if err != nil && !errors.Is(err, store.ErrNotFound) {
+		return err
 	}
 	return nil
 }
 
 // deriveKey builds a free key from the first ASCII letters of the slug (PRJ for e.g. Cyrillic names).
-func deriveKey(tx *store.Tx, slug string) string {
+func deriveKey(tx *store.Tx, slug string) (string, error) {
 	var b strings.Builder
 	for _, r := range strings.ToUpper(slug) {
 		if (r >= 'A' && r <= 'Z') || (b.Len() > 0 && r >= '0' && r <= '9') {
@@ -285,9 +314,14 @@ func deriveKey(tx *store.Tx, slug string) string {
 	key := base
 	for i := 2; ; i++ {
 		if _, err := tx.GetProjectByKey(key); errors.Is(err, store.ErrNotFound) {
-			return key
+			return key, nil
+		} else if err != nil {
+			return "", err
 		}
 		key = base + strconv.Itoa(i)
+		if len(key) > 5 {
+			return "", invalid("project key prefix %q is exhausted; specify a key", base)
+		}
 	}
 }
 
@@ -387,7 +421,7 @@ func (s *Service) DeleteProject(ctx context.Context, actor string, id int64) (p 
 			return notFound("project %d not found", id)
 		}
 		if p.DeletedAt == nil {
-			ts := nowTS()
+			ts := deletionStamp()
 			p.DeletedAt = &ts
 			if err := o.tx.UpdateProject(p); err != nil {
 				return err
@@ -417,8 +451,7 @@ func (s *Service) RestoreProject(ctx context.Context, actor string, id int64) (p
 }
 
 func (s *Service) ListDeletedProjects(ctx context.Context) (out []store.Project, err error) {
-	err = s.read(ctx, func(tx *store.Tx) error { out, err = tx.ListDeletedProjects(); return err })
-	return out, err
+	return s.ProjectPage(ctx, true, true, false, ReadPage{})
 }
 
 // resolveProject accepts a slug, a key (TRK) or a numeric id.
@@ -485,7 +518,26 @@ func (s *Service) ResolveTask(ctx context.Context, ref string) (t store.Task, er
 
 // ---- tasks: reads ----
 
+const TaskPageSize = 100
+
+type ReadPage struct{ Limit, Offset int }
+
+func (p ReadPage) normalized() (ReadPage, error) {
+	if p.Limit == 0 {
+		p.Limit = TaskPageSize
+	}
+	if p.Limit < 1 || p.Limit > TaskPageSize || p.Offset < 0 {
+		return p, invalid("limit must be 1–100 and offset must be non-negative")
+	}
+	return p, nil
+}
+
 func (s *Service) ListTasks(ctx context.Context, f store.TaskFilter) (out []store.Task, err error) {
+	page, err := (ReadPage{f.Limit, f.Offset}).normalized()
+	if err != nil {
+		return nil, err
+	}
+	f.Limit, f.Offset = page.Limit, page.Offset
 	if f.PlannedFor != "" {
 		if err := checkDate("planned_for", f.PlannedFor); err != nil {
 			return nil, err
@@ -504,19 +556,30 @@ type TaskDetail struct {
 }
 
 // GetTask takes a code (TRK-07) or a numeric id.
-func (s *Service) GetTask(ctx context.Context, ref string, activityLimit int) (d TaskDetail, err error) {
+func (s *Service) GetTask(ctx context.Context, ref string, activityLimit int) (TaskDetail, error) {
+	return s.TaskPage(ctx, ref, activityLimit, ReadPage{})
+}
+
+func (s *Service) TaskPage(ctx context.Context, ref string, activityLimit int, paging ReadPage) (d TaskDetail, err error) {
+	paging, err = paging.normalized()
+	if err != nil {
+		return
+	}
+	if activityLimit <= 0 || activityLimit > TaskPageSize {
+		activityLimit = TaskPageSize
+	}
 	err = s.read(ctx, func(tx *store.Tx) error {
 		if d.Task, err = resolveTask(tx, ref); err != nil {
 			return err
 		}
-		if d.Subtasks, err = tx.ListTasks(store.TaskFilter{ParentID: d.ID, IncludeDone: true}); err != nil {
+		if d.Subtasks, err = tx.ListTasks(store.TaskFilter{ParentID: d.ID, IncludeDone: true, Summary: true, Limit: paging.Limit, Offset: paging.Offset}); err != nil {
 			return err
 		}
-		if d.Notes, err = tx.ListNotes(d.ID); err != nil {
+		if d.Notes, err = tx.ListNotes(d.ID, paging.Limit, paging.Offset); err != nil {
 			return err
 		}
 		if d.DeletedAt == nil {
-			if d.Documents, err = tx.Documents(d.ID, 0); err != nil {
+			if d.Documents, err = tx.Documents(d.ID, 0, paging.Limit, paging.Offset); err != nil {
 				return err
 			}
 		}
@@ -535,7 +598,15 @@ type TodayResult struct {
 }
 
 // TodayView returns the tasks planned for date (done included) and open tasks planned before it.
-func (s *Service) TodayView(ctx context.Context, date string) (r TodayResult, err error) {
+func (s *Service) TodayView(ctx context.Context, date string) (TodayResult, error) {
+	return s.TodayPage(ctx, date, ReadPage{}, false)
+}
+
+func (s *Service) TodayPage(ctx context.Context, date string, paging ReadPage, compact bool) (r TodayResult, err error) {
+	paging, err = paging.normalized()
+	if err != nil {
+		return
+	}
 	if date == "" {
 		date = s.Today()
 	}
@@ -544,15 +615,36 @@ func (s *Service) TodayView(ctx context.Context, date string) (r TodayResult, er
 	}
 	r.Date = date
 	err = s.read(ctx, func(tx *store.Tx) error {
-		if r.Projects, err = tx.ListProjects(false); err != nil {
+
+		if r.Tasks, err = tx.ListTasks(store.TaskFilter{PlannedFor: date, IncludeDone: true, Summary: true, Compact: compact, Limit: paging.Limit, Offset: paging.Offset}); err != nil {
 			return err
 		}
-		if r.Tasks, err = tx.ListTasks(store.TaskFilter{PlannedFor: date, IncludeDone: true}); err != nil {
+		if r.Overdue, err = tx.ListTasks(store.TaskFilter{PlannedBefore: date, Summary: true, Compact: compact, Limit: paging.Limit, Offset: paging.Offset}); err != nil {
 			return err
 		}
-		if r.Overdue, err = tx.ListTasks(store.TaskFilter{PlannedBefore: date}); err != nil {
-			return err
+		if compact {
+			return nil
 		}
+		r.Projects = []store.Project{}
+		seen := map[int64]bool{}
+		for _, group := range [][]store.Task{r.Tasks, r.Overdue} {
+			for _, task := range group {
+				if seen[task.ProjectID] {
+					continue
+				}
+				seen[task.ProjectID] = true
+				p, err := tx.GetProject(task.ProjectID)
+				if err != nil {
+					return err
+				}
+				if p.ArchivedAt == nil {
+					r.Projects = append(r.Projects, p)
+				}
+			}
+		}
+		sort.Slice(r.Projects, func(i, j int) bool {
+			return r.Projects[i].Position < r.Projects[j].Position || (r.Projects[i].Position == r.Projects[j].Position && r.Projects[i].ID < r.Projects[j].ID)
+		})
 		r.Activity, err = tx.ListActivity(0, 15)
 		return err
 	})
@@ -561,108 +653,6 @@ func (s *Service) TodayView(ctx context.Context, date string) (r TodayResult, er
 
 func (s *Service) Trash(ctx context.Context) ([]store.Task, error) {
 	return s.ListTasks(ctx, store.TaskFilter{Deleted: true, IncludeDone: true})
-}
-
-type Export struct {
-	Documents  []store.HTMLDocument `json:"html_documents"`
-	ExportedAt string               `json:"exported_at"`
-	Projects   []store.Project      `json:"projects"`
-	Statuses   []store.Status       `json:"statuses"`
-	Labels     []store.Label        `json:"labels"`
-	Fields     []store.Field        `json:"fields"`
-	Views      []store.View         `json:"views"`
-	Tasks      []store.Task         `json:"tasks"`
-	Notes      []store.Note         `json:"notes"`
-	Pages      []store.Page         `json:"pages"`
-	Activity   []store.Activity     `json:"activity"`
-}
-
-// Export dumps everything, or one project when projectID is set.
-func (s *Service) Export(ctx context.Context, projectID int64) (e Export, err error) {
-	e.ExportedAt = nowTS()
-	err = s.read(ctx, func(tx *store.Tx) error {
-		if e.Projects, err = tx.ListProjects(true); err != nil {
-			return err
-		}
-		if projectID != 0 {
-			if _, err := tx.GetProject(projectID); err != nil {
-				return err
-			}
-			keep := e.Projects[:0]
-			for _, p := range e.Projects {
-				if p.ID == projectID {
-					keep = append(keep, p)
-				}
-			}
-			e.Projects = keep
-		}
-		e.Statuses, e.Labels, e.Fields, e.Views = []store.Status{}, []store.Label{}, []store.Field{}, []store.View{}
-		e.Pages = []store.Page{}
-		for i, p := range e.Projects {
-			if p.IconURL != "" {
-				if e.Projects[i].IconPNG, err = tx.ProjectIcon(p.ID); err != nil {
-					return err
-				}
-			}
-			ss, err := tx.ListStatuses(p.ID)
-			if err != nil {
-				return err
-			}
-			e.Statuses = append(e.Statuses, ss...)
-			ls, err := tx.ListLabels(p.ID)
-			if err != nil {
-				return err
-			}
-			e.Labels = append(e.Labels, ls...)
-			fs, err := tx.ListFields(p.ID)
-			if err != nil {
-				return err
-			}
-			e.Fields = append(e.Fields, fs...)
-			pgs, err := tx.ListPages(p.ID)
-			if err != nil {
-				return err
-			}
-			e.Pages = append(e.Pages, pgs...)
-		}
-		vs, err := tx.ListViews(projectID)
-		if err != nil {
-			return err
-		}
-		e.Views = vs
-		if e.Documents, err = tx.ExportDocuments(projectID); err != nil {
-			return err
-		}
-		if e.Tasks, err = tx.AllTasks(projectID); err != nil {
-			return err
-		}
-		ids := map[int64]bool{}
-		for _, t := range e.Tasks {
-			ids[t.ID] = true
-		}
-		ns, err := tx.ListNotes(0)
-		if err != nil {
-			return err
-		}
-		e.Notes = []store.Note{}
-		for _, n := range ns {
-			if ids[n.TaskID] {
-				e.Notes = append(e.Notes, n)
-			}
-		}
-		as, err := tx.ListActivity(0, 0)
-		if err != nil {
-			return err
-		}
-		e.Activity = []store.Activity{}
-		for _, a := range as {
-			if projectID == 0 || (a.ProjectID != nil && *a.ProjectID == projectID) {
-				e.Activity = append(e.Activity, a)
-			}
-		}
-		return nil
-	})
-	return e, err
 }
 
 // ---- tasks: writes ----
@@ -1314,7 +1304,7 @@ func (s *Service) MoveTasks(ctx context.Context, actor string, refs []string, in
 // DeleteTasks moves tasks (and their subtasks) to the trash.
 func (s *Service) DeleteTasks(ctx context.Context, actor string, refs []string) (n int, err error) {
 	err = s.write(ctx, actor, func(o *op) error {
-		ts := nowTS()
+		ts := deletionStamp()
 		for _, ref := range refs {
 			t, err := resolveTask(o.tx, ref)
 			if err != nil {
@@ -1390,13 +1380,24 @@ func (s *Service) RestoreTask(ctx context.Context, actor string, ref string) (t 
 }
 
 // PurgeTrash physically deletes the trash. Only the owner's UI may call it.
-func (s *Service) PurgeTrash(ctx context.Context) (n int64, err error) {
+type TrashSnapshot struct {
+	Tasks    []store.TrashEntry `json:"tasks"`
+	Projects []store.TrashEntry `json:"projects"`
+}
+
+func (s *Service) PurgeTrash(ctx context.Context, seen TrashSnapshot) (n int64, err error) {
+	if seen.Tasks == nil || seen.Projects == nil {
+		return 0, invalid("provide the reviewed tasks and projects")
+	}
 	err = s.write(ctx, ActorDenis, func(o *op) error {
-		gone, err := o.tx.ListDeletedProjects()
+		matches, err := o.tx.TrashMatches(seen.Tasks, seen.Projects)
 		if err != nil {
 			return err
 		}
-		for _, p := range gone {
+		if !matches {
+			return &Error{Code: "trash_changed", Message: "trash changed; reload and review before purging"}
+		}
+		for _, p := range seen.Projects {
 			k, err := o.tx.PurgeProject(p.ID)
 			if err != nil {
 				return err

@@ -1,6 +1,7 @@
 // REST client, types and shared data hooks. Every list is a TanStack Query; SSE (live.ts) invalidates them.
 import { useQueries, useQuery } from '@tanstack/react-query'
 import { getLang, locale, tr } from './i18n'
+import { CollectionBudget } from './Paging'
 
 export type Category = 'todo' | 'doing' | 'done'
 
@@ -20,11 +21,12 @@ export type Field = {
 export type Task = {
   issue_kind?: string; report_count?: number; attention_after?: string
   id: number; project_id: number; number: number; code: string; parent_id: number | null; parent_code: string
-  title: string; description_md: string; status_id: number; status: string; status_name: string
+  title: string; description_md: string; has_description?: boolean; status_id: number; status: string; status_name: string
   status_category: Category; priority: 'P0' | 'P1' | 'P2'; area: string; planned_for: string | null
   position: number; custom: Record<string, string | number>; created_by: string
   created_at: string; updated_at: string; done_at: string | null; deleted_at: string | null; subtask_count: number; subtask_done: number
 }
+type TrashVersion = { id: number; deleted_at: string }
 export type Activity = {
   id: number; task_id: number | null; project_id: number | null; actor: string; action: string
   diff_json: string; at: string; task_code: string; task_title: string
@@ -64,7 +66,7 @@ export type SearchResult = {
 }
 
 export type Page = {
-  id: number; project_id: number; parent_id: number | null; title: string; body_md: string; position: number; pinned: boolean
+  id: number; project_id: number; parent_id: number | null; title: string; body_md: string; body_html?: string; position: number; pinned: boolean
   created_at: string; updated_at: string
 }
 export type PageRef = { id: number; title: string }
@@ -72,7 +74,9 @@ export type TaskRef = { code: string; title: string }
 export type TaskPage = PageRef & { project: string }
 export type PageDetail = Page & { documents?: HTMLDocumentInfo[]; backlinks: PageRef[]; links: { pages: PageRef[]; tasks: TaskRef[] } }
 
-export type AuthUser = { id: number; username: string; is_admin: boolean; created_at: string }
+export type AuthUser = { id: number; username: string; is_admin: boolean; blocked?: boolean; created_at: string }
+export type Registration = 'open' | 'invite' | 'closed'
+type Recovery = { recovery_code: string }
 export type Me = { mode: 'local' | 'selfhost'; setup?: boolean; user?: AuthUser }
 export type AdminInvite = { id: number; created_at: string; expires_at: string }
 export type NewInvite = { url: string; expires_at: string }
@@ -84,6 +88,12 @@ export class ApiError extends Error {
 // Server texts are English. Each known one maps to [ru, uk]; English and unknown ones show the server's own message.
 // Keys are the exact messages from internal/selfhost/handler.go and internal/auth/db.go: update both together.
 const SERVER: Record<string, [string, string]> = {
+  'passkey verification failed; try again': ['Не удалось подтвердить ключ доступа. Попробуйте ещё раз.', 'Не вдалося підтвердити ключ доступу. Спробуйте ще раз.'],
+  'passkey already registered': ['Этот ключ уже добавлен.', 'Цей ключ уже додано.'],
+  'passkey limit reached; revoke an unused key': ['Достигнут предел в 32 ключа. Отзовите неиспользуемый ключ.', 'Досягнуто межі у 32 ключі. Відкличте невикористовуваний ключ.'],
+  'passkey not found': ['Ключ доступа не найден', 'Ключ доступу не знайдено'],
+  'too many pending passkey requests': ['Слишком много запросов. Попробуйте позже.', 'Забагато запитів. Спробуйте пізніше.'],
+  'passkey name must be 1-64 characters': ['Название ключа должно содержать от 1 до 64 символов.', 'Назва ключа має містити від 1 до 64 символів.'],
   'invalid username or password': ['Неверное имя пользователя или пароль', 'Неправильне ім’я користувача або пароль'],
   'current password is wrong': ['Неверный текущий пароль', 'Неправильний поточний пароль'],
   'too many failed attempts, try again later': ['Слишком много попыток, подождите несколько минут.', 'Забагато спроб, зачекайте кілька хвилин.'],
@@ -97,7 +107,14 @@ const SERVER: Record<string, [string, string]> = {
   'password must be 10-128 characters': ['Пароль должен быть от 10 до 128 символов', 'Пароль має бути від 10 до 128 символів'],
   'cannot delete yourself': ['Нельзя удалить самого себя', 'Не можна видалити самого себе'],
   'not logged in': ['Сессия истекла, войдите снова', 'Сесія завершилася, увійдіть знову'],
+  'registration is unavailable': ['Регистрация недоступна', 'Реєстрація недоступна'],
+  'workspace limit reached': ['Достигнут предел рабочих пространств', 'Досягнуто ліміту робочих просторів'],
+  'invalid credentials': ['Неверные учётные данные', 'Неправильні облікові дані'],
+  'isolated Code Mode runner is unavailable': ['Исполнитель Code Mode недоступен', 'Виконавець Code Mode недоступний'],
+  'the last administrator must remain active': ['Последний администратор должен оставаться активным', 'Останній адміністратор має залишатися активним'],
+  'too many requests, try again later': ['Слишком много запросов, попробуйте позже', 'Забагато запитів, спробуйте пізніше'],
   'admin only': ['Только для администратора', 'Лише для адміністратора'],
+  'trash changed; reload and review before purging': ['Состав корзины изменился. Проверьте список и подтвердите очистку ещё раз.', 'Вміст кошика змінився. Перегляньте список і підтвердьте очищення ще раз.'],
   'internal error': ['Внутренняя ошибка сервера, попробуйте позже', 'Внутрішня помилка сервера, спробуйте пізніше'],
 }
 export const errText = (e: unknown): string => {
@@ -106,41 +123,183 @@ export const errText = (e: unknown): string => {
   return (lang !== 'en' && SERVER[e.message]?.[lang === 'ru' ? 0 : 1]) || e.message
 }
 
-async function req<T>(method: string, url: string, body?: unknown): Promise<T> {
+const sessionRequests = new AbortController()
+const changeKey = 'docket-auth-change'
+let owner: number | 'guest' | 'setup' | 'local' | undefined
+function sessionStamp() {
+  try { return localStorage.getItem(changeKey) } catch { return null }
+}
+let stamp = sessionStamp()
+let sessionGeneration = 0
+
+// A document owns exactly one private workspace. Reloading discards React state, queued
+// mutations, credentials and the query cache together, even if two profiles reuse row IDs.
+function leaveWorkspace() {
+  if (!sessionRequests.signal.aborted) {
+    sessionRequests.abort()
+    location.reload()
+  }
+}
+function checkSessionStamp() {
+  if (stamp !== sessionStamp()) leaveWorkspace()
+}
+window.addEventListener('storage', event => {
+  if (event.key === changeKey || event.key === null) checkSessionStamp()
+})
+window.addEventListener('pageshow', checkSessionStamp)
+window.addEventListener('focus', checkSessionStamp)
+
+function assertSessionCurrent() {
+  checkSessionStamp()
+  sessionRequests.signal.throwIfAborted()
+}
+
+async function req<T>(method: string, url: string, body?: unknown, budget?: CollectionBudget): Promise<T> {
+  assertSessionCurrent()
+  const started = sessionGeneration
+  const headers = new Headers()
+  if (body !== undefined) headers.set('Content-Type', 'application/json')
+  if (typeof owner === 'number' && url !== '/api/auth/me') headers.set('X-Docket-User', String(owner))
   const res = await fetch(url, {
-    method,
-    headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
+    method, headers,
+    signal: sessionRequests.signal,
     body: body === undefined ? undefined : JSON.stringify(body),
   }).catch((error: unknown) => {
-    window.dispatchEvent(new Event('docket:disconnected'))
+    if (!sessionRequests.signal.aborted) window.dispatchEvent(new Event('docket:disconnected'))
     throw error
   })
-  if (res.status === 204) return undefined as T
-  const data = await res.json().catch(() => null)
-  // Session expired: tell the gate (auth routes handle their own 401s, e.g. a wrong password).
-  if (res.status === 401 && !url.startsWith('/api/auth/')) window.dispatchEvent(new Event('docket:unauthorized'))
+  let data
+  if (res.status !== 204) {
+    if (res.ok && budget) {
+      const raw = await res.arrayBuffer()
+      budget.consume(raw.byteLength)
+      data = JSON.parse(new TextDecoder().decode(raw))
+    } else data = await res.json().catch(() => null)
+  }
+  assertSessionCurrent()
+  if (started !== sessionGeneration) throw new DOMException('Session changed', 'AbortError')
+  if (url === '/api/auth/me' && (res.ok || res.status === 401)) {
+    const observed = data?.user?.id ?? (data?.mode === 'local' ? 'local' : data?.setup ? 'setup' : 'guest')
+    if (owner !== undefined && observed !== owner) leaveWorkspace()
+    sessionRequests.signal.throwIfAborted()
+    owner = observed
+  }
+  if (data?.error?.code === 'session_changed' || (res.status === 401 && typeof owner === 'number' && (data?.error?.code === 'unauthorized' || !url.startsWith('/api/auth/')))) leaveWorkspace()
+  sessionRequests.signal.throwIfAborted()
   if (!res.ok) throw new ApiError(data?.error?.code ?? 'internal', data?.error?.message ?? res.statusText)
+  if (['/api/auth/login', '/api/auth/passkeys/login/finish', '/api/auth/logout', '/api/auth/setup', '/api/auth/register', '/api/auth/account', '/api/auth/recover'].includes(url) || url.startsWith('/api/auth/invite/')) {
+    sessionGeneration++
+    try {
+      localStorage.setItem(changeKey, crypto.getRandomValues(new Uint32Array(4)).join('-'))
+      stamp = sessionStamp()
+    } catch { /* /me also checks the identity directly when storage is unavailable */ }
+    if (url === '/api/auth/logout' || url === '/api/auth/account') leaveWorkspace()
+    sessionRequests.signal.throwIfAborted()
+    if (typeof data?.id === 'number') owner = data.id
+  }
   return data as T
+}
+
+// Fetch bounded pages from one profile; the query cache keeps the complete board for local filters.
+async function collectPages<T>(url: string, size: (page: T) => number, merge: (all: T, page: T) => void) {
+  const budget = new CollectionBudget()
+  let all: T | undefined
+  let limit = 100
+  let offset = 0
+  while (true) {
+    let page: T
+    try {
+      await budget.before(url, offset, sessionRequests.signal)
+      page = await req<T>('GET', url + (url.includes('?') ? '&' : '?') + `limit=${limit}&offset=${offset}`, undefined, budget)
+    } catch (err) {
+      if (!(err instanceof ApiError && err.code === 'page_too_large' && limit > 1)) throw err
+      limit = Math.max(1, Math.floor(limit / 2))
+      continue
+    }
+    const count = size(page)
+    if (all === undefined) all = page
+    else merge(all, page)
+    if (count < limit) return all
+    offset += limit
+  }
+}
+
+function listPages<T>(url: string) {
+  return collectPages<T[]>(url, page => page.length, (all, page) => all.push(...page))
+}
+
+async function taskPages(ref: string) {
+  const code = ref.trim().toUpperCase()
+  if (!/^(?:[A-Z][A-Z0-9]{1,4}-)?[0-9]{1,19}$/.test(code)) throw new Error(tr('Некорректная ссылка на задачу'))
+  return collectPages<TaskDetail>(`/api/tasks/${encodeURIComponent(code)}`, row => {
+    if (!row || typeof row.code !== 'string' || typeof row.title !== 'string' || !Number.isSafeInteger(row.id)
+      || !Array.isArray(row.notes) || !Array.isArray(row.activity) || !Array.isArray(row.subtasks)
+      || row.documents != null && !Array.isArray(row.documents)) throw new Error(tr('Не удалось прочитать задачу'))
+    return Math.max(row.subtasks.length, row.notes.length, row.documents?.length ?? 0)
+  }, (all, page) => {
+    all.subtasks.push(...page.subtasks)
+    all.notes.push(...page.notes)
+    if (page.documents?.length) (all.documents ??= []).push(...page.documents)
+  })
+}
+
+function todayPages(date?: string) {
+  return collectPages<TodayData>('/api/today' + (date ? `?date=${date}` : ''), page => Math.max(page.tasks.length, page.overdue.length), (all, page) => {
+    all.tasks.push(...page.tasks)
+    all.overdue.push(...page.overdue)
+    const ids = new Set(all.projects.map(p => p.id))
+    all.projects.push(...page.projects.filter(p => !ids.has(p.id)))
+    all.projects.sort((a,b) => a.position - b.position || a.id - b.id)
+  })
+}
+
+async function wikiPage(id: number) {
+  const url = `/api/pages/${id}`
+  const budget = new CollectionBudget()
+  await budget.before(url, 0, sessionRequests.signal)
+  const page = await req<PageDetail>('GET', url, undefined, budget)
+  let count = Math.max(page.documents?.length ?? 0, page.backlinks.length)
+  let offset = 100
+  while (count === 100) {
+    await budget.before(url, offset, sessionRequests.signal)
+    const next = await req<PageDetail>('GET', url + `?document_offset=${offset}`, undefined, budget)
+    if (next.documents?.length) (page.documents ??= []).push(...next.documents)
+    page.backlinks.push(...next.backlinks)
+    count = Math.max(next.documents?.length ?? 0, next.backlinks.length)
+    offset += 100
+  }
+  return page
 }
 
 export const api = {
   me: () => req<Me>('GET', '/api/auth/me'),
   login: (username: string, password: string) => req<AuthUser>('POST', '/api/auth/login', { username, password }),
-  // Same signal as an expired session: the gate drops cached data and re-asks who we are.
+  passkeys: () => req<{ available: boolean; keys: { id: string; name: string }[] }>('GET', '/api/auth/passkeys'),
+  beginPasskeyLogin: () => req<{ publicKey: PublicKeyCredentialRequestOptionsJSON }>('POST', '/api/auth/passkeys/login/begin', {}),
+  finishPasskeyLogin: (key: ReturnType<PublicKeyCredential['toJSON']>) => req<AuthUser>('POST', '/api/auth/passkeys/login/finish', key),
+  beginPasskeyRegistration: (name: string, password: string) => req<{ publicKey: PublicKeyCredentialCreationOptionsJSON }>('POST', '/api/auth/passkeys/register/begin', { name, password }),
+  finishPasskeyRegistration: (key: ReturnType<PublicKeyCredential['toJSON']>) => req<void>('POST', '/api/auth/passkeys/register/finish', key),
+  revokePasskey: (id: string, password: string) => req<void>('DELETE', `/api/auth/passkeys/${encodeURIComponent(id)}`, { password }),
   // The server answers 204 to logout whether or not a session still exists.
-  logout: () => req<void>('POST', '/api/auth/logout').then(() => { window.dispatchEvent(new Event('docket:unauthorized')) }),
-  setup: (code: string, username: string, password: string) => req<AuthUser>('POST', '/api/auth/setup', { code, username, password }),
+  logout: () => req<void>('POST', '/api/auth/logout'),
+  setup: (code: string, username: string, password: string) => req<AuthUser & Recovery>('POST', '/api/auth/setup', { code, username, password }),
   acceptInvite: (token: string, username: string, password: string) =>
-    req<AuthUser>('POST', `/api/auth/invite/${encodeURIComponent(token)}`, { username, password }),
+    req<AuthUser & Recovery>('POST', `/api/auth/invite/${encodeURIComponent(token)}`, { username, password }),
   changePassword: (old: string, next: string) => req<void>('PUT', '/api/auth/password', { old, new: next }),
   adminUsers: () => req<AuthUser[]>('GET', '/api/admin/users'),
   adminInvites: () => req<AdminInvite[]>('GET', '/api/admin/invites'),
   createInvite: () => req<NewInvite>('POST', '/api/admin/invites'),
   revokeInvite: (id: number) => req<void>('DELETE', `/api/admin/invites/${id}`),
-  deleteUser: (id: number) => req<void>('DELETE', `/api/admin/users/${id}`),
+  registration: () => req<{ mode: Registration; passkeys: boolean }>('GET', '/api/auth/registration'),
+  setRegistration: (mode: Registration) => req<void>('PUT', '/api/admin/registration', { mode }),
+  register: (username: string, password: string) => req<AuthUser & Recovery>('POST', '/api/auth/register', { username, password }),
+  recover: (username: string, code: string, password: string) => req<Recovery>('POST', '/api/auth/recover', { username, code, password }),
+  issueRecovery: (password: string) => req<Recovery>('POST', '/api/auth/recovery-code', { password }),
+  blockUser: (id: number, blocked: boolean) => req<void>('PUT', `/api/admin/users/${id}/blocked`, { blocked }),
+  deleteAccount: (password: string) => req<void>('DELETE', '/api/auth/account', { password }),
   profile: () => req<Profile>('GET', '/api/profile'),
   setProfile: (name: string) => req<Profile>('PUT', '/api/profile', { name }),
-  projects: () => req<Project[]>('GET', '/api/projects?include_archived=1'),
+  projects: () => listPages<Project>('/api/projects?include_archived=1'),
   createProject: (b: { name: string; key?: string; icon?: string; icon_png?: string; color?: string }) => req<Project>('POST', '/api/projects', b),
   statuses: (pid: number) => req<Status[]>('GET', `/api/projects/${pid}/statuses`),
   labels: (pid: number) => req<Label[]>('GET', `/api/projects/${pid}/labels`),
@@ -150,8 +309,8 @@ export const api = {
   deleteHTML: (id: number, version: number) => req<void>('DELETE', `/api/html-documents/${id}?version=${version}`),
   attention: () => req<AttentionItem[]>('GET', '/api/attention'),
   triage: (id: number, action: string, value: string) => req<void>('POST', `/api/tasks/${id}/triage`, { action, until: action === 'snooze' ? value : undefined, reason: action === 'close' ? value : undefined }),
-  today: (date?: string) => req<TodayData>('GET', '/api/today' + (date ? `?date=${date}` : '')),
-  tasks: (project: string) => req<Task[]>('GET', `/api/tasks?project=${encodeURIComponent(project)}&include_done=1`),
+  today: todayPages,
+  tasks: (project: string) => listPages<Task>(`/api/tasks?project=${encodeURIComponent(project)}&include_done=1&summary=1`),
   createTask: (b: NewTask) => req<Task>('POST', '/api/tasks', b),
   updateTask: (ref: string | number, b: Record<string, unknown>) => req<Task>('PATCH', `/api/tasks/${ref}`, b),
   moveTask: (ref: string | number, b: { status?: string; before_id?: number; after_id?: number }) =>
@@ -171,7 +330,7 @@ export const api = {
   archiveProject: (id: number, archived: boolean) => req<Project>('POST', `/api/projects/${id}/archive`, { archived }),
   deleteProject: (id: number) => req<Project>('DELETE', `/api/projects/${id}`),
   restoreProject: (id: number) => req<Project>('POST', `/api/projects/${id}/restore`),
-  trashProjects: () => req<Project[]>('GET', '/api/trash/projects'),
+  trashProjects: () => listPages<Project>('/api/trash/projects'),
   createStatus: (pid: number, b: { name: string; color?: string; category?: string }) => req<Status>('POST', `/api/projects/${pid}/statuses`, b),
   updateStatus: (id: number, b: Record<string, unknown>) => req<Status>('PATCH', `/api/statuses/${id}`, b),
   deleteStatus: (id: number, moveTo?: number) => req<void>('DELETE', `/api/statuses/${id}` + (moveTo ? `?move_to=${moveTo}` : '')),
@@ -184,17 +343,17 @@ export const api = {
   deleteField: (id: number) => req<void>('DELETE', `/api/fields/${id}`),
   updateView: (id: number, b: Record<string, unknown>) => req<View>('PATCH', `/api/views/${id}`, b),
   deleteView: (id: number) => req<void>('DELETE', `/api/views/${id}`),
-  trash: () => req<Task[]>('GET', '/api/trash'),
-  purgeTrash: () => req<{ purged: number }>('DELETE', '/api/trash'),
-  task: (ref: string) => req<TaskDetail>('GET', `/api/tasks/${ref}`),
+  trash: () => listPages<Task>('/api/trash'),
+  purgeTrash: (snapshot: { tasks: TrashVersion[]; projects: TrashVersion[] }) => req<{ purged: number }>('DELETE', '/api/trash', snapshot),
+  task: taskPages,
   deleteTask: (ref: string) => req<{ trashed: number }>('DELETE', `/api/tasks/${ref}`),
   restoreTask: (ref: string) => req<Task>('POST', `/api/tasks/${ref}/restore`),
   addNote: (ref: string, body_md: string) => req<Note>('POST', `/api/tasks/${ref}/notes`, { body_md }),
   taskPages: (ref: string) => req<TaskPage[]>('GET', `/api/tasks/${ref}/pages`),
-  pages: (pid: number) => req<Page[]>('GET', `/api/projects/${pid}/pages`),
-  page: (id: number) => req<PageDetail>('GET', `/api/pages/${id}`),
-  createPage: (pid: number, b: { title: string; body_md?: string; parent_id?: number }) => req<Page>('POST', `/api/projects/${pid}/pages`, b),
-  savePage: (id: number, b: { title?: string; body_md?: string; parent_id?: number; expected_updated_at?: string }) => req<Page>('PUT', `/api/pages/${id}`, b),
+  pages: (pid: number) => listPages<Page>(`/api/projects/${pid}/pages`),
+  page: wikiPage,
+  createPage: (pid: number, b: { title: string; body_md?: string; body_html?: string; parent_id?: number }) => req<Page>('POST', `/api/projects/${pid}/pages`, b),
+  savePage: (id: number, b: { title?: string; body_md?: string; body_html?: string; parent_id?: number; expected_updated_at?: string }) => req<Page>('PUT', `/api/pages/${id}`, b),
   setPageLayout: (id: number, b: { pinned: boolean } | { before_id: number } | { after_id: number }) =>
     req<void>('PUT', `/api/pages/${id}/layout`, b),
   deletePage: (id: number) => req<void>('DELETE', `/api/pages/${id}`),
@@ -204,7 +363,7 @@ export const api = {
 // ---- hooks ----
 
 export const useAttention = () => useQuery({ queryKey: ['attention'], queryFn: api.attention, refetchInterval: 60_000 })
-export const useMe = () => useQuery({ queryKey: ['me'], queryFn: api.me, retry: false })
+export const useMe = () => useQuery({ queryKey: ['me'], queryFn: api.me, retry: false, staleTime: 0, refetchOnWindowFocus: 'always' })
 export const useProjects = () => useQuery({ queryKey: ['projects'], queryFn: api.projects })
 export const useProfile = () => useQuery({ queryKey: ['profile'], queryFn: api.profile })
 

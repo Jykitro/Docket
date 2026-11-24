@@ -27,12 +27,20 @@ func openTest(t *testing.T) *DB {
 }
 
 func mkUser(d *DB, username, password string, admin bool) (User, error) {
+	username, err := normalizeUsername(username)
+	if err != nil {
+		return User{}, err
+	}
+	digest, err := PreparePassword(password)
+	if err != nil {
+		return User{}, err
+	}
 	tx, err := d.db.Begin()
 	if err != nil {
 		return User{}, err
 	}
 	defer tx.Rollback()
-	u, err := d.createUser(tx, username, password, admin)
+	u, err := d.createUser(tx, username, digest, admin)
 	if err != nil {
 		return User{}, err
 	}
@@ -318,7 +326,7 @@ func TestDeleteUserKillsSessions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := d.DeleteUser(u.ID); err != nil {
+	if err := d.DeleteUser(u.ID, "confirmed"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := d.UserBySession(tok); err != ErrNotFound {
@@ -328,7 +336,7 @@ func TestDeleteUserKillsSessions(t *testing.T) {
 	if err != nil || len(users) != 1 || users[0].Username != "admin" {
 		t.Fatalf("users = %+v, %v", users, err)
 	}
-	if err := d.DeleteUser(u.ID); err != ErrNotFound {
+	if err := d.DeleteUser(u.ID, "confirmed"); err != ErrNotFound {
 		t.Fatalf("second delete: %v", err)
 	}
 }

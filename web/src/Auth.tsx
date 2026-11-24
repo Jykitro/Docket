@@ -1,12 +1,13 @@
 // Self-host gate: asks the server who we are before <App /> mounts (so no app hook or SSE runs before login) and
 // shows setup, login or invite screens. In local mode, or with a session, it renders the app untouched.
 import { type ReactNode, useEffect, useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { ApiError, type Me, api, errText, useMe } from './api'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { ApiError, api, errText, useMe } from './api'
 import { Icon } from './icons'
+import { PasskeyLogin } from './Passkeys'
 import { DocketLogo } from './DocketLogo'
 import { tr, useLang } from './i18n'
-import { navigate, useRoute } from './router'
+import { Link, navigate, useRoute } from './router'
 import { LangSwitch, btnPri, cap } from './ui'
 
 const inputCls = 'h-[38px] border border-ln rounded-md bg-sf px-3 text-[14px] text-tx focus:border-ring focus:ring-[3px] focus:ring-ring focus:outline-none'
@@ -14,12 +15,13 @@ const inputCls = 'h-[38px] border border-ln rounded-md bg-sf px-3 text-[14px] te
 type FieldDef = { key: string; label: string; password?: boolean; autoComplete: string; hint?: string }
 
 // One card for all three screens: the fields, a submit button and the server's error.
-function AuthForm({ title, text, fields, submit, onSubmit }: {
-  title: string; text: string; fields: FieldDef[]; submit: string; onSubmit: (v: Record<string, string>) => Promise<unknown>
+function AuthForm({ title, text, fields, submit, onSubmit, children }: {
+  children?: ReactNode; title: string; text: string; fields: FieldDef[]; submit: string; onSubmit: (v: Record<string, string>) => Promise<unknown>
 }) {
   const qc = useQueryClient()
   const [values, setValues] = useState<Record<string, string>>({})
   const send = useMutation({
+    gcTime: 0,
     mutationFn: () => onSubmit(values),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['me'] }),
   })
@@ -54,6 +56,7 @@ function AuthForm({ title, text, fields, submit, onSubmit }: {
             <button type="submit" className={btnPri} disabled={send.isPending}>{tr(submit)}<Icon name="arrowRight" size={15} sw={2} /></button>
           </div>
         </form>
+        {children}
       </div>
     </main>
   )
@@ -62,90 +65,91 @@ function AuthForm({ title, text, fields, submit, onSubmit }: {
 const username: FieldDef = { key: 'username', label: 'Имя пользователя', autoComplete: 'username' }
 const newPassword: FieldDef = { key: 'password', label: 'Пароль', password: true, autoComplete: 'new-password', hint: 'Не короче 10 символов.' }
 
-function Login() {
+function Login({ open, passkeys }: { open: boolean; passkeys: boolean }) {
   return (
     <AuthForm
       title="Вход" text="Войдите, чтобы открыть свои проекты." submit="Войти"
       fields={[username, { key: 'password', label: 'Пароль', password: true, autoComplete: 'current-password' }]}
       onSubmit={(v) => api.login(v.username, v.password)}
-    />
+    >{passkeys && <PasskeyLogin />}<nav className="flex justify-between gap-3 text-sm text-act"><Link to="/recover">{tr('Забыли пароль?')}</Link>{open && <Link to="/register">{tr('Создать аккаунт')}</Link>}</nav></AuthForm>
   )
 }
 
-function Setup() {
+type IssuedCode = { id?: number; recovery_code: string }
+type Saved = (response: IssuedCode) => void
+
+function Setup({ saved }: { saved: Saved }) {
   return (
     <AuthForm
       title="Первый запуск" text="Создайте администратора. Он сможет приглашать других пользователей." submit="Создать"
       fields={[
-        { key: 'code', label: 'Код настройки', autoComplete: 'off', hint: 'Код напечатан в логе сервера при первом запуске.' },
+        { key: 'code', label: 'Код настройки', autoComplete: 'off', hint: 'Получите код командой docket setup-code на сервере. В Docker выполните docker compose exec docket /app/docket setup-code.' },
         username, newPassword,
       ]}
-      onSubmit={(v) => api.setup(v.code, v.username, v.password)}
+      onSubmit={(v) => api.setup(v.code, v.username, v.password).then(saved)}
     />
   )
 }
 
-function AcceptInvite({ token }: { token: string }) {
-  const qc = useQueryClient()
-  return (
-    <AuthForm
-      title="Приглашение" text="Вас пригласили в Docket. Придумайте имя пользователя и пароль." submit="Создать аккаунт"
-      fields={[username, newPassword]}
-      // Seed `me` before leaving /invite/ so Login does not flash while it refetches.
-      onSubmit={async (v) => {
-        const user = await api.acceptInvite(token, v.username, v.password)
-        qc.setQueryData<Me>(['me'], { mode: 'selfhost', user })
-        navigate('/', true)
-      }}
-    />
-  )
+function Guest({ path, saved }: { path: string; saved: Saved }) {
+  const policy = useQuery({queryKey: ['signup-mode'], queryFn: api.registration, retry: 1})
+  const back = <Link className="text-act text-sm" to="/">{tr('Войти')}</Link>
+  if (path === '/recover') return <AuthForm title="Восстановление доступа" text="Введите резервный код и новый пароль. После восстановления нужно будет заново добавить ключи доступа." submit="Восстановить доступ"
+    fields={[username,{ key: 'code', label: 'Резервный код', autoComplete: 'off' },newPassword]}
+    onSubmit={v => api.recover(v.username,v.code,v.password).then(saved)}>{back}</AuthForm>
+  const invite = path.startsWith('/invite/')
+  if (invite || path === '/register') {
+    if (policy.isPending) return null
+    if (policy.data?.mode === 'open' || (invite && policy.data?.mode === 'invite')) {
+      return <AuthForm title={invite ? 'Приглашение' : 'Создать аккаунт'} text="После регистрации откроется ваше личное рабочее пространство." submit="Создать аккаунт"
+        fields={[username,newPassword]} onSubmit={v => (invite ? api.acceptInvite(path.slice(8),v.username,v.password) : api.register(v.username,v.password)).then(saved)}>{back}</AuthForm>
+    }
+    return <main className="min-h-screen grid place-content-center gap-4"><p>{tr('Регистрация сейчас недоступна')}</p>{back}</main>
+  }
+  return <Login open={policy.data?.mode === 'open'} passkeys={policy.data?.passkeys === true} />
 }
 
 export function Gate({ children }: { children: ReactNode }) {
-  const qc = useQueryClient()
   const me = useMe()
+  const [issued, setIssued] = useState<IssuedCode | null>(null)
   const { path } = useRoute()
   useLang() // re-render the login screens when the language changes (App does the same for the app)
 
-  // Session ended (expired, or logout): forget everything cached for the previous profile and put `me` back to
-  // pending, which unmounts <App /> (closing its observers and the SSE stream) while `me` is asked again.
-  // invalidate would keep the old user in `data` (a failed v5 refetch keeps it) and the app would stay mounted.
+  const { refetch } = me
   useEffect(() => {
-    const reset = () => {
-      if (qc.getQueryState(['me'])?.data === undefined) return // already pending or on the login screen: nothing to drop
-      qc.removeQueries({ predicate: (q) => q.queryKey[0] !== 'me' })
-      qc.resetQueries({ queryKey: ['me'] }) // the /api/auth/me request never dispatches the event, so this cannot loop
-    }
-    window.addEventListener('docket:unauthorized', reset)
-    return () => window.removeEventListener('docket:unauthorized', reset)
-  }, [qc])
-
-  // Whenever the login screen shows, drop every other query, even when the 401 came only from a `me` refetch (no event).
+    const verify = () => { void refetch() }
+    window.addEventListener('focus', verify)
+    window.addEventListener('pageshow', verify)
+    return () => { window.removeEventListener('focus', verify); window.removeEventListener('pageshow', verify) }
+  }, [refetch])
   const loggedOut = me.error instanceof ApiError && me.error.code === 'unauthorized'
-  useEffect(() => {
-    if (loggedOut) qc.removeQueries({ predicate: (q) => q.queryKey[0] !== 'me' })
-  }, [loggedOut, qc])
 
   // App sets page-specific titles that would go stale behind the login screen.
-  const inApp = !loggedOut && (me.data?.mode === 'local' || !!me.data?.user)
+  const inApp = me.isSuccess && (me.data?.mode === 'local' || !!me.data?.user)
   useEffect(() => {
     if (!inApp) document.title = 'Docket'
   }, [inApp])
 
   // Signed in already: drop /invite/<token> from the URL and history instead of letting the app print it as "not found".
-  const leaving = !loggedOut && !!me.data?.user && path.startsWith('/invite/')
+  const leaving = !loggedOut && !!me.data?.user && (path.startsWith('/invite/') || path === '/register' || path === '/recover')
   useEffect(() => {
     if (leaving) navigate('/', true)
   }, [leaving])
 
   const wrap = (el: ReactNode) => <div className="min-h-screen bg-bg text-tx">{el}</div>
+  const saved: Saved = ({ recovery_code, id }) => { setIssued({ recovery_code, id }); navigate('/', true) }
+  // Registration signs in the new owner, while recovery issues a code on the guest screen.
+  if (issued && (issued.id === undefined ? loggedOut : me.isSuccess && me.data.user?.id === issued.id)) return wrap(<main className="min-h-screen grid place-items-center p-4"><section className="w-full max-w-md bg-sf border border-ln rounded-lg p-6 grid gap-4">
+    <h1 className="font-semibold">{tr('Сохраните резервный код')}</h1><p>{tr('Этот одноразовый код позволит задать новый пароль. Сохраните его в менеджере паролей.')}</p>
+    <code className="select-all break-all">{issued.recovery_code}</code><button className={btnPri} onClick={() => setIssued(null)}>{tr('Код сохранён')}</button>
+  </section></main>)
   if (me.isPending) return <div className="min-h-screen bg-bg" /> // no flash of the app
   if (loggedOut) { // before the user check: v5 keeps stale data on error
-    return wrap(path.startsWith('/invite/') ? <AcceptInvite token={path.slice('/invite/'.length)} /> : <Login />)
+    return wrap(<Guest key={path} path={path} saved={saved} />)
   }
   if (leaving) return null
   if (inApp) return <>{children}</>
-  if (me.data?.setup) return wrap(<Setup />)
+  if (me.data?.setup) return wrap(<Setup saved={saved} />)
   return wrap(
     <main className="min-h-screen grid place-items-center px-4 text-center">
       <div className="flex flex-col items-center gap-3">

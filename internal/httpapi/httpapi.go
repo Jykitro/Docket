@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"mime"
 	"net"
 	"net/http"
 	"net/url"
@@ -52,6 +53,9 @@ func Router(d Deps) http.Handler {
 	}
 	r := chi.NewRouter()
 	r.Use(middleware.Recoverer, HostGuard(d.AllowedHosts))
+	if !d.SelfHost {
+		r.Use(localBrowserGuard)
+	}
 	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) { w.Write([]byte("ok")) })
 	// /mcp is both the MCP endpoint and a screen of the web app: a browser navigation gets the app.
 	// /mcp/code is the same server in Code Mode (mcpserver/codemode.go), behind the same token.
@@ -168,6 +172,35 @@ func InstallScript(w http.ResponseWriter, _ *http.Request) {
 	_, _ = io.WriteString(w, skills.InstallScript())
 }
 
+// localBrowserGuard keeps the unauthenticated local UI on its own browser origin.
+func localBrowserGuard(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Frame-Options", "DENY")
+		w.Header().Set("Content-Security-Policy", "frame-ancestors 'none'")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		if strings.HasPrefix(r.URL.Path, "/api/") && r.Method != http.MethodGet && r.Method != http.MethodHead && r.Method != http.MethodOptions {
+			scheme := "http"
+			if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" {
+				scheme = "https"
+			}
+			origin := r.Header.Get("Origin")
+			if r.Header.Get("Sec-Fetch-Site") == "cross-site" || origin != "" && !strings.EqualFold(origin, scheme+"://"+r.Host) {
+				writeError(w, 403, "forbidden_origin", "origin not allowed")
+				return
+			}
+			if r.ContentLength != 0 && (origin != "" || r.Header.Get("Sec-Fetch-Site") != "") {
+				mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+				if err != nil || mediaType != "application/json" {
+					writeError(w, http.StatusUnsupportedMediaType, "unsupported_media_type", "send application/json")
+					return
+				}
+			}
+
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 // HostGuard blocks DNS rebinding (Host allowlist) and browser CSRF (Origin allowlist on API writes).
 func HostGuard(allowedHosts []string) func(http.Handler) http.Handler {
 	allowed := map[string]bool{}
@@ -267,7 +300,11 @@ func statusFor(code string) int {
 	switch code {
 	case "not_found":
 		return 404
-	case "status_in_use", "conflict":
+	case "page_too_large":
+		return http.StatusRequestEntityTooLarge
+	case "quota_exceeded":
+		return http.StatusInsufficientStorage
+	case "status_in_use", "conflict", "trash_changed":
 		return 409
 	case "forbidden":
 		return 403
@@ -288,7 +325,11 @@ func writeError(w http.ResponseWriter, code int, errCode, msg string) {
 func badRequest(msg string) error { return &service.Error{Code: "validation", Message: msg} }
 
 func decode(r *http.Request, v any) error {
-	if err := json.NewDecoder(http.MaxBytesReader(nil, r.Body, 1<<20)).Decode(v); err != nil {
+	return decodeLimited(r, v, 1<<20)
+}
+
+func decodeLimited(r *http.Request, v any, limit int64) error {
+	if err := json.NewDecoder(http.MaxBytesReader(nil, r.Body, limit)).Decode(v); err != nil {
 		return badRequest("invalid JSON body: " + err.Error())
 	}
 	return nil
@@ -307,7 +348,11 @@ func truthy(s string) bool { return s == "1" || s == "true" }
 // ---- projects ----
 
 func (a *api) listProjects(r *http.Request) (any, error) {
-	return a.svc.ListProjects(r.Context(), truthy(r.URL.Query().Get("include_archived")))
+	p, err := readPage(r)
+	if err != nil {
+		return nil, err
+	}
+	return a.svc.ProjectPage(r.Context(), truthy(r.URL.Query().Get("include_archived")), false, false, p)
 }
 
 type projectPNG []byte
@@ -359,7 +404,11 @@ func (a *api) restoreProject(r *http.Request) (any, error) {
 }
 
 func (a *api) trashProjects(r *http.Request) (any, error) {
-	return a.svc.ListDeletedProjects(r.Context())
+	p, err := readPage(r)
+	if err != nil {
+		return nil, err
+	}
+	return a.svc.ProjectPage(r.Context(), true, true, false, p)
 }
 
 // archiveProject archives by default; {"archived": false} brings the project back.
@@ -573,8 +622,34 @@ func (a *api) deleteView(r *http.Request) (any, error) {
 
 // ---- tasks ----
 
+func intQuery(r *http.Request, key string) (int, error) {
+	v := r.URL.Query().Get(key)
+	if v == "" {
+		return 0, nil
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil || n < 0 {
+		return 0, badRequest(key + " must be a non-negative integer")
+	}
+	return n, nil
+}
+
+func readPage(r *http.Request) (service.ReadPage, error) {
+	var p service.ReadPage
+	var err error
+	if p.Limit, err = intQuery(r, "limit"); err != nil {
+		return p, err
+	}
+	p.Offset, err = intQuery(r, "offset")
+	return p, err
+}
+
 func (a *api) today(r *http.Request) (any, error) {
-	return a.svc.TodayView(r.Context(), r.URL.Query().Get("date"))
+	p, err := readPage(r)
+	if err != nil {
+		return nil, err
+	}
+	return a.svc.TodayPage(r.Context(), r.URL.Query().Get("date"), p, false)
 }
 
 func (a *api) search(r *http.Request) (any, error) {
@@ -585,7 +660,11 @@ func (a *api) search(r *http.Request) (any, error) {
 
 func (a *api) listTasks(r *http.Request) (any, error) {
 	q := r.URL.Query()
-	f := store.TaskFilter{Status: q.Get("status"), PlannedFor: q.Get("planned_for"), Area: q.Get("area"),
+	p, err := readPage(r)
+	if err != nil {
+		return nil, err
+	}
+	f := store.TaskFilter{Limit: p.Limit, Offset: p.Offset, Summary: truthy(q.Get("summary")), Status: q.Get("status"), PlannedFor: q.Get("planned_for"), Area: q.Get("area"),
 		CreatedBy: q.Get("created_by"), Q: q.Get("q"), IncludeDone: truthy(q.Get("include_done"))}
 	if ref := q.Get("project"); ref != "" {
 		p, err := a.svc.ResolveProject(r.Context(), ref)
@@ -621,7 +700,11 @@ func (a *api) createTask(r *http.Request) (any, error) {
 func taskRef(r *http.Request) string { return chi.URLParam(r, "id") }
 
 func (a *api) getTask(r *http.Request) (any, error) {
-	return a.svc.GetTask(r.Context(), taskRef(r), 50)
+	p, err := readPage(r)
+	if err != nil {
+		return nil, err
+	}
+	return a.svc.TaskPage(r.Context(), taskRef(r), 50, p)
 }
 
 func (a *api) updateTask(r *http.Request) (any, error) {
@@ -663,20 +746,32 @@ func (a *api) addNote(r *http.Request) (any, error) {
 // ---- wiki pages ----
 
 func (a *api) listPages(r *http.Request) (any, error) {
-	return a.svc.ListPages(r.Context(), chi.URLParam(r, "id"))
+	p, err := readPage(r)
+	if err != nil {
+		return nil, err
+	}
+	return a.svc.WikiPageHeaders(r.Context(), chi.URLParam(r, "id"), p)
 }
 
 func (a *api) createPage(r *http.Request) (any, error) {
 	var in struct {
-		Title    string `json:"title"`
-		BodyMD   string `json:"body_md"`
-		ParentID *int64 `json:"parent_id"`
+		Title    string  `json:"title"`
+		BodyMD   *string `json:"body_md"`
+		BodyHTML *string `json:"body_html"`
+		ParentID *int64  `json:"parent_id"`
 	}
-	if err := decode(r, &in); err != nil {
+	if err := decodeLimited(r, &in, htmlJSONLimit); err != nil {
 		return nil, err
 	}
+	var md string
+	if in.BodyMD != nil {
+		if in.BodyHTML != nil {
+			return nil, badRequest("provide one of body_md or body_html")
+		}
+		md = *in.BodyMD
+	}
 	pg, err := a.svc.CreatePage(r.Context(), service.ActorDenis, chi.URLParam(r, "id"),
-		service.PageInput{Title: in.Title, BodyMD: in.BodyMD, ParentID: in.ParentID})
+		service.PageInput{Title: in.Title, BodyMD: md, BodyHTML: in.BodyHTML, ParentID: in.ParentID})
 	return created{pg}, err
 }
 
@@ -685,7 +780,11 @@ func (a *api) getPage(r *http.Request) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	return a.svc.GetPage(r.Context(), id)
+	offset, err := intQuery(r, "document_offset")
+	if err != nil {
+		return nil, err
+	}
+	return a.svc.PageDocuments(r.Context(), id, offset)
 }
 
 func (a *api) updatePage(r *http.Request) (any, error) {
@@ -696,14 +795,15 @@ func (a *api) updatePage(r *http.Request) (any, error) {
 	var in struct {
 		Title             *string `json:"title"`
 		BodyMD            *string `json:"body_md"`
+		BodyHTML          *string `json:"body_html"`
 		ParentID          *int64  `json:"parent_id"` // absent or null = unchanged, 0 = top level
 		ExpectedUpdatedAt string  `json:"expected_updated_at"`
 	}
-	if err := decode(r, &in); err != nil {
+	if err := decodeLimited(r, &in, htmlJSONLimit); err != nil {
 		return nil, err
 	}
 	return a.svc.UpdatePage(r.Context(), service.ActorDenis, id,
-		service.PagePatch{Title: in.Title, BodyMD: in.BodyMD, ParentID: in.ParentID, ExpectedUpdatedAt: in.ExpectedUpdatedAt})
+		service.PagePatch{Title: in.Title, BodyMD: in.BodyMD, BodyHTML: in.BodyHTML, ParentID: in.ParentID, ExpectedUpdatedAt: in.ExpectedUpdatedAt})
 }
 
 func (a *api) deletePage(r *http.Request) (any, error) {
@@ -739,16 +839,57 @@ func (a *api) carryOver(r *http.Request) (any, error) {
 	return map[string]int{"moved": n}, err
 }
 
-func (a *api) trash(r *http.Request) (any, error) { return a.svc.Trash(r.Context()) }
+func (a *api) trash(r *http.Request) (any, error) {
+	p, err := readPage(r)
+	if err != nil {
+		return nil, err
+	}
+	return a.svc.ListTasks(r.Context(), store.TaskFilter{Limit: p.Limit, Offset: p.Offset, Deleted: true, IncludeDone: true, Summary: true})
+}
 
 func (a *api) purge(r *http.Request) (any, error) {
-	n, err := a.svc.PurgeTrash(r.Context())
+	var seen service.TrashSnapshot
+	if err := decode(r, &seen); err != nil {
+		return nil, err
+	}
+	n, err := a.svc.PurgeTrash(r.Context(), seen)
 	return map[string]int64{"purged": n}, err
 }
 
+type exportWriter struct {
+	w          http.ResponseWriter
+	controller *http.ResponseController
+	deadline   time.Time
+}
+
+func (out exportWriter) Write(b []byte) (int, error) {
+	deadline := time.Now().Add(30 * time.Second)
+	if out.deadline.Before(deadline) {
+		deadline = out.deadline
+	}
+	if err := out.controller.SetWriteDeadline(deadline); err != nil && !errors.Is(err, http.ErrNotSupported) {
+		return 0, err
+	}
+	return out.w.Write(b)
+}
+
 func (a *api) sendExport(w http.ResponseWriter, r *http.Request, projectID int64) {
-	e, err := a.svc.Export(r.Context(), projectID)
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Minute)
+	defer cancel()
+	deadline, _ := ctx.Deadline()
+	controller := http.NewResponseController(w)
+	defer func() { _ = controller.SetWriteDeadline(time.Time{}) }()
+	started := false
+	err := a.svc.WriteExport(ctx, projectID, exportWriter{w, controller, deadline}, func(stamp string) {
+		started = true
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.Header().Set("Content-Disposition", `attachment; filename="docket-export-`+stamp[:10]+`.json"`)
+	})
 	if err != nil {
+		if started {
+			slog.Error("export interrupted", "err", err)
+			panic(http.ErrAbortHandler)
+		}
 		var se *service.Error
 		if errors.As(err, &se) {
 			writeError(w, statusFor(se.Code), se.Code, se.Message)
@@ -758,8 +899,6 @@ func (a *api) sendExport(w http.ResponseWriter, r *http.Request, projectID int64
 		writeError(w, 500, "internal", "internal error")
 		return
 	}
-	w.Header().Set("Content-Disposition", `attachment; filename="docket-export-`+e.ExportedAt[:10]+`.json"`)
-	writeJSON(w, 200, e)
 }
 
 func (a *api) export(w http.ResponseWriter, r *http.Request) { a.sendExport(w, r, 0) }

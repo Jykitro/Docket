@@ -40,8 +40,11 @@ export function useLive(qc: QueryClient) {
     const es = new EventSource('/api/events')
     let timer: number | undefined
     const refresh = () => {
-      window.clearTimeout(timer)
-      timer = window.setTimeout(() => qc.invalidateQueries(), 120) // coalesce bursts (a batch emits many events)
+      if (timer !== undefined) return
+      timer = window.setTimeout(() => {
+        timer = undefined
+        void qc.invalidateQueries(undefined, { cancelRefetch: false })
+      }, 120)
     }
     es.onmessage = (m) => {
       try {

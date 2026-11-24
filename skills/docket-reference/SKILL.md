@@ -21,7 +21,9 @@ Docket is the user's personal task planner. Your MCP connection identifies your 
 
 Answers are compact JSON. IDs always look like `TRK-07`; `project` arguments accept a key, a slug or an id.
 
-**Code Mode.** Connected to `/mcp/code` you see one tool, `code`, instead of these. Its argument is JavaScript: an async arrow function or its body, calling the tools below as `await codemode.<tool>(args)` with the same arguments and results. It returns `{result, logs}` (your return value and `console.log` lines). A failed call throws `Error("code: message")`; uncaught, the whole `code` call fails with it. Limits: 30 s (`timeout`), 100 calls, 50 KB result; no fetch or timers. Use it to chain steps and filter big answers, and return only what you need. Access mode, switches and the call log apply to every inner call.
+`list_projects`, `list_pages`, `get_board`, `get_today` and `get_task` accept `limit` (1–100, default 100) and `offset` (default 0). Advance by `limit` when a list is full. For the board, count tasks across status groups. For Today, check both planned and overdue tasks. Task details page subtasks, notes and attachment headers independently with the same offset. History shows the latest 20 events. Large change details (over 64 KiB) are available in the export. On wiki details, `document_offset` advances both attachment headers and backlinks in groups of 100.
+
+**Code Mode.** Connected to `/mcp/code` you see one tool, `code`, instead of these. Its argument is JavaScript: an async arrow function or its body, calling the tools below as `await codemode.<tool>(args)` with the same arguments and results. It returns `{result, logs}` (your return value and `console.log` lines). A failed call throws `Error("code: message")`; uncaught, the whole `code` call fails with it. Limits: 30 s (`timeout`), 100 calls, 50 KB result; no fetch or timers. Use it to chain steps and filter big answers, and return only what you need. Access mode, switches and the call log apply to every inner call. Selfhost accepts up to 256 KiB of code, one active run per workspace and two per instance. Busy calls return `rate_limited`; an offline isolated worker returns `unavailable`.
 
 | Tool | Use it for | Behaviour you must know |
 |---|---|---|
@@ -34,14 +36,14 @@ Answers are compact JSON. IDs always look like `TRK-07`; `project` arguments acc
 | `create_tasks` | New tasks | 1 to 100 per call, one transaction (any invalid item fails the whole call, reported as `tasks[2]: <reason>` with the item's index). Every item needs its own `project`, subtasks too. Defaults: status `backlog`, priority `P1`. New tasks go to the end of their column. Epic: give it `ref`, subtasks `parent_ref` = that ref, epic first. Returns `[{id, title}]` in input order. `external_id` (global across projects) makes the call idempotent: repeating it updates that task instead of duplicating, and a repeat without `description_md` keeps the old description. Use it when you might retry a batch |
 | `update_task` | Edit fields | Omitted fields stay. `description_md` replaces the whole text. `planned_for: ""` clears the date, `parent: ""` detaches. Status and project are not here |
 | `move_tasks` | Status, date, project of many tasks | Give at least one of `status`, `planned_for`, `project`. Moved tasks go to the end of the target column. Moving to another project assigns new IDs and subtasks follow their epic. The answer is only `{"updated": n}`: `search` by title to learn the new IDs |
-| `publish_html` | Attach or revise an interactive document | Exactly one of task (code) or page_id (from read_page), title, self-contained html up to 2 MiB. On update read the document, then pass expected_version. A stale revision returns conflict. Bundle CSS, JS and data. |
+| `publish_html` | Attach or revise an interactive document | Exactly one of task (code) or page_id (from read_page), title, self-contained html up to 2 MiB. On update read the document, then pass expected_version. A stale revision returns conflict. Bundle CSS, JS and data. A profile holds up to 64 MiB or 4096 HTML revisions across all owners. Deleting a document releases its history quota. |
 | `read_html` | Read HTML source and metadata | id from get_task or read_page → documents; optional version, defaults to latest. For large sources in Code Mode, return just the needed portion. |
 | `report_issue` | Record a finding immediately | Required: project, title and observation (what, where, how found). Supply source_task when known. Same title reuses an open issue within the project; existing_issue targets a known duplicate. Repeating the same evidence from the same source and agent is idempotent. kind: problem, unverified, decision or blocker. Returns the ID. |
 | `add_note` | Comment on a task | `task_id`, `body_md` |
-| `list_pages` | Wiki pages of a project | `project`. id, title, parent, `updated_at`; no bodies |
-| `read_page` | One wiki page by `title` | Markdown body, parent, `updated_at`, backlinks, linked task IDs. Read it before `write_page` |
-| `write_page` | Create a page or replace its body | `project`, `title`, `body_md`, optional `parent` (title), `expected_updated_at` (from `read_page`; a newer edit, or a page deleted since, fails with `conflict`). Title matches ignoring case and keeps the stored casing. Replaces the WHOLE body |
-| `append_to_page` | Add to the end of a page | `project`, `title`, `text`. The page must exist; no need to read it first |
+| `list_pages` | Wiki pages of a project | `project`. id, title, parent, `updated_at`, and `format: html` on HTML pages; no bodies |
+| `read_page` | One wiki page by `title` | `body_md` for Markdown or `body_html` for standalone HTML, parent, `updated_at`, backlinks, linked task IDs. Read it before `write_page` |
+| `write_page` | Create a page or replace its body | `project`, `title`, exactly one of `body_md` or `body_html`, optional `parent` (title), `expected_updated_at` (from `read_page`; a newer edit, or a page deleted since, fails with `conflict`). Title matches ignoring case and keeps the stored casing. Replaces the WHOLE body |
+| `append_to_page` | Add to the end of a page | `project`, `title`, `text`. The Markdown page must exist; no need to read it first |
 | `carry_over` | Roll a day forward | Moves open tasks planned for `from` to `to`. Only when the user asks |
 | `delete_tasks` | Trash tasks | Off by default. Never use it on the user's tasks unprompted |
 
@@ -58,7 +60,7 @@ An epic with two subtasks in one call (epic first; the subtasks name its `ref`):
 
 ## Wiki
 
-Per project, markdown pages (notes, specs, decisions). Link pages as `[[Title]]` and tasks by ID (`TRK-07`); only IDs of existing tasks become links. `write_page` replaces the whole body: `read_page` first, change it, send it back with `expected_updated_at`. `append_to_page` is safe for adding a section. There is no delete tool: the user deletes pages in the UI. A title is 1 to 120 characters without `[`, `]` or a newline; a body is up to 200 KB.
+Pages can use Markdown or self-contained HTML (up to 2 MiB via `body_html`). Keep the original format on update. For an interactive block between Markdown paragraphs, use a top-level fenced code block labelled `html-preview`. A fence labelled `html` shows a code example. Link pages as `[[Title]]` and tasks by ID (`TRK-07`); only IDs of existing tasks become links. `write_page` replaces the whole body: `read_page` first, change it, send it back with `expected_updated_at`. `append_to_page` is safe for adding a section. There is no delete tool: the user deletes pages in the UI. A title is 1 to 120 characters without `[`, `]` or a newline; a Markdown body is up to 200 KiB.
 
 ## Errors
 
@@ -72,6 +74,8 @@ Errors read `code: message`. Never retry the same call blindly.
 | `tool_disabled` | The user switched this tool off | Same as `forbidden` |
 | `conflict` | The page changed since you read it (`write_page`) | `read_page` again, merge, retry once |
 | `status_in_use` | A status still holds tasks (admin calls) | Not expected over MCP |
+| `quota_exceeded` | The profile reached its HTML revision budget | Ask the owner to free space before publishing another revision |
+| `page_too_large` | Several rows exceed the page byte budget | Reduce `limit` and continue at the same `offset` |
 | `internal` | Server fault | Retry once; if it repeats, tell the user and check `docket-setup` |
 
 A 401 or 403 on connect, or missing tools, is a setup problem: use `docket-setup`.

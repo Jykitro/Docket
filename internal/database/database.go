@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -31,15 +32,69 @@ type Tx struct {
 }
 
 func OpenSQLite(path string) (*DB, error) {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return nil, err
 	}
-	db, err := sql.Open("sqlite", "file:"+path+"?_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)")
+	if err := PrivateFile(path, true); err != nil {
+		return nil, err
+	}
+	for _, suffix := range []string{"-shm", "-wal", "-journal"} {
+		if err := PrivateFile(path+suffix, false); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return nil, err
+		}
+	}
+	absolute, err := filepath.Abs(path)
+	if err != nil {
+		return nil, err
+	}
+	// The SQLite URI must not interpret punctuation in a filename as connection parameters.
+	name := filepath.ToSlash(absolute)
+	if !strings.HasPrefix(name, "/") {
+		name = "/" + name
+	}
+	uri := url.URL{Scheme: "file", Path: name}
+	db, err := sql.Open("sqlite", uri.String()+"?_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)")
 	if err != nil {
 		return nil, err
 	}
 	db.SetMaxOpenConns(1)
 	return &DB{DB: db}, nil
+}
+
+// PrivateFile prepares a regular application-owned data file before SQLite opens it.
+func PrivateFile(path string, create bool) error {
+	if create {
+		f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_RDWR, 0600)
+		if err == nil {
+			return f.Close()
+		}
+		if !errors.Is(err, os.ErrExist) {
+			return err
+		}
+	}
+	before, err := os.Lstat(path)
+	if err != nil {
+		return err
+	}
+	if !before.Mode().IsRegular() {
+		return fmt.Errorf("expected a regular data file: %s", path)
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	info, err := f.Stat()
+	if err != nil {
+		return err
+	}
+	if !os.SameFile(before, info) {
+		return fmt.Errorf("data file changed: %s", path)
+	}
+	if info.Mode().Perm()&0077 != 0 {
+		return f.Chmod(0600)
+	}
+	return nil
 }
 
 var schemaName = regexp.MustCompile(`^docket_(auth|user_[1-9][0-9]*)$`)
@@ -70,6 +125,24 @@ func OpenPostgres(dsn, schema string) (*DB, error) {
 }
 
 func UserSchema(id int64) string { return "docket_user_" + strconv.FormatInt(id, 10) }
+
+// WorkspaceSchemas enumerates generated tenant schemas in the dedicated PostgreSQL database.
+func (d *DB) WorkspaceSchemas(ctx context.Context) ([]int64, error) {
+	rows, err := d.QueryContext(ctx, "SELECT substring(nspname from 13)::bigint FROM pg_catalog.pg_namespace WHERE nspname ~ '^docket_user_[1-9][0-9]*$'")
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }() // read-only cursor; iteration errors are returned below
+	var ids []int64
+	for rows.Next() {
+		var id int64
+		if err = rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
 
 // Begin serializes a schema's operations across connections/processes, including schema creation.
 // Auth depends on this for atomic first-admin setup and single-use invites; task numbering and

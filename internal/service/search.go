@@ -70,15 +70,22 @@ func (s *Service) Search(ctx context.Context, q, scope string, limit int) (r Sea
 			}
 		}
 		if scope != "tasks" && q != "" {
-			ps, err := tx.ListProjects(false)
-			if err != nil {
-				return err
-			}
 			needle := strings.ToLower(q)
-			for _, p := range ps {
-				if strings.Contains(strings.ToLower(p.Name), needle) || strings.Contains(strings.ToLower(p.Key), needle) ||
-					strings.Contains(p.Slug, needle) {
-					r.Groups.Projects = append(r.Groups.Projects, p)
+			for offset := 0; ; offset += TaskPageSize {
+				ps, err := tx.ProjectPage(false, false, true, TaskPageSize, offset)
+				if err != nil {
+					return err
+				}
+				for _, p := range ps {
+					if strings.Contains(strings.ToLower(p.Name), needle) || strings.Contains(strings.ToLower(p.Key), needle) || strings.Contains(p.Slug, needle) {
+						r.Groups.Projects = append(r.Groups.Projects, p)
+						if len(r.Groups.Projects) == limit {
+							return nil
+						}
+					}
+				}
+				if len(ps) < TaskPageSize {
+					break
 				}
 			}
 		}

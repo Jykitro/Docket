@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { type McpTool, agentName, api, mcpHealthLabel, mcpLastCallLabel, fmtStamp } from './api'
 import { Icon } from './icons'
 import { locale, tr } from './i18n'
-import { McpAgent } from './McpAgent'
+import { McpAgent, shellQuote } from './McpAgent'
 import { ConfirmButton, ErrorState, Skeleton, Toggle } from './ui'
 
 const BTN_LOOK = 'items-center gap-2 whitespace-nowrap rounded-md border font-medium no-underline disabled:cursor-default disabled:opacity-50'
@@ -44,12 +44,18 @@ function copyText(text: string) {
   return navigator.clipboard?.writeText(text)
 }
 
-function config(tab: number, address: string, token: string) {
-  if (tab === 3) return `${address}\nAuthorization: Bearer ${token}`
-  if (tab === 0) return `claude mcp add --transport http docket "${address}" \\\n  --header "Authorization: Bearer ${token}"`
-  // Codex reads the token from an environment variable, so it never lands in config.toml.
-  if (tab === 2) return `export DOCKET_MCP_TOKEN=${token}\ncodex mcp add docket --url "${address}" \\\n  --bearer-token-env-var DOCKET_MCP_TOKEN`
-  return `{\n  "mcpServers": {\n    "docket": {\n      "command": "npx",\n      "args": ["-y", "mcp-remote", "${address}",\n               "--header", "Authorization:\${AUTH}", "--allow-http"],\n      "env": { "AUTH": "Bearer ${token}" }\n    }\n  }\n}`
+function config(tab: number, address: string, endpoint: string) {
+  if (tab === 3) return `${address}\nAuthorization: Bearer <TOKEN>`
+  // Keep this encoding identical to skills/install.sh. Two endpoints never share a credential.
+  const key = Array.from(new TextEncoder().encode(endpoint), b => b.toString(16).padStart(2, '0')).join('')
+  const credential = 'DOCKET_MCP_' + key
+  const prompt = `export ${credential}="$(bash -c 'IFS= read -rs -p "Docket token: " token </dev/tty && printf %s "$token"')"`
+  if (tab === 0) return `${prompt}\nclaude mcp add --transport http docket ${shellQuote(address)} --header 'Authorization: Bearer \${${credential}}'`
+  if (tab === 2) return `${prompt}\ncodex mcp add docket --url ${shellQuote(address)} --bearer-token-env-var ${credential}`
+  return JSON.stringify({ mcpServers: { docket: { command: 'npx',
+    args: ['-y', 'mcp-remote', address, '--header', 'Authorization:${AUTH}', ...(address.startsWith('http:') ? ['--allow-http'] : [])],
+    env: { AUTH: 'Bearer <TOKEN>' },
+  } } }, null, 2)
 }
 
 export function Mcp() {
@@ -187,7 +193,7 @@ export function Mcp() {
                     {CODE_TAB.map((n, i) => <button key={n} type="button" role="tab" aria-selected={tab === i} className={SEGBTN + 'aria-selected:bg-sk aria-selected:font-semibold aria-selected:text-tx'} onClick={() => setTab(i)}>{tr(n)}</button>)}
                   </span>
                   <span className="grow" />
-                  <button type="button" className={BTN_SM} onClick={async () => { await copyText(config(tab, address, await fullToken())); flash('cfg') }}>
+                  <button type="button" className={BTN_SM} onClick={async () => { await copyText(config(tab, address, endpoint)); flash('cfg') }}>
                     <Icon name={copied === 'cfg' ? 'check' : 'doc'} size={14} />{copied === 'cfg' ? tr('Скопировано') : tr('Скопировать конфиг')}
                   </button>
                   <ConfirmButton className={BTN_SM + ' [&.warn]:border-rd [&.warn]:text-rd'} label={tr('Перевыпустить токен')} armed={tr('Старый токен перестанет работать. Перевыпустить?')} disabled={!s || s.token_from_env || rotate.isPending}
@@ -196,14 +202,14 @@ export function Mcp() {
                 {tab === 3 && <label className={LB + ' mb-2'}>{tr('Имя агента')}
                   <input className={FLD} value={customAgent} maxLength={48} placeholder={tr('Из запроса MCP')} onChange={(e) => setCustomAgent(e.target.value)} />
                 </label>}
-                {rotated && <div className="mb-2 text-[13px] text-dgt" role="status">{tr('Токен перевыпущен. Обновите его в клиенте: скопируйте конфиг ниже.')}</div>}
-                <pre className="overflow-x-auto rounded-[10px] border border-ln bg-sf2 px-4 py-3.5 font-mono text-[12.5px] leading-[1.65] whitespace-pre text-t2">{config(tab, address, shownToken)}</pre>
+                {rotated && <div className="mb-2 text-[13px] text-dgt" role="status">{tr('Токен перевыпущен. Скопируйте новый токен и обновите его в клиенте.')}</div>}
+                <pre className="overflow-x-auto rounded-[10px] border border-ln bg-sf2 px-4 py-3.5 font-mono text-[12.5px] leading-[1.65] whitespace-pre text-t2">{config(tab, address, endpoint)}</pre>
                 {rotate.isError && <div className="text-[13px] text-rd" role="alert">{rotate.error.message}</div>}
               </div>
             </div>
           </section>
 
-          <McpAgent tab={tab} url={endpoint} token={fullToken} />
+          <McpAgent tab={tab} url={endpoint} />
 
           <section className={PANEL}>
             <div className={PH_ROW + ' pb-3'}><h2 className={PH_H2}>{tr('Инструменты')}</h2><span className="text-[13px] text-t3">{tr('{n} из {total} включено', { n: enabled, total: s?.tools.length ?? 0 })}</span></div>

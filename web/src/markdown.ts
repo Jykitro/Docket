@@ -1,7 +1,7 @@
 // Markdown for descriptions and notes. Everything goes through DOMPurify; links open in a new tab and
-// task-list checkboxes are live (data-idx = their order in the source), see toggleCheckbox().
-import DOMPurify from 'dompurify'
-import { Marked } from 'marked'
+// task-list checkboxes are live (data-idx = their order in the source), see toggleMarkdownCheckbox().
+import DOMPurify, { type Config } from 'dompurify'
+import { Marked, type Token } from 'marked'
 import type { PageRef, TaskRef } from './api'
 import { tr } from './i18n'
 
@@ -15,13 +15,24 @@ const md = new Marked({
   },
 })
 
-// While renderWiki() sanitizes, wiki anchors (data-wiki, data-wiki-new, data-task) whose href resolves to this origin stay in
+// While rendering a wiki page, wiki anchors (data-wiki, data-wiki-new, data-task) whose href resolves to this origin stay in
 // the same tab; every other anchor, and every anchor of renderMarkdown() (text the assistant can write), opens a new one.
 let sanitizingWiki = false
 const sameOrigin = (href: string) => {
   try { return new URL(href, location.href).origin === location.origin } catch { return false }
 }
+const prosePolicy: Config = {
+  ALLOWED_TAGS: ['p', 'br', 'hr', 'strong', 'em', 'del', 'b', 'i', 's', 'blockquote', 'pre', 'code', 'kbd', 'mark', 'sup', 'sub',
+    'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'a', 'img', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'input', 'details', 'summary'],
+  ALLOWED_ATTR: ['href', 'title', 'src', 'alt', 'start', 'align', 'type', 'checked', 'data-idx', 'aria-label', 'data-wiki', 'data-wiki-new', 'data-task'],
+  ALLOW_DATA_ATTR: false, ALLOW_ARIA_ATTR: false,
+}
 DOMPurify.addHook('afterSanitizeAttributes', (node) => {
+  if (node.tagName === 'INPUT' && (node.getAttribute('type') !== 'checkbox' || !/^\d+$/.test(node.getAttribute('data-idx') ?? ''))) node.remove()
+  if (node.tagName === 'IMG') {
+    const src = node.getAttribute('src')
+    if (!src || !(sameOrigin(src) || /^data:image\/(png|gif|jpeg|webp|avif);base64,/i.test(src))) node.removeAttribute('src')
+  }
   const wikiAnchor = node.hasAttribute('data-wiki') || node.hasAttribute('data-wiki-new') || node.hasAttribute('data-task')
   if (node.tagName === 'A' && !(sanitizingWiki && wikiAnchor && sameOrigin(node.getAttribute('href') ?? ''))) {
     node.setAttribute('target', '_blank')
@@ -31,7 +42,7 @@ DOMPurify.addHook('afterSanitizeAttributes', (node) => {
 
 export function renderMarkdown(src: string): string {
   counter = 0
-  return DOMPurify.sanitize(md.parse(src, { async: false }), { ADD_ATTR: ['target', 'data-idx'] })
+  return DOMPurify.sanitize(md.parse(src, { async: false }), prosePolicy)
 }
 
 type WikiCtx = { slug: string; pages: PageRef[]; tasks: TaskRef[] }
@@ -39,7 +50,7 @@ let wiki: WikiCtx = { slug: '', pages: [], tasks: [] }
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 const titleKey = (t: string) => t.trim().toLowerCase()
 
-// Second instance for the wiki: [[Title]] and task codes become links, resolved against the context set by renderWiki().
+// Second instance for the wiki: [[Title]] and task codes become links, resolved against the current wiki context.
 // Inline extensions never run inside code spans or blocks. The lookbehind lives in start(): the tokenizer sees only the rest of the line.
 const mdWiki = new Marked({
   gfm: true,
@@ -80,20 +91,40 @@ const mdWiki = new Marked({
   ],
 })
 
-/** Wiki page body: like renderMarkdown, plus [[Title]] links and task codes that exist in ctx.tasks. */
-export function renderWiki(src: string, ctx: WikiCtx): string {
-  wiki = ctx
+type BodyPart = { kind: 'prose' | 'preview'; html: string }
+
+/** Parse the whole document first so references and checkbox numbering span live blocks. */
+export function renderBody(src: string, ctx?: WikiCtx): BodyPart[] {
+  const parser = ctx ? mdWiki : md
+  if (ctx) wiki = ctx
   counter = 0
-  sanitizingWiki = true
+  sanitizingWiki = !!ctx
   try {
-    return DOMPurify.sanitize(mdWiki.parse(src, { async: false }), { ADD_ATTR: ['target'] })
+    const parts: BodyPart[] = []
+    const prose: Token[] = []
+    function flush() {
+      if (!prose.length) return
+      const html = DOMPurify.sanitize(parser.parser(prose), prosePolicy)
+      parts.push({ kind: 'prose', html })
+      prose.length = 0
+    }
+    for (const token of parser.lexer(src)) {
+      if (token.type === 'code' && token.lang?.trim() === 'html-preview') {
+        flush()
+        parts.push({ kind: 'preview', html: token.text })
+      } else {
+        prose.push(token)
+      }
+    }
+    flush()
+    return parts
   } finally {
     sanitizingWiki = false
   }
 }
 
 /** Find the source marker of the rendered GFM item. Examples in code/HTML can have identical text. */
-export function toggleWikiCheckbox(src: string, index: number, checked: boolean): string | undefined {
+export function toggleMarkdownCheckbox(src: string, index: number, checked: boolean): string | undefined {
   const markers = [...src.matchAll(/(?:[-*+]|\d+[.)])[ \t]+\[[ xX]\](?=\s|$)/g)]
     .map((m) => m.index! + m[0].length - 2)
   if (!Number.isInteger(index) || index < 0 || index >= markers.length) return
@@ -123,30 +154,6 @@ export function toggleWikiCheckbox(src: string, index: number, checked: boolean)
     const candidate = toggle(markers[lo])
     if (flippedItem(candidate)) return candidate
   }
-}
-
-const ITEM = /^(\s*(?:[-*+]|\d+[.)])\s+\[)([ xX])(\].*)$/
-
-/** Flips the idx-th `- [ ]` / `- [x]` of the source (fenced code blocks are skipped, like the renderer does). */
-export function toggleCheckbox(src: string, idx: number): string {
-  const lines = src.split('\n')
-  let fence = ''
-  let n = 0
-  for (let i = 0; i < lines.length; i++) {
-    const f = lines[i].match(/^\s*(```|~~~)/)
-    if (f) {
-      fence = fence === '' ? f[1] : fence === f[1] ? '' : fence
-      continue
-    }
-    if (fence) continue
-    const m = lines[i].match(ITEM)
-    if (!m) continue
-    if (n++ === idx) {
-      lines[i] = m[1] + (m[2] === ' ' ? 'x' : ' ') + m[3]
-      break
-    }
-  }
-  return lines.join('\n')
 }
 
 // marked produces plain HTML without classes, so the styling sits on the container as arbitrary variants.

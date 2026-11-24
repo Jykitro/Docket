@@ -68,7 +68,7 @@ func TestHTMLDocumentsOnTasksAndPages(t *testing.T) {
 	if _, err = s.ReadHTML(ctx, first.ID, 0); ErrorCode(err) != "not_found" {
 		t.Fatal(err)
 	}
-	if _, err = s.PurgeTrash(ctx); err != nil {
+	if _, err = s.PurgeTrash(ctx, reviewedTrash(t, s)); err != nil {
 		t.Fatal(err)
 	}
 	if err = s.DeletePage(ctx, ActorDenis, page.ID); err != nil {
@@ -76,5 +76,46 @@ func TestHTMLDocumentsOnTasksAndPages(t *testing.T) {
 	}
 	if _, err = s.ReadHTML(ctx, wiki.ID, 0); ErrorCode(err) != "not_found" {
 		t.Fatal(err)
+	}
+}
+
+func TestHTMLQuotaIsAtomicAcrossOwners(t *testing.T) {
+	s := newSvc(t)
+	p := mustProject(t, s, "qa")
+	task := mustTasks(t, s, "codex", NewTask{Project: p.Key, Title: "owner"})[0]
+	page, _, err := s.WritePage(ctx, "codex", p.Key, WritePageInput{Title: "other owner"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	in := PublishHTMLInput{Task: task.Code, Title: "first", HTML: "é"}
+	first, err := s.publishHTML(ctx, "codex", in, 4, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	in.ExpectedVersion = 1
+	if _, err = s.publishHTML(ctx, "codex", in, 4, 2); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = s.publishHTML(ctx, "codex", in, 4, 2); err != nil {
+		t.Fatal("retry at quota", err)
+	}
+	other := PublishHTMLInput{PageID: page.ID, Title: "second", HTML: "x"}
+	for _, limits := range []struct {
+		bytes     int64
+		revisions int
+	}{{4, 3}, {8, 2}} {
+		if _, err = s.publishHTML(ctx, "codex", other, limits.bytes, limits.revisions); ErrorCode(err) != "quota_exceeded" {
+			t.Fatal(err)
+		}
+	}
+	e, err := s.Export(ctx, 0)
+	if err != nil || len(e.Documents) != 2 || e.Documents[0].Title != "first" || e.Documents[1].Version != 2 {
+		t.Fatal(e.Documents, err)
+	}
+	if err = s.DeleteHTML(ctx, first.ID, 2); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = s.publishHTML(ctx, "codex", other, 4, 2); err != nil {
+		t.Fatal("delete did not release quota", err)
 	}
 }

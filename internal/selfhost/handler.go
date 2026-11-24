@@ -6,8 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
-	"net"
 	"net/http"
+	"net/netip"
 	"strconv"
 	"strings"
 	"sync"
@@ -15,6 +15,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-webauthn/webauthn/webauthn"
 
 	"docket/internal/auth"
 	"docket/internal/httpapi"
@@ -26,17 +27,27 @@ const (
 )
 
 type Options struct {
-	Auth         *auth.DB
-	WS           *Workspaces
-	Web          http.Handler
-	AllowedHosts []string
-	SetupCode    string
+	Auth           *auth.DB
+	WS             *Workspaces
+	Web            http.Handler
+	AllowedHosts   []string
+	TrustedProxies []netip.Prefix
+	Passkeys       map[string]*webauthn.WebAuthn
+	SetupCode      string
+	SetupComplete  func()
+	RunnerReady    func(context.Context) error
 }
 
 type handler struct {
 	Options
-	limiter *auth.Limiter
-	streams streams
+	limiter         *auth.Limiter
+	clients         *auth.Limiter
+	accountAttempts *auth.Limiter
+	credentials     chan struct{}
+	access          sync.RWMutex
+	flows           passkeyRequests
+	passkeyLimit    *auth.Limiter
+	streams         streams
 }
 
 // streams holds the cancel funcs of in-flight forwarded requests by session token hash, so ending a session
@@ -85,19 +96,31 @@ func (s *streams) end(hashes ...string) {
 // Handler serves the multi-user server: auth routes, then each user's own httpapi.Router behind their session
 // (or, for /mcp, behind their MCP token).
 func Handler(o Options) http.Handler {
-	h := &handler{Options: o, limiter: auth.NewLimiter(5, 10*time.Minute)}
+	h := &handler{Options: o, passkeyLimit: auth.NewLimiter(120, 10*time.Minute), limiter: auth.NewLimiter(5, 10*time.Minute), clients: auth.NewLimiter(20, 10*time.Minute), accountAttempts: auth.NewLimiter(20, 10*time.Minute), credentials: make(chan struct{}, 8)}
 	r := chi.NewRouter()
-	r.Use(middleware.Recoverer, httpapi.HostGuard(o.AllowedHosts))
+	r.Use(middleware.Recoverer, httpapi.HostGuard(o.AllowedHosts), browserGuard)
 	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) { w.Write([]byte("ok")) })
 	r.Get("/api/auth/me", h.me)
-	r.Post("/api/auth/login", h.login)
+	r.Get("/api/auth/registration", h.registration)
+	r.Post("/api/auth/register", smallCredentials(h.limitSignup("signup", h.acceptInvite)))
+	r.Post("/api/auth/recover", smallCredentials(h.limitSignup("recover", h.recoverAccount)))
+	r.Post("/api/auth/recovery-code", smallCredentials(h.authed(h.issueRecovery)))
+	r.Delete("/api/auth/account", smallCredentials(h.authed(h.deleteUser)))
+	r.Put("/api/admin/registration", h.admin(h.setRegistration))
+	r.Put("/api/admin/users/{id}/blocked", h.exclusive(h.admin(h.setBlocked)))
+	r.Get("/api/auth/passkeys", h.authed(h.listPasskeys))
+	r.Delete("/api/auth/passkeys/{id}", smallCredentials(h.authed(h.revokePasskey)))
+	r.Post("/api/auth/passkeys/register/begin", smallCredentials(h.passkeyRoute(h.beginPasskeyRegistration)))
+	r.Post("/api/auth/passkeys/register/finish", credentialRequest(&h.access, 64<<10, h.passkeyRoute(h.finishPasskeyRegistration)))
+	r.Post("/api/auth/passkeys/login/begin", h.passkeyRoute(h.beginPasskeyLogin))
+	r.Post("/api/auth/passkeys/login/finish", credentialRequest(&h.access, 64<<10, h.passkeyRoute(h.finishPasskeyLogin)))
+	r.Post("/api/auth/login", smallCredentials(h.login))
 	r.Post("/api/auth/logout", h.logout)
-	r.Post("/api/auth/setup", h.setup)
-	r.Post("/api/auth/invite/{token}", h.acceptInvite)
-	r.Put("/api/auth/password", h.authed(h.changePassword))
+	r.Post("/api/auth/setup", smallCredentials(h.setup))
+	r.Post("/api/auth/invite/{token}", smallCredentials(h.limitSignup("signup", h.acceptInvite)))
+	r.Put("/api/auth/password", smallCredentials(h.authed(h.changePassword)))
 	// Registered explicitly so no /api/admin path ever reaches a user's own router.
 	r.Get("/api/admin/users", h.admin(h.listUsers))
-	r.Delete("/api/admin/users/{id}", h.admin(h.deleteUser))
 	r.Get("/api/admin/invites", h.admin(h.listInvites))
 	r.Post("/api/admin/invites", h.admin(h.createInvite))
 	r.Delete("/api/admin/invites/{id}", h.admin(h.deleteInvite))
@@ -115,6 +138,7 @@ func Handler(o Options) http.Handler {
 }
 
 func writeJSON(w http.ResponseWriter, code int, v any) {
+	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 	json.NewEncoder(w).Encode(v)
@@ -175,16 +199,17 @@ func (h *handler) login(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 401, "invalid_credentials", "invalid username or password")
 		return
 	}
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		host = r.RemoteAddr
-	}
-	key := host + "|" + name
-	if !h.limiter.Attempt(key) { // counted before the password check, so parallel guesses cannot outrun it
+	peer := h.clientIP(r)
+	key := "login:" + peer + "|" + name
+	if !h.clients.Attempt("login:"+peer) || !h.limiter.Attempt(key) || !h.accountAttempts.Attempt("login:"+name) { // counted before the password check, so parallel guesses cannot outrun it
 		writeError(w, 429, "rate_limited", "too many failed attempts, try again later")
 		return
 	}
-	u, err := h.Auth.Authenticate(in.Username, in.Password)
+	if !h.admitCredential(w) {
+		return
+	}
+	defer func() { <-h.credentials }()
+	proof, err := h.Auth.VerifyPassword(in.Username, in.Password)
 	if errors.Is(err, auth.ErrBadCredentials) {
 		writeError(w, 401, "invalid_credentials", "invalid username or password")
 		return
@@ -193,12 +218,28 @@ func (h *handler) login(w http.ResponseWriter, r *http.Request) {
 		internalError(w, err)
 		return
 	}
+	h.access.RLock()
+	defer h.access.RUnlock()
+	if err := h.Auth.PasswordCurrent(proof); err != nil {
+		credentialError(w, err)
+		return
+	}
 	h.limiter.Reset(key)
-	token, err := h.Auth.NewSession(u.ID)
+	h.accountAttempts.Reset("login:" + name)
+	h.loginSession(w, r, proof.User)
+}
+
+func (h *handler) loginSession(w http.ResponseWriter, r *http.Request, u auth.User) {
+	if _, err := h.WS.Open(r.Context(), u); err != nil {
+		internalError(w, err)
+		return
+	}
+	token, ended, err := h.Auth.StartSession(u.ID)
 	if err != nil {
 		internalError(w, err)
 		return
 	}
+	h.streams.end(ended...)
 	setCookie(w, r, token, cookieAge)
 	writeJSON(w, 200, u)
 }
@@ -207,6 +248,15 @@ func (h *handler) login(w http.ResponseWriter, r *http.Request) {
 func decode(w http.ResponseWriter, r *http.Request, v any) bool {
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(v); err != nil {
 		writeError(w, 400, "validation", "invalid JSON body")
+		return false
+	}
+	return true
+}
+
+// A browser can pin a request to the owner whose data it is displaying during a cross-tab login.
+func matchesWorkspace(w http.ResponseWriter, r *http.Request, u auth.User) bool {
+	if expected := r.Header.Get("X-Docket-User"); expected != "" && expected != strconv.FormatInt(u.ID, 10) {
+		writeError(w, 409, "session_changed", "the signed-in user changed")
 		return false
 	}
 	return true
@@ -222,6 +272,9 @@ func (h *handler) authed(next func(http.ResponseWriter, *http.Request, auth.User
 		}
 		if !ok {
 			writeError(w, 401, "unauthorized", "not logged in")
+			return
+		}
+		if !matchesWorkspace(w, r, u) {
 			return
 		}
 		next(w, r, u)
@@ -241,23 +294,53 @@ func (h *handler) admin(next func(http.ResponseWriter, *http.Request, auth.User)
 
 // startSession opens the new user's workspace, logs them in and answers with the user.
 func (h *handler) startSession(w http.ResponseWriter, r *http.Request, u auth.User) {
-	if _, err := h.WS.Open(r.Context(), u); err != nil {
-		internalError(w, err)
-		return
-	}
-	token, err := h.Auth.NewSession(u.ID)
+	h.access.RLock()
+	defer h.access.RUnlock()
+	active, err := h.Auth.Active(r.Context(), u.ID)
 	if err != nil {
 		internalError(w, err)
 		return
 	}
+	if !active {
+		credentialError(w, auth.ErrBadCredentials)
+		return
+	}
+	if _, err := h.WS.Open(r.Context(), u); err != nil {
+		slog.Warn("workspace provisioning failed", "user_id", u.ID)
+		internalError(w, err)
+		return
+	}
+	code, err := h.Auth.IssueRecovery(r.Context(), u.ID)
+	if err != nil {
+		internalError(w, err)
+		return
+	}
+	token, ended, err := h.Auth.StartSession(u.ID)
+	if err != nil {
+		internalError(w, err)
+		return
+	}
+	slog.Info("workspace signup completed", "user_id", u.ID, "route", chi.RouteContext(r.Context()).RoutePattern())
+	h.streams.end(ended...)
 	setCookie(w, r, token, cookieAge)
-	writeJSON(w, 200, u)
+	writeJSON(w, 200, struct {
+		auth.User
+		RecoveryCode string `json:"recovery_code"`
+	}{u, code})
 }
 
 // credentialError answers a failed setup, invite or password change.
 func credentialError(w http.ResponseWriter, err error) {
 	var ve auth.ValidationError
 	switch {
+	case errors.Is(err, auth.ErrRegistration), errors.Is(err, auth.ErrLastAdmin):
+		writeError(w, 403, "forbidden", err.Error())
+	case errors.Is(err, auth.ErrCapacity):
+		writeError(w, 409, "capacity", err.Error())
+	case errors.Is(err, auth.ErrBadCredentials):
+		writeError(w, 401, "invalid_credentials", "invalid credentials")
+	case errors.Is(err, auth.ErrNotFound):
+		writeError(w, 404, "not_found", "no such user")
 	case errors.Is(err, auth.ErrInvalidInvite):
 		writeError(w, 400, "validation", "invalid or expired invite") // one message for unknown, used and expired
 	case errors.Is(err, auth.ErrTaken):
@@ -288,6 +371,10 @@ func (h *handler) setup(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 403, "forbidden", "invalid setup code")
 		return
 	}
+	if !h.admitCredential(w) {
+		return
+	}
+	defer func() { <-h.credentials }()
 	u, err := h.Auth.SetupAdmin(in.Username, in.Password) // re-checks emptiness atomically
 	if errors.Is(err, auth.ErrSetupDone) {
 		writeError(w, 404, "not_found", "setup already completed")
@@ -297,6 +384,9 @@ func (h *handler) setup(w http.ResponseWriter, r *http.Request) {
 		credentialError(w, err)
 		return
 	}
+	if h.SetupComplete != nil {
+		h.SetupComplete()
+	}
 	h.startSession(w, r, u)
 }
 
@@ -305,7 +395,7 @@ func (h *handler) acceptInvite(w http.ResponseWriter, r *http.Request) {
 	if !decode(w, r, &in) {
 		return
 	}
-	u, err := h.Auth.AcceptInvite(chi.URLParam(r, "token"), in.Username, in.Password)
+	u, err := h.Auth.Register(r.Context(), chi.URLParam(r, "token"), in.Username, in.Password)
 	if err != nil {
 		credentialError(w, err)
 		return
@@ -318,18 +408,21 @@ func (h *handler) changePassword(w http.ResponseWriter, r *http.Request, u auth.
 	if !decode(w, r, &in) {
 		return
 	}
-	c, _ := r.Cookie(cookieName) // present: authed checked it
-	ended, err := h.Auth.ChangePassword(u.ID, in.Old, in.New, c.Value)
-	if errors.Is(err, auth.ErrBadCredentials) {
-		writeError(w, 401, "invalid_credentials", "current password is wrong")
-		return
-	}
-	if err != nil {
-		credentialError(w, err)
-		return
-	}
-	h.streams.end(ended...)
-	w.WriteHeader(http.StatusNoContent)
+	var digest auth.PasswordDigest
+	h.confirmed(w, r, u, in.Old, func() error {
+		var err error
+		digest, err = auth.PreparePassword(in.New)
+		return err
+	}, func(proof auth.PasswordProof) {
+		c, _ := r.Cookie(cookieName)
+		ended, err := h.Auth.ReplacePassword(proof, digest, c.Value)
+		if err != nil {
+			credentialError(w, err)
+			return
+		}
+		h.streams.end(ended...)
+		w.WriteHeader(http.StatusNoContent)
+	})
 }
 
 func (h *handler) listUsers(w http.ResponseWriter, _ *http.Request, _ auth.User) {
@@ -353,7 +446,7 @@ func (h *handler) listInvites(w http.ResponseWriter, _ *http.Request, _ auth.Use
 func (h *handler) createInvite(w http.ResponseWriter, _ *http.Request, u auth.User) {
 	token, expires, err := h.Auth.NewInvite(u.ID)
 	if err != nil {
-		internalError(w, err)
+		credentialError(w, err)
 		return
 	}
 	writeJSON(w, 201, map[string]string{"url": "/invite/" + token, "expires_at": expires.UTC().Format(time.RFC3339)})
@@ -378,33 +471,62 @@ func (h *handler) deleteInvite(w http.ResponseWriter, r *http.Request, _ auth.Us
 }
 
 func (h *handler) deleteUser(w http.ResponseWriter, r *http.Request, u auth.User) {
-	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
-	if err != nil {
-		writeError(w, 400, "validation", "invalid user id")
+	var in struct{ Password string }
+	if !decode(w, r, &in) {
 		return
 	}
-	if id == u.ID {
-		writeError(w, 400, "validation", "cannot delete yourself")
-		return
-	}
-	err = h.Auth.DeleteUser(id) // first: this kills their sessions, so no request can reopen the workspace
-	if errors.Is(err, auth.ErrNotFound) {
-		writeError(w, 404, "not_found", "no such user")
-		return
-	}
-	if err != nil {
-		internalError(w, err)
-		return
-	}
-	if err := h.WS.Remove(id); err != nil { // also ends the user's in-flight requests via the workspace ctx
-		internalError(w, err)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
+	h.confirmed(w, r, u, in.Password, nil, func(auth.PasswordProof) {
+		id := u.ID
+		if err := h.Auth.ProtectAdministrator(r.Context(), id); err != nil {
+			credentialError(w, err)
+			return
+		}
+		ws, err := h.WS.Open(r.Context(), u)
+		if err != nil {
+			internalError(w, err)
+			return
+		}
+		confirmation, err := ws.confirmDeletion(r.Context())
+		if err != nil {
+			internalError(w, err)
+			return
+		}
+		err = h.Auth.DeleteUser(id, confirmation) // revokes sessions before removing the workspace
+		if errors.Is(err, auth.ErrNotFound) {
+			writeError(w, 404, "not_found", "no such user")
+			return
+		}
+		if err != nil {
+			internalError(w, err)
+			return
+		}
+		h.streams.end(ownerKey(id))
+		if err := h.WS.Remove(id); err != nil { // also ends the user's in-flight requests via the workspace ctx
+			internalError(w, err)
+			return
+		}
+		if err = h.Auth.FinishDeletion(r.Context(), id); err != nil {
+			internalError(w, err)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})
 }
 
 func (h *handler) logout(w http.ResponseWriter, r *http.Request) {
+	h.access.Lock()
+	defer h.access.Unlock()
 	if c, err := r.Cookie(cookieName); err == nil {
+		if r.Header.Get("X-Docket-User") != "" {
+			u, ok, err := h.session(r)
+			if err != nil {
+				internalError(w, err)
+				return
+			}
+			if ok && !matchesWorkspace(w, r, u) {
+				return
+			}
+		}
 		if err := h.Auth.DeleteSession(c.Value); err != nil {
 			internalError(w, err)
 			return
@@ -423,6 +545,7 @@ func setCookie(w http.ResponseWriter, r *http.Request, value string, maxAge int)
 // api hands any other /api/* request to the session user's own router. The request ends when the session does
 // (logout, password change elsewhere, expiry) or when the user is deleted.
 func (h *handler) api(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "private, no-store")
 	c, err := r.Cookie(cookieName)
 	if err != nil {
 		writeError(w, 401, "unauthorized", "not logged in")
@@ -431,7 +554,14 @@ func (h *handler) api(w http.ResponseWriter, r *http.Request) {
 	// Tracked before the session check, so a session that ends right after the check still ends this request.
 	ctx, done := h.streams.track(r.Context(), auth.TokenHash(c.Value))
 	defer done()
+	h.access.RLock()
 	u, expires, err := h.Auth.Session(c.Value)
+	if err == nil {
+		var release func()
+		ctx, release = h.streams.track(ctx, ownerKey(u.ID))
+		defer release()
+	}
+	h.access.RUnlock()
 	if errors.Is(err, auth.ErrNotFound) {
 		writeError(w, 401, "unauthorized", "not logged in")
 		return
@@ -440,7 +570,10 @@ func (h *handler) api(w http.ResponseWriter, r *http.Request) {
 		internalError(w, err)
 		return
 	}
-	ws, err := h.WS.Open(ctx, u) // returns the already-open workspace when there is one
+	if !matchesWorkspace(w, r, u) {
+		return
+	}
+	ws, err := h.WS.Open(ctx, u)    // returns the already-open workspace when there is one
 	if errors.Is(err, ErrRemoved) { // the user was deleted while this request was on its way
 		writeError(w, 401, "unauthorized", "not logged in")
 		return
@@ -461,25 +594,34 @@ func (h *handler) mcp(w http.ResponseWriter, r *http.Request) {
 		h.Web.ServeHTTP(w, r)
 		return
 	}
-	got := []byte(r.Header.Get("Authorization"))
-	var match *Workspace
-	matches := 0
-	for _, ws := range h.WS.All() { // compare against every token so timing does not reveal which one matched
-		token, err := ws.Svc.MCPToken(r.Context())
-		if err == nil && token != "" && subtle.ConstantTimeCompare(got, []byte("Bearer "+token)) == 1 {
-			match = ws
-			matches++
-		}
-	}
-	if matches > 1 {
-		slog.Error("selfhost: several profiles share one MCP token; refusing it until it is rotated", "profiles", matches)
-	}
-	if matches != 1 {
+	if !strings.HasPrefix(r.Header.Get("Authorization"), "Bearer ") {
 		w.Header().Set("WWW-Authenticate", "Bearer")
 		writeError(w, 401, "unauthorized", "missing or invalid bearer token")
 		return
 	}
-	forward(match, w, r)
+	r.Body = http.MaxBytesReader(w, r.Body, 16<<20)
+	match, tokenCtx := h.WS.tokens.lookup(strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "))
+	if match == nil {
+		w.Header().Set("WWW-Authenticate", "Bearer")
+		writeError(w, 401, "unauthorized", "missing or invalid bearer token")
+		return
+	}
+	ctx, cancel := context.WithCancel(r.Context())
+	defer cancel()
+	stop := context.AfterFunc(tokenCtx, cancel)
+	defer stop()
+	ctx, done := h.streams.track(ctx, ownerKey(match.ID))
+	defer done()
+	active, err := h.Auth.Active(ctx, match.ID)
+	if err != nil {
+		internalError(w, err)
+		return
+	}
+	if !active {
+		writeError(w, 401, "unauthorized", "inactive account")
+		return
+	}
+	forward(match, w, r.WithContext(ctx))
 }
 
 // forward hands r to the workspace's router with a context that also ends when the workspace is removed or

@@ -117,6 +117,8 @@ func (s *Service) CreateStatus(ctx context.Context, actor string, projectID int6
 		for i := 2; ; i++ {
 			if _, err := o.tx.GetStatusByKey(projectID, key); errors.Is(err, store.ErrNotFound) {
 				break
+			} else if err != nil {
+				return err
 			}
 			if in.Key != "" {
 				return invalid("status key %q is taken", in.Key)

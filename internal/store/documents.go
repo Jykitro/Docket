@@ -45,9 +45,9 @@ func (t *Tx) queryDocuments(query string, args ...any) ([]HTMLDocument, error) {
 	return out, rows.Err()
 }
 
-func (t *Tx) Documents(taskID, pageID int64) ([]HTMLDocument, error) {
+func (t *Tx) Documents(taskID, pageID int64, limit, offset int) ([]HTMLDocument, error) {
 	return t.queryDocuments("SELECT "+documentCols+", ''"+documentFrom+
-		" WHERE r.version=d.version AND (d.task_id=? OR d.page_id=?) ORDER BY d.id", taskID, pageID)
+		" WHERE r.version=d.version AND (d.task_id=? OR d.page_id=?) ORDER BY d.id LIMIT ? OFFSET ?", taskID, pageID, limit, offset)
 }
 
 func (t *Tx) Document(id int64, version int) (HTMLDocument, error) {
@@ -55,12 +55,15 @@ func (t *Tx) Document(id int64, version int) (HTMLDocument, error) {
 		" WHERE d.id=? AND r.version=CASE WHEN ? = 0 THEN d.version ELSE ? END AND p.deleted_at IS NULL AND t.deleted_at IS NULL", id, version, version))
 }
 
-func (t *Tx) ExportDocuments(projectID int64) ([]HTMLDocument, error) {
-	query := "SELECT " + documentCols + ", r.html" + documentFrom + documentOwner
-	if projectID != 0 {
-		return t.queryDocuments(query+" WHERE p.id=? ORDER BY d.id,r.version", projectID)
-	}
-	return t.queryDocuments(query + " ORDER BY d.id,r.version")
+// A profile transaction serializes publication, deletion and cascade cleanup. octet_length
+// uses the stored byte length; neither backend transfers revision bodies to Go.
+func (t *Tx) RevisionUsage(maxRevisions int) (used int64, revisions int, err error) {
+	err = t.tx.QueryRow(`SELECT coalesce(sum(bytes),0),count(*) FROM (SELECT octet_length(html) AS bytes FROM html_revisions LIMIT ?) r`, maxRevisions).Scan(&used, &revisions)
+	return
+}
+
+func (t *Tx) DocumentByTitle(taskID, pageID int64, key string) (HTMLDocument, error) {
+	return scanDocument(t.tx.QueryRow("SELECT "+documentCols+", ''"+documentFrom+" WHERE r.version=d.version AND (d.task_id=? OR d.page_id=?) AND d.title_key=?", taskID, pageID, key))
 }
 
 func (t *Tx) SaveDocument(d *HTMLDocument, key string) error {

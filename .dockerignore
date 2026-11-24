@@ -5,3 +5,7 @@
 data
 web/node_modules
 internal/web/dist
+
+outputs
+bin
+.env.*

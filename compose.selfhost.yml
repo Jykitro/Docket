@@ -1,0 +1,37 @@
+# SQLite selfhost with an isolated Code Mode worker. Use behind an HTTPS reverse proxy.
+services:
+  docket:
+    build: .
+    user: "${DOCKET_UID:-65532}:${DOCKET_GID:-65532}"
+    group_add: ["65532"]
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:7777:7777"
+    environment:
+      DOCKET_MODE: selfhost
+      DOCKET_TRUSTED_PROXIES: ${DOCKET_TRUSTED_PROXIES:-}
+      DOCKET_PASSKEY_ORIGIN: ${DOCKET_PASSKEY_ORIGIN:-}
+      DOCKET_ALLOWED_HOSTS: ${DOCKET_ALLOWED_HOSTS:-localhost,127.0.0.1,docket.localhost}
+      TZ: ${TZ:-UTC}
+    volumes:
+      - ./data:/data
+      - code_socket:/run/docket-code:ro
+
+  code-runner:
+    build: .
+    command: ["code-runner"]
+    user: "65532:65532"
+    restart: unless-stopped
+    network_mode: none
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 256m
+    memswap_limit: 256m
+    cpus: 1
+    pids_limit: 64
+    volumes:
+      - code_socket:/run/docket-code
+
+volumes:
+  code_socket:

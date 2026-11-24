@@ -43,7 +43,7 @@ type codeIn struct {
 }
 
 // codeServer is the /mcp/code server: one tool, `code`, whose calls go to tools (the classic server).
-func codeServer(svc *service.Service, tools *mcp.Server) *mcp.Server {
+func codeServer(svc *service.Service, tools *mcp.Server, execute evaluator) *mcp.Server {
 	s := mcp.NewServer(&mcp.Implementation{Name: "docket-code", Version: "1.0.0"}, &mcp.ServerOptions{Instructions: skills.Instructions()})
 	mcp.AddTool(s, &mcp.Tool{Name: "code", Description: codePreamble},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in codeIn) (*mcp.CallToolResult, any, error) {
@@ -52,8 +52,10 @@ func codeServer(svc *service.Service, tools *mcp.Server) *mcp.Server {
 				return nil, nil, err
 			}
 			defer sess.Close()
-			out, err := runCode(ctx, in.Code, func(name string, args json.RawMessage) (string, error) {
-				res, err := sess.CallTool(ctx, &mcp.CallToolParams{Name: name, Arguments: args})
+			callsCtx, cancelCalls := context.WithTimeout(ctx, codeTimeout)
+			defer cancelCalls()
+			out, err := execute(ctx, in.Code, func(name string, args json.RawMessage) (string, error) {
+				res, err := sess.CallTool(callsCtx, &mcp.CallToolParams{Name: name, Arguments: args})
 				if err != nil {
 					return "", fmt.Errorf("invalid_argument: %s: %v", name, err)
 				}
@@ -213,8 +215,7 @@ func tsObject(s map[string]any, indent string) string {
 
 // runCode runs code in a fresh goja runtime and returns {"result":…,"logs":[…]} as JSON. call runs one
 // Docket tool with JSON arguments and returns its JSON text, or an error worded "code: message".
-// shortcut: goja has no memory limit, so only time and the call count are capped; the caller is the token
-// holder, not the public. Run it in a separate process if Code Mode is ever opened to untrusted callers.
+// Local mode calls this directly. Selfhost runs it only inside the isolated worker.
 func runCode(ctx context.Context, code string, call func(name string, args json.RawMessage) (string, error)) (string, error) {
 	vm := goja.New()
 	timer := time.AfterFunc(codeTimeout, func() { vm.Interrupt("timeout") })

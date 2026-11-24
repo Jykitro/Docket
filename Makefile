@@ -38,7 +38,7 @@ dev-web: ## Vite с hot reload (проксирует /api на :7777)
 	cd web && bun run dev
 
 .env:
-	cp .env.example .env
+	umask 077 && cp .env.example .env
 
 image: ## собрать docker-образ docket:local
 	docker build -t $(IMAGE) .
@@ -46,8 +46,8 @@ image: ## собрать docker-образ docket:local
 # Сначала собирается образ, и только потом удаляется старый контейнер: если сборка упала, старый продолжает работать.
 rebuild: .env image ## пересобрать образ и пересоздать контейнер (данные в ./data остаются)
 	-docker rm -f $(NAME)
-	mkdir -p data
-	docker run -d --name $(NAME) --env-file .env -p 127.0.0.1:7777:7777 -v $(CURDIR)/data:/data --restart unless-stopped $(IMAGE)
+	mkdir -p -m 700 data
+	docker run -d --name $(NAME) --user "$$(id -u):$$(id -g)" --env-file .env -p 127.0.0.1:7777:7777 -v $(CURDIR)/data:/data --restart unless-stopped $(IMAGE)
 
 stop: ## остановить и удалить контейнер
 	docker rm -f $(NAME)

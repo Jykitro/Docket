@@ -325,3 +325,279 @@ test('an empty project and a capped completed column show the right counts', asy
   await page.getByRole('button', { name: 'List', exact: true }).click()
   await expect(page.locator('tbody tr')).toHaveCount(22)
 })
+
+for (const surface of ['wiki', 'task']) {
+  test(`interactive HTML renders inline in the ${surface} and follows its content height`, async ({ page, planner }) => {
+    const title = 'Interactive report'
+    let owner = { task: planner.one.code }
+    let url = planner.url + '/t/' + planner.one.code
+    if (surface === 'wiki') {
+      await page.setViewportSize({ width: 1280, height: 860 })
+      const wiki = await (await planner.api.post('/api/projects/' + planner.one.project_id + '/pages', {
+        data: { title: 'Release notes', body_md: '**Release summary**' },
+      })).json()
+      owner = { page_id: wiki.id }
+      url = planner.url + planner.board + '/wiki/' + wiki.id
+    }
+    const publish = (html, version) => planner.api.post('/api/html-documents', {
+      data: { ...owner, title, html, expected_version: version },
+    })
+    await publish('<p>First revision</p>', 0)
+    await publish('<!doctype html><h2>Report</h2><details><summary>Show results</summary><p style="height:700px">Details are visible</p></details><button onclick="this.textContent=42">Calculate</button>', 1)
+    await page.goto(url)
+    const article = page.getByRole('article', { name: title })
+    const preview = article.locator('iframe')
+    const content = article.frameLocator('iframe').frameLocator('iframe')
+    await expect(content.getByRole('heading', { name: 'Report' })).toBeVisible()
+    if (surface === 'wiki') await expect(page.getByText('Release summary')).toBeVisible()
+    else await expect(page.getByText(/No description/)).toHaveCount(0)
+    const height = () => preview.evaluate(el => el.clientHeight)
+    await expect.poll(height).toBeLessThan(220)
+    await content.getByText('Show results').click()
+    await expect.poll(height).toBeGreaterThan(700)
+    await content.getByText('Show results').click()
+    await expect.poll(height).toBeLessThan(220)
+    await content.getByRole('button', { name: 'Calculate' }).click()
+    await expect(content.getByRole('button', { name: '42' })).toBeVisible()
+    expect(await content.locator('body').evaluate(() => self.origin)).toBe('null')
+    await expect(page).toHaveURL(url)
+    await article.locator('summary').click()
+    await article.getByRole('combobox').selectOption('1')
+    await expect(content.getByText('First revision')).toBeVisible()
+    await expect(article.getByRole('button', { name: 'Edit', exact: true })).toBeDisabled()
+    await article.getByRole('combobox').selectOption('2')
+    await article.getByRole('button', { name: 'Edit', exact: true }).click()
+    await page.getByLabel('HTML source').fill('<p>Updated inline</p>')
+    await page.getByRole('button', { name: 'Publish', exact: true }).click()
+    await expect(content.getByText('Updated inline')).toBeVisible()
+    await expect(page).toHaveURL(url)
+  })
+}
+
+test('create a standalone HTML wiki page only on save and edit its source', async ({ page, planner }) => {
+  await page.goto(planner.url + planner.board + '/wiki')
+  const pages = () => planner.api.get('/api/projects/' + planner.one.project_id + '/pages').then(r => r.json())
+  const create = page.getByRole('button', { name: 'New page', exact: true }).first()
+  await create.click()
+  await page.getByRole('radio', { name: 'HTML', exact: true }).check()
+  await expect(page.getByLabel('HTML source')).toBeVisible()
+  await page.getByRole('button', { name: 'Cancel' }).click()
+  expect(await pages()).toHaveLength(0)
+  await create.click()
+  await page.getByRole('radio', { name: 'HTML', exact: true }).check()
+  const html = '<!doctype html><button onclick="this.textContent=42">Calculate</button>'
+  await page.getByLabel('Upload HTML file').setInputFiles({ name: 'Dashboard.html', mimeType: 'text/html', buffer: Buffer.from(html) })
+  await expect(page.getByLabel('Page title')).toHaveValue('Dashboard')
+  expect(await pages()).toHaveLength(0)
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
+  const frame = page.frameLocator('iframe[title="Dashboard"]').frameLocator('iframe')
+  await frame.getByRole('button', { name: 'Calculate' }).click()
+  await expect(frame.getByRole('button', { name: '42' })).toBeVisible()
+  expect(await pages()).toHaveLength(1)
+  await page.reload()
+  await expect(frame.getByRole('button', { name: 'Calculate' })).toBeVisible()
+  await page.getByRole('button', { name: 'Edit', exact: true }).click()
+  await expect(page.getByLabel('HTML source')).toHaveValue(html)
+  await page.getByLabel('HTML source').fill('<h1>Second revision</h1>')
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(frame.getByRole('heading', { name: 'Second revision' })).toBeVisible()
+})
+
+test('compose Markdown around live HTML with working checklists and literal code examples', async ({ page, planner }) => {
+  await page.setViewportSize({ width: 1280, height: 860 })
+  await page.goto(planner.url + planner.board + '/wiki')
+  await page.getByRole('button', { name: 'New page', exact: true }).first().click()
+  await expect(page.getByRole('radio', { name: 'Markdown' })).toBeChecked()
+  await page.getByLabel('Page title').fill('Mixed content')
+  const source = page.getByLabel('Page text in Markdown')
+  const example = '<button>Literal example</button>'
+  const md = '- [ ] Before\n\nINSERT\n\n- [ ] After\n\n```html\n' + example + '\n```'
+  await source.fill(md)
+  await source.evaluate(el => el.setSelectionRange(el.value.indexOf('INSERT'), el.value.indexOf('INSERT') + 6))
+  await page.getByRole('button', { name: 'Insert HTML', exact: true }).click()
+  await expect(source).toBeFocused()
+  await source.pressSequentially('<button onclick="this.textContent=42">Update</button>')
+  await page.getByRole('button', { name: 'Preview', exact: true }).click()
+  const frame = page.frameLocator('iframe[title="Embedded HTML"]').frameLocator('iframe')
+  await frame.getByRole('button', { name: 'Update' }).click()
+  await expect(frame.getByRole('button', { name: '42' })).toBeVisible()
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Mixed content' })).toBeVisible()
+  await Promise.all([
+    page.waitForResponse(r => r.request().method() === 'PUT' && r.url().includes('/api/pages/') && r.ok()),
+    page.getByRole('checkbox', { name: 'Checklist item 2' }).click(),
+  ])
+  await expect(page.getByRole('checkbox', { name: 'Checklist item 2' })).toBeChecked()
+  await page.reload()
+  await expect(page.getByRole('checkbox', { name: 'Checklist item 2' })).toBeChecked()
+  await expect(page.getByRole('checkbox', { name: 'Checklist item 1' })).not.toBeChecked()
+  await expect(page.locator('pre code')).toHaveText(example)
+  await expect(page.locator('iframe')).toHaveCount(1)
+  await expect(frame.getByRole('button', { name: 'Update' })).toBeVisible()
+  const locations = await page.locator('input[data-idx], iframe[title="Embedded HTML"]').evaluateAll(els => els.map(el => el.tagName))
+  expect(locations).toEqual(['INPUT', 'IFRAME', 'INPUT'])
+})
+
+test('a task checklist after live HTML edits only the visible item', async ({ page, planner }) => {
+  const fence = '`'.repeat(4)
+  const source = ['- [ ] Before', '', fence + 'html-preview', '<!--', '```', '- [ ] Literal', '-->',
+    '<button onclick="this.textContent=42">Update</button>', fence, '', '- [ ] After'].join('\n')
+  const url = '/api/tasks/' + planner.one.code
+  await planner.api.patch(url, { data: { description_md: source } })
+  await page.goto(planner.url + '/t/' + planner.one.code)
+  const frame = page.frameLocator('iframe[title="Embedded HTML"]').frameLocator('iframe')
+  await frame.getByRole('button', { name: 'Update' }).click()
+  await expect(frame.getByRole('button', { name: '42' })).toBeVisible()
+  await page.locator('input[data-idx="1"]').click()
+  await expect.poll(async () => (await (await planner.api.get(url)).json()).description_md)
+    .toBe(source.replace('- [ ] After', '- [x] After'))
+})
+
+test('copying integration commands keeps the bearer out of the clipboard and command arguments', async ({ page, planner }) => {
+  const secret = 'dkt_browser_fixture'
+  let reads = 0
+  await page.addInitScript(() => Object.defineProperty(navigator, 'clipboard', {
+    value: { writeText: async text => { window.lastCopy = text } },
+  }))
+  await page.route('**/api/mcp/token', route => { reads++; return route.fulfill({ json: { token: secret } }) })
+  await page.goto(planner.url + '/integrations')
+  const clipboard = () => page.evaluate(() => window.lastCopy)
+  await page.getByRole('button', { name: 'Show token' }).click()
+  await expect(page.getByText(secret, { exact: true })).toBeVisible()
+  for (const name of ['Claude Code', 'Codex', 'Claude Desktop', 'Other client']) {
+    await page.getByRole('tab', { name, exact: true }).click()
+    await page.getByRole('button', { name: 'Copy config' }).click()
+    expect(await clipboard()).not.toContain(secret)
+    await expect(page.getByRole('button', { name: 'Copy config' })).toBeVisible()
+  }
+  await page.getByRole('button', { name: 'Install in one command' }).click()
+  expect(await clipboard()).toMatch(/DOCKET_URL=.* sh$/)
+  expect(await clipboard()).not.toContain(secret)
+  expect(reads).toBe(1)
+})
+
+test('trash waits for both lists and disarms when the confirmed items change', async ({ page, planner }) => {
+  const stamp = '2026-01-01T12:00:00Z'
+  const rows = [{ ...planner.one, deleted_at: stamp }]
+  const deletes = []
+  let releaseProjects
+  const hold = new Promise(resolve => { releaseProjects = resolve })
+  await page.route(url => url.pathname === '/api/trash/projects', async route => { await hold; await route.fulfill({ json: [] }) })
+  await page.route(url => url.pathname === '/api/trash', async route => {
+    if (route.request().method() === 'DELETE') {
+      deletes.push(route.request().postDataJSON())
+      return route.fulfill({ json: { purged: rows.length } })
+    }
+    await route.fulfill({ json: rows })
+  })
+  await page.goto(planner.url + '/trash')
+  const clear = page.getByRole('button', { name: 'Empty trash' })
+  await expect(page.getByText(planner.one.title)).toBeVisible()
+  await expect(clear).toBeDisabled()
+  releaseProjects()
+  await clear.click()
+  await expect(page.getByRole('button', { name: 'Delete permanently (1)?' })).toBeVisible()
+  rows[0] = { ...planner.next, deleted_at: stamp }
+  await planner.api.patch('/api/tasks/' + planner.next.code, { data: { title: 'Trigger refresh' } })
+  await expect(page.getByText(planner.next.title)).toBeVisible()
+  await clear.click()
+  expect(deletes).toHaveLength(0)
+  await page.getByRole('button', { name: 'Delete permanently (1)?' }).click()
+  await expect.poll(() => deletes).toEqual([{ tasks: [{ id: planner.next.id, deleted_at: stamp }], projects: [] }])
+})
+
+test('account block confirmation resets when the selected action changes', async ({ page, planner }) => {
+  const admin = { id: 1, username: 'Admin', is_admin: true, created_at: '2026-01-01T12:00:00Z' }
+  const user = { ...admin, id: 2, username: 'Teammate', is_admin: false, blocked: false }
+  const writes = []
+  await page.route('**/api/auth/me', route => route.fulfill({ json: { mode: 'selfhost', user: admin } }))
+  await page.route('**/api/admin/users', route => route.fulfill({ json: [admin, user] }))
+  await page.route('**/api/admin/users/2/blocked', route => { writes.push(route.request().postDataJSON()); return route.fulfill({ status: 204 }) })
+  await page.setViewportSize({ width: 1200, height: 850 })
+  await page.goto(planner.url)
+  await page.getByRole('button', { name: 'Settings', exact: true }).click()
+  await page.getByRole('button', { name: 'Block Teammate' }).click()
+  await expect(page.getByRole('button', { name: 'Confirm', exact: true })).toBeVisible()
+  user.blocked = true
+  await planner.api.patch('/api/tasks/' + planner.next.code, { data: { title: 'Trigger refresh' } })
+  await page.getByRole('button', { name: 'Unblock Teammate' }).click()
+  expect(writes).toHaveLength(0)
+  await page.getByRole('button', { name: 'Confirm', exact: true }).click()
+  await expect.poll(() => writes).toEqual([{ blocked: false }])
+})
+
+test('ordinary Markdown keeps checklists and avoids loading external images and forms', async ({ page, planner }) => {
+  const external = []
+  await page.route('https://images.example/**', route => { external.push(route.request().url()); return route.abort() })
+  await planner.api.patch('/api/tasks/' + planner.one.code, { data: { description_md: '- [ ] Review\n\n![Chart](https://images.example/chart.png)\n\n<form><input type="text"><button>Submit report</button></form>' } })
+  await page.goto(planner.url + '/t/' + planner.one.code)
+  await expect(page.getByRole('checkbox')).toBeVisible()
+  await expect(page.locator('img[alt="Chart"]')).not.toHaveAttribute('src', /./)
+  await expect(page.getByRole('button', { name: 'Submit report' })).toHaveCount(0)
+  expect(external).toEqual([])
+})
+
+test('a malformed task link shows a local error without requesting another resource', async ({ page, planner }) => {
+  const requested = []
+  page.on('request', request => { if (new URL(request.url()).pathname.includes('unexpected-path')) requested.push(request.url()) })
+  await page.goto(planner.url + '/?task=' + encodeURIComponent('unexpected-path/extra'))
+  await expect(page.getByText('Invalid task link')).toBeVisible()
+  expect(requested).toEqual([])
+})
+
+test('continuous live updates refresh the board before the stream goes quiet', async ({ page, planner }) => {
+  await page.addInitScript(() => {
+    window.EventSource = class { constructor() { window.testStream = this } close() {} }
+  })
+  let refreshes = 0
+  page.on('request', request => { if (new URL(request.url()).pathname === '/api/tasks') refreshes++ })
+  await page.goto(planner.url + planner.board)
+  await expect(page.getByRole('link', { name: new RegExp(planner.one.title) }).first()).toBeVisible()
+  const baseline = refreshes
+  await page.evaluate(() => {
+    window.streamTimer = setInterval(() => window.testStream.onmessage({ data: '{}' }), 30)
+  })
+  await expect.poll(() => refreshes).toBeGreaterThan(baseline + 1)
+  await page.evaluate(() => clearInterval(window.streamTimer))
+})
+
+test('offscreen HTML revisions load on demand and long histories have a bounded picker', async ({ page, planner }) => {
+  const base = await (await planner.api.get('/api/tasks/' + planner.one.code)).json()
+  const docs = Array.from({ length: 20 }, (_, i) => ({ id: i + 1, version: 100000, title: 'Report ' + (i + 1), author: 'test', created_at: '2026-01-01T00:00:00Z' }))
+  const reads = new Set()
+  await page.route(url => url.pathname === '/api/tasks/' + planner.one.code, route => route.fulfill({ json: { ...base, documents: docs } }))
+  await page.route(url => url.pathname.startsWith('/api/html-documents/'), route => {
+    const id = Number(new URL(route.request().url()).pathname.split('/').pop())
+    reads.add(id)
+    return route.fulfill({ json: { ...docs[id - 1], html: '<p>Local content</p>' } })
+  })
+  await page.goto(planner.url + '/t/' + planner.one.code)
+  const first = page.getByRole('article', { name: 'Report 1', exact: true })
+  await first.locator('summary').click()
+  await expect(first.getByRole('spinbutton')).toHaveValue('100000')
+  expect(reads.has(20)).toBe(false)
+  await page.getByRole('button', { name: 'Report 20', exact: true }).scrollIntoViewIfNeeded()
+  await expect(page.getByRole('article', { name: 'Report 20' })).toBeVisible()
+  expect(reads.has(20)).toBe(true)
+})
+
+test('a large board waits for confirmation before the sixth request', async ({ page, planner }) => {
+  const offsets = []
+  await page.route(url => url.pathname === '/api/tasks', route => {
+    const offset = Number(new URL(route.request().url()).searchParams.get('offset'))
+    offsets.push(offset)
+    const count = offset < 500 ? 100 : 1
+    const rows = Array.from({ length: count }, (_, index) => {
+      const id = offset + index + 1
+      return { ...planner.one, id, number: id, code: 'REL-' + id, title: 'Loaded row ' + id }
+    })
+    return route.fulfill({ json: rows })
+  })
+  await page.goto(planner.url + planner.board)
+  const proceed = page.getByRole('button', { name: 'Continue loading' })
+  await expect(proceed).toBeVisible()
+  expect(offsets).toEqual([0, 100, 200, 300, 400])
+  await proceed.click()
+  await expect(page.getByRole('link', { name: /Loaded row 501/ })).toBeVisible()
+  expect(offsets).toEqual([0, 100, 200, 300, 400, 500])
+})

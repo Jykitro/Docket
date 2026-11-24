@@ -17,10 +17,11 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { App } from './App'
+import { CollectionLimit, PagingRequests } from './Paging'
 import { ConnectionGate } from './Pwa'
 import { Gate } from './Auth'
 
-const client = new QueryClient({ defaultOptions: { queries: { retry: 1, staleTime: 5_000 } } })
+const client = new QueryClient({ defaultOptions: { queries: { retry: (failures, error) => failures < 1 && !(error instanceof CollectionLimit), staleTime: 5_000 } } })
 
 if (import.meta.env.PROD && window.isSecureContext && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
@@ -32,6 +33,7 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={client}>
       <ConnectionGate><Gate><App /></Gate></ConnectionGate>
+      <PagingRequests />
     </QueryClientProvider>
   </StrictMode>,
 )

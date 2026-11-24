@@ -10,28 +10,32 @@ import (
 )
 
 type Config struct {
-	Addr         string
-	DB           string
-	BackupDir    string
-	MCPToken     string // optional: when set it overrides the token stored in the database
-	AllowedHosts []string
-	Seed         string
-	Loc          *time.Location
-	SelfHost     bool   // DOCKET_MODE=selfhost: many users, each with their own database
-	PostgresDSN  string // optional selfhost PostgreSQL database; empty keeps SQLite
-	DataDir      string // directory of DB; holds auth.db and users/<id>.db in selfhost mode
+	Addr          string
+	DB            string
+	BackupDir     string
+	MCPToken      string // optional: when set it overrides the token stored in the database
+	AllowedHosts  []string
+	PasskeyOrigin string
+	Seed          string
+	Loc           *time.Location
+	SelfHost      bool   // DOCKET_MODE=selfhost: many users, each with their own database
+	PostgresDSN   string // optional selfhost PostgreSQL database; empty keeps SQLite
+	RunnerSocket  string
+	DataDir       string // directory of DB; holds auth.db and users/<id>.db in selfhost mode
 }
 
 func Load() (Config, error) {
 	c := Config{
-		Addr:         env("DOCKET_ADDR", ":7777"),
-		DB:           env("DOCKET_DB", "/data/docket.db"),
-		BackupDir:    env("DOCKET_BACKUP_DIR", "/data/backups"),
-		MCPToken:     os.Getenv("DOCKET_MCP_TOKEN"),
-		PostgresDSN:  os.Getenv("DOCKET_POSTGRES_DSN"),
-		AllowedHosts: strings.Split(env("DOCKET_ALLOWED_HOSTS", "localhost,127.0.0.1,docket.localhost"), ","),
-		Seed:         os.Getenv("DOCKET_SEED"),
-		Loc:          time.Local,
+		Addr:          env("DOCKET_ADDR", "127.0.0.1:7777"),
+		DB:            env("DOCKET_DB", "/data/docket.db"),
+		BackupDir:     env("DOCKET_BACKUP_DIR", "/data/backups"),
+		MCPToken:      os.Getenv("DOCKET_MCP_TOKEN"),
+		RunnerSocket:  env("DOCKET_CODE_SOCKET", "/run/docket-code/runner.sock"),
+		PostgresDSN:   os.Getenv("DOCKET_POSTGRES_DSN"),
+		PasskeyOrigin: os.Getenv("DOCKET_PASSKEY_ORIGIN"),
+		AllowedHosts:  strings.Split(env("DOCKET_ALLOWED_HOSTS", "localhost,127.0.0.1,docket.localhost"), ","),
+		Seed:          os.Getenv("DOCKET_SEED"),
+		Loc:           time.Local,
 	}
 	c.DataDir = filepath.Dir(c.DB)
 	switch m := os.Getenv("DOCKET_MODE"); m {

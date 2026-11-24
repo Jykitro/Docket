@@ -55,21 +55,24 @@ Install [Docker](https://docs.docker.com/get-docker/) and run the following comm
 Start the newest tested build of `main` on Intel/AMD or ARM64:
 
 ```bash
-docker run -d --name docket --pull=always -p 127.0.0.1:7777:7777 -v "$PWD/data:/data" --restart unless-stopped ghcr.io/jykitro/docket:main
+mkdir -p -m 700 data
+docker run -d --name docket --user "$(id -u):$(id -g)" --pull=always -p 127.0.0.1:7777:7777 -v "$PWD/data:/data" --restart unless-stopped ghcr.io/jykitro/docket:main
 ```
 
 Open <http://localhost:7777>. The image includes the web UI, API and SQLite. GitHub Actions updates
 `:main` after the SQLite and PostgreSQL checks pass. Use `:sha-<full-commit-sha>` to pin a particular main build,
 or `:latest` to follow tagged stable releases.
 
-To update an existing container started with the command above, use the **same directory** and run:
+Before updating an older root-owned installation, stop the writer and verify a restorable copy of the complete data directory. Ensure the intended non-root service UID can open the database and create a backup on a disposable copy. Apply the verified ownership changes to the private Docket volume before switching images.
+
+To update a container started with the command above, use the **same directory** and run:
 
 ```bash
-docker pull ghcr.io/jykitro/docket:main && docker stop docket && docker rm docket && docker run -d --name docket -p 127.0.0.1:7777:7777 -v "$PWD/data:/data" --restart unless-stopped ghcr.io/jykitro/docket:main
+docker pull ghcr.io/jykitro/docket:main && docker stop docket && docker rm docket && docker run -d --name docket --user "$(id -u):$(id -g)" -p 127.0.0.1:7777:7777 -v "$PWD/data:/data" --restart unless-stopped ghcr.io/jykitro/docket:main
 ```
 
 Or download a binary for Linux, macOS or Windows from the [releases page](https://github.com/Jykitro/Docket/releases)
-and run it. Outside Docker set `DOCKET_ADDR=127.0.0.1:7777` (the default `:7777` listens on every interface) and point
+and run it. The native binary listens on `127.0.0.1:7777` by default. Point
 `DOCKET_DB` and `DOCKET_BACKUP_DIR` at local paths, since they default to `/data/...` (see
 [Configuration](#configuration)). To build from source:
 
@@ -83,9 +86,12 @@ Other targets: `make logs`, `make stop`, `make help`.
 Without `make`, run the equivalent commands:
 
 ```bash
-cp .env.example .env
+umask 077
+[ -f .env ] || (set -C; cat .env.example > .env)
+chmod 600 .env
 docker build -t docket:local .
-docker run -d --name docket --env-file .env -p 127.0.0.1:7777:7777 \
+mkdir -p -m 700 data
+docker run -d --name docket --user "$(id -u):$(id -g)" --env-file .env -p 127.0.0.1:7777:7777 \
   -v "$PWD/data:/data" --restart unless-stopped docket:local
 ```
 
@@ -105,6 +111,8 @@ On the first run with an empty database Docket asks for your name and a first pr
   startup (`{"projects": […], "tasks": […]}`: projects by `slug`, tasks by `external_id`, author `claude`). Running it
   again does not create duplicates. No seed file ships with Docket.
 
+SQLite creates new database directories with mode 0700 and database, WAL and backup files with owner-only permissions on Unix. Restrict older backup files and their parent directories before moving or restoring them. On Windows, store these files in a directory whose ACL grants access only to the Docket account and trusted administrators.
+
 ## Configuration
 
 Settings are read from `.env` (see `.env.example`):
@@ -112,8 +120,10 @@ Settings are read from `.env` (see `.env.example`):
 | Variable | Default | Description |
 |---|---|---|
 | `DOCKET_MODE` | `local` | `local`: one user, no login. `selfhost`: several users behind a login, see [Self-host](#self-host) |
-| `DOCKET_ADDR` | `:7777` | Server address inside the container |
+| `DOCKET_ADDR` | `127.0.0.1:7777` (native), `:7777` (image) | HTTP listen address |
+| `DOCKET_TRUSTED_PROXIES` | empty | Selfhost proxy IPs or CIDRs trusted to append the original client address to X-Forwarded-For |
 | `DOCKET_DB` | `/data/docket.db` | SQLite database file (ignored with PostgreSQL) |
+| `DOCKET_CODE_SOCKET` | `/run/docket-code/runner.sock` | Private Unix socket shared by the Docket server and the Code Mode worker |
 | `DOCKET_POSTGRES_DSN` | empty | Optional PostgreSQL connection string, requires `DOCKET_MODE=selfhost`; empty keeps SQLite |
 | `DOCKET_BACKUP_DIR` | `/data/backups` | Where backups are written |
 | `DOCKET_MCP_TOKEN` | empty | Optional. If set, it takes precedence over the token stored in the database and rotating it in the UI is disabled |
@@ -131,11 +141,14 @@ and every profile has its own isolated storage and MCP token. SQLite is the defa
    `docket.example.com`).
 2. Put an HTTPS reverse proxy in front of the container and do not publish port `7777` without it. The session cookie
    is marked `Secure` only over HTTPS (or with `X-Forwarded-Proto: https`), so logging in without a proxy is not safe.
-3. On first start the log contains a one-time setup code: `docker logs docket` (the line
-   `first run: create the admin with this setup code`). Open the site and create the administrator with that code.
-   The code works until the first user exists and is never printed again after that. Until an administrator exists,
-   every restart prints a new code and the previous one stops working.
-4. The administrator invites everyone else from Settings: an invite link creates a profile.
+3. For SQLite, create the private `./data` directory and export the numeric `DOCKET_UID` and `DOCKET_GID` of its non-root owner as described under [Code Mode](#code-mode). For SQLite with Code Mode, run `docker compose -f compose.selfhost.yml up -d --build` with the existing selfhost data mounted at `./data`. The PostgreSQL Compose file also includes the worker. Existing selfhost installations using a standalone binary or container must connect the isolated worker to use Code Mode after upgrading. Ordinary MCP runs in the main server.
+4. On the server, retrieve the first administrator's setup code with `docker compose -f compose.selfhost.yml exec docket /app/docket setup-code` (use `compose.postgres.yml` for PostgreSQL). For a native installation run `docket setup-code` with the server's `DOCKET_DB` setting. Enter it on the first-run screen. Restarting before setup replaces the code. Completing setup removes the private file from the data directory.
+5. Save the one-time recovery code. In **Settings → Registration**, choose **Invitation only** (the default on installation and upgrade), **Open** or **Closed**. Open signup uses `/register` and requires an available worker when enabling it. Closing signup pauses unused invitations until reopening or their original expiry. Existing owners can continue signing in. The pilot supports 50 accounts including the administrator and blocked accounts. The [pilot verification report](docs/selfhost-security.md) records the security checks, capacity sample and rollout procedure.
+6. Administrators manage signup, invitations and account suspension. Blocking ends sessions and active requests. Unblocking requires a new login and a new MCP token. Owners manage their own data and can delete their own account after confirming their password. The last administrator must remain active. The operator of the host or database has physical access to stored data.
+
+**Passkey sign-in.** In **Settings → Passkeys**, choose **Add a passkey**, name the key and confirm your current password. Follow your device’s prompt. On your next visit, select **Sign in with a passkey** to open the same workspace without typing your username. You can register up to 32 keys per account and revoke a lost key in Settings. Password sign-in remains available. Recovering your account with a recovery code revokes all enrolled passkeys.
+
+Open Docket on an HTTPS hostname in `DOCKET_ALLOWED_HOSTS`. For local testing use `http://localhost:<port>`. An IP address cannot serve as the passkey domain. For a custom public port or to select one canonical address, set `DOCKET_PASSKEY_ORIGIN` to the exact browser origin, for example `https://planner.example.com:8443`. Behind a proxy, preserve the Host (including a nonstandard port) and overwrite `X-Forwarded-Proto` with the actual external scheme. After moving to a new hostname, sign in with your password and enroll a key on that hostname.
 
 With SQLite, `auth.db` (users and sessions) and `users/<id>.db` (one database per profile) sit next to `DOCKET_DB`; SQLite profile
 backups are written to `DOCKET_BACKUP_DIR/<id>`, and a profile created later gets its first backup within an hour.
@@ -146,16 +159,25 @@ profile is picked by the token. `DOCKET_SEED` and `DOCKET_MCP_TOKEN` are ignored
 Switching an existing install to `selfhost` does not import `DOCKET_DB` (`docket.db`): the file stays untouched and
 selfhost profiles start empty. Switching back to `local` brings the old data back.
 
-Never delete or recreate `auth.db` while `users/` holds files: user ids start again at 1, so the new profiles would
-open the old profiles' databases and MCP tokens. To start from scratch, first move `users/` and the per-profile backup
-directories in `DOCKET_BACKUP_DIR` aside.
+Back up the auth catalog and workspace data together. For a consistent SQLite snapshot, stop Docket and copy the entire data directory, including any WAL files, before restarting. Automatic per-profile SQLite backups alone cannot restore logins. For PostgreSQL, back up the entire dedicated database with `pg_dump` or PITR. Startup verifies each workspace against its account's stable owner identifier. For the first upgrade of a legacy installation, verify the snapshot's provenance and follow the offline binding procedure in [the selfhost runbook](docs/selfhost-security.md). A mismatched or unbound workspace stops startup.
 
 Limits:
 
-- Behind a reverse proxy, login rate limiting is counted per proxy address, so one client's failed attempts can lock
-  a username for everyone for 10 minutes.
-- There is no password reset by email: the administrator deletes the profile and issues a new invite. Deleting a
-  profile removes its database file or PostgreSQL schema. With SQLite, its backups in `DOCKET_BACKUP_DIR/<id>` stay and must be removed by hand.
+- Login allows five attempts per client and normalized username pair per ten minutes, with additional limits of 20 per client and 20 per username. Password confirmations have a separate limit per owner. At most eight credential checks run concurrently.
+- Signup and recovery each allow 20 requests per client per ten minutes. Recovery also limits attempts against the same normalized username. Set a per-client limit at the trusted HTTPS proxy for public installations. Forward the original Host, overwrite `X-Forwarded-Proto`, and configure the proxy to overwrite or correctly append `X-Forwarded-For`. Set `DOCKET_TRUSTED_PROXIES` to its immediate trusted addresses or networks. Confirm two real clients have distinct limits. Exclude invite URLs and credentials from proxy access logs.
+- Recover at `/recover` with the username, single-use code and a new password. Save the replacement code and reconnect MCP with its new token. Existing users can generate a code in Settings after confirming their password. A blocked account remains blocked. Keep the code in a password manager because there is no email reset.
+- Account deletion removes the live workspace. Separately retained copies follow the operator's backup retention policy.
+
+| Selfhost endpoint | Purpose |
+|---|---|
+| `GET /api/auth/registration`, `PUT /api/admin/registration` | Read the mode or set `{"mode":"invite"}` as administrator. Allowed values are `open`, `invite` and `closed` |
+| `POST /api/auth/register`, `POST /api/auth/invite/{token}` | Create a private workspace with username and password. Returns the user, a session cookie and a one-time `recovery_code` |
+| `POST /api/auth/passkeys/register/begin`, `POST /api/auth/passkeys/register/finish` | Enroll a discoverable key from a signed-in browser. Begin with `name` and `password`, finish with the browser credential response |
+| `POST /api/auth/passkeys/login/begin`, `POST /api/auth/passkeys/login/finish` | Request sign-in options, then submit the signed response to open the owner's session. Both ceremonies use the same browser, exact origin and a five-minute single-use challenge |
+| `GET /api/auth/passkeys`, `DELETE /api/auth/passkeys/{id}` | List your key names and IDs or revoke one with your current `password` |
+| `POST /api/auth/recovery-code`, `POST /api/auth/recover` | Issue a code with the signed-in owner's password, or reset using username, code and new password (`password`). Both return `recovery_code` |
+| `PUT /api/admin/users/{id}/blocked` | Set `{"blocked":true}` or `false` as administrator |
+| `DELETE /api/auth/account` | Delete the signed-in owner's account with `{"password":"…"}` |
 
 ### Project icons and installed app
 
@@ -187,11 +209,15 @@ credential can access every profile and must stay private.
 For a new installation with Docker Compose:
 
 ```bash
-cp .env.example .env
-# Generate a password with: openssl rand -hex 32
-# Add POSTGRES_PASSWORD=<generated hex password> to .env (do not commit it).
+umask 077
+[ -f .env ] || (set -C; cat .env.example > .env)
+chmod 600 .env
+# For a NEW installation, append two independent random passwords without printing them.
+# Skip these two lines if the file already defines the passwords.
+(printf 'POSTGRES_ADMIN_PASSWORD='; openssl rand -hex 32) >> .env
+(printf 'POSTGRES_PASSWORD='; openssl rand -hex 32) >> .env
 docker compose -f compose.postgres.yml up -d --build
-docker compose -f compose.postgres.yml logs docket
+docker compose -f compose.postgres.yml exec docket /app/docket setup-code
 ```
 
 [`compose.postgres.yml`](compose.postgres.yml) builds the current source and starts PostgreSQL 18.7 with a persistent
@@ -199,9 +225,12 @@ volume; PostgreSQL has no published host port. Docket binds to `127.0.0.1:7777`;
 allowed-host setup described above for remote access. `sslmode=disable` in this example applies only to the private
 Compose network. The password in this example must be hex/alphanumeric so it is valid in the connection URL.
 
+The bootstrap account initializes the cluster. The application receives a separate login (`docket`) with permission to create schemas in its dedicated database. Before upgrading a volume originally initialized with `POSTGRES_USER=docket`, stop writers, take and verify a complete backup, then initialize a **separate empty volume** with the new configuration. Restore the application schemas into it as `docket` using `pg_restore --no-owner --no-privileges --exit-on-error`, verify data and sign-in, then switch traffic. The Compose health check refuses the old elevated login. Keep the original volume for rollback.
+
 Operational details:
 
 - `DOCKET_DB` and `DOCKET_BACKUP_DIR` are ignored by PostgreSQL storage; no local SQLite files are created.
+- The bundled Alpine image applies the security updates for libxml2 and OpenSSL and uses Alpine’s su-exec to start PostgreSQL as its service user.
 - On a **fresh volume**, set `DOCKET_POSTGRES_IMAGE=postgres:19.0-alpine` to use the major version exercised in CI.
   Existing Compose volumes default to 18.7. To upgrade from 18 to 19, stop the Docket writer, take a final
   `pg_dump -Fc`, start version 19 with a separate empty volume, then restore with `pg_restore --exit-on-error`
@@ -212,10 +241,22 @@ Operational details:
   a full logical backup (including accounts and every profile) with:
 
   ```bash
-  docker compose -f compose.postgres.yml exec -T postgres pg_dump -U docket -d docket -Fc > docket.dump
+  (
+    set -eu
+    umask 077
+    mkdir -p -m 700 "$HOME/docket-backups"
+    chmod 700 "$HOME/docket-backups"
+    dump=$(mktemp "$HOME/docket-backups/docket.XXXXXXXX")
+    if docker compose -f compose.postgres.yml exec -T postgres pg_dump -U docket -d docket -Fc > "$dump"; then
+      mv "$dump" "$dump.dump"
+    else
+      rm -f "$dump"
+      exit 1
+    fi
+  )
   ```
 
-  Store dumps securely outside the database volume and test restoration into a separate empty database. Do not run
+  Check older dumps and environment files for group or public access and restrict them to the owner. Keep the backup directory on a private, access-controlled filesystem. Store dumps securely outside the database volume and test restoration into a separate empty database. Do not run
   `docker compose down -v` on an installation you intend to keep: it deletes the PostgreSQL volume.
 - Existing SQLite accounts and tasks are **not imported**. Selecting PostgreSQL starts a separate installation.
   To return to the previous SQLite installation, remove `DOCKET_POSTGRES_DSN` and restart with the original data volume.
@@ -253,54 +294,38 @@ the source task. A matching open title in that project receives the observation.
 known duplicate under another title. Exact retries from the same agent and source add one observation. Blockers and
 decisions appear first. Start work, snooze until a date in the server time zone, or close with a reason.
 
+**Wiki page formats.** Choose Markdown or HTML before saving a new page. For an HTML page, paste source or
+load a self-contained HTML file (up to 2 MiB). The page displays the interactive document directly.
+In a Markdown wiki page or task description, use **Insert HTML** to insert an `html-preview` fenced block at the cursor.
+An ordinary `html` code fence displays source code. Both standalone pages and embedded blocks use the isolated HTML viewer.
+
+A workspace retains up to 64 MiB and 4,096 HTML revisions. Existing history remains readable when the quota is reached.
+
 **Interactive HTML documents** can be attached to tasks and wiki pages. Paste source or choose an HTML file and
-publish it. Click its title for a full-window preview and a version selector. Each publication records the author and
+publish it. The interactive content appears inline with the Markdown. Expand the document title below the preview
+to choose a version, edit the source or delete the document. Each publication records the author and
 date. The JSON export includes all versions. Agents can publish through `publish_html` and read a revision through
 `read_html`. Bundle the data, styles and scripts in the document (up to 2 MiB). The viewer runs inline JavaScript
 inside sandboxed frames with an opaque origin and a restrictive content security policy. Reports receive no Docket API
-credentials. A report's in-memory controls reset when its viewer closes.
+credentials. A report's in-memory controls reset when you leave the page or change its version.
 
 **Task IDs** look like `TRK-07`: the project key plus a number. Numbers are never reused. You can change a project key in
 its settings and every ID is renumbered, but old links that use the previous key stop working.
 
 <a id="connecting-claude-mcp"></a>
 
+Paged project, task, trash and Today reads accept `limit` and `offset` (up to 100 rows per page). Use task summaries for lists. Large detail pages may require a smaller page size. Export streams the full snapshot.
+
 ## Connecting agents (MCP)
 
-On the first start Docket creates a `dkt_…` token, prints it to the log once and stores it in the database. After that it
+On the first start Docket creates a `dkt_…` token and stores it in the database. It
 is shown (masked, with a "Show" button) on the **Integrations** tab, where you can also rotate it and copy a ready-made config.
 
 <p align="center">
   <img src="docs/images/mcp-dark.png" alt="The Integrations tab: self-check, server address, token and access mode" width="820">
 </p>
 
-**Claude Code:**
-
-```bash
-claude mcp add --transport http docket "http://localhost:7777/mcp?agent=claude" --header "Authorization: Bearer <TOKEN>"
-```
-
-**Claude Desktop** (`claude_desktop_config.json`):
-
-```json
-{
-  "mcpServers": {
-    "docket": {
-      "command": "npx",
-      "args": ["-y", "mcp-remote", "http://localhost:7777/mcp?agent=claude",
-               "--header", "Authorization:${AUTH}", "--allow-http"],
-      "env": { "AUTH": "Bearer <TOKEN>" }
-    }
-  }
-}
-```
-
-**Codex** (the token is read from an environment variable, so it stays out of `config.toml`):
-
-```bash
-export DOCKET_MCP_TOKEN=<TOKEN>
-codex mcp add docket --url "http://localhost:7777/mcp?agent=codex" --bearer-token-env-var DOCKET_MCP_TOKEN
-```
+Open **Integrations**, choose the client and the intended endpoint, and copy its registration command. The CLI configuration refers to an environment variable derived from that endpoint. In the shell that starts Claude Code or Codex, run the displayed hidden-input command and paste the token at the prompt. Desktop clients can obtain the same credential from a private environment or credential manager. When switching hosts, register the new endpoint and use its own credential.
 
 For another client, choose **Other client** on the Integrations tab and enter an agent name. The resulting URL
 includes `?agent=my-agent`, which sets the author on tasks, notes, history and MCP calls. Existing URLs also
@@ -308,6 +333,15 @@ work. Docket uses the client name supplied with the call or a recognizable Codex
 unidentified client appears as **MCP agent**. Older history keeps the author recorded at the time.
 
 ### Code Mode
+
+The image runs as UID/GID 65532. For a bind-mounted SQLite directory, use the non-root UID and GID that own the data. For the SQLite Compose files, prepare the directory and set the numeric identities in the shell:
+```bash
+mkdir -p -m 700 data
+export DOCKET_UID="$(id -u)" DOCKET_GID="$(id -g)"
+```
+Before upgrading root-owned volumes, stop the writer and verify a restorable snapshot, then grant the intended non-root identity ownership of the private Docket data and backup directories. Check that a disposable copy opens and a backup completes before switching the live volume. Update the pinned runtime manifest in the Dockerfile when refreshing the base image, verifying both Linux architectures.
+
+For single-user Docker installations, run `docker compose -f compose.local.yml up -d --build` from the source checkout to start Docket together with the isolated worker. For selfhost, use either supplied selfhost Compose file. A standalone binary or single-container launch can serve classic MCP directly. Code Mode requires a worker sharing the configured Unix socket, and returns `unavailable` if that worker is offline.
 
 The same server is also available at `/mcp/code` (same token, same commands with that address). There the assistant
 sees one tool, `code`, after [Cloudflare's Code Mode](https://developers.cloudflare.com/agents/tools/codemode/): it
@@ -331,10 +365,10 @@ Three skills in [`skills/`](skills), one `SKILL.md` each:
 - To have the skills trigger from the first message, install them. The **Integrations** tab has an **Install in one command** button: it
   copies one line to paste into a terminal (macOS, Linux). The script writes all three skills for Claude Code (`~/.claude/skills`)
   and Codex (`~/.agents/skills`) and registers the MCP server in whichever of the two it finds. It is served at
-  `/api/mcp/install.sh` and reads the address and token from `DOCKET_URL` and `DOCKET_TOKEN`, which the button fills in:
+  `/api/mcp/install.sh` and takes the address from `DOCKET_URL`. It prints the credential setup command after registration:
 
   ```bash
-  curl -fsSL http://localhost:7777/api/mcp/install.sh | DOCKET_URL=http://localhost:7777/mcp DOCKET_TOKEN=<token> sh
+  curl -fsSL http://localhost:7777/api/mcp/install.sh | DOCKET_URL=http://localhost:7777/mcp sh
   ```
 
   By hand, the same tab has Copy and Download buttons, and the server serves each skill at `/api/mcp/skill/<name>`.
@@ -461,7 +495,7 @@ path can be given by code (`TRK-07`) or by id.
 | `DELETE /api/html-documents/:id?version=N` | Delete the document and its versions if N is current |
 | `PUT /api/pages/:id/layout` | Send one of `pinned` (boolean), `before_id` or `after_id` (sibling page ID). Changes navigation without changing the content revision. |
 | `GET /api/search?q=&scope=all\|tasks\|projects` | Tasks by title and description (with a snippet), and projects |
-| `GET /api/trash`, `GET /api/trash/projects`, `DELETE /api/trash` | Trash and emptying it (physical delete) |
+| `GET /api/trash`, `GET /api/trash/projects`, `DELETE /api/trash` | List trash or purge the reviewed snapshot. DELETE takes both arrays `tasks` and `projects`, each containing `{id, deleted_at}`. A changed snapshot returns 409. |
 | `GET /api/mcp/status`, `POST /api/mcp/check`, `GET/PATCH /api/mcp/settings` | Status, self-check, mode and tool switches |
 | `GET /api/mcp/token`, `POST /api/mcp/token/rotate`, `GET/DELETE /api/mcp/calls` | Token, rotation, call log |
 | `GET/PUT /api/profile` | Display name (an empty name means first run) |

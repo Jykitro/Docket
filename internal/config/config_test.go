@@ -47,3 +47,18 @@ func TestLoadPostgres(t *testing.T) {
 		t.Fatalf("Postgres configuration: %v", err)
 	}
 }
+
+func TestDefaultListenAddressIsLoopback(t *testing.T) {
+	t.Setenv("DOCKET_MODE", "local")
+	t.Setenv("DOCKET_POSTGRES_DSN", "")
+	t.Setenv("DOCKET_ADDR", "")
+	c, err := Load()
+	if err != nil || c.Addr != "127.0.0.1:7777" {
+		t.Fatalf("default address %q (%v)", c.Addr, err)
+	}
+	t.Setenv("DOCKET_ADDR", ":8888")
+	c, err = Load()
+	if err != nil || c.Addr != ":8888" {
+		t.Fatalf("explicit address %q (%v)", c.Addr, err)
+	}
+}

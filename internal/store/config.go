@@ -376,15 +376,21 @@ func (t *Tx) SetSetting(key, value string) error {
 
 // ---- MCP call log ----
 
+const maxCallRows = 10000
+
 func (t *Tx) InsertCall(c MCPCall) error {
-	_, err := t.tx.Exec(`INSERT INTO mcp_calls(at, tool, args_summary, duration_ms, status, error_code, actor) VALUES (?,?,?,?,?,?,?)`,
-		c.At, c.Tool, c.ArgsSummary, c.DurationMS, c.Status, c.ErrorCode, c.Actor)
+	var id int64
+	err := t.tx.QueryRow(`INSERT INTO mcp_calls(at, tool, args_summary, duration_ms, status, error_code, actor) VALUES (?,?,?,?,?,?,?) RETURNING id`,
+		c.At, c.Tool, c.ArgsSummary, c.DurationMS, c.Status, c.ErrorCode, c.Actor).Scan(&id)
+	if err == nil && id > maxCallRows {
+		_, err = t.tx.Exec(`DELETE FROM mcp_calls WHERE id <= ?`, id-maxCallRows)
+	}
 	return err
 }
 
 // ListCalls returns the newest calls; filter is "all", "write" (tools listed in writeTools) or "error".
 func (t *Tx) ListCalls(filter string, writeTools []string, limit int) ([]MCPCall, error) {
-	q, args := `SELECT id, at, tool, args_summary, duration_ms, status, error_code, actor FROM mcp_calls`, []any{}
+	q, args := `SELECT id, at, substr(tool,1,64), substr(args_summary,1,120), duration_ms, status, substr(error_code,1,48), actor FROM mcp_calls`, []any{}
 	switch filter {
 	case "error":
 		q += ` WHERE status = 'error'`
@@ -433,45 +439,34 @@ type CallStats struct {
 	LastAt     string
 	CallsSince int
 	MedianMS   int64
-	PerTool    map[string]int
 }
 
-// CallStats summarises the log: calls since `since` with their median duration, and per-tool counts since `weekAgo`.
-func (t *Tx) CallStats(since, weekAgo string) (CallStats, error) {
-	st := CallStats{PerTool: map[string]int{}}
-	if err := t.tx.QueryRow(`SELECT coalesce(max(at), '') FROM mcp_calls`).Scan(&st.LastAt); err != nil {
-		return st, err
+// Bound the sample even before the first write trims a pre-upgrade log.
+const recentCalls = `WITH recent AS (SELECT at,substr(tool,1,64) AS tool,duration_ms FROM mcp_calls ORDER BY id DESC LIMIT ?) `
+
+func (t *Tx) CallStats(since string) (st CallStats, err error) {
+	err = t.tx.QueryRow(recentCalls+`SELECT coalesce(max(at),''), count(CASE WHEN at>=? THEN 1 END) FROM recent`, maxCallRows, since).Scan(&st.LastAt, &st.CallsSince)
+	if err != nil || st.CallsSince == 0 {
+		return
 	}
-	rows, err := t.tx.Query(`SELECT duration_ms FROM mcp_calls WHERE at >= ? ORDER BY duration_ms`, since)
+	err = t.tx.QueryRow(recentCalls+`SELECT duration_ms FROM recent WHERE at>=? ORDER BY duration_ms LIMIT 1 OFFSET ?`, maxCallRows, since, st.CallsSince/2).Scan(&st.MedianMS)
+	return
+}
+
+func (t *Tx) ToolCallCounts(since string) (map[string]int, error) {
+	rows, err := t.tx.Query(recentCalls+`SELECT tool,count(*) FROM recent WHERE at>=? GROUP BY tool`, maxCallRows, since)
 	if err != nil {
-		return st, err
-	}
-	var ds []int64
-	for rows.Next() {
-		var d int64
-		if err := rows.Scan(&d); err != nil {
-			rows.Close()
-			return st, err
-		}
-		ds = append(ds, d)
-	}
-	rows.Close()
-	st.CallsSince = len(ds)
-	if len(ds) > 0 {
-		st.MedianMS = ds[len(ds)/2]
-	}
-	rows, err = t.tx.Query(`SELECT tool, count(*) FROM mcp_calls WHERE at >= ? GROUP BY tool`, weekAgo)
-	if err != nil {
-		return st, err
+		return nil, err
 	}
 	defer rows.Close()
+	counts := map[string]int{}
 	for rows.Next() {
-		var tool string
-		var n int
-		if err := rows.Scan(&tool, &n); err != nil {
-			return st, err
+		var name string
+		var count int
+		if err := rows.Scan(&name, &count); err != nil {
+			return nil, err
 		}
-		st.PerTool[tool] = n
+		counts[name] = count
 	}
-	return st, rows.Err()
+	return counts, rows.Err()
 }

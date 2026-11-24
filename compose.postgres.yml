@@ -1,22 +1,37 @@
 services:
   postgres:
-    image: ${DOCKET_POSTGRES_IMAGE:-postgres:18.7-alpine}
+    build:
+      context: ./deploy/postgres
+      args:
+        POSTGRES_BASE: ${DOCKET_POSTGRES_IMAGE:-postgres:18.7-alpine}
     restart: unless-stopped
     environment:
-      POSTGRES_USER: docket
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set a hex POSTGRES_PASSWORD in .env}
+      POSTGRES_USER: docket_bootstrap
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?Set a distinct bootstrap password in .env}
+      DOCKET_APP_PASSWORD: ${POSTGRES_PASSWORD:?Set a hex POSTGRES_PASSWORD in .env}
       POSTGRES_DB: docket
     volumes:
       - postgres_data:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U docket -d docket"]
+      test:
+        - CMD-SHELL
+        - >-
+          PGPASSWORD="$$DOCKET_APP_PASSWORD" psql -h 127.0.0.1 -qAt -U docket -d docket
+          -c 'SELECT NOT (rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls) FROM pg_roles WHERE rolname = current_user' | grep -qx t
       interval: 5s
       timeout: 5s
       retries: 10
 
+  code-runner:
+    extends:
+      file: compose.selfhost.yml
+      service: code-runner
+
   docket:
     build: .
     restart: unless-stopped
+    volumes:
+      - code_socket:/run/docket-code:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -25,8 +40,11 @@ services:
     environment:
       DOCKET_MODE: selfhost
       DOCKET_POSTGRES_DSN: postgres://docket:${POSTGRES_PASSWORD:?Set a hex POSTGRES_PASSWORD in .env}@postgres:5432/docket?sslmode=disable
+      DOCKET_TRUSTED_PROXIES: ${DOCKET_TRUSTED_PROXIES:-}
+      DOCKET_PASSKEY_ORIGIN: ${DOCKET_PASSKEY_ORIGIN:-}
       DOCKET_ALLOWED_HOSTS: ${DOCKET_ALLOWED_HOSTS:-localhost,127.0.0.1,docket.localhost}
       TZ: ${TZ:-Asia/Ho_Chi_Minh}
 
 volumes:
   postgres_data:
+  code_socket:

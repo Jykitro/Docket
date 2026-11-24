@@ -3,9 +3,9 @@ package main
 import (
 	"context"
 	"crypto/rand"
-	"encoding/base64"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"net/http"
@@ -13,6 +13,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 	_ "time/tzdata" // distroless has no zoneinfo
@@ -43,6 +44,18 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "setup-code":
+			return printSetupCode(cfg.DataDir, os.Stdout)
+		case "code-runner":
+			return mcpserver.ServeRunner(ctx, cfg.RunnerSocket)
+		case "code-eval":
+			return mcpserver.Evaluate(os.Stdin, os.Stdout)
+		default:
+			return fmt.Errorf("unknown command %q", os.Args[1])
+		}
+	}
 	if cfg.SelfHost {
 		return runSelfHost(ctx, cfg)
 	}
@@ -58,7 +71,7 @@ func run() error {
 	if tok, err := svc.EnsureMCPSettings(ctx); err != nil {
 		return err
 	} else if tok != "" {
-		slog.Info("MCP token generated (shown once, see it later in the MCP tab)", "token", tok)
+		slog.Info("MCP token generated; view it in the Integrations tab")
 	}
 
 	if cfg.Seed != "" {
@@ -75,7 +88,7 @@ func run() error {
 
 	return serve(ctx, cfg.Addr, httpapi.Router(httpapi.Deps{
 		Svc: svc, Bus: bus, AllowedHosts: cfg.AllowedHosts, SelfAddr: cfg.Addr, Ctx: ctx,
-		MCP: mcpserver.Handler(svc, cfg.Loc), Web: web.Handler(),
+		MCP: mcpserver.IsolatedHandler(svc, cfg.Loc, mcpserver.NewRunner(cfg.RunnerSocket)), Web: web.Handler(),
 	}))
 }
 
@@ -86,7 +99,10 @@ func runSelfHost(ctx context.Context, cfg config.Config) error {
 		slog.Warn("DOCKET_MCP_TOKEN is ignored in selfhost mode: every profile has its own token")
 	}
 	var ad *auth.DB
-	var err error
+	proxies, err := config.ParseTrustedProxies(os.Getenv("DOCKET_TRUSTED_PROXIES"))
+	if err != nil {
+		return err
+	}
 	if cfg.PostgresDSN != "" {
 		ad, err = auth.OpenPostgres(cfg.PostgresDSN)
 	} else {
@@ -97,10 +113,15 @@ func runSelfHost(ctx context.Context, cfg config.Config) error {
 	}
 	defer ad.Close()
 
+	sites, err := selfhost.PasskeySites(cfg.AllowedHosts, cfg.Addr, cfg.PasskeyOrigin)
+	if err != nil {
+		return err
+	}
+	runner := mcpserver.NewRunner(cfg.RunnerSocket)
 	ws := selfhost.NewWorkspaces(ctx, cfg.DataDir, cfg.Loc, func(wctx context.Context, svc *service.Service, bus *events.Bus) http.Handler {
 		return httpapi.Router(httpapi.Deps{
 			Svc: svc, Bus: bus, AllowedHosts: cfg.AllowedHosts, SelfAddr: cfg.Addr, Ctx: wctx, SelfHost: cfg.SelfHost,
-			MCP: mcpserver.Handler(svc, cfg.Loc), Web: web.Handler(),
+			MCP: mcpserver.IsolatedHandler(svc, cfg.Loc, runner), Web: web.Handler(),
 		})
 	})
 	ws.UsePostgres(cfg.PostgresDSN)
@@ -109,6 +130,9 @@ func runSelfHost(ctx context.Context, cfg config.Config) error {
 	// Every workspace is opened now so MCP bearer lookup knows all users right after a restart.
 	users, err := ad.ListUsers()
 	if err != nil {
+		return err
+	}
+	if err = ws.VerifyOwners(ctx, users, ad); err != nil {
 		return err
 	}
 	for _, u := range users {
@@ -121,19 +145,59 @@ func runSelfHost(ctx context.Context, cfg config.Config) error {
 	}
 	go maintainAll(ctx, ws, cfg.BackupDir)
 
+	setupPath := filepath.Join(cfg.DataDir, "setup-code")
+	clearSetup := func() {
+		if err := os.Remove(setupPath); err != nil && !os.IsNotExist(err) {
+			slog.Error("remove consumed setup code", "err", err)
+		}
+	}
 	var code string
 	if len(users) == 0 {
-		b := make([]byte, 18)
-		if _, err := rand.Read(b); err != nil {
+		code, err = createSetupCode(cfg.DataDir)
+		if err != nil {
 			return err
 		}
-		code = base64.RawURLEncoding.EncodeToString(b)
-		slog.Info("first run: create the admin with this setup code", "code", code)
+		slog.Info("first run: retrieve the administrator setup code with docket setup-code")
+	} else {
+		clearSetup()
 	}
 
 	return serve(ctx, cfg.Addr, selfhost.Handler(selfhost.Options{
-		Auth: ad, WS: ws, Web: web.Handler(), AllowedHosts: cfg.AllowedHosts, SetupCode: code,
+		SetupComplete: clearSetup, TrustedProxies: proxies, Passkeys: sites, Auth: ad, WS: ws, Web: web.Handler(), AllowedHosts: cfg.AllowedHosts, SetupCode: code, RunnerReady: runner.Ready,
 	}))
+}
+
+// createSetupCode publishes each process's bootstrap credential only after the file is complete.
+func createSetupCode(dir string) (string, error) {
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		return "", err
+	}
+	f, err := os.CreateTemp(dir, ".setup-code-*")
+	if err != nil {
+		return "", err
+	}
+	defer os.Remove(f.Name())
+	code := rand.Text()
+	_, err = fmt.Fprintln(f, code)
+	closeErr := f.Close()
+	if err = errors.Join(err, closeErr); err != nil {
+		return "", err
+	}
+	if err = os.Rename(f.Name(), filepath.Join(dir, "setup-code")); err != nil {
+		return "", err
+	}
+	return code, nil
+}
+func printSetupCode(dir string, w io.Writer) error {
+	data, err := os.ReadFile(filepath.Join(dir, "setup-code"))
+	if errors.Is(err, os.ErrNotExist) {
+		return errors.New("no setup code pending; start an unconfigured selfhost instance first")
+	}
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintln(w, strings.TrimSpace(string(data)))
+	return err
 }
 
 // serve runs h on addr until ctx ends, then shuts down gracefully.

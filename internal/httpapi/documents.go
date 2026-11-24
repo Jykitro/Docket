@@ -1,18 +1,19 @@
 package httpapi
 
 import (
-	"encoding/json"
 	"net/http"
 	"strconv"
 
 	"docket/internal/service"
 )
 
+// JSON escaping can use six bytes per byte of HTML.
+const htmlJSONLimit = 13 << 20
+
 func (a *api) publishHTML(r *http.Request) (any, error) {
 	var in service.PublishHTMLInput
-	// A JSON encoder can use six bytes for a single HTML character.
-	if err := json.NewDecoder(http.MaxBytesReader(nil, r.Body, 13<<20)).Decode(&in); err != nil {
-		return nil, badRequest("invalid HTML document JSON")
+	if err := decodeLimited(r, &in, htmlJSONLimit); err != nil {
+		return nil, err
 	}
 	return a.svc.PublishHTML(r.Context(), service.ActorDenis, in)
 }

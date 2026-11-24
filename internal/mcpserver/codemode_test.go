@@ -29,7 +29,7 @@ func TestCodeMode(t *testing.T) {
 	if _, err := svc.CreateProject(ctx, service.ActorDenis, service.ProjectInput{Name: "p", Key: "PP", Slug: "p"}); err != nil {
 		t.Fatal(err)
 	}
-	h := Handler(svc, time.UTC)
+	h := workspaceHandler(svc, time.UTC, runCode)
 
 	id := 0
 	rpc := func(method, params string) json.RawMessage {

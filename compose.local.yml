@@ -1,0 +1,12 @@
+# Single-user Docket with Code Mode. Keep the host port on loopback.
+services:
+  docket:
+    extends: {file: compose.selfhost.yml, service: docket}
+    environment:
+      DOCKET_MODE: local
+      DOCKET_MCP_TOKEN: ${DOCKET_MCP_TOKEN:-}
+      DOCKET_SEED: ${DOCKET_SEED:-}
+  code-runner:
+    extends: {file: compose.selfhost.yml, service: code-runner}
+volumes:
+  code_socket:

@@ -6,5 +6,5 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   build: { outDir: '../internal/web/dist', emptyOutDir: true },
   // `bun run dev` talks to a backend started with `go run ./cmd/docket` (or the container) on :7777.
-  server: { proxy: { '/api': 'http://localhost:7777' } },
+  server: { proxy: { '/api': { target: 'http://127.0.0.1:7777', changeOrigin: false } } },
 })

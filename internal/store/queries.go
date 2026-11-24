@@ -30,6 +30,9 @@ type Project struct {
 }
 
 type Task struct {
+	HasDescription bool   `json:"has_description,omitempty"`
+	ProjectSlug    string `json:"-"`
+	readBytes      int
 	ID             int64          `json:"id"`
 	ProjectID      int64          `json:"project_id"`
 	Number         int            `json:"number"`
@@ -69,15 +72,16 @@ type Note struct {
 }
 
 type Activity struct {
-	ID        int64  `json:"id"`
-	TaskID    *int64 `json:"task_id"`
-	ProjectID *int64 `json:"project_id"`
-	Actor     string `json:"actor"`
-	Action    string `json:"action"`
-	DiffJSON  string `json:"diff_json"`
-	At        string `json:"at"`
-	TaskCode  string `json:"task_code"`
-	TaskTitle string `json:"task_title"`
+	ID          int64  `json:"id"`
+	TaskID      *int64 `json:"task_id"`
+	ProjectID   *int64 `json:"project_id"`
+	Actor       string `json:"actor"`
+	Action      string `json:"action"`
+	DiffJSON    string `json:"diff_json"`
+	DiffOmitted bool   `json:"diff_omitted,omitempty"`
+	At          string `json:"at"`
+	TaskCode    string `json:"task_code"`
+	TaskTitle   string `json:"task_title"`
 }
 
 type SearchHit struct {
@@ -108,69 +112,71 @@ func scanProject(r interface{ Scan(...any) error }) (Project, error) {
 	return p, err
 }
 
-func (t *Tx) ListProjects(includeArchived bool) ([]Project, error) {
-	q := `SELECT ` + projectCols + ` FROM projects WHERE deleted_at IS NULL`
-	if !includeArchived {
-		q += ` AND archived_at IS NULL`
+func (t *Tx) CountLiveProjects() (count int, err error) {
+	err = t.tx.QueryRow("SELECT count(*) FROM projects WHERE deleted_at IS NULL").Scan(&count)
+	return
+}
+
+func (t *Tx) ProjectPage(includeArchived, deleted, compact bool, limit, offset int) ([]Project, error) {
+	cols := projectCols
+	if compact {
+		cols = strings.Replace(cols, "description,", "'' as description,", 1)
 	}
-	rows, err := t.tx.Query(q + ` ORDER BY position, id`)
+	where, order := "deleted_at IS NULL", "position,id"
+	if deleted {
+		where, order = "deleted_at IS NOT NULL", "deleted_at DESC,id"
+	} else if !includeArchived {
+		where += " AND archived_at IS NULL"
+	}
+	page := " FROM projects WHERE " + where + " ORDER BY " + order + " LIMIT ? OFFSET ?"
+	rows, err := t.tx.Query("SELECT "+cols+page, limit, offset)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	out := []Project{}
+	byID := map[int64]int{}
+	bytes := 0
 	for rows.Next() {
 		p, err := scanProject(rows)
 		if err != nil {
 			return nil, err
 		}
-		p.Counts = map[string]int{}
+		bytes += len(p.Name) + len(p.Slug) + len(p.Description)
+		if bytes > maxReadBytes && len(out) > 0 {
+			return nil, ErrPageTooLarge
+		}
+		byID[p.ID] = len(out)
+		if !deleted {
+			p.Counts = map[string]int{}
+		}
 		out = append(out, p)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-	crows, err := t.tx.Query(`SELECT t.project_id, s.key, s.category, count(*) FROM tasks t JOIN statuses s ON s.id = t.status_id
-		WHERE t.deleted_at IS NULL GROUP BY 1, 2, 3`)
+	if deleted || len(out) == 0 {
+		return out, nil
+	}
+	counts, err := t.tx.Query(`SELECT t.project_id,s.key,s.category,count(*) FROM tasks t JOIN statuses s ON s.id=t.status_id WHERE t.deleted_at IS NULL AND t.project_id IN (SELECT id`+page+") GROUP BY 1,2,3", limit, offset)
 	if err != nil {
 		return nil, err
 	}
-	defer crows.Close()
-	for crows.Next() {
-		var pid int64
+	defer counts.Close()
+	for counts.Next() {
+		var id int64
 		var key, cat string
 		var n int
-		if err := crows.Scan(&pid, &key, &cat, &n); err != nil {
+		if err := counts.Scan(&id, &key, &cat, &n); err != nil {
 			return nil, err
 		}
-		for i := range out {
-			if out[i].ID == pid {
-				out[i].Counts[key] = n
-				if cat != "done" {
-					out[i].Open += n
-				}
-			}
+		p := &out[byID[id]]
+		p.Counts[key] = n
+		if cat != "done" {
+			p.Open += n
 		}
 	}
-	return out, crows.Err()
-}
-
-// ListDeletedProjects returns the projects in the trash, newest first.
-func (t *Tx) ListDeletedProjects() ([]Project, error) {
-	rows, err := t.tx.Query(`SELECT ` + projectCols + ` FROM projects WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC`)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	out := []Project{}
-	for rows.Next() {
-		p, err := scanProject(rows)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, p)
-	}
-	return out, rows.Err()
+	return out, counts.Err()
 }
 
 // PurgeProject physically removes a project with its tasks, notes, history and configuration.
@@ -180,6 +186,7 @@ func (t *Tx) PurgeProject(id int64) (int64, error) {
 		`DELETE FROM pages WHERE project_id = ?`,
 		`UPDATE tasks SET parent_id = NULL WHERE project_id = ?`,
 		`DELETE FROM notes WHERE task_id IN (SELECT id FROM tasks WHERE project_id = ?)`,
+		`DELETE FROM activity WHERE task_id IN (SELECT id FROM tasks WHERE project_id = ?)`,
 		`DELETE FROM activity WHERE project_id = ?`,
 	} {
 		if _, err := t.tx.Exec(q, id); err != nil {
@@ -279,6 +286,10 @@ func scanTask(r interface{ Scan(...any) error }) (Task, error) {
 		return x, ErrNotFound
 	}
 	if err == nil {
+		x.readBytes = len(custom) + len(x.DescriptionMD) + len(x.Title) + len(x.Area) + len(x.StatusName) + len(x.Status) + len(x.ParentCode) + len(x.Code) + len(x.CreatedBy)
+		if x.ExternalID != nil {
+			x.readBytes += len(*x.ExternalID)
+		}
 		err = json.Unmarshal([]byte(custom), &x.Custom)
 	}
 	if x.Custom == nil {
@@ -309,6 +320,9 @@ func (t *Tx) GetTaskByExternalID(ext string) (Task, error) {
 }
 
 type TaskFilter struct {
+	Limit, Offset int
+	Summary       bool // REST cards retain custom fields and counts, with a description presence flag.
+	Compact       bool // MCP board and day rows need only identity, title and display fields.
 	ProjectID     int64
 	Status        string // status key
 	PlannedFor    string
@@ -363,16 +377,48 @@ func (t *Tx) ListTasks(f TaskFilter) ([]Task, error) {
 	} else if q := ftsQuery(f.Q); q != "" {
 		add("t.id IN (SELECT rowid FROM tasks_fts WHERE tasks_fts MATCH ?)", q)
 	}
-	rows, err := t.tx.Query(`SELECT `+taskCols+taskFrom+` WHERE `+strings.Join(where, " AND ")+` ORDER BY `+order, args...)
+	cols := taskCols
+	scan := scanTask
+	if f.Compact {
+		cols = `t.id,t.project_id,p.slug,p.key || '-' || printf('%02d', t.number), t.title,s.key,t.priority,t.area,t.planned_for,t.description_md <> '',
+        coalesce((SELECT p.key || '-' || printf('%02d', pt.number) FROM tasks pt WHERE pt.id=t.parent_id),'')`
+		scan = func(r scanner) (x Task, err error) {
+			err = r.Scan(&x.ID, &x.ProjectID, &x.ProjectSlug, &x.Code, &x.Title, &x.Status, &x.Priority, &x.Area, &x.PlannedFor, &x.HasDescription, &x.ParentCode)
+			x.readBytes = len(x.Title) + len(x.Area) + len(x.Status) + len(x.ProjectSlug) + len(x.ParentCode) + len(x.Code)
+			return
+		}
+		if f.PlannedFor != "" {
+			order = "p.position,p.id,s.position,t.position"
+		}
+	} else if f.Summary {
+		cols = strings.Replace(taskCols, "t.description_md,", "CASE WHEN t.description_md <> '' THEN '1' ELSE '' END,", 1)
+		scan = func(r scanner) (x Task, err error) {
+			x, err = scanTask(r)
+			x.HasDescription = x.DescriptionMD != ""
+			x.DescriptionMD = ""
+			return
+		}
+	}
+	query := "SELECT " + cols + taskFrom + " WHERE " + strings.Join(where, " AND ") + " ORDER BY " + order + ",t.id"
+	if f.Limit > 0 {
+		query += " LIMIT ? OFFSET ?"
+		args = append(args, f.Limit, f.Offset)
+	}
+	rows, err := t.tx.Query(query, args...)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	out := []Task{}
+	bytes := 0
 	for rows.Next() {
-		x, err := scanTask(rows)
+		x, err := scan(rows)
 		if err != nil {
 			return nil, err
+		}
+		bytes += x.readBytes
+		if f.Limit > 0 && bytes > maxReadBytes && len(out) > 0 {
+			return nil, ErrPageTooLarge
 		}
 		out = append(out, x)
 	}
@@ -453,6 +499,54 @@ func (t *Tx) MoveStatusTasks(from, to int64, toDone bool) error {
 	return err
 }
 
+type TrashEntry struct {
+	ID        int64  `json:"id"`
+	DeletedAt string `json:"deleted_at"`
+}
+
+// TrashMatches checks the same visible sets returned by the two trash listings in the purge transaction.
+func (t *Tx) TrashMatches(tasks, projects []TrashEntry) (bool, error) {
+	for _, set := range []struct {
+		query string
+		seen  []TrashEntry
+	}{
+		{`SELECT t.id,t.deleted_at FROM tasks t JOIN projects p ON p.id=t.project_id WHERE t.deleted_at IS NOT NULL AND p.deleted_at IS NULL`, tasks},
+		{`SELECT id,deleted_at FROM projects WHERE deleted_at IS NOT NULL`, projects},
+	} {
+		remaining := make(map[TrashEntry]bool, len(set.seen))
+		for _, entry := range set.seen {
+			if remaining[entry] {
+				return false, nil
+			}
+			remaining[entry] = true
+		}
+		rows, err := t.tx.Query(set.query)
+		if err != nil {
+			return false, err
+		}
+		for rows.Next() {
+			var entry TrashEntry
+			if err := rows.Scan(&entry.ID, &entry.DeletedAt); err != nil {
+				rows.Close()
+				return false, err
+			}
+			if !remaining[entry] {
+				rows.Close()
+				return false, nil
+			}
+			delete(remaining, entry)
+		}
+		rows.Close()
+		if err := rows.Err(); err != nil {
+			return false, err
+		}
+		if len(remaining) > 0 {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
 // Purge physically deletes everything in the trash and returns how many tasks were removed.
 func (t *Tx) Purge() (int64, error) {
 	const trashed = `SELECT id FROM tasks WHERE deleted_at IS NOT NULL`
@@ -530,23 +624,26 @@ func (t *Tx) InsertNote(n Note) (Note, error) {
 	return n, err
 }
 
-// ListNotes returns notes of one task, or of all tasks when taskID is 0.
-func (t *Tx) ListNotes(taskID int64) ([]Note, error) {
-	q, args := `SELECT id, task_id, author, body_md, created_at FROM notes`, []any{}
-	if taskID != 0 {
-		q += ` WHERE task_id = ?`
-		args = append(args, taskID)
-	}
-	rows, err := t.tx.Query(q+` ORDER BY id`, args...)
+const maxReadBytes = 4 << 20
+
+var ErrPageTooLarge = errors.New("page exceeds 4 MiB; request a smaller limit")
+
+func (t *Tx) ListNotes(taskID int64, limit, offset int) ([]Note, error) {
+	rows, err := t.tx.Query(`SELECT id,task_id,author,body_md,created_at FROM notes WHERE task_id=? ORDER BY id LIMIT ? OFFSET ?`, taskID, limit, offset)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	out := []Note{}
+	bytes := 0
 	for rows.Next() {
-		var n Note
-		if err := rows.Scan(&n.ID, &n.TaskID, &n.Author, &n.BodyMD, &n.CreatedAt); err != nil {
+		n, err := scanNote(rows)
+		if err != nil {
 			return nil, err
+		}
+		bytes += len(n.BodyMD)
+		if bytes > maxReadBytes && len(out) > 0 {
+			return nil, ErrPageTooLarge
 		}
 		out = append(out, n)
 	}
@@ -562,9 +659,10 @@ func (t *Tx) InsertActivity(a Activity) error {
 // ListActivity returns the newest `limit` entries of one task (taskID 0: all tasks; limit <= 0: no limit),
 // with the code and title of the task they belong to.
 func (t *Tx) ListActivity(taskID int64, limit int) ([]Activity, error) {
-	q, args := `SELECT a.id, a.task_id, a.project_id, a.actor, a.action, a.diff_json, a.at,
-		coalesce(p.key || '-' || printf('%02d', t.number), ''), coalesce(t.title, '')
-		FROM activity a LEFT JOIN tasks t ON t.id = a.task_id LEFT JOIN projects p ON p.id = t.project_id`, []any{}
+	// Keep normal diffs exact. Large history entries remain in the export; the UI only needs action metadata.
+	cols := strings.Replace(activitySelect, "a.diff_json,", "CASE WHEN octet_length(a.diff_json)<=65536 THEN a.diff_json ELSE NULL END,", 1)
+	cols = strings.Replace(cols, "coalesce(t.title, '')", "substr(coalesce(t.title, ''),1,512)", 1)
+	q, args := cols, []any{}
 	if taskID != 0 {
 		q += ` WHERE a.task_id = ?`
 		args = append(args, taskID)
@@ -581,34 +679,11 @@ func (t *Tx) ListActivity(taskID int64, limit int) ([]Activity, error) {
 	defer rows.Close()
 	out := []Activity{}
 	for rows.Next() {
-		var a Activity
-		if err := rows.Scan(&a.ID, &a.TaskID, &a.ProjectID, &a.Actor, &a.Action, &a.DiffJSON, &a.At, &a.TaskCode, &a.TaskTitle); err != nil {
-			return nil, err
-		}
-		out = append(out, a)
-	}
-	return out, rows.Err()
-}
-
-// AllTasks returns every task including the trash, optionally of one project, for the JSON export.
-func (t *Tx) AllTasks(projectID int64) ([]Task, error) {
-	q, args := `SELECT `+taskCols+taskFrom, []any{}
-	if projectID != 0 {
-		q += ` WHERE t.project_id = ?`
-		args = append(args, projectID)
-	}
-	rows, err := t.tx.Query(q+` ORDER BY t.id`, args...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	out := []Task{}
-	for rows.Next() {
-		x, err := scanTask(rows)
+		a, err := scanActivity(rows)
 		if err != nil {
 			return nil, err
 		}
-		out = append(out, x)
+		out = append(out, a)
 	}
 	return out, rows.Err()
 }

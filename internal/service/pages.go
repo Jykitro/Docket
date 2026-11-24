@@ -18,13 +18,14 @@ const (
 
 type PageInput struct {
 	Title, BodyMD string
+	BodyHTML      *string
 	ParentID      *int64
 }
 
 type PagePatch struct {
-	Title, BodyMD     *string
-	ParentID          *int64 // 0 = top level
-	ExpectedUpdatedAt string
+	Title, BodyMD, BodyHTML *string
+	ParentID                *int64 // 0 = top level
+	ExpectedUpdatedAt       string
 }
 
 type PageLayout struct {
@@ -142,19 +143,21 @@ func getPage(tx *store.Tx, id int64) (store.Page, error) {
 }
 
 // ListPages returns the project's pages flat, without bodies.
-func (s *Service) ListPages(ctx context.Context, projectRef string) (out []store.Page, err error) {
+func (s *Service) ListPages(ctx context.Context, projectRef string) ([]store.Page, error) {
+	return s.WikiPageHeaders(ctx, projectRef, ReadPage{})
+}
+func (s *Service) WikiPageHeaders(ctx context.Context, projectRef string, page ReadPage) (out []store.Page, err error) {
+	page, err = page.normalized()
+	if err != nil {
+		return
+	}
 	err = s.read(ctx, func(tx *store.Tx) error {
 		p, err := resolveProject(tx, projectRef)
 		if err != nil {
 			return err
 		}
-		if out, err = tx.ListPages(p.ID); err != nil {
-			return err
-		}
-		for i := range out {
-			out[i].BodyMD = ""
-		}
-		return nil
+		out, err = tx.PageHeaders(p.ID, page.Limit, page.Offset)
+		return err
 	})
 	return out, err
 }
@@ -166,6 +169,14 @@ func (s *Service) CreatePage(ctx context.Context, actor, projectRef string, in P
 	title := strings.TrimSpace(in.Title)
 	if err := checkPageTitle(title); err != nil {
 		return pg, err
+	}
+	if in.BodyHTML != nil {
+		if in.BodyMD != "" {
+			return pg, invalid("provide one of body_md or body_html")
+		}
+		if len(*in.BodyHTML) > maxHTMLBytes {
+			return pg, invalid("HTML exceeds 2 MiB")
+		}
 	}
 	if err := checkPageBody(in.BodyMD); err != nil {
 		return pg, err
@@ -188,7 +199,7 @@ func (s *Service) CreatePage(ctx context.Context, actor, projectRef string, in P
 			return err
 		}
 		now := nowTS()
-		pg, err = o.tx.InsertPage(store.Page{ProjectID: p.ID, ParentID: in.ParentID, Title: title, BodyMD: in.BodyMD,
+		pg, err = o.tx.InsertPage(store.Page{ProjectID: p.ID, ParentID: in.ParentID, Title: title, BodyMD: in.BodyMD, BodyHTML: in.BodyHTML,
 			Position: pos, CreatedAt: now, UpdatedAt: now}, titleKey(title))
 		o.emit("page_changed", 0, p.ID)
 		return err
@@ -224,7 +235,22 @@ func (s *Service) UpdatePage(ctx context.Context, actor string, id int64, patch 
 			}
 			cur.Title = *patch.Title
 		}
+		if patch.BodyHTML != nil {
+			if patch.BodyMD != nil {
+				return invalid("provide one of body_md or body_html")
+			}
+			if cur.BodyHTML == nil {
+				return invalid("this Markdown page requires body_md")
+			}
+			if len(*patch.BodyHTML) > maxHTMLBytes {
+				return invalid("HTML exceeds 2 MiB")
+			}
+			cur.BodyHTML = patch.BodyHTML
+		}
 		if patch.BodyMD != nil {
+			if cur.BodyHTML != nil {
+				return invalid("this HTML page requires body_html")
+			}
 			cur.BodyMD = *patch.BodyMD
 		}
 		if patch.Title != nil && titleKey(cur.Title) != oldKey {
@@ -264,6 +290,7 @@ func (s *Service) UpdatePage(ctx context.Context, actor string, id int64, patch 
 
 type WritePageInput struct {
 	Title, BodyMD     string
+	BodyHTML          *string
 	Parent            string // parent page title; "" = unchanged on update, top level on create
 	ExpectedUpdatedAt string
 }
@@ -307,12 +334,17 @@ func (s *Service) WritePage(ctx context.Context, actor, projectRef string, in Wr
 		return store.Page{}, false, conflict("page %q no longer exists; it was deleted or renamed since you read it", in.Title)
 	}
 	if pg == nil {
-		created, err := s.CreatePage(ctx, actor, projectRef, PageInput{Title: in.Title, BodyMD: in.BodyMD, ParentID: parentID})
+		created, err := s.CreatePage(ctx, actor, projectRef, PageInput{Title: in.Title, BodyMD: in.BodyMD, BodyHTML: in.BodyHTML, ParentID: parentID})
 		return created, true, err
 	}
 	// The title stays as stored: a different casing in the call must not rename the owner's page.
-	updated, err := s.UpdatePage(ctx, actor, pg.ID, PagePatch{BodyMD: &in.BodyMD, ParentID: parentID,
-		ExpectedUpdatedAt: in.ExpectedUpdatedAt})
+	patch := PagePatch{BodyHTML: in.BodyHTML, ParentID: parentID, ExpectedUpdatedAt: in.ExpectedUpdatedAt}
+	if in.BodyHTML == nil {
+		patch.BodyMD = &in.BodyMD
+	} else if in.BodyMD != "" {
+		return store.Page{}, false, invalid("provide one of body_md or body_html")
+	}
+	updated, err := s.UpdatePage(ctx, actor, pg.ID, patch)
 	return updated, false, err
 }
 
@@ -328,6 +360,9 @@ func (s *Service) AppendToPage(ctx context.Context, actor, projectRef, title, te
 	if pg == nil {
 		return store.Page{}, notFound("no page titled %q in this project", title)
 	}
+	if pg.BodyHTML != nil {
+		return store.Page{}, invalid("append_to_page requires Markdown; use write_page with body_html to update HTML")
+	}
 	body := text
 	if base := strings.TrimRight(pg.BodyMD, "\n"); base != "" {
 		body = base + "\n\n" + text
@@ -335,36 +370,104 @@ func (s *Service) AppendToPage(ctx context.Context, actor, projectRef, title, te
 	return s.UpdatePage(ctx, actor, pg.ID, PagePatch{BodyMD: &body, ExpectedUpdatedAt: pg.UpdatedAt})
 }
 
-func replaceLinks(body, oldKey, newTitle string) string {
-	return wikiLinkRe.ReplaceAllStringFunc(body, func(m string) string {
-		if titleKey(m[2:len(m)-2]) == oldKey {
-			return "[[" + newTitle + "]]"
+// Keep interactive source opaque to the wiki link index and automatic renames.
+// Track other fences too, so Markdown examples that quote a live block stay literal.
+func mapWikiProse(body string, prose func(string) string, keepHTML bool) string {
+	if !strings.Contains(body, "html-preview") {
+		return prose(body)
+	}
+	var out strings.Builder
+	var fence string
+	var live bool
+	var start, offset int
+	for line := range strings.SplitAfterSeq(body, "\n") {
+		begin := offset
+		offset += len(line)
+		trim := strings.TrimLeft(line, " ")
+		if len(line)-len(trim) > 3 || len(trim) < 3 || (trim[0] != '~' && trim[0] != '`') {
+			continue
 		}
-		return m
-	})
+		n := 1
+		for n < len(trim) && trim[n] == trim[0] {
+			n++
+		}
+		if n < 3 {
+			continue
+		}
+		info := strings.TrimSpace(trim[n:])
+		if fence == "" {
+			if trim[0] == '`' && strings.ContainsRune(info, '`') {
+				continue
+			}
+			fence = trim[:n]
+			live = info == "html-preview"
+			if live {
+				out.WriteString(prose(body[start:begin]))
+				start = begin
+			}
+		} else if strings.HasPrefix(trim[:n], fence) && info == "" {
+			if live {
+				if keepHTML {
+					out.WriteString(body[start:offset])
+				}
+				start = offset
+			}
+			fence = ""
+			live = false
+		}
+	}
+	if live {
+		if keepHTML {
+			out.WriteString(body[start:])
+		}
+	} else {
+		out.WriteString(prose(body[start:]))
+	}
+	return out.String()
+}
+
+func linkText(body string) string {
+	return mapWikiProse(body, func(s string) string { return s }, false)
+}
+
+func replaceLinks(body, oldKey, newTitle string) string {
+	return mapWikiProse(body, func(text string) string {
+		return wikiLinkRe.ReplaceAllStringFunc(text, func(m string) string {
+			if titleKey(m[2:len(m)-2]) == oldKey {
+				return "[[" + newTitle + "]]"
+			}
+			return m
+		})
+	}, true)
 }
 
 // rewriteLinks turns [[old]] into [[newTitle]] in the other pages of self's project (same transaction);
 // self's own body is rewritten by the caller.
 func rewriteLinks(tx *store.Tx, self store.Page, oldKey, newTitle string) error {
-	pages, err := tx.ListPages(self.ProjectID)
-	if err != nil {
-		return err
-	}
-	for _, p := range pages {
-		if p.ID == self.ID {
-			continue
-		}
-		body := replaceLinks(p.BodyMD, oldKey, newTitle)
-		if body == p.BodyMD {
-			continue
-		}
-		p.BodyMD, p.UpdatedAt = body, nextPageRevision(p.UpdatedAt)
-		if err := tx.UpdatePage(p, titleKey(p.Title)); err != nil {
+	var lastID int64
+	for {
+		pages, err := tx.MarkdownBatch(self.ProjectID, lastID)
+		if err != nil {
 			return err
 		}
+		if len(pages) == 0 {
+			return nil
+		}
+		lastID = pages[len(pages)-1].ID
+		for _, p := range pages {
+			if p.ID == self.ID {
+				continue
+			}
+			body := replaceLinks(p.BodyMD, oldKey, newTitle)
+			if body == p.BodyMD {
+				continue
+			}
+			p.BodyMD, p.UpdatedAt = body, nextPageRevision(p.UpdatedAt)
+			if err := tx.UpdatePage(p, titleKey(p.Title)); err != nil {
+				return err
+			}
+		}
 	}
-	return nil
 }
 
 func samePage(a, b *int64) bool { return (a == nil && b == nil) || (a != nil && b != nil && *a == *b) }
@@ -421,6 +524,7 @@ type TaskPage struct {
 // parseLinks returns the distinct [[page]] titles (as titleKey) and task codes of a body.
 // shortcut: links inside fenced code are counted too; upgrade when it matters.
 func parseLinks(body string) (titles []string, codes []string) {
+	body = linkText(body)
 	seen := map[string]bool{}
 	for _, m := range wikiLinkRe.FindAllStringSubmatch(body, -1) {
 		if k := titleKey(m[1]); k != "" && !seen[k] {
@@ -437,28 +541,46 @@ func parseLinks(body string) (titles []string, codes []string) {
 	return titles, codes
 }
 
-func pageDetail(tx *store.Tx, pg store.Page) (PageDetail, error) {
+func pageDetail(tx *store.Tx, pg store.Page, documentOffset int) (PageDetail, error) {
 	d := PageDetail{Page: pg, Backlinks: []PageRef{}}
 	d.Links.Pages, d.Links.Tasks = []PageRef{}, []TaskRef{}
-	all, err := tx.ListPages(pg.ProjectID)
+	if pg.ParentID != nil {
+		title, err := tx.PageTitle(*pg.ParentID)
+		if err != nil {
+			return d, err
+		}
+		d.ParentTitle = title
+	}
+	titles, codes := parseLinks(pg.BodyMD)
+	targets := make(map[string]PageRef, len(titles))
+	for _, key := range titles {
+		targets[key] = PageRef{}
+	}
+	self := titleKey(pg.Title)
+	offset := documentOffset
+	err := tx.WalkPageLinks(pg.ProjectID, func(id int64, title, body string) error {
+		if k := titleKey(title); len(targets) > 0 {
+			if _, needed := targets[k]; needed {
+				targets[k] = PageRef{id, title}
+			}
+		}
+		if id != pg.ID && len(d.Backlinks) < TaskPageSize && strings.Contains(body, "[[") {
+			if links, _ := parseLinks(body); contains(links, self) {
+				if offset > 0 {
+					offset--
+				} else {
+					d.Backlinks = append(d.Backlinks, PageRef{id, title})
+				}
+			}
+		}
+		return nil
+	})
 	if err != nil {
 		return d, err
 	}
-	byKey := map[string]store.Page{}
-	self := titleKey(pg.Title)
-	for _, p := range all {
-		byKey[titleKey(p.Title)] = p
-		if p.ID == pg.ID {
-			continue
-		}
-		if titles, _ := parseLinks(p.BodyMD); contains(titles, self) {
-			d.Backlinks = append(d.Backlinks, PageRef{p.ID, p.Title})
-		}
-	}
-	titles, codes := parseLinks(pg.BodyMD)
-	for _, k := range titles {
-		if p, ok := byKey[k]; ok {
-			d.Links.Pages = append(d.Links.Pages, PageRef{p.ID, p.Title})
+	for _, key := range titles {
+		if ref := targets[key]; ref.ID != 0 {
+			d.Links.Pages = append(d.Links.Pages, ref)
 		}
 	}
 	for _, c := range codes {
@@ -474,23 +596,35 @@ func pageDetail(tx *store.Tx, pg store.Page) (PageDetail, error) {
 			d.Links.Tasks = append(d.Links.Tasks, TaskRef{t.Code, t.Title})
 		}
 	}
-	d.Documents, err = tx.Documents(0, pg.ID)
+	d.Documents, err = tx.Documents(0, pg.ID, TaskPageSize, documentOffset)
 	return d, err
 }
 
-func (s *Service) GetPage(ctx context.Context, id int64) (d PageDetail, err error) {
+func (s *Service) GetPage(ctx context.Context, id int64) (PageDetail, error) {
+	return s.PageDocuments(ctx, id, 0)
+}
+func (s *Service) PageDocuments(ctx context.Context, id int64, documentOffset int) (d PageDetail, err error) {
+	if documentOffset < 0 {
+		return d, invalid("document_offset must be non-negative")
+	}
 	err = s.read(ctx, func(tx *store.Tx) error {
 		pg, err := getPage(tx, id)
 		if err != nil {
 			return err
 		}
-		d, err = pageDetail(tx, pg)
+		d, err = pageDetail(tx, pg, documentOffset)
 		return err
 	})
 	return d, err
 }
 
-func (s *Service) GetPageByTitle(ctx context.Context, projectRef, title string) (d PageDetail, err error) {
+func (s *Service) GetPageByTitle(ctx context.Context, projectRef, title string) (PageDetail, error) {
+	return s.PageDocumentsByTitle(ctx, projectRef, title, 0)
+}
+func (s *Service) PageDocumentsByTitle(ctx context.Context, projectRef, title string, documentOffset int) (d PageDetail, err error) {
+	if documentOffset < 0 {
+		return d, invalid("document_offset must be non-negative")
+	}
 	err = s.read(ctx, func(tx *store.Tx) error {
 		p, err := resolveProject(tx, projectRef)
 		if err != nil {
@@ -503,7 +637,7 @@ func (s *Service) GetPageByTitle(ctx context.Context, projectRef, title string) 
 		if err != nil {
 			return err
 		}
-		d, err = pageDetail(tx, pg)
+		d, err = pageDetail(tx, pg, documentOffset)
 		return err
 	})
 	return d, err
@@ -525,7 +659,7 @@ func (s *Service) TaskPages(ctx context.Context, taskRef string) (out []TaskPage
 			return err
 		}
 		for _, pg := range cand {
-			if !contains(taskCodeRe.FindAllString(pg.BodyMD, -1), t.Code) {
+			if !contains(taskCodeRe.FindAllString(linkText(pg.BodyMD), -1), t.Code) {
 				continue
 			}
 			p, err := tx.GetProject(pg.ProjectID)

@@ -21,11 +21,11 @@ func TestPostgresWorkspacePersistenceAndRemoval(t *testing.T) {
 	w.UsePostgres(dsn)
 	defer w.Close()
 	ctx := context.Background()
-	alice, err := w.Open(ctx, auth.User{ID: 1, Username: "alice"})
+	alice, err := w.Open(ctx, auth.User{ID: 1, Username: "alice", WorkspaceKey: "fixture-alice"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	bob, err := w.Open(ctx, auth.User{ID: 2, Username: "bob"})
+	bob, err := w.Open(ctx, auth.User{ID: 2, Username: "bob", WorkspaceKey: "fixture-bob"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -37,7 +37,7 @@ func TestPostgresWorkspacePersistenceAndRemoval(t *testing.T) {
 	}
 	w.Close()
 	// Reopen through new pools to verify migrations and search_path after reconnects.
-	alice, err = w.Open(ctx, auth.User{ID: 1, Username: "alice"})
+	alice, err = w.Open(ctx, auth.User{ID: 1, Username: "alice", WorkspaceKey: "fixture-alice"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,7 +55,7 @@ func TestPostgresWorkspacePersistenceAndRemoval(t *testing.T) {
 	fresh.UsePostgres(dsn)
 	defer fresh.Close()
 	for _, id := range []int64{1, 2} {
-		ws, err := fresh.Open(ctx, auth.User{ID: id, Username: "fresh"})
+		ws, err := fresh.Open(ctx, auth.User{ID: id, Username: "fresh", WorkspaceKey: "fixture-fresh"})
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -25,7 +25,7 @@ func newWS(t *testing.T) (*Workspaces, string) {
 func TestOpenCreatesFileAndProfile(t *testing.T) {
 	w, dir := newWS(t)
 	ctx := context.Background()
-	ws, err := w.Open(ctx, auth.User{ID: 7, Username: "alice"})
+	ws, err := w.Open(ctx, auth.User{ID: 7, Username: "alice", WorkspaceKey: "fixture-alice"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -39,7 +39,7 @@ func TestOpenCreatesFileAndProfile(t *testing.T) {
 
 func TestOpenIdempotent(t *testing.T) {
 	w, _ := newWS(t)
-	u := auth.User{ID: 1, Username: "bob"}
+	u := auth.User{ID: 1, Username: "bob", WorkspaceKey: "fixture-bob"}
 	a, err := w.Open(context.Background(), u)
 	if err != nil {
 		t.Fatal(err)
@@ -53,7 +53,7 @@ func TestOpenIdempotent(t *testing.T) {
 func TestOpenKeepsExistingProfileName(t *testing.T) {
 	w, dir := newWS(t)
 	ctx := context.Background()
-	u := auth.User{ID: 2, Username: "carol"}
+	u := auth.User{ID: 2, Username: "carol", WorkspaceKey: "fixture-carol"}
 	ws, err := w.Open(ctx, u)
 	if err != nil {
 		t.Fatal(err)
@@ -75,7 +75,7 @@ func TestOpenKeepsExistingProfileName(t *testing.T) {
 
 func TestRemoveDeletesFiles(t *testing.T) {
 	w, dir := newWS(t)
-	if _, err := w.Open(context.Background(), auth.User{ID: 3, Username: "dave"}); err != nil {
+	if _, err := w.Open(context.Background(), auth.User{ID: 3, Username: "dave", WorkspaceKey: "fixture-dave"}); err != nil {
 		t.Fatal(err)
 	}
 	if err := w.Remove(3); err != nil {
@@ -98,7 +98,7 @@ func TestRemoveTombstonesAndCancels(t *testing.T) {
 		return http.NotFoundHandler()
 	})
 	t.Cleanup(w.Close)
-	u := auth.User{ID: 4, Username: "erin"}
+	u := auth.User{ID: 4, Username: "erin", WorkspaceKey: "fixture-erin"}
 	if _, err := w.Open(context.Background(), u); err != nil {
 		t.Fatal(err)
 	}
@@ -115,7 +115,7 @@ func TestRemoveTombstonesAndCancels(t *testing.T) {
 
 func TestCloseCancels(t *testing.T) {
 	w, _ := newWS(t)
-	ws, err := w.Open(context.Background(), auth.User{ID: 5, Username: "fay"})
+	ws, err := w.Open(context.Background(), auth.User{ID: 5, Username: "fay", WorkspaceKey: "fixture-fay"})
 	if err != nil {
 		t.Fatal(err)
 	}

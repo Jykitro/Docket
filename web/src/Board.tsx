@@ -125,7 +125,7 @@ function CardContent({ t, labels, fields, movable }: CardProps) {
           </span>
         )}
         {t.subtask_count > 0 && <span className={MC + ' text-t3 tabular-nums'}><Icon name="subtask" size={13} sw={1.9} />{t.subtask_done}/{t.subtask_count}</span>}
-        {t.description_md && <span className={MC + ' text-t3'} title={tr('Есть описание')}><Icon name="doc" size={13} sw={1.9} /></span>}
+        {(t.has_description || t.description_md) && <span className={MC + ' text-t3'} title={tr('Есть описание')}><Icon name="doc" size={13} sw={1.9} /></span>}
         {fields.filter((f) => f.show_on_card && t.custom[String(f.id)] !== undefined).map((f) => (
           <span key={f.id} className={MC + ' text-t3'}>{f.name}: {String(t.custom[String(f.id)])}</span>
         ))}

@@ -2,7 +2,8 @@
 // users and invites. Rendered by AppSettings only in self-host mode.
 import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ApiError, type AuthUser, api, errText } from './api'
+import { ApiError, type AuthUser, type Registration, api, errText } from './api'
+import { PasskeySettings } from './Passkeys'
 import { Icon } from './icons'
 import { locale, tr } from './i18n'
 import { ConfirmButton, btn, btnPri, cap } from './ui'
@@ -35,7 +36,7 @@ function ChangePassword({ username }: { username: string }) {
   )
 }
 
-function Invites() {
+function Invites({ closed }: { closed: boolean }) {
   const qc = useQueryClient()
   const pending = useQuery({ queryKey: ['admin', 'invites'], queryFn: api.adminInvites })
   const [copied, setCopied] = useState<'done' | 'manual' | null>(null)
@@ -66,7 +67,7 @@ function Invites() {
     <div className="flex flex-col gap-1.5">
       <span className={cap}>{tr('Приглашения')}</span>
       <div>
-        <button type="button" className={btnPri} disabled={create.isPending} onClick={() => create.mutate()}><Icon name="plus" size={15} sw={2} />{tr('Создать приглашение')}</button>
+        <button type="button" className={btnPri} disabled={closed || create.isPending} onClick={() => create.mutate()}><Icon name="plus" size={15} sw={2} />{tr('Создать приглашение')}</button>
       </div>
       <span className="text-xs text-t3">{tr('Новое приглашение не отменяет прежние. Полная ссылка показывается только один раз.')}</span>
       {create.isError && <div className="text-rd text-[13px]" role="alert">{errText(create.error)}</div>}
@@ -97,13 +98,22 @@ function Invites() {
 function Users({ me }: { me: AuthUser }) {
   const qc = useQueryClient()
   const users = useQuery({ queryKey: ['admin', 'users'], queryFn: api.adminUsers })
-  const remove = useMutation({
-    mutationFn: api.deleteUser,
+  const registration = useQuery({ queryKey: ['signup-mode'], queryFn: api.registration })
+  const mode = useMutation({ mutationFn: api.setRegistration, onSuccess: () => qc.invalidateQueries({ queryKey: ['signup-mode'] }) })
+  const block = useMutation({
+    mutationFn: ({ id, blocked }: { id: number; blocked: boolean }) => api.blockUser(id, blocked),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'users'] }),
   })
   return (
     <>
       <div className="flex flex-col gap-1.5">
+        <label className="grid gap-1"><span className={cap}>{tr('Регистрация')}</span>
+          <select className={input} value={registration.data?.mode ?? ''} disabled={!registration.data || mode.isPending}
+            onChange={e => mode.mutate(e.target.value as Registration)}>
+            {!registration.data && <option value="">{tr('Загрузка…')}</option>}
+            <option value="invite">{tr('По приглашению')}</option><option value="closed">{tr('Закрытая')}</option><option value="open">{tr('Открытая')}</option>
+          </select></label>
+        {(mode.isError || registration.isError) && <p role="alert">{errText(mode.error ?? registration.error)}</p>}
         <span className={cap}>{tr('Пользователи')}</span>
         {users.isPending && <span className="px-3 text-[12.5px] text-t3">{tr('Загрузка…')}</span>}
         {users.data?.map((u) => (
@@ -111,16 +121,41 @@ function Users({ me }: { me: AuthUser }) {
             <span className="grow min-w-0 truncate">{u.username}{u.id === me.id && <span className="ml-2 text-xs text-t3">{tr('вы')}</span>}</span>
             <span className="shrink-0 text-[12.5px] text-t3">{day(u.created_at)}</span>
             {u.id !== me.id && (
-              <ConfirmButton className="shrink-0 max-w-[65%] p-0 text-right text-[12.5px] text-t3 hover:text-rd" label={tr('Удалить')} ariaLabel={tr('Удалить пользователя {name}', { name: u.username })} armed={tr('Удалить «{name}» с данными?', { name: u.username })} disabled={remove.isPending} onConfirm={() => remove.mutate(u.id)} />
+              <ConfirmButton key={String(!!u.blocked)} className="shrink-0 max-w-[65%] p-0 text-right text-[12.5px] text-t3 hover:text-rd" label={u.blocked ? tr('Разблокировать') : tr('Заблокировать')} ariaLabel={u.blocked ? tr('Разблокировать {name}', { name: u.username }) : tr('Заблокировать {name}', { name: u.username })} armed={tr('Подтвердить')} disabled={block.isPending} onConfirm={() => block.mutate({ id: u.id, blocked: !u.blocked })} />
             )}
           </div>
         ))}
         {users.isError && <div className="text-rd text-[13px]" role="alert">{errText(users.error)}</div>}
-        {remove.isError && <div className="text-rd text-[13px]" role="alert">{errText(remove.error)}</div>}
+        {block.isError && <div className="text-rd text-[13px]" role="alert">{errText(block.error)}</div>}
       </div>
-      <Invites />
+      <Invites closed={registration.data?.mode === 'closed'} />
     </>
   )
+}
+
+function OwnerControls({ admin }: { admin: boolean }) {
+  const [action, setAction] = useState<'code' | 'delete' | null>(null)
+  const [password, setPassword] = useState('')
+  const [code, setCode] = useState('')
+  const confirm = useMutation({
+    gcTime: 0,
+    mutationFn: async () => {
+      if (action === 'delete') await api.deleteAccount(password)
+      else setCode((await api.issueRecovery(password)).recovery_code)
+    }, onSuccess: () => { setAction(null); setPassword('') },
+  })
+  const select = (value: typeof action) => { confirm.reset(); setCode(''); setPassword(''); setAction(value) }
+  return <div className="grid gap-2">
+    <div className="flex gap-2 flex-wrap"><button className={btn} onClick={() => select('code')}>{tr('Новый резервный код')}</button>
+      {!admin && <button className={btn} onClick={() => select('delete')}>{tr('Удалить мой аккаунт')}</button>}</div>
+    {action && <form className="grid gap-2" onSubmit={e => { e.preventDefault(); if (!confirm.isPending) confirm.mutate() }}>
+      <p className="text-sm">{action === 'delete' ? tr('Рабочие данные будут удалены. Для подтверждения введите пароль.') : tr('Предыдущий код перестанет действовать. Введите пароль.')}</p>
+      <input className={input} aria-label={tr('Текущий пароль')} type="password" autoComplete="current-password" required value={password} onChange={e => setPassword(e.target.value)} />
+      <div className="flex gap-2"><button className={btnPri} disabled={confirm.isPending}>{tr('Подтвердить')}</button><button type="button" className={btn} disabled={confirm.isPending} onClick={() => select(null)}>{tr('Отмена')}</button></div>
+      {confirm.isError && <p role="alert">{errText(confirm.error)}</p>}
+    </form>}
+    {code && <div role="status" className="grid gap-2"><b>{tr('Сохраните резервный код')}</b><code className="select-all break-all">{code}</code><button className={btn} onClick={() => setCode('')}>{tr('Код сохранён')}</button></div>}
+  </div>
 }
 
 export function AccountSection({ user }: { user: AuthUser }) {
@@ -135,7 +170,8 @@ export function AccountSection({ user }: { user: AuthUser }) {
         </div>
         {logout.isError && <div className="text-rd text-[13px]" role="alert">{errText(logout.error)}</div>}
       </div>
-      <ChangePassword username={user.username} />
+      <PasskeySettings />
+      <ChangePassword username={user.username} /><OwnerControls admin={user.is_admin} />
       {user.is_admin && <Users me={user} />}
     </>
   )

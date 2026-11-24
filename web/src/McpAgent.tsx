@@ -37,7 +37,9 @@ const HOOK = `{
 // Claude Code: the project file. Codex: its global file (hooks are on by default there).
 const HOOK_PATH = ['.claude/settings.json', '', '~/.codex/hooks.json']
 
-export function McpAgent({ tab, url, token }: { tab: number; url: string; token: () => Promise<string> }) {
+export const shellQuote = (value: string) => "'" + value.replaceAll("'", "'\"'\"'") + "'"
+
+export function McpAgent({ tab, url }: { tab: number; url: string }) {
   const [copied, setCopied] = useState('')
   const [error, setError] = useState('')
   const copy = async (what: string, text: () => string | Promise<string>) => {
@@ -56,7 +58,7 @@ export function McpAgent({ tab, url, token }: { tab: number; url: string; token:
     return r.text()
   }
   // The server may sit in Docker and cannot reach the user's home, so the page hands over one command that does everything.
-  const install = async () => `curl -fsSL ${location.origin}/api/mcp/install.sh | DOCKET_URL=${url} DOCKET_TOKEN=${await token()} sh`
+  const install = () => `curl -fsSL ${shellQuote(location.origin + '/api/mcp/install.sh')} | DOCKET_URL=${shellQuote(url)} sh`
   const path = SKILL_PATH[tab]
 
   return (
@@ -70,7 +72,7 @@ export function McpAgent({ tab, url, token }: { tab: number; url: string; token:
           <button type="button" className={PRI} onClick={() => copy('install', install)}>
             <Icon name={copied === 'install' ? 'check' : 'spark'} size={15} />{copied === 'install' ? tr('Команда скопирована') : tr('Установить одной командой')}
           </button>
-          <span className="min-w-0 flex-[1_1_260px] text-[12.5px] text-t3">{tr('Вставьте её в терминал: скрипт сам положит все три навыка и подключит Docket к Claude Code и Codex, какие найдёт. macOS и Linux. Claude Desktop настраивается конфигом выше.')}</span>
+          <span className="min-w-0 flex-[1_1_260px] text-[12.5px] text-t3">{tr('Выполните команду в терминале на macOS или Linux. Скрипт установит навыки и покажет команду для скрытого ввода токена. Запускайте Claude Code или Codex из этой оболочки.')}</span>
         </div>
         <ol className="flex flex-col gap-1.5 text-[13px]">
           {STEPS.map(([name, text], i) => (

@@ -52,6 +52,15 @@ func callActor(ctx context.Context, req mcp.Request) string {
 // Handler returns the handler for /mcp (one MCP tool per Docket tool) and /mcp/code (Code Mode: one `code`
 // tool that runs JavaScript calling the same tools). Host checks and auth are done by the caller's middleware.
 func Handler(svc *service.Service, loc *time.Location) http.Handler {
+	return IsolatedHandler(svc, loc, NewRunner("/run/docket-code/runner.sock"))
+}
+
+// IsolatedHandler sends every Code Mode invocation for this workspace to the resource-limited runner.
+func IsolatedHandler(svc *service.Service, loc *time.Location, runner *Runner) http.Handler {
+	return workspaceHandler(svc, loc, runner.workspace())
+}
+
+func workspaceHandler(svc *service.Service, loc *time.Location, execute evaluator) http.Handler {
 	s := mcp.NewServer(&mcp.Implementation{Name: "docket", Version: "1.0.0"}, &mcp.ServerOptions{Instructions: skills.Instructions()})
 	t := &tools{svc: svc, loc: loc}
 
@@ -79,7 +88,7 @@ func Handler(svc *service.Service, loc *time.Location) http.Handler {
 	add(s, "carry_over", t.carryOver)
 	add(s, "delete_tasks", t.deleteTasks)
 	s.AddReceivingMiddleware(policy(svc))
-	code := codeServer(svc, s)
+	code := codeServer(svc, s, execute)
 
 	opts := &mcp.StreamableHTTPOptions{
 		Stateless:    true,
@@ -171,9 +180,10 @@ func allowed(pol service.MCPPolicy, tool string) string {
 func call(ctx context.Context, svc *service.Service, method string, req mcp.Request, next mcp.MethodHandler) (mcp.Result, error) {
 	ctx = context.WithValue(ctx, agentKey{}, callActor(ctx, req))
 	start := time.Now()
-	var name, args string
+	var raw json.RawMessage
+	name, args := "unknown", ""
 	if p, ok := req.GetParams().(*mcp.CallToolParamsRaw); ok {
-		name, args = p.Name, summarize(p.Arguments)
+		name, raw = service.LogToolName(p.Name), p.Arguments
 	}
 	var res mcp.Result
 	var err error
@@ -182,6 +192,9 @@ func call(ctx context.Context, svc *service.Service, method string, req mcp.Requ
 	switch {
 	case perr != nil:
 		err, code = perr, "internal"
+	case name == "unknown":
+		code = "invalid_argument"
+		res = &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: "invalid_argument: unknown tool"}}}
 	case allowed(pol, name) != "":
 		code = allowed(pol, name)
 		msg := "tool " + name + " is switched off in Docket (MCP settings)"
@@ -190,6 +203,7 @@ func call(ctx context.Context, svc *service.Service, method string, req mcp.Requ
 		}
 		res = &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: code + ": " + msg}}}
 	default:
+		args = summarize(raw)
 		res, err = next(ctx, method, req)
 		code = resultCode(res, err)
 	}
@@ -199,8 +213,8 @@ func call(ctx context.Context, svc *service.Service, method string, req mcp.Requ
 	return res, err
 }
 
-var knownCodes = map[string]bool{"not_found": true, "invalid_argument": true, "forbidden": true, "tool_disabled": true,
-	"status_in_use": true, "conflict": true, "internal": true, "timeout": true}
+var knownCodes = map[string]bool{"page_too_large": true, "quota_exceeded": true, "not_found": true, "invalid_argument": true, "forbidden": true, "tool_disabled": true,
+	"status_in_use": true, "conflict": true, "internal": true, "timeout": true, "unavailable": true, "rate_limited": true}
 
 // resultCode returns "" for a successful call, else the error code taken from the "code: message" text.
 func resultCode(res mcp.Result, err error) string {
@@ -223,6 +237,9 @@ func resultCode(res mcp.Result, err error) string {
 
 // summarize renders the call arguments as short JSON for the log, without long markdown bodies.
 func summarize(raw json.RawMessage) string {
+	if len(raw) > 4096 {
+		return "…"
+	}
 	var v any
 	if json.Unmarshal(raw, &v) != nil {
 		return ""
@@ -232,7 +249,7 @@ func summarize(raw json.RawMessage) string {
 		switch t := x.(type) {
 		case map[string]any:
 			for k, e := range t {
-				if k == "description_md" || k == "body_md" || k == "code" || k == "html" || k == "observation" || k == "text" {
+				if k == "description_md" || k == "body_md" || k == "body_html" || k == "code" || k == "html" || k == "observation" || k == "text" {
 					t[k] = "…"
 				} else {
 					t[k] = strip(e)
@@ -270,7 +287,7 @@ type ctask struct {
 
 func compact(t store.Task) ctask {
 	c := ctask{ID: t.Code, Title: t.Title, Status: t.Status, Priority: t.Priority, Area: t.Area, Parent: t.ParentCode,
-		HasDescription: t.DescriptionMD != ""}
+		HasDescription: t.HasDescription || t.DescriptionMD != ""}
 	if t.PlannedFor != nil {
 		c.PlannedFor = *t.PlannedFor
 	}
@@ -286,23 +303,16 @@ func (t *tools) short(ts string) string {
 	return tm.In(t.loc).Format("2006-01-02 15:04")
 }
 
-func (t *tools) slugs(ctx context.Context) (map[int64]string, error) {
-	ps, err := t.svc.ListProjects(ctx, true)
-	m := map[int64]string{}
-	for _, p := range ps {
-		m[p.ID] = p.Slug
-	}
-	return m, err
-}
-
 // ---- tools ----
 
 type listProjectsIn struct {
+	Limit           int  `json:"limit,omitempty" jsonschema:"maximum projects, default and maximum 100"`
+	Offset          int  `json:"offset,omitempty" jsonschema:"skip this many projects"`
 	IncludeArchived bool `json:"include_archived,omitempty" jsonschema:"also list archived projects"`
 }
 
 func (t *tools) listProjects(ctx context.Context, in listProjectsIn) (any, error) {
-	ps, err := t.svc.ListProjects(ctx, in.IncludeArchived)
+	ps, err := t.svc.ProjectPage(ctx, in.IncludeArchived, false, true, service.ReadPage{Limit: in.Limit, Offset: in.Offset})
 	if err != nil {
 		return nil, err
 	}
@@ -341,6 +351,8 @@ func (t *tools) createProject(ctx context.Context, in createProjectIn) (any, err
 }
 
 type boardIn struct {
+	Limit       int    `json:"limit,omitempty" jsonschema:"maximum rows per list, default and maximum 100"`
+	Offset      int    `json:"offset,omitempty" jsonschema:"skip this many rows per list to read the next page"`
 	Project     string `json:"project,omitempty" jsonschema:"project key (TRK), slug or id; all projects when omitted"`
 	Status      string `json:"status,omitempty" jsonschema:"status key such as backlog, todo, doing, done or a custom one"`
 	PlannedFor  string `json:"planned_for,omitempty" jsonschema:"only tasks planned for this date, YYYY-MM-DD"`
@@ -349,7 +361,7 @@ type boardIn struct {
 }
 
 func (t *tools) getBoard(ctx context.Context, in boardIn) (any, error) {
-	f := store.TaskFilter{Status: in.Status, PlannedFor: in.PlannedFor, Area: in.Area, IncludeDone: in.IncludeDone}
+	f := store.TaskFilter{Compact: true, Limit: in.Limit, Offset: in.Offset, Status: in.Status, PlannedFor: in.PlannedFor, Area: in.Area, IncludeDone: in.IncludeDone}
 	if in.Project != "" {
 		p, err := t.svc.ResolveProject(ctx, in.Project)
 		if err != nil {
@@ -361,16 +373,12 @@ func (t *tools) getBoard(ctx context.Context, in boardIn) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	slugs, err := t.slugs(ctx)
-	if err != nil {
-		return nil, err
-	}
 	board := map[string][]ctask{}
 	for _, x := range ts {
 		c := compact(x)
 		c.Status = ""
 		if f.ProjectID == 0 {
-			c.Project = slugs[x.ProjectID]
+			c.Project = x.ProjectSlug
 		}
 		board[x.Status] = append(board[x.Status], c)
 	}
@@ -378,15 +386,13 @@ func (t *tools) getBoard(ctx context.Context, in boardIn) (any, error) {
 }
 
 type todayIn struct {
-	Date string `json:"date,omitempty" jsonschema:"YYYY-MM-DD; defaults to today"`
+	Limit  int    `json:"limit,omitempty" jsonschema:"maximum rows per list, default and maximum 100"`
+	Offset int    `json:"offset,omitempty" jsonschema:"skip this many rows per list to read the next page"`
+	Date   string `json:"date,omitempty" jsonschema:"YYYY-MM-DD; defaults to today"`
 }
 
 func (t *tools) getToday(ctx context.Context, in todayIn) (any, error) {
-	r, err := t.svc.TodayView(ctx, in.Date)
-	if err != nil {
-		return nil, err
-	}
-	slugs, err := t.slugs(ctx)
+	r, err := t.svc.TodayPage(ctx, in.Date, service.ReadPage{Limit: in.Limit, Offset: in.Offset}, true)
 	if err != nil {
 		return nil, err
 	}
@@ -394,31 +400,23 @@ func (t *tools) getToday(ctx context.Context, in todayIn) (any, error) {
 		Project string  `json:"project"`
 		Tasks   []ctask `json:"tasks"`
 	}
-	byProject := map[string][]ctask{}
+	groups := []group{}
+	indexes := map[string]int{}
 	for _, x := range r.Tasks {
+		i, ok := indexes[x.ProjectSlug]
+		if !ok {
+			i = len(groups)
+			indexes[x.ProjectSlug] = i
+			groups = append(groups, group{Project: x.ProjectSlug})
+		}
 		c := compact(x)
 		c.PlannedFor = ""
-		byProject[slugs[x.ProjectID]] = append(byProject[slugs[x.ProjectID]], c)
-	}
-	groups := []group{}
-	for _, p := range r.Projects { // keep sidebar order
-		if ts, ok := byProject[p.Slug]; ok {
-			groups = append(groups, group{p.Slug, ts})
-			delete(byProject, p.Slug)
-		}
-	}
-	rest := make([]string, 0, len(byProject))
-	for slug := range byProject { // archived projects
-		rest = append(rest, slug)
-	}
-	sort.Strings(rest)
-	for _, slug := range rest {
-		groups = append(groups, group{slug, byProject[slug]})
+		groups[i].Tasks = append(groups[i].Tasks, c)
 	}
 	overdue := []ctask{}
 	for _, x := range r.Overdue {
 		c := compact(x)
-		c.Project = slugs[x.ProjectID]
+		c.Project = x.ProjectSlug
 		overdue = append(overdue, c)
 	}
 	return map[string]any{"date": r.Date, "projects": groups, "overdue": overdue}, nil
@@ -430,15 +428,17 @@ type readHTMLInput struct {
 }
 
 type taskIn struct {
-	ID string `json:"id" jsonschema:"task ID such as TRK-07"`
+	Limit  int    `json:"limit,omitempty" jsonschema:"maximum rows per list, default and maximum 100"`
+	Offset int    `json:"offset,omitempty" jsonschema:"skip this many rows per list to read the next page"`
+	ID     string `json:"id" jsonschema:"task ID such as TRK-07"`
 }
 
 func (t *tools) getTask(ctx context.Context, in taskIn) (any, error) {
-	d, err := t.svc.GetTask(ctx, in.ID, 20)
+	d, err := t.svc.TaskPage(ctx, in.ID, 20, service.ReadPage{Limit: in.Limit, Offset: in.Offset})
 	if err != nil {
 		return nil, err
 	}
-	slugs, err := t.slugs(ctx)
+	project, err := t.svc.GetProject(ctx, d.ProjectID)
 	if err != nil {
 		return nil, err
 	}
@@ -477,7 +477,7 @@ func (t *tools) getTask(ctx context.Context, in taskIn) (any, error) {
 	}{ctask: compact(d.Task), Documents: d.Documents, Description: d.DescriptionMD, CreatedBy: d.CreatedBy, Created: t.short(d.CreatedAt),
 		Trashed: d.DeletedAt != nil}
 	out.HasDescription = false
-	out.Project = slugs[d.ProjectID]
+	out.Project = project.Slug
 	for _, f := range fields {
 		if v, ok := d.Custom[fmt.Sprint(f.ID)]; ok {
 			if out.Custom == nil {
@@ -627,58 +627,42 @@ func (t *tools) addNote(ctx context.Context, in addNoteIn) (any, error) {
 }
 
 type listPagesIn struct {
+	Limit   int    `json:"limit,omitempty" jsonschema:"maximum pages, default and maximum 100"`
+	Offset  int    `json:"offset,omitempty" jsonschema:"skip this many wiki page headers"`
 	Project string `json:"project" jsonschema:"project key, slug or id"`
 }
 
-// pageTitles maps page IDs of a project to titles, to show parents by title.
-func (t *tools) pageTitles(ctx context.Context, project string) (map[int64]string, []store.Page, error) {
-	pages, err := t.svc.ListPages(ctx, project)
-	if err != nil {
-		return nil, nil, err
-	}
-	titles := make(map[int64]string, len(pages))
-	for _, p := range pages {
-		titles[p.ID] = p.Title
-	}
-	return titles, pages, nil
-}
-
-func parentTitle(titles map[int64]string, p store.Page) string {
-	if p.ParentID == nil {
-		return ""
-	}
-	return titles[*p.ParentID]
-}
-
 func (t *tools) listPages(ctx context.Context, in listPagesIn) (any, error) {
-	titles, pages, err := t.pageTitles(ctx, in.Project)
+	pages, err := t.svc.WikiPageHeaders(ctx, in.Project, service.ReadPage{Limit: in.Limit, Offset: in.Offset})
 	if err != nil {
 		return nil, err
 	}
 	type row struct {
 		ID        int64  `json:"id"`
 		Title     string `json:"title"`
+		Format    string `json:"format,omitempty"`
 		Parent    string `json:"parent"`
 		UpdatedAt string `json:"updated_at"`
 	}
 	out := make([]row, len(pages))
 	for i, p := range pages {
-		out[i] = row{p.ID, p.Title, parentTitle(titles, p), p.UpdatedAt}
+		format := ""
+		if p.BodyHTML != nil {
+			format = "html"
+		}
+		out[i] = row{p.ID, p.Title, format, p.ParentTitle, p.UpdatedAt}
 	}
 	return out, nil
 }
 
 type readPageIn struct {
-	Project string `json:"project" jsonschema:"project key, slug or id"`
-	Title   string `json:"title" jsonschema:"page title (case-insensitive)"`
+	DocumentOffset int    `json:"document_offset,omitempty" jsonschema:"skip this many attachment headers and backlinks, each returned in pages of 100"`
+	Project        string `json:"project" jsonschema:"project key, slug or id"`
+	Title          string `json:"title" jsonschema:"page title (case-insensitive)"`
 }
 
 func (t *tools) readPage(ctx context.Context, in readPageIn) (any, error) {
-	d, err := t.svc.GetPageByTitle(ctx, in.Project, in.Title)
-	if err != nil {
-		return nil, err
-	}
-	titles, _, err := t.pageTitles(ctx, in.Project)
+	d, err := t.svc.PageDocumentsByTitle(ctx, in.Project, in.Title, in.DocumentOffset)
 	if err != nil {
 		return nil, err
 	}
@@ -689,20 +673,34 @@ func (t *tools) readPage(ctx context.Context, in readPageIn) (any, error) {
 	for _, k := range d.Links.Tasks {
 		tasks = append(tasks, k.Code)
 	}
-	return map[string]any{"id": d.ID, "title": d.Title, "parent": parentTitle(titles, d.Page), "body_md": d.BodyMD,
-		"updated_at": d.UpdatedAt, "backlinks": backlinks, "tasks": tasks, "documents": d.Documents}, nil
+	out := map[string]any{"id": d.ID, "title": d.Title, "parent": d.ParentTitle,
+		"updated_at": d.UpdatedAt, "backlinks": backlinks, "tasks": tasks, "documents": d.Documents}
+	if d.BodyHTML != nil {
+		out["body_html"] = *d.BodyHTML
+	} else {
+		out["body_md"] = d.BodyMD
+	}
+	return out, nil
 }
 
 type writePageIn struct {
-	Project           string `json:"project" jsonschema:"project key, slug or id"`
-	Title             string `json:"title" jsonschema:"page title; an existing page with this title (any case) has its body replaced and keeps its stored title"`
-	BodyMD            string `json:"body_md" jsonschema:"markdown, replaces the whole body; link pages as [[Title]]"`
-	Parent            string `json:"parent,omitempty" jsonschema:"title of the parent page; empty keeps the current parent (top level for a new page)"`
-	ExpectedUpdatedAt string `json:"expected_updated_at,omitempty" jsonschema:"updated_at from read_page; the write fails with conflict if the page changed since"`
+	Project           string  `json:"project" jsonschema:"project key, slug or id"`
+	Title             string  `json:"title" jsonschema:"page title; an existing page with this title (any case) has its body replaced and keeps its stored title"`
+	BodyMD            *string `json:"body_md,omitempty" jsonschema:"Markdown source; use html-preview fences for live HTML blocks; supply exactly one body field"`
+	BodyHTML          *string `json:"body_html,omitempty" jsonschema:"complete self-contained HTML page, up to 2 MiB; supply instead of body_md"`
+	Parent            string  `json:"parent,omitempty" jsonschema:"title of the parent page; empty keeps the current parent (top level for a new page)"`
+	ExpectedUpdatedAt string  `json:"expected_updated_at,omitempty" jsonschema:"updated_at from read_page; the write fails with conflict if the page changed since"`
 }
 
 func (t *tools) writePage(ctx context.Context, in writePageIn) (any, error) {
-	p, created, err := t.svc.WritePage(ctx, actor(ctx), in.Project, service.WritePageInput{Title: in.Title, BodyMD: in.BodyMD,
+	if (in.BodyMD == nil) == (in.BodyHTML == nil) {
+		return nil, &service.Error{Code: "validation", Message: "provide exactly one of body_md or body_html"}
+	}
+	var md string
+	if in.BodyMD != nil {
+		md = *in.BodyMD
+	}
+	p, created, err := t.svc.WritePage(ctx, actor(ctx), in.Project, service.WritePageInput{Title: in.Title, BodyMD: md, BodyHTML: in.BodyHTML,
 		Parent: in.Parent, ExpectedUpdatedAt: in.ExpectedUpdatedAt})
 	if err != nil {
 		return nil, err

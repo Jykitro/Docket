@@ -106,9 +106,28 @@ func TestWikiToolsOverMCP(t *testing.T) {
 			t.Fatalf("append_to_page summary lost the title: %s", c.ArgsSummary)
 		}
 	}
+	if out = call("write_page", `{"project":"p","title":"Report","body_html":"<p>standalone</p>"}`); !strings.Contains(out, `"created":true`) {
+		t.Fatal(out)
+	}
+	out = call("read_page", `{"project":"p","title":"Report"}`)
+	var htmlPage map[string]any
+	if err := json.Unmarshal([]byte(out), &htmlPage); err != nil || htmlPage["body_html"] != "<p>standalone</p>" || htmlPage["body_md"] != nil {
+		t.Fatal(out, err)
+	}
+	if out = call("write_page", `{"project":"p","title":"Report","body_md":"","body_html":"both"}`); !strings.HasPrefix(out, "ERR invalid_argument:") {
+		t.Fatal(out)
+	}
+	if out = summarize(json.RawMessage(`{"title":"test","body_html":"private source"}`)); strings.Contains(out, "private source") {
+		t.Fatal("HTML source in the call log")
+	}
+
 }
 
 func TestResultCodeAndSummarize(t *testing.T) {
+	if got := summarize(json.RawMessage(strings.Repeat("x", 4097))); got != "…" {
+		t.Fatal("oversized audit arguments", got)
+	}
+
 	conflict := &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: "conflict: page changed"}}}
 	if got := resultCode(conflict, nil); got != "conflict" {
 		t.Errorf("resultCode = %q, want conflict", got)
@@ -130,7 +149,7 @@ func TestAgentAttributionOverHTTP(t *testing.T) {
 	if _, err := svc.CreateProject(ctx, service.ActorDenis, service.ProjectInput{Name: "Agents", Key: "AG"}); err != nil {
 		t.Fatal(err)
 	}
-	h := Handler(svc, time.UTC)
+	h := workspaceHandler(svc, time.UTC, runCode)
 	call := func(path, client, userAgent, tool string, args any) {
 		t.Helper()
 		params := map[string]any{"name": tool, "arguments": args}

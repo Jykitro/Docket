@@ -1,7 +1,10 @@
 package service
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -226,7 +229,7 @@ func TestTaskNumbersAreNeverReused(t *testing.T) {
 	if _, err := s.DeleteTasks(ctx, ActorDenis, []string{"trk-03"}); err != nil {
 		t.Fatal(err)
 	}
-	if n, _ := s.PurgeTrash(ctx); n != 1 {
+	if n, _ := s.PurgeTrash(ctx, reviewedTrash(t, s)); n != 1 {
 		t.Fatalf("purged %d", n)
 	}
 	next := mustTasks(t, s, ActorClaude, NewTask{Project: "tracker", Title: "d"})[0]
@@ -287,7 +290,7 @@ func TestSoftDeleteHidden(t *testing.T) {
 		t.Fatalf("restore brought back %d tasks, want 3", len(live))
 	}
 	s.DeleteTasks(ctx, ActorDenis, []string{id(ts[2].ID)})
-	if n, err := s.PurgeTrash(ctx); err != nil || n != 1 {
+	if n, err := s.PurgeTrash(ctx, reviewedTrash(t, s)); err != nil || n != 1 {
 		t.Fatalf("purged %d, %v", n, err)
 	}
 }
@@ -668,7 +671,7 @@ func TestProjectTrash(t *testing.T) {
 
 	// Emptying the trash removes the project for good and frees its slug and key.
 	s.DeleteProject(ctx, ActorDenis, p.ID)
-	if n, err := s.PurgeTrash(ctx); err != nil || n != 1 {
+	if n, err := s.PurgeTrash(ctx, reviewedTrash(t, s)); err != nil || n != 1 {
 		t.Fatalf("purged %d tasks, %v; want 1", n, err)
 	}
 	if _, err := s.GetProject(ctx, p.ID); err == nil {
@@ -709,5 +712,166 @@ func TestProfile(t *testing.T) {
 	}
 	if p, _ := s.GetProfile(ctx); p.Name != "Аня" {
 		t.Fatalf("want trimmed name, got %q", p.Name)
+	}
+}
+
+func reviewedTrash(t *testing.T, s *Service) TrashSnapshot {
+	t.Helper()
+	out := TrashSnapshot{Tasks: []store.TrashEntry{}, Projects: []store.TrashEntry{}}
+	tasks, err := s.Trash(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, task := range tasks {
+		out.Tasks = append(out.Tasks, store.TrashEntry{ID: task.ID, DeletedAt: *task.DeletedAt})
+	}
+	ps, err := s.ListDeletedProjects(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range ps {
+		out.Projects = append(out.Projects, store.TrashEntry{ID: p.ID, DeletedAt: *p.DeletedAt})
+	}
+	return out
+}
+
+func TestPurgeRequiresCurrentReview(t *testing.T) {
+	s := newSvc(t)
+	mustProject(t, s, "qa")
+	ts := mustTasks(t, s, "codex", NewTask{Project: "qa", Title: "one"}, NewTask{Project: "qa", Title: "two"})
+	if _, err := s.DeleteTasks(ctx, ActorDenis, []string{ts[0].Code}); err != nil {
+		t.Fatal(err)
+	}
+	seen := reviewedTrash(t, s)
+	if _, err := s.DeleteTasks(ctx, ActorDenis, []string{ts[1].Code}); err != nil {
+		t.Fatal(err)
+	}
+	if n, err := s.PurgeTrash(ctx, seen); ErrorCode(err) != "trash_changed" || n != 0 {
+		t.Fatal(n, err)
+	}
+	if got := reviewedTrash(t, s); len(got.Tasks) != 2 {
+		t.Fatal(got)
+	}
+}
+
+type Export struct {
+	Documents  []store.HTMLDocument `json:"html_documents"`
+	ExportedAt string               `json:"exported_at"`
+	Projects   []store.Project      `json:"projects"`
+	Statuses   []store.Status       `json:"statuses"`
+	Labels     []store.Label        `json:"labels"`
+	Fields     []store.Field        `json:"fields"`
+	Views      []store.View         `json:"views"`
+	Tasks      []store.Task         `json:"tasks"`
+	Notes      []store.Note         `json:"notes"`
+	Pages      []store.Page         `json:"pages"`
+	Activity   []store.Activity     `json:"activity"`
+}
+
+// Decode the same streamed export used by the HTTP download.
+func (s *Service) Export(ctx context.Context, projectID int64) (e Export, err error) {
+	var b bytes.Buffer
+	if err = s.WriteExport(ctx, projectID, &b, func(string) {}); err == nil {
+		err = json.Unmarshal(b.Bytes(), &e)
+	}
+	return
+}
+
+func TestIdentifierAllocationReturnsAfterCanceledTransaction(t *testing.T) {
+	s := newSvc(t)
+	var finished *store.Tx
+	c, cancel := context.WithCancel(ctx)
+	err := s.st.WithTx(c, func(tx *store.Tx) error { finished = tx; cancel(); return context.Canceled })
+	if !errors.Is(err, context.Canceled) {
+		t.Fatal(err)
+	}
+	done := make(chan error, 1)
+	go func() { _, err := deriveKey(finished, "sample"); done <- err }()
+	select {
+	case err := <-done:
+		if err == nil {
+			t.Fatal("closed transaction produced a key")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("identifier allocation continued after cancellation")
+	}
+}
+
+func TestMovedTaskHistoryStaysWithinProjectExportsAndPurge(t *testing.T) {
+	s := newSvc(t)
+	a, b := mustProject(t, s, "source"), mustProject(t, s, "dest")
+	task := mustTasks(t, s, "codex", NewTask{Project: a.Key, Title: "old"})[0]
+	if _, err := s.UpdateTask(ctx, ActorDenis, task.Code, Changes{ProjectID: &b.ID}); err != nil {
+		t.Fatal(err)
+	}
+	for _, pid := range []int64{a.ID, b.ID} {
+		e, err := s.Export(ctx, pid)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, event := range e.Activity {
+			if event.TaskID != nil && *event.TaskID == task.ID && (pid == a.ID || event.ProjectID == nil || *event.ProjectID != pid || strings.Contains(event.DiffJSON, `"project_id"`)) {
+				t.Fatal(event)
+			}
+		}
+	}
+	if _, err := s.DeleteProject(ctx, ActorDenis, b.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.PurgeTrash(ctx, reviewedTrash(t, s)); err != nil {
+		t.Fatal(err)
+	}
+	e, err := s.Export(ctx, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, event := range e.Activity {
+		if event.TaskID != nil && *event.TaskID == task.ID {
+			t.Fatal("purged task history retained", event)
+		}
+	}
+}
+
+func TestPagedTaskSummariesAndDetail(t *testing.T) {
+	s := newSvc(t)
+	p := mustProject(t, s, "qa")
+	tasks := mustTasks(t, s, "codex", NewTask{Project: p.Key, Title: "first", DescriptionMD: "private body"}, NewTask{Project: p.Key, Title: "next"})
+	for _, summary := range []bool{true, false} {
+		f := store.TaskFilter{ProjectID: p.ID, Limit: 1, Summary: summary, Compact: !summary}
+		first, err := s.ListTasks(ctx, f)
+		if err != nil || len(first) != 1 || first[0].DescriptionMD != "" || !first[0].HasDescription {
+			t.Fatal(first, err)
+		}
+		f.Offset = 1
+		second, err := s.ListTasks(ctx, f)
+		if err != nil || len(second) != 1 || second[0].ID != tasks[1].ID || second[0].HasDescription {
+			t.Fatal(second, err)
+		}
+	}
+	for _, body := range []string{"old", "recent"} {
+		if _, err := s.AddNote(ctx, "codex", tasks[0].Code, body); err != nil {
+			t.Fatal(err)
+		}
+	}
+	d, err := s.TaskPage(ctx, tasks[0].Code, 20, ReadPage{Limit: 1, Offset: 1})
+	if err != nil || d.DescriptionMD != "private body" || len(d.Notes) != 1 || d.Notes[0].BodyMD != "recent" {
+		t.Fatal(d, err)
+	}
+}
+
+func TestMCPAuditLimitsAndMedian(t *testing.T) {
+	s := newSvc(t)
+	for i, name := range []string{"unknown_future_tool", "get_board", "code", "get_board"} {
+		if err := s.RecordMCPCall(ctx, "codex", name, strings.Repeat("я", 200), time.Duration(i+1)*time.Millisecond, ""); err != nil {
+			t.Fatal(err)
+		}
+	}
+	lines, err := s.ListMCPCalls(ctx, "all", 10)
+	if err != nil || len(lines) != 4 || lines[3].Tool != "unknown" || len([]rune(lines[3].ArgsSummary)) != 120 {
+		t.Fatal(lines, err)
+	}
+	st, err := s.MCPStats(ctx)
+	if err != nil || st.CallsToday != 4 || st.MedianMS != 3 {
+		t.Fatal(st, err)
 	}
 }

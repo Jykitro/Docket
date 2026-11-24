@@ -189,7 +189,7 @@ func TestPurgeProjectWithPages(t *testing.T) {
 	if _, err := s.DeleteProject(ctx, ActorDenis, p.ID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.PurgeTrash(ctx); err != nil {
+	if _, err := s.PurgeTrash(ctx, reviewedTrash(t, s)); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -541,5 +541,52 @@ func TestExportIncludesPages(t *testing.T) {
 	}
 	if e, _ := s.Export(ctx, mustProject(t, s, "c").ID); e.Pages == nil {
 		t.Fatal("pages must be [] not null")
+	}
+}
+
+func TestNativeHTMLPage(t *testing.T) {
+	s := newSvc(t)
+	project := mustProject(t, s, "a")
+	source := "<script>const label='[[Report]]'</script>"
+	p, created, err := s.WritePage(ctx, "codex", "a", WritePageInput{Title: "Report", BodyHTML: &source})
+	if err != nil || !created || p.BodyHTML == nil || *p.BodyHTML != source || p.BodyMD != "" {
+		t.Fatal(p, err)
+	}
+	pages, err := s.ListPages(ctx, "a")
+	if err != nil || len(pages) != 1 || pages[0].BodyHTML == nil || *pages[0].BodyHTML != "" {
+		t.Fatal(pages, err)
+	}
+	rename := "Dashboard"
+	p, err = s.UpdatePage(ctx, ActorDenis, p.ID, PagePatch{Title: &rename, ExpectedUpdatedAt: p.UpdatedAt})
+	if err != nil || *p.BodyHTML != source {
+		t.Fatal(p, err)
+	}
+	if _, err = s.AppendToPage(ctx, ActorClaude, "a", rename, "more"); ErrorCode(err) != "invalid_argument" {
+		t.Fatal(err)
+	}
+	if _, _, err = s.WritePage(ctx, ActorClaude, "a", WritePageInput{Title: rename, BodyMD: "wrong format"}); ErrorCode(err) != "invalid_argument" {
+		t.Fatal(err)
+	}
+	if _, err = s.UpdatePage(ctx, ActorDenis, p.ID, PagePatch{BodyHTML: ptr("updated"), ExpectedUpdatedAt: "stale"}); ErrorCode(err) != "conflict" {
+		t.Fatal(err)
+	}
+	if _, err = s.UpdatePage(ctx, ActorDenis, p.ID, PagePatch{BodyHTML: ptr(strings.Repeat("x", maxHTMLBytes+1))}); ErrorCode(err) != "invalid_argument" {
+		t.Fatal(err)
+	}
+	ex, err := s.Export(ctx, project.ID)
+	if err != nil || len(ex.Pages) != 1 || ex.Pages[0].BodyHTML == nil || *ex.Pages[0].BodyHTML != source {
+		t.Fatal(err)
+	}
+}
+
+func TestWikiLiveBlocksPreserveTheirSource(t *testing.T) {
+	block := "~~~~html-preview\r\n<script>const example='[[Old]] ABC-01'</script>\r\n~~~\r\n~~~~\r\n"
+	body := "[[Old]]\n\n" + block + "\n[[Old]] ABC-02"
+	if got := replaceLinks(body, "old", "New"); got != "[[New]]\n\n"+block+"\n[[New]] ABC-02" {
+		t.Fatal(got)
+	}
+	titles, codes := parseLinks(body)
+	if !slices.Equal(codes, []string{"ABC-02"}) || !slices.Equal(titles, []string{"old"}) {
+		t.Fatal(titles, codes)
 	}
 }

@@ -66,7 +66,7 @@ func newServerWith(t *testing.T, build func(context.Context, *service.Service, *
 	ws := NewWorkspaces(context.Background(), dir, time.UTC, build)
 	ws.UsePostgres(dsn)
 	t.Cleanup(ws.Close)
-	h := Handler(Options{Auth: db, WS: ws, Web: http.NotFoundHandler(), AllowedHosts: hosts, SetupCode: testSetupCode})
+	h := Handler(Options{Auth: db, WS: ws, Web: http.NotFoundHandler(), AllowedHosts: hosts, SetupCode: testSetupCode, RunnerReady: func(context.Context) error { return nil }})
 	return &server{t: t, h: h, db: db, ws: ws}
 }
 
@@ -633,7 +633,7 @@ func TestRevokeInvite(t *testing.T) {
 	}
 }
 
-func TestAdminDeleteUser(t *testing.T) {
+func TestOnlyOwnerDeletesUser(t *testing.T) {
 	s := newServer(t)
 	ca, _ := s.addUser("alice")
 	cb, wsB := s.addUser("bob")
@@ -646,12 +646,15 @@ func TestAdminDeleteUser(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	for path, want := range map[string]int{"/api/admin/users/1": 400, "/api/admin/users/abc": 400, "/api/admin/users/99": 404} {
+	for path, want := range map[string]int{"/api/admin/users/1": 404, "/api/admin/users/abc": 404, "/api/admin/users/99": 404} {
 		if rec := s.do("DELETE", path, "", ca, nil); rec.Code != want {
 			t.Errorf("DELETE %s: %d %s, want %d", path, rec.Code, rec.Body, want)
 		}
 	}
-	if rec := s.do("DELETE", "/api/admin/users/"+strconv.FormatInt(wsB.ID, 10), "", ca, nil); rec.Code != 204 {
+	if rec := s.do("DELETE", "/api/admin/users/"+strconv.FormatInt(wsB.ID, 10), "", ca, nil); rec.Code != 404 {
+		t.Fatalf("admin deletion enabled: %d", rec.Code)
+	}
+	if rec := s.do("DELETE", "/api/auth/account", jsonBody("password", testPassword), cb, nil); rec.Code != 204 {
 		t.Fatalf("delete bob: %d %s", rec.Code, rec.Body)
 	}
 	if rec := s.do("GET", "/api/projects", "", cb, nil); rec.Code != 401 {
@@ -754,10 +757,10 @@ func TestLogoutEndsStream(t *testing.T) {
 
 func TestDeleteUserEndsStream(t *testing.T) {
 	s := streamServer(t)
-	admin, _ := s.addUser("alice")
-	cb, wsB := s.addUser("bob")
+	s.addUser("alice")
+	cb, _ := s.addUser("bob")
 	done := s.stream(cb)
-	if rec := s.do("DELETE", "/api/admin/users/"+strconv.FormatInt(wsB.ID, 10), "", admin, nil); rec.Code != 204 {
+	if rec := s.do("DELETE", "/api/auth/account", jsonBody("password", testPassword), cb, nil); rec.Code != 204 {
 		t.Fatalf("delete: %d %s", rec.Code, rec.Body)
 	}
 	ended(t, done, "after user deletion")

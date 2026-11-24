@@ -3,10 +3,12 @@
 import { type KeyboardEvent, type MouseEvent, type ReactNode, type RefObject, useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ApiError, type Page, type PageDetail, type Project, type TaskRef, api, errText, fmtStamp } from './api'
-import { HtmlDocuments } from './HtmlDocuments'
+import { HtmlDocuments, HtmlFileInput } from './HtmlDocuments'
 import { Icon } from './icons'
 import { tr } from './i18n'
-import { MD_PROSE, renderWiki, toggleWikiCheckbox } from './markdown'
+import { toggleMarkdownCheckbox } from './markdown'
+import { HtmlPreview } from './HtmlPreview'
+import { InsertHTML, MarkdownBody } from './MarkdownBody'
 import { Link, hrefWith, navigate, setParam } from './router'
 import { WikiTree } from './WikiTree'
 import { ConfirmButton, EmptyState, ErrorState, Skeleton, SkeletonRows, btn, btnPri, cap, mc } from './ui'
@@ -19,13 +21,13 @@ type Ctx = { project: Project; pages: Page[]; tasks: TaskRef[]; leave: () => boo
 
 /** Rendered wiki markdown; clicks on its [[links]] and task chips are handled here by delegation. */
 function Body({ md, c, onCheck, busy }: { md: string; c: Ctx; onCheck: (md: string) => void; busy?: boolean }) {
-  const html = useMemo(() => renderWiki(md, { slug: c.project.slug, pages: c.pages, tasks: c.tasks }), [md, c.project.slug, c.pages, c.tasks])
+  const wiki = useMemo(() => ({ slug: c.project.slug, pages: c.pages, tasks: c.tasks }), [c.project.slug, c.pages, c.tasks])
   const click = (e: MouseEvent) => {
     const el = e.target
     if (el instanceof HTMLInputElement && el.type === 'checkbox' && el.dataset.idx !== undefined) {
       e.preventDefault()
       if (!busy) {
-        const next = toggleWikiCheckbox(md, Number(el.dataset.idx), el.defaultChecked)
+        const next = toggleMarkdownCheckbox(md, Number(el.dataset.idx), el.defaultChecked)
         if (next !== undefined) onCheck(next)
       }
       return
@@ -37,8 +39,8 @@ function Body({ md, c, onCheck, busy }: { md: string; c: Ctx; onCheck: (md: stri
     else if (task) { e.preventDefault(); setParam('task', task, false) }
     else if (wikiNew !== undefined) { e.preventDefault(); if (c.leave()) c.createByTitle(wikiNew) }
   }
-  return <fieldset disabled={busy} aria-busy={busy} className="min-w-0">
-    <div className={MD_PROSE} onClick={click} dangerouslySetInnerHTML={{ __html: html }} />
+  return <fieldset disabled={busy} aria-busy={busy} className="min-w-0 space-y-2" onClick={click}>
+    <MarkdownBody source={md} wiki={wiki} />
   </fieldset>
 }
 
@@ -46,15 +48,18 @@ function Block({ title, children }: { title: string; children: ReactNode }) {
   return <section className="border-t border-ln pt-4 flex flex-col gap-2"><h3 className="text-[13px] font-semibold text-t2">{title}</h3><ul className="flex flex-col gap-1 text-sm">{children}</ul></section>
 }
 
-function PageEditor({ page, c, dirty, onDone }: { page: Page; c: Ctx; dirty: RefObject<boolean>; onDone: () => void }) {
+function PageEditor({ page, initialTitle = '', c, dirty, onDone }: { page?: Page; initialTitle?: string; c: Ctx; dirty: RefObject<boolean>; onDone: (saved?: Page) => void }) {
   const qc = useQueryClient()
   const [orig, setOrig] = useState(page) // the version the draft started from; its updated_at is sent as expected_updated_at
-  const [title, setTitle] = useState(page.title)
-  const [body, setBody] = useState(page.body_md)
+  const [title, setTitle] = useState(page?.title ?? initialTitle)
+  const [body, setBody] = useState(page?.body_html ?? page?.body_md ?? '')
   const [preview, setPreview] = useState(false)
   const [conflict, setConflict] = useState(false)
   const [error, setError] = useState('')
-  const changed = title.trim() !== orig.title || body !== orig.body_md
+  const [format, setFormat] = useState<'markdown' | 'html'>(page?.body_html !== undefined ? 'html' : 'markdown')
+  const editor = useRef<HTMLTextAreaElement>(null)
+  const originalBody = orig?.body_html ?? orig?.body_md ?? ''
+  const changed = title.trim() !== (orig?.title ?? initialTitle) || body !== originalBody
 
   useEffect(() => {
     dirty.current = changed
@@ -65,13 +70,18 @@ function PageEditor({ page, c, dirty, onDone }: { page: Page; c: Ctx; dirty: Ref
   }, [changed, dirty])
   useEffect(() => () => { dirty.current = false }, [dirty])
 
-  const load = (p: Page) => { setOrig(p); setTitle(p.title); setBody(p.body_md); setConflict(false); setError('') }
+  const load = (p: Page) => { setOrig(p); setTitle(p.title); setBody(p.body_html ?? p.body_md); setConflict(false); setError('') }
   const save = useMutation({
     mutationFn: async (v: { close: boolean; over?: boolean }) => {
-      const expected = v.over ? (await api.page(page.id)).updated_at : orig.updated_at // "save over": take the fresh stamp
-      const sent = { title: title.trim() !== orig.title, body: body !== orig.body_md }
-      const p = await api.savePage(page.id, {
-        ...(sent.title && { title }), ...(sent.body && { body_md: body }), expected_updated_at: expected,
+      const source = format === 'html' ? { body_html: body } : { body_md: body }
+      if (!orig) {
+        const p = await api.createPage(c.project.id, { title, ...source })
+        return { p, sent: { title: true, body: true } }
+      }
+      const expected = v.over ? (await api.page(orig.id)).updated_at : orig.updated_at
+      const sent = { title: title.trim() !== orig.title, body: body !== originalBody }
+      const p = await api.savePage(orig.id, {
+        ...(sent.title && { title }), ...(sent.body && source), expected_updated_at: expected,
       })
       return { p, sent }
     },
@@ -79,18 +89,22 @@ function PageEditor({ page, c, dirty, onDone }: { page: Page; c: Ctx; dirty: Ref
       // The baseline moves to the saved page; characters typed while the request was in flight stay in the draft (and keep it dirty).
       // A field that was not sent may have been changed by someone else (save over): take their version unless typed in meanwhile,
       // otherwise the next Save would send the stale draft and silently overwrite it.
-      setTitle((t) => (sent.title || t.trim() !== orig.title ? t : p.title))
-      setBody((b) => (sent.body || b !== orig.body_md ? b : p.body_md))
+      setTitle((t) => (sent.title || t.trim() !== orig?.title ? t : p.title))
+      setBody((b) => (sent.body || b !== originalBody ? b : (p.body_html ?? p.body_md)))
       setOrig(p); setConflict(false); setError('')
-      qc.setQueryData<PageDetail>(['page', page.id], (old) => old && { ...old, ...p })
+      qc.setQueryData<PageDetail>(['page', p.id], (old) => old && { ...old, ...p })
       qc.invalidateQueries()
-      if (v.close) onDone()
+      if (!page || v.close) onDone(p)
     },
     onError: (e) => (e instanceof ApiError && e.code === 'conflict' ? setConflict(true) : setError(errText(e))),
   })
-  const reload = useMutation({ mutationFn: () => api.page(page.id), onSuccess: load, onError: (e) => setError(errText(e)) })
+  const reload = useMutation({ mutationFn: () => api.page(page!.id), onSuccess: load, onError: (e) => setError(errText(e)) })
   const busy = save.isPending || reload.isPending
-  const submit = (close: boolean) => (changed ? save.mutate({ close }) : close && onDone())
+  const submit = (close: boolean) => {
+    if (!title.trim() || busy) return
+    if (!orig || changed) save.mutate({ close })
+    else if (close) onDone()
+  }
   const keys = (e: KeyboardEvent) => {
     if ((e.metaKey || e.ctrlKey) && (e.key.toLowerCase() === 's' || e.code === 'KeyS')) { e.preventDefault(); if (!busy) submit(false) }
   }
@@ -107,30 +121,38 @@ function PageEditor({ page, c, dirty, onDone }: { page: Page; c: Ctx; dirty: Ref
         </div>
       )}
       {error && <p role="alert" className="rounded-lg bg-rds p-3 text-sm text-rd">{error}</p>}
-      <input className="w-full border-b border-ln bg-transparent px-0 pt-1 pb-2 text-xl font-semibold outline-none focus:border-ac" autoFocus
+      {!page && <fieldset className="flex flex-wrap items-center gap-4 text-sm" disabled={busy}>
+        <legend className="mb-2 font-semibold">{tr('Формат страницы')}</legend>
+        {(['markdown', 'html'] as const).map(value => <label key={value} className="flex items-center gap-1.5">
+          <input type="radio" name="wiki-format" checked={format === value} onChange={() => setFormat(value)} />{value === 'html' ? 'HTML' : 'Markdown'}
+        </label>)}
+      </fieldset>}
+      <input disabled={busy} placeholder={tr('Название страницы')} className="w-full border-b border-ln bg-transparent px-0 pt-1 pb-2 text-xl font-semibold outline-none focus:border-ac" autoFocus
         aria-label={tr('Название страницы')} value={title} maxLength={120} onChange={(e) => setTitle(e.target.value)} />
       <span className={SEG} role="group" aria-label={tr('Режим редактирования')}>
         <button type="button" className={SEGBTN} aria-pressed={!preview} onClick={() => setPreview(false)}>{tr('Редактор')}</button>
         <button type="button" className={SEGBTN} aria-pressed={preview} onClick={() => setPreview(true)}>{tr('Просмотр')}</button>
       </span>
-      {preview ? <Body md={body} c={c} onCheck={setBody} busy={busy} /> : (
+      {preview ? (format === 'html' ? <HtmlPreview title={title || 'HTML'} html={body} /> : <Body md={body} c={c} onCheck={setBody} busy={busy} />) : (<>
+        {format === 'markdown' ? <InsertHTML editor={editor} change={setBody} /> :
+          <HtmlFileInput onRead={(html, name) => { setBody(html); setTitle(current => current.trim() || name) }} />}
         <textarea className="w-full resize-y rounded-[10px] border border-ln bg-sf2 px-3.5 py-3 font-mono text-[13px] leading-[1.6] text-tx focus:border-ac focus:outline-0"
-          aria-label={tr('Текст страницы в markdown')} value={body} rows={Math.max(14, body.split('\n').length + 1)} onChange={(e) => setBody(e.target.value)}
-          placeholder={tr('Markdown: [[Другая страница]], код задачи вроде TRK-07, **жирный**, - [ ] чекбокс')} />
-      )}
+          ref={editor} disabled={busy} aria-label={format === 'html' ? tr('Исходный HTML') : tr('Текст страницы в markdown')} value={body} rows={Math.min(40, Math.max(14, body.split('\n').length + 1))} onChange={(e) => setBody(e.target.value)}
+          placeholder={format === 'html' ? '<!doctype html>' : tr('Markdown: [[Другая страница]], код задачи вроде TRK-07, **жирный**, - [ ] чекбокс')} />
+      </>)}
       <div className="flex flex-wrap items-center gap-2">
-        <button type="button" className={btnPri} disabled={busy} title="Ctrl/⌘ + S" onClick={() => submit(true)}>{tr('Сохранить')}</button>
+        <button type="button" className={btnPri} disabled={busy || !title.trim()} title="Ctrl/⌘ + S" onClick={() => submit(true)}>{tr('Сохранить')}</button>
         <button type="button" className={btn} disabled={busy} onClick={() => (!changed || c.leave()) && onDone()}>{tr('Отмена')}</button>
       </div>
     </div>
   )
 }
 
-function PageArea({ id, c, dirty, startEdit }: { id: number; c: Ctx; dirty: RefObject<boolean>; startEdit: boolean }) {
+function PageArea({ id, c, dirty }: { id: number; c: Ctx; dirty: RefObject<boolean> }) {
   const qc = useQueryClient()
   const base = `/p/${c.project.slug}/wiki`
   const dq = useQuery({ queryKey: ['page', id], queryFn: () => api.page(id) })
-  const [editing, setEditing] = useState(startEdit)
+  const [editing, setEditing] = useState(false)
   const check = useMutation({
     mutationFn: ({ body, revision }: { body: string; revision: string }) =>
       api.savePage(id, { body_md: body, expected_updated_at: revision }),
@@ -173,9 +195,9 @@ function PageArea({ id, c, dirty, startEdit }: { id: number; c: Ctx; dirty: RefO
         {check.error instanceof ApiError && check.error.code === 'conflict'
           ? tr('Страница изменилась. Проверьте актуальный чеклист и повторите отметку.') : errText(check.error)}
       </p>}
-      {d.body_md.trim() ? <Body md={check.isPending ? check.variables.body : d.body_md} c={cc} busy={check.isPending || del.isPending}
-        onCheck={(body) => check.mutate({ body, revision: d.updated_at })} /> : <p className="text-sm text-t3">{tr('Страница пока пуста. Нажмите «Изменить», чтобы написать.')}</p>}
-      <HtmlDocuments key={d.id} docs={d.documents} owner={{page_id:d.id}} />
+      {d.body_html !== undefined ? <HtmlPreview title={d.title} html={d.body_html} /> : d.body_md.trim() ? <Body md={check.isPending ? check.variables.body : d.body_md} c={cc} busy={check.isPending || del.isPending}
+        onCheck={(body) => check.mutate({ body, revision: d.updated_at })} /> : !d.documents?.length && <p className="text-sm text-t3">{tr('Страница пока пуста. Нажмите «Изменить», чтобы написать.')}</p>}
+      {(d.body_html === undefined || !!d.documents?.length) && <HtmlDocuments key={d.id} docs={d.documents} owner={{ page_id: d.id }} />}
       {d.backlinks.length > 0 && (
         <Block title={tr('Ссылаются сюда')}>
           {d.backlinks.map((b) => <li key={b.id}><Link to={`${base}/${b.id}`} className="text-act">{b.title}</Link></li>)}
@@ -193,31 +215,23 @@ function PageArea({ id, c, dirty, startEdit }: { id: number; c: Ctx; dirty: RefO
 }
 
 export function Wiki({ project, pageId }: { project: Project; pageId?: number }) {
-  const qc = useQueryClient()
   const pq = useQuery({ queryKey: ['pages', project.id], queryFn: () => api.pages(project.id) })
   const tq = useQuery({ queryKey: ['tasks', project.id], queryFn: () => api.tasks(project.key) }) // same key as the board
   const pages = useMemo(() => pq.data ?? [], [pq.data])
   const tasks = useMemo(() => tq.data ?? [], [tq.data])
   const dirty = useRef(false) // set by the open editor
-  const [fresh, setFresh] = useState<number>() // a page created a moment ago opens straight in the editor
-  const [notice, setNotice] = useState('')
-  useEffect(() => { if (fresh !== undefined && pageId !== fresh) setFresh(undefined) }, [pageId, fresh])
-  const leave = () => !dirty.current || confirm(tr('Есть несохранённые изменения. Уйти без сохранения?'))
-  const create = useMutation({
-    mutationFn: (title: string) => api.createPage(project.id, { title }),
-    onSuccess: (p) => { setNotice(''); setFresh(p.id); qc.invalidateQueries(); navigate(`/p/${project.slug}/wiki/${p.id}`) },
-    onError: (e) => setNotice(errText(e)),
-  })
-  const newPage = () => {
-    if (!leave()) return
-    const taken = new Set(pages.map((p) => p.title.trim().toLowerCase()))
-    let n = pages.length + 1
-    while (taken.has(tr('Новая страница {n}', { n }).toLowerCase())) n++
-    create.mutate(tr('Новая страница {n}', { n }))
+  const [draftTitle, setDraftTitle] = useState<string | null>(null)
+  useEffect(() => { setDraftTitle(null) }, [project.id, pageId])
+  const leave = () => {
+    if (dirty.current && !confirm(tr('Есть несохранённые изменения. Уйти без сохранения?'))) return false
+    setDraftTitle(null)
+    return true
   }
-  const c: Ctx = { project, pages, tasks, leave, createByTitle: (t) => create.mutate(t) }
-  const newBtn = <button type="button" className={btnPri} disabled={create.isPending || !pq.isSuccess} onClick={newPage}><Icon name="plus" size={16} sw={2} />{tr('Новая страница')}</button>
-
+  const newPage = (title = '') => {
+    if (leave()) setDraftTitle(title)
+  }
+  const c: Ctx = { project, pages, tasks, leave, createByTitle: setDraftTitle }
+  const newBtn = <button type="button" className={btnPri} disabled={draftTitle !== null || !pq.isSuccess} onClick={() => newPage()}><Icon name="plus" size={16} sw={2} />{tr('Новая страница')}</button>
   return (
     <div className="flex flex-col items-start gap-6 px-8 pt-6 pb-8 max-[640px]:px-4 lg:flex-row">
       <aside className="flex w-full flex-col gap-3 lg:w-[260px] lg:shrink-0">
@@ -229,8 +243,10 @@ export function Wiki({ project, pageId }: { project: Project; pageId?: number })
         )}
       </aside>
       <section className={BOX + ' w-full min-w-0 flex-1'}>
-        {notice && <p role="alert" className="m-4 rounded-lg bg-rds p-3 text-sm text-rd">{notice}</p>}
-        {pageId !== undefined ? <PageArea key={pageId} id={pageId} c={c} dirty={dirty} startEdit={fresh === pageId} />
+        {draftTitle !== null ? <PageEditor key={'new:' + draftTitle} initialTitle={draftTitle} c={c} dirty={dirty} onDone={p => {
+          setDraftTitle(null)
+          if (p) navigate(`/p/${project.slug}/wiki/${p.id}`)
+        }} /> : pageId !== undefined ? <PageArea key={pageId} id={pageId} c={c} dirty={dirty} />
           : pq.isSuccess && pages.length === 0 ? (
             <EmptyState icon="doc" title={tr('В вики пока нет страниц')} hint={tr('Создайте первую страницу: заметки, решения, ссылки на задачи.')} action={newBtn} />
           ) : pq.isSuccess && <EmptyState icon="doc" title={tr('Выберите страницу')} hint={tr('Откройте страницу из списка или создайте новую.')} />}

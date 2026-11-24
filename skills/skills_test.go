@@ -1,6 +1,7 @@
 package skills
 
 import (
+	"encoding/hex"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -41,48 +42,40 @@ func TestInstallScriptWritesSkillsAndRegistersServer(t *testing.T) {
 		}
 	}
 	calls, _ := os.ReadFile(log)
-	if !strings.Contains(string(calls), "mcp add --scope user --transport http docket http://127.0.0.1:7777/mcp/code?agent=claude&route=docket --header Authorization: Bearer dkt_test") {
-		t.Errorf("claude mcp add not called as expected:\n%s", calls)
+	name := "DOCKET_MCP_" + hex.EncodeToString([]byte("http://127.0.0.1:7777/mcp/code?route=docket"))
+	if strings.Contains(string(calls), "dkt_test") {
+		t.Fatal("credential passed on a client command line")
 	}
-	if !strings.Contains(string(calls), "mcp add docket --url http://127.0.0.1:7777/mcp/code?agent=codex&route=docket --bearer-token-env-var DOCKET_MCP_TOKEN") {
-		t.Errorf("codex mcp add not called as expected:\n%s", calls)
+	if !strings.Contains(string(calls), "mcp add --scope user --transport http docket http://127.0.0.1:7777/mcp/code?agent=claude&route=docket --header Authorization: Bearer ${"+name+"}") {
+		t.Error("Claude registration did not reference the endpoint credential")
+	}
+	if !strings.Contains(string(calls), "mcp add docket --url http://127.0.0.1:7777/mcp/code?agent=codex&route=docket --bearer-token-env-var "+name) {
+		t.Error("Codex registration did not reference the endpoint credential")
 	}
 }
 
-func TestCodexInstallerKeepsTokensOutOfTerminal(t *testing.T) {
-	const token = "docket-test-install-value"
-	bin := t.TempDir()
-	if err := os.WriteFile(filepath.Join(bin, "codex"), []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
+func TestInstallerChangesCredentialWhenEndpointChanges(t *testing.T) {
+	home, bin := t.TempDir(), t.TempDir()
+	if err := os.WriteFile(filepath.Join(bin, "codex"), []byte("#!/bin/sh\nprintf '%s\\n' \"$@\"\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	for _, tc := range []struct {
-		name       string
-		configured string
-		wantHint   bool
-	}{
-		{"unset", "", true},
-		{"different", "docket-test-previous-value", true},
-		{"matching", token, false},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			cmd := exec.Command("sh")
-			cmd.Stdin = strings.NewReader(InstallScript())
-			cmd.Env = []string{"PATH=" + bin + ":/usr/bin:/bin", "HOME=" + t.TempDir(), "DOCKET_URL=http://localhost/mcp", "DOCKET_TOKEN=" + token}
-			if tc.configured != "" {
-				cmd.Env = append(cmd.Env, "DOCKET_MCP_TOKEN="+tc.configured)
-			}
-			out, err := cmd.CombinedOutput()
-			if err != nil {
-				t.Fatalf("installer failed: %v", err)
-			}
-			output := string(out)
-			if strings.Contains(output, token) || (tc.configured != "" && strings.Contains(output, tc.configured)) {
-				t.Fatal("installer wrote a token value to stdout or stderr")
-			}
-			if strings.Contains(output, "DOCKET_MCP_TOKEN") != tc.wantHint {
-				t.Errorf("want setup reminder: %t", tc.wantHint)
-			}
-		})
+	previous := ""
+	for _, endpoint := range []string{"https://one.example/mcp", "https://two.example/mcp"} {
+		cmd := exec.Command("sh")
+		cmd.Stdin = strings.NewReader(InstallScript())
+		cmd.Env = []string{"PATH=" + bin + ":/usr/bin:/bin", "HOME=" + home, "DOCKET_URL=" + endpoint, "DOCKET_MCP_TOKEN=dkt_old"}
+		if previous != "" {
+			cmd.Env = append(cmd.Env, previous+"=dkt_previous")
+		}
+		out, err := cmd.CombinedOutput()
+		name := "DOCKET_MCP_" + hex.EncodeToString([]byte(endpoint))
+		if err != nil || !strings.Contains(string(out), "--bearer-token-env-var\n"+name+"\n") || !strings.Contains(string(out), "read -rs") {
+			t.Fatal("expected endpoint-specific registration and hidden credential prompt")
+		}
+		if strings.Contains(string(out), "dkt_old") || strings.Contains(string(out), "dkt_previous") || previous != "" && strings.Contains(string(out), previous) {
+			t.Fatal("installer reused the old credential or its name")
+		}
+		previous = name
 	}
 }
 

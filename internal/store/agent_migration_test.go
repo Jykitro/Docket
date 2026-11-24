@@ -52,7 +52,7 @@ func TestAgentMigrationPreservesExistingHistory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = s.migrate(); err != nil {
+	if err = s.migrate(nil); err != nil {
 		t.Fatal(err)
 	}
 	var parent, creator, author, actor string

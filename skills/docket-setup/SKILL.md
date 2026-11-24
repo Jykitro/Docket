@@ -11,36 +11,15 @@ Four steps: run Docket, connect the client, install the skills, optionally turn 
 
 - Docker: `make rebuild` in the Docket repo (creates `.env`, builds `docket:local`, starts the container). Logs: `make logs`. Data stays in `./data`.
 - The UI and MCP share one address, `http://localhost:7777`; MCP is `http://localhost:7777/mcp` (Streamable HTTP). It listens on `127.0.0.1` only.
-- The token looks like `dkt_…`. It is printed to the log once on first start, and is shown (masked, with a Show button) on the Integrations tab. `DOCKET_MCP_TOKEN` in `.env` overrides it and disables rotation.
-- Selfhost mode (`DOCKET_MODE=selfhost`): every user has their own token on their Integrations tab; the same `/mcp` address serves everyone and the token picks the profile. Storage defaults to SQLite; operators can set `DOCKET_POSTGRES_DSN` for a dedicated PostgreSQL database (see README, Self-host). This does not import existing SQLite data; PostgreSQL backups are managed by the operator.
+- The token looks like `dkt_…`. Use Show or Copy token on the Integrations tab. `DOCKET_MCP_TOKEN` in `.env` overrides it and disables rotation.
+- Selfhost Code Mode requires the isolated worker in `compose.selfhost.yml` or `compose.postgres.yml`. The operator shares `DOCKET_CODE_SOCKET` with Docket. When the worker is offline, ordinary `/mcp` is still available.
+- Selfhost mode (`DOCKET_MODE=selfhost`): the first administrator obtains the bootstrap code with `docket setup-code` (Docker: `docker compose exec docket /app/docket setup-code`). Every user has their own token on their Integrations tab; the same `/mcp` address serves everyone and the token picks the profile. Storage defaults to SQLite; operators can set `DOCKET_POSTGRES_DSN` for a dedicated PostgreSQL database (see README, Self-host). This does not import existing SQLite data; PostgreSQL backups are managed by the operator.
 
 ## 2. Connect the client
 
 The Integrations tab supplies a client-specific URL for both MCP and Code Mode. For another client, choose **Other client** and enter its name, or append `?agent=my-agent` to the endpoint. If an existing connection shows up as “MCP agent”, update its URL in the client. The token still selects the workspace.
 
-**Claude Code** (add `-s user` to make it available in every project; the default scope is this project only):
-
-```bash
-claude mcp add --transport http docket "http://localhost:7777/mcp?agent=claude" \
-  --header "Authorization: Bearer <TOKEN>"
-claude mcp list
-```
-
-**Codex** (the token is read from an environment variable and stays out of `config.toml`; start Codex from a shell where the variable is set):
-
-```bash
-export DOCKET_MCP_TOKEN=<TOKEN>
-codex mcp add docket --url "http://localhost:7777/mcp?agent=codex" --bearer-token-env-var DOCKET_MCP_TOKEN
-codex mcp list
-```
-
-The same entry by hand in `~/.codex/config.toml`:
-
-```toml
-[mcp_servers.docket]
-url = "http://localhost:7777/mcp?agent=codex"
-bearer_token_env_var = "DOCKET_MCP_TOKEN"
-```
+**Claude Code and Codex:** select the client on the Integrations tab and copy its config. The terminal command prompts for the token with echo disabled and exports a variable specific to the selected endpoint. Start the client in that shell, or have a credential manager set that variable at launch. Claude Code stores a literal environment-variable reference in its HTTP header. Codex uses `--bearer-token-env-var`. After rotating the token, repeat the hidden prompt. When switching servers or between MCP and Code Mode, use the new endpoint's command.
 
 **Claude Desktop** (needs Node for `npx`). The file is `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS and `%APPDATA%\Claude\claude_desktop_config.json` on Windows; restart Desktop after editing it:
 
@@ -73,7 +52,7 @@ The server already sends the `docket` workflow to every connected client as MCP 
 | Codex | `~/.agents/skills/<name>/SKILL.md` |
 | Claude Desktop | no folder: paste the text into the project instructions |
 
-Fastest on macOS and Linux: the Integrations tab's "Install in one command" button copies one line. It installs all three skills and registers the server in Claude Code and Codex, whichever are in PATH. If prompted, set `DOCKET_MCP_TOKEN` in your shell profile to the token from Integrations and restart Codex. The installation command is `curl -fsSL http://localhost:7777/api/mcp/install.sh | DOCKET_URL=http://localhost:7777/mcp DOCKET_TOKEN=<token> sh`; the script holds no secrets, so it is public even in selfhost mode. By hand:
+Fastest on macOS and Linux: the Integrations tab's "Install in one command" button copies one line. It installs all three skills and registers the server in Claude Code and Codex, whichever are in PATH. Run the printed export command in the shell that will launch the client. Copy the token separately from Integrations and paste it at the hidden prompt. The installation command is `curl -fsSL http://localhost:7777/api/mcp/install.sh | DOCKET_URL=http://localhost:7777/mcp sh`. By hand:
 
 ```bash
 for s in docket docket-reference docket-setup; do
@@ -113,10 +92,10 @@ Hooks make the workflow mandatory instead of advised. One JSON works for both cl
 
 | Symptom | Cause and fix |
 |---|---|
-| `401` on every call | Wrong or rotated token, or a missing `Bearer ` prefix. Copy the current token from the Integrations tab, remove the server (`claude mcp remove docket`, `codex mcp remove docket`) and add it again; for Codex export the new `DOCKET_MCP_TOKEN` first; for Desktop edit `AUTH`. Rotating invalidates the old token. If `.env` sets `DOCKET_MCP_TOKEN`, that value is the token and rotation is off |
+| `401` on every call | Wrong or rotated token, or a missing `Bearer ` prefix. Copy the current token from the Integrations tab, remove the server (`claude mcp remove docket`, `codex mcp remove docket`) and add it again; for the CLIs repeat the endpoint-specific hidden token prompt first; for Desktop edit `AUTH`. Rotating invalidates the old token. If `.env` sets `DOCKET_MCP_TOKEN`, that value is the token and rotation is off |
 | `403` | `Host` or `Origin` is not allowed. Add the host name (no scheme, no port) to `DOCKET_ALLOWED_HOSTS` in `.env` (default `localhost,127.0.0.1,docket.localhost`) and restart the container |
 | Connection refused | Container is down: `docker ps`, `make logs`, `make rebuild`. Check the port `7777` |
-| Codex says the token variable is not set | `DOCKET_MCP_TOKEN` must exist in the shell that starts Codex; export it in the shell profile |
+| Codex says the token variable is not set | Run the export command for this endpoint from Integrations, then start Codex from the same shell |
 | Tools missing or `tool_disabled` | Switched off on the Integrations tab. `delete_tasks` is off by default on purpose |
 | `forbidden` on writes | Access mode is "Только чтение" on the Integrations tab. Reads still work; the user switches to "Чтение и запись" if they want writes. Tell them, don't work around it |
 | Desktop shows no server | `npx` not found or the JSON is invalid. Restart Desktop after editing the file |
