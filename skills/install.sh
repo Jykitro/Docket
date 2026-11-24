@@ -31,7 +31,7 @@ if command -v codex >/dev/null 2>&1; then
   codex mcp add docket --url "$(agent_url codex)" --bearer-token-env-var DOCKET_MCP_TOKEN
   echo "Codex: skills installed, MCP server added"
   if [ "${DOCKET_MCP_TOKEN:-}" != "$DOCKET_TOKEN" ]; then
-    echo "Codex also needs the token in your shell profile: export DOCKET_MCP_TOKEN=$DOCKET_TOKEN"
+    echo 'Set DOCKET_MCP_TOKEN in your shell profile to the token from Docket Integrations, then restart Codex.'
   fi
   found=1
 fi

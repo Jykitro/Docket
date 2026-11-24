@@ -49,6 +49,43 @@ func TestInstallScriptWritesSkillsAndRegistersServer(t *testing.T) {
 	}
 }
 
+func TestCodexInstallerKeepsTokensOutOfTerminal(t *testing.T) {
+	const token = "docket-test-install-value"
+	bin := t.TempDir()
+	if err := os.WriteFile(filepath.Join(bin, "codex"), []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name       string
+		configured string
+		wantHint   bool
+	}{
+		{"unset", "", true},
+		{"different", "docket-test-previous-value", true},
+		{"matching", token, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cmd := exec.Command("sh")
+			cmd.Stdin = strings.NewReader(InstallScript())
+			cmd.Env = []string{"PATH=" + bin + ":/usr/bin:/bin", "HOME=" + t.TempDir(), "DOCKET_URL=http://localhost/mcp", "DOCKET_TOKEN=" + token}
+			if tc.configured != "" {
+				cmd.Env = append(cmd.Env, "DOCKET_MCP_TOKEN="+tc.configured)
+			}
+			out, err := cmd.CombinedOutput()
+			if err != nil {
+				t.Fatalf("installer failed: %v", err)
+			}
+			output := string(out)
+			if strings.Contains(output, token) || (tc.configured != "" && strings.Contains(output, tc.configured)) {
+				t.Fatal("installer wrote a token value to stdout or stderr")
+			}
+			if strings.Contains(output, "DOCKET_MCP_TOKEN") != tc.wantHint {
+				t.Errorf("want setup reminder: %t", tc.wantHint)
+			}
+		})
+	}
+}
+
 func TestInstallScriptFailsWithoutClient(t *testing.T) {
 	dir := t.TempDir()
 	script := filepath.Join(dir, "install.sh")
