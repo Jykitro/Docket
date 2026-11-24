@@ -20,6 +20,6 @@ The static site is in `landing/dist/`. Serve its contents at the domain root. Bu
 
 ## Editing
 
-Edit `index.html` for copy, links, task stages, metadata, and the installation snippet. The copy button reads the displayed commands. Styles are in `style.css`. Keep product commands and README anchors in sync with the [application quick start](../README.md#quick-start). The navigation points to the [huntly-digital/plandillo repository](https://github.com/huntly-digital/plandillo).
+Edit `index.html` for copy, links, task stages, metadata, and the installation snippet. The copy button reads the displayed commands. Styles are in `style.css`. Keep product commands and README anchors in sync with the [installation guide](../docs/hosting.md#quick-start) and [MCP setup guide](../docs/agents.md). The navigation points to the [huntly-digital/plandillo repository](https://github.com/huntly-digital/plandillo).
 
 All runtime assets are local to `assets/`. The wordmark and icons come from the supplied Plandillo vector kit. The armadillo illustration is generated artwork, with two WebP sizes for the page and a JPEG for social previews. Bundled Inter font files include their [SIL Open Font License](assets/fonts/Inter-LICENSE.txt). The project uses the [MIT license](../LICENSE).

@@ -104,7 +104,7 @@ nav a:hover, .text-action:hover { color: var(--purple); text-decoration: underli
   padding-block: clamp(32px, 3.45vw, 54px) clamp(40px, 4.1vw, 66px);
 }
 h1, h2, h3, h4 { font-weight: 800; line-height: 1.02; letter-spacing: -.055em; }
-h1 { font-size: clamp(52px, 6.55vw, 104px); line-height: .99; }
+h1 { font-size: clamp(46px, 5.75vw, 92px); line-height: .99; }
 h1 em { color: var(--purple); font-style: normal; }
 .hero-copy > p { max-width: 34ch; margin-top: clamp(19px, 2vw, 32px); font-size: clamp(17px, 1.5vw, 24px); line-height: 1.45; letter-spacing: -.027em; }
 .hero-actions { gap: clamp(16px, 1.9vw, 30px); margin-top: clamp(21px, 2.3vw, 35px); flex-wrap: wrap; }
@@ -140,9 +140,9 @@ h2 { font-size: clamp(38px, 4.2vw, 64px); }
   overflow: hidden;
 }
 [data-stage] { display: none; }
-#step-you:checked ~ .scene [data-stage="you"],
-#step-claude:checked ~ .scene [data-stage="claude"],
-#step-codex:checked ~ .scene [data-stage="codex"] { display: block; }
+#step-plan:checked ~ .scene [data-stage="plan"],
+#step-work:checked ~ .scene [data-stage="work"],
+#step-verify:checked ~ .scene [data-stage="verify"] { display: block; }
 .narration { padding: clamp(23px, 3vw, 46px); }
 .channel, .crumb, .task-id { font-family: var(--mono); }
 .channel { text-transform: uppercase; font-size: .76rem; letter-spacing: .095em; color: var(--purple); }

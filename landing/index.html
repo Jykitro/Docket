@@ -3,15 +3,15 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Plandillo — one task board for you, Claude and Codex</title>
-  <meta name="description" content="Plan in your browser and let Claude and Codex update the same tasks through MCP. Plandillo is an open-source task planner you can host yourself.">
+  <title>Plandillo — a task board for you and your AI agent</title>
+  <meta name="description" content="Plan in your browser and let your AI agent update the same tasks through MCP. Plandillo is an open-source task planner you can host yourself.">
   <meta name="theme-color" content="#faf9f6">
   <link rel="canonical" href="https://plandillo.dev/">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Plandillo">
   <meta property="og:url" content="https://plandillo.dev/">
-  <meta property="og:title" content="Plandillo — one task board for you, Claude and Codex">
-  <meta property="og:description" content="Plan in your browser. Give your agents the same task list through MCP. Run the board on your own machine.">
+  <meta property="og:title" content="Plandillo — a task board for you and your AI agent">
+  <meta property="og:description" content="Plan in your browser, give your AI agent a task through MCP, and see its notes on the same board. Run Plandillo on your own machine.">
   <meta property="og:image" content="https://plandillo.dev/assets/share.jpg">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="900">
@@ -45,8 +45,8 @@
   <main id="main" tabindex="-1">
     <section class="hero wrap" aria-labelledby="hero-title">
       <div class="hero-copy">
-        <h1 id="hero-title">One board.<br>You, Claude<br><em>&amp; Codex.</em></h1>
-        <p>Plan in your browser. Connect Claude and Codex through MCP to pick up tasks, leave notes, and mark work done on the same board.</p>
+        <h1 id="hero-title">A task board for you and <em>your AI agent.</em></h1>
+        <p>Plan in your browser. Connect your agent through MCP so it can pick up a task, leave a note, and show you what it finished.</p>
         <div class="hero-actions">
           <a class="button" href="#self-host">Quick start <svg class="icon" aria-hidden="true"><use href="#arrow"/></svg></a>
           <a class="text-action" href="#workflow">See the workflow <svg class="icon" aria-hidden="true"><use href="#down"/></svg></a>
@@ -58,29 +58,29 @@
     <section class="workflow wrap" id="workflow" aria-labelledby="workflow-title">
       <div class="section-heading">
         <h2 id="workflow-title">From a task to done.</h2>
-        <p>Follow one example across the board and both agents.</p>
+        <p>See how a mobile menu fix moves from your board to your agent and back.</p>
       </div>
       <fieldset class="demo">
         <legend class="sr-only">Explore the three stages of task APP-24</legend>
-        <input class="sr-only" type="radio" name="stage" id="step-you" checked aria-controls="task-example">
-        <label for="step-you"><span>01</span> You</label>
-        <input class="sr-only" type="radio" name="stage" id="step-claude" aria-controls="task-example">
-        <label for="step-claude"><span>02</span> Claude</label>
-        <input class="sr-only" type="radio" name="stage" id="step-codex" aria-controls="task-example">
-        <label for="step-codex"><span>03</span> Codex</label>
+        <input class="sr-only" type="radio" name="stage" id="step-plan" checked aria-controls="task-example">
+        <label for="step-plan"><span>01</span> Plan</label>
+        <input class="sr-only" type="radio" name="stage" id="step-work" aria-controls="task-example">
+        <label for="step-work"><span>02</span> Work</label>
+        <input class="sr-only" type="radio" name="stage" id="step-verify" aria-controls="task-example">
+        <label for="step-verify"><span>03</span> Verify</label>
         <div class="scene" id="task-example">
           <div class="narration">
-            <div data-stage="you">
+            <div data-stage="plan">
               <p class="channel">Browser</p><h3>Set the task.</h3>
               <p>Create a task on your board. Describe the change and how you’ll know it works.</p>
             </div>
-            <div data-stage="claude">
-              <p class="channel">Claude Code · MCP</p><h3>Work out the fix.</h3>
-              <p>Ask Claude to read APP-24 and trace the menu behavior. It moves the task to Doing and leaves its findings for Codex.</p>
+            <div data-stage="work">
+              <p class="channel">AI agent · MCP</p><h3>Work out the fix.</h3>
+              <p>Ask your agent to investigate APP-24. It moves the task to Doing and notes why the menu stays open.</p>
             </div>
-            <div data-stage="codex">
-              <p class="channel">Codex · MCP</p><h3>Close the loop.</h3>
-              <p>Ask Codex to pick up APP-24, implement the fix, and test it. Its note and status change appear on your board.</p>
+            <div data-stage="verify">
+              <p class="channel">AI agent · MCP</p><h3>Record the result.</h3>
+              <p>Ask your agent to fix the handler and test it with touch and keyboard. When the checks pass, it records the results and marks APP-24 done.</p>
             </div>
           </div>
           <div class="workspace">
@@ -88,17 +88,17 @@
               <p class="crumb">Website <span>/</span> Task</p>
               <div class="task-meta">
                 <span class="task-id">APP-24</span>
-                <span class="status" data-stage="you">Backlog</span>
-                <span class="status doing" data-stage="claude">Doing</span>
-                <span class="status done" data-stage="codex">Done</span>
+                <span class="status" data-stage="plan">Backlog</span>
+                <span class="status doing" data-stage="work">Doing</span>
+                <span class="status done" data-stage="verify">Done</span>
               </div>
               <h4 id="task-title">Fix the mobile menu</h4>
               <p>The menu should close when a visitor follows a link.</p>
               <div class="activity">
                 <strong>Activity</strong>
-                <p data-stage="you">You created the task.</p>
-                <p data-stage="claude">Claude moved the task to Doing and left a note: “The link handler changes the route but leaves the menu open.”</p>
-                <p data-stage="codex">Codex marked the task Done: “Closed the menu on navigation. Verified with touch and keyboard.”</p>
+                <p data-stage="plan">You created the task.</p>
+                <p data-stage="work">Your agent moved the task to Doing and left a note: “The link handler changes the route but leaves the menu open.”</p>
+                <p data-stage="verify">Your agent marked the task Done: “Closed the menu on navigation. Verified with touch and keyboard.”</p>
               </div>
             </article>
           </div>
@@ -112,8 +112,8 @@
           <h2 id="hosting-title">Run your own board.</h2>
           <p>Start locally with Git, Docker, and Make. Your tasks live in SQLite on your machine. On a shared server, each account has its own workspace behind HTTPS.</p>
           <div class="guide-links">
-            <a href="https://github.com/huntly-digital/plandillo#self-host">Self-hosting guide <svg class="icon" aria-hidden="true"><use href="#out"/></svg></a>
-            <a href="https://github.com/huntly-digital/plandillo#connecting-agents-mcp">Connect an agent <svg class="icon" aria-hidden="true"><use href="#out"/></svg></a>
+            <a href="https://github.com/huntly-digital/plandillo/blob/main/docs/hosting.md#self-host">Self-hosting guide <svg class="icon" aria-hidden="true"><use href="#out"/></svg></a>
+            <a href="https://github.com/huntly-digital/plandillo/blob/main/docs/agents.md">Connect an agent <svg class="icon" aria-hidden="true"><use href="#out"/></svg></a>
           </div>
         </div>
         <div class="install">
@@ -128,7 +128,7 @@
 <span>make rebuild</span></code></pre>
           </div>
           <span class="sr-only" id="copy-status" role="status"></span>
-          <p>Open <code>localhost:7777</code> to create your first project. <a href="https://github.com/huntly-digital/plandillo#quick-start">Full quick start <svg class="icon" aria-hidden="true"><use href="#out"/></svg></a></p>
+          <p>Open <code>localhost:7777</code> to create your first project. <a href="https://github.com/huntly-digital/plandillo/blob/main/docs/hosting.md#quick-start">Full quick start <svg class="icon" aria-hidden="true"><use href="#out"/></svg></a></p>
         </div>
       </div>
     </section>

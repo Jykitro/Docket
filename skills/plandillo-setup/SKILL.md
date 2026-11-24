@@ -1,6 +1,6 @@
 ---
 name: plandillo-setup
-description: Use when connecting an assistant to Plandillo (Claude Code, Claude Desktop or Codex), installing the Plandillo skills, enabling the Plandillo hooks, or when Plandillo tools are missing or fail with 401, 403, forbidden or tool_disabled.
+description: Use when connecting an assistant to Plandillo through MCP, installing the Plandillo skills, enabling the Plandillo hooks, or when Plandillo tools are missing or fail with 401, 403, forbidden or tool_disabled.
 ---
 
 # Plandillo setup
@@ -13,11 +13,11 @@ Four steps: run Plandillo, connect the client, install the skills, optionally tu
 - The UI and MCP share one address, `http://localhost:7777`; MCP is `http://localhost:7777/mcp` (Streamable HTTP). It listens on `127.0.0.1` only.
 - The token looks like `dkt_…`. Use Show or Copy token on the Integrations tab. `DOCKET_MCP_TOKEN` in `.env` overrides it and disables rotation.
 - Selfhost Code Mode requires the isolated worker in `compose.selfhost.yml` or `compose.postgres.yml`. The operator shares `DOCKET_CODE_SOCKET` with Plandillo. When the worker is offline, ordinary `/mcp` is still available.
-- Selfhost mode (`DOCKET_MODE=selfhost`): the first administrator obtains the bootstrap code with `plandillo setup-code` (Docker: `docker compose -f compose.selfhost.yml exec docket /app/plandillo setup-code`; substitute `compose.postgres.yml` when using the PostgreSQL stack). Every user has their own token on their Integrations tab; the same `/mcp` address serves everyone and the token picks the profile. Storage defaults to SQLite; operators can set `DOCKET_POSTGRES_DSN` for a dedicated PostgreSQL database (see README, Self-host). This does not import existing SQLite data; PostgreSQL backups are managed by the operator.
+- Selfhost mode (`DOCKET_MODE=selfhost`): the first administrator obtains the bootstrap code with `plandillo setup-code` (Docker: `docker compose -f compose.selfhost.yml exec docket /app/plandillo setup-code`; substitute `compose.postgres.yml` when using the PostgreSQL stack). Every user has their own token on their Integrations tab; the same `/mcp` address serves everyone and the token picks the profile. Storage defaults to SQLite; operators can set `DOCKET_POSTGRES_DSN` for a dedicated PostgreSQL database (see the [hosting guide](https://github.com/huntly-digital/plandillo/blob/main/docs/hosting.md#self-host)). This does not import existing SQLite data; PostgreSQL backups are managed by the operator.
 
 ## 2. Connect the client
 
-The Integrations tab supplies a client-specific URL for both MCP and Code Mode. For another client, choose **Other client** and enter its name, or append `?agent=my-agent` to the endpoint. If an existing connection shows up as “MCP agent”, update its URL in the client. The token still selects the workspace.
+The Integrations tab supplies a client-specific URL for both MCP and Code Mode. For a Streamable HTTP client, copy the endpoint and configure the header `Authorization: Bearer <TOKEN>` using the token from Integrations. To name the agent, choose **Other client** and enter its name, or append `?agent=my-agent` to the endpoint. If an existing connection shows up as “MCP agent”, update its URL in the client. The token still selects the workspace.
 
 **Claude Code and Codex:** select the client on the Integrations tab and copy its config. The terminal command prompts for the token with echo disabled and exports a variable specific to the selected endpoint. Start the client in that shell, or have a credential manager set that variable at launch. Claude Code stores a literal environment-variable reference in its HTTP header. Codex uses `--bearer-token-env-var`. After rotating the token, repeat the hidden prompt. When switching servers or between MCP and Code Mode, use the new endpoint's command.
 
@@ -40,7 +40,7 @@ Check it: ask the assistant to call `list_projects`. The catalogue has 19 tools.
 
 **Code Mode** (optional): the same commands with `/mcp/code` instead of `/mcp`. The client then sees one tool, `code`, and writes JavaScript that calls the tools as `codemode.list_projects({})`; fewer round trips on big jobs. Same token, switches and log. Keep one of the two registered as `plandillo`; the Integrations tab switches the address and the install command.
 
-**Plandillo on a server or in selfhost mode:** use its public address instead of `localhost:7777`, for example `https://planner.example.com/mcp`, and the token from your own Integrations tab. For Claude Desktop with an `https` address drop `--allow-http` (it is only for plain `http`). Put the host name (no scheme, no port) in `DOCKET_ALLOWED_HOSTS` in `.env` and restart the container, or every call gets `403`. TLS is the reverse proxy's job; the README's Self-host section explains it. Re-adding a server after a token change needs a remove first: `claude mcp remove plandillo` or `codex mcp remove plandillo`.
+**Plandillo on a server or in selfhost mode:** use its public address instead of `localhost:7777`, for example `https://planner.example.com/mcp`, and the token from your own Integrations tab. For Claude Desktop with an `https` address drop `--allow-http` (it is only for plain `http`). Put the host name (no scheme, no port) in `DOCKET_ALLOWED_HOSTS` in `.env` and restart the container, or every call gets `403`. TLS is the reverse proxy's job; the hosting guide covers the proxy setup. Re-adding a server after a token change needs a remove first: `claude mcp remove plandillo` or `codex mcp remove plandillo`.
 
 ## 3. Install the skills
 

@@ -1,11 +1,10 @@
 # Integrations
 
-For people who work on Plandillo's code. User-facing setup lives in the README ("Connecting agents") and in
+For people who work on Plandillo's code. User-facing setup lives in the [agent setup guide](agents.md) and in
 [`skills/plandillo-setup`](../skills/plandillo-setup/SKILL.md).
 
-An **integration** is a way for an assistant (Claude Code, Claude Desktop, Codex, any agent) to read and change tasks
-in Plandillo. A person uses the web UI over the REST API; an assistant uses an integration. Plandillo ships two, both
-inside the one Go process, both on the **Integrations** tab (`/integrations`; `/mcp` still opens it):
+An **integration** is a way for an AI agent to read and change tasks
+in Plandillo. A person uses the web UI over the REST API. An agent connects through one of two endpoints on the **Integrations** tab (`/integrations`). Code Mode also needs the [isolated worker](hosting.md#code-mode-worker).
 
 | Integration | Address | What the assistant sees | Code |
 |---|---|---|---|
@@ -110,7 +109,7 @@ code throws `Error("not_found: …")`; the code may catch it. If it is not caugh
 1. An entry in `service.MCPTools` (name, `read` or `write`, description). The group decides read-only behaviour.
 2. A handler and `add(s, "name", t.handler)` in `mcpserver.go`. `Handler` panics at startup if a registered name is
    missing from `MCPTools`.
-3. A test next to the code, the README tool table, and `skills/plandillo-reference/SKILL.md`.
+3. A test next to the code, the [MCP tool table](agents.md#tools), and `skills/plandillo-reference/SKILL.md`.
 
 Code Mode needs nothing: its declarations and `codemode` methods come from the same lists.
 
