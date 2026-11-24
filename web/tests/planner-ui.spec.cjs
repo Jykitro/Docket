@@ -1,6 +1,6 @@
 // Optional browser regressions. Build with make build, then run with a local Playwright installation:
 // NODE_PATH=/path/to/node_modules /path/to/node_modules/.bin/playwright test web/tests/planner-ui.spec.cjs
-// DOCKET_TEST_BINARY may point to another freshly built Docket binary.
+// DOCKET_TEST_BINARY may point to another freshly built Plandillo binary.
 const { test: base, expect } = require('playwright/test')
 const { spawn } = require('node:child_process')
 const { once } = require('node:events')
@@ -18,7 +18,7 @@ const test = base.extend({
     await once(socket, 'listening')
     const addr = '127.0.0.1:' + socket.address().port
     await new Promise(resolve => socket.close(resolve))
-    const binary = process.env.DOCKET_TEST_BINARY || path.resolve(__dirname, '../../bin/docket')
+    const binary = process.env.DOCKET_TEST_BINARY || path.resolve(__dirname, '../../bin/plandillo')
     const server = spawn(binary, [], {
       env: { PATH: process.env.PATH, DOCKET_MODE: 'local', DOCKET_ADDR: addr, DOCKET_DB: path.join(dir, 'ui.db'), DOCKET_BACKUP_DIR: path.join(dir, 'backups') },
       stdio: 'ignore',
@@ -283,6 +283,7 @@ test('keyboard focus contrasts with the surface and navigation respects reduced 
 })
 
 test('onboarding and activity use localized names and separate the author', async ({ page, planner }) => {
+  await page.setViewportSize({ width: 320, height: 750 })
   for (const [lang, heading, created] of [
     ['ru', 'Как вас называть?', 'Создана задача'],
     ['en', 'What should we call you?', 'Task ' + planner.next.code + ' created'],
@@ -291,8 +292,12 @@ test('onboarding and activity use localized names and separate the author', asyn
     await page.goto(planner.url)
     await page.evaluate(lang => localStorage.setItem('docket-lang', lang), lang)
     await page.route('**/api/profile', route => route.fulfill({ json: { name: '' } }))
+    await page.route('**/api/projects', route => route.fulfill({ json: [] }))
     await page.reload()
     await expect(page.getByRole('heading', { name: heading })).toBeVisible()
+    await expect(page.getByRole('img', { name: 'Plandillo' })).toBeVisible()
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320)
+    await page.unroute('**/api/projects')
     await page.unroute('**/api/profile')
     await page.reload()
     const event = page.getByText(created, { exact: lang === 'en' }).first()
@@ -471,7 +476,7 @@ test('copying integration commands keeps the bearer out of the clipboard and com
     await expect(page.getByRole('button', { name: 'Copy config' })).toBeVisible()
   }
   await page.getByRole('button', { name: 'Install in one command' }).click()
-  expect(await clipboard()).toMatch(/DOCKET_URL=.* sh$/)
+  expect(await clipboard()).toMatch(/PLANDILLO_URL=.* sh$/)
   expect(await clipboard()).not.toContain(secret)
   expect(reads).toBe(1)
 })

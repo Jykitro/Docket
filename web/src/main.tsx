@@ -25,7 +25,7 @@ const client = new QueryClient({ defaultOptions: { queries: { retry: (failures, 
 
 if (import.meta.env.PROD && window.isSecureContext && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    void navigator.serviceWorker.register('/sw.js').catch(err => console.warn('Docket service worker', err))
+    void navigator.serviceWorker.register('/sw.js').catch(err => console.warn('Plandillo service worker', err))
   })
 }
 

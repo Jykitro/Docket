@@ -4,7 +4,7 @@ import { type ReactNode } from 'react'
 import { useQueries, useQuery } from '@tanstack/react-query'
 import { type Project, type View, api, useAttention, useMe, useProfile, useProjects } from './api'
 import { Icon, ProjectTile } from './icons'
-import { DocketLogo } from './DocketLogo'
+import { PlandilloLogo } from './PlandilloLogo'
 import { tr } from './i18n'
 import { Link } from './router'
 import { cap, useFocusTrap } from './ui'
@@ -68,9 +68,8 @@ export function Sidebar({ path, view, overdue, rail, mobileOpen, onClose, onNewP
       >
         <div className="flex h-full flex-col rounded-lg border border-ln bg-sf shadow-sm">
         <div className={'flex h-16 items-center gap-2 px-3 ' + (rail ? 'justify-center' : '')}>
-          <DocketLogo />
-          {!rail && <span className="flex min-w-0 grow flex-col leading-tight"><b className="text-sm font-semibold">Docket</b></span>}
-          {mobileOpen && <button type="button" className="grid size-8 place-items-center rounded-md text-t2 hover:bg-sk" aria-label={tr('Закрыть')} onClick={onClose}><Icon name="x" /></button>}
+          <PlandilloLogo compact={rail} />
+          {mobileOpen && <button type="button" className="ml-auto grid size-8 place-items-center rounded-md text-t2 hover:bg-sk" aria-label={tr('Закрыть')} onClick={onClose}><Icon name="x" /></button>}
         </div>
 
         <div className="flex min-h-0 grow flex-col gap-3 overflow-y-auto px-2 py-1">
@@ -124,11 +123,11 @@ export function Sidebar({ path, view, overdue, rail, mobileOpen, onClose, onNewP
           )}
 
           <Group label={tr('Дополнительно')} rail={rail}>
-            <a href="https://github.com/Jykitro/Docket" target="_blank" rel="noopener noreferrer" className={cls(false)} title={rail ? 'GitHub' : undefined}>
+            <a href="https://github.com/huntly-digital/plandillo" target="_blank" rel="noopener noreferrer" className={cls(false)} title={rail ? 'GitHub' : undefined}>
               <Icon name="github" />
               {!rail && <span className={nvName}>GitHub</span>}
             </a>
-            <a href="https://github.com/Jykitro/Docket/issues/new" target="_blank" rel="noopener noreferrer" className={cls(false)} title={rail ? tr('Сообщить о проблеме') : undefined}>
+            <a href="https://github.com/huntly-digital/plandillo/issues/new" target="_blank" rel="noopener noreferrer" className={cls(false)} title={rail ? tr('Сообщить о проблеме') : undefined}>
               <Icon name="flag" />
               {!rail && <span className={nvName}>{tr('Сообщить о проблеме')}</span>}
             </a>

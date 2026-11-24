@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Docket is a personal task planner: one Go process, SQLite by default (a database per user in selfhost mode), optional PostgreSQL schemas for selfhost, a React UI embedded in the binary, and an MCP server so an assistant can read and keep the tasks. This file is for agents that work on the Docket code. The README covers usage; read it for features, configuration and the REST API.
+Plandillo is a personal task planner: one Go process, SQLite by default (a database per user in selfhost mode), optional PostgreSQL schemas for selfhost, a React UI embedded in the binary, and an MCP server so an assistant can read and keep the tasks. This file is for agents that work on the Plandillo code. The README covers usage; read it for features, configuration and the REST API.
 
 ## Commands
 
@@ -15,7 +15,7 @@ Requirements: Go (version in `go.mod`), [Bun](https://bun.sh), `make`, Docker fo
 | `make typecheck`, `make knip` | Frontend checks alone |
 | `make dev-api` | Backend on `:7777` with a separate `./data/dev.db` |
 | `make dev-web` | Vite with hot reload; proxies `/api` to `:7777` |
-| `make web`, `make build` | Frontend build into `internal/web/dist`; `bin/docket` with the UI embedded |
+| `make web`, `make build` | Frontend build into `internal/web/dist`; `bin/plandillo` with the UI embedded (also available as `bin/docket`) |
 | `make rebuild`, `make logs`, `make stop` | Docker image and container (data in `./data` is kept) |
 
 - Go tests open a port on localhost (`httptest`). In a sandbox that forbids binding a local port they panic with `bind: operation not permitted`; that is the sandbox, not the code. Run them outside it.
@@ -25,6 +25,7 @@ Requirements: Go (version in `go.mod`), [Bun](https://bun.sh), `make`, Docker fo
 ## Layout
 
 ```
+landing/            public Plandillo site (its own build and README)
 cmd/docket          config, wiring, graceful shutdown, housekeeping (daily backup, call-log cleanup)
 internal/database   SQLite/PostgreSQL connections, SQL dialect boundary and schema locks
 internal/store      task queries, SQLite/PostgreSQL migrations and SQLite backups
@@ -35,7 +36,7 @@ internal/auth       selfhost users, sessions, password hashing, login rate limit
 internal/selfhost   one SQLite file or PostgreSQL schema per profile, routing by session or MCP token
 internal/events     pub/sub for SSE
 internal/web        embedded SPA (dist)
-skills/             agent skills for users of Docket, embedded in the binary (see below)
+skills/             agent skills for users of Plandillo, embedded in the binary (see below)
 web/                React + TypeScript + Vite + Tailwind CSS v4; the design tokens are in web/src/styles.css
 ```
 
@@ -51,7 +52,7 @@ web/                React + TypeScript + Vite + Tailwind CSS v4; the design toke
 
 **Web.** The UI is Russian, English and Ukrainian. The Russian source text is the key: `tr('Настройки')`, `tr('Онлайн · {v}', { v })`. English and Ukrainian go into `web/src/messages.ts`; a missing entry falls back to Russian, so add all three together. Use `locale()` for dates and numbers, never a hard-coded locale. Styling is Tailwind utilities on the tokens in `web/src/styles.css`; the existing look is shadcn-admin. The UI must not contact any outside host (fonts are bundled): no CDNs, analytics or remote images. Knip fails the build on unused exports and dependencies, so delete code you stop using.
 
-**Data safety.** Never commit `.env`, `data/` or any database. No bundled personal data: Docket ships without a seed (`DOCKET_SEED` is optional and empty by default). The `/mcp` endpoint is behind a bearer token and the Host/Origin guard; don't weaken either.
+**Data safety.** Never commit `.env`, `data/` or any database. No bundled personal data: Plandillo ships without a seed (`DOCKET_SEED` is optional and empty by default). The `/mcp` endpoint is behind a bearer token and the Host/Origin guard; don't weaken either.
 
 PostgreSQL is opt-in via `DOCKET_POSTGRES_DSN` and requires `DOCKET_MODE=selfhost`. Use a dedicated database:
 `docket_auth` stores accounts and `docket_user_<id>` stores each profile. Both dialects must keep the same service
@@ -61,7 +62,7 @@ backup ran. No automatic SQLite import or multi-instance support exists. See REA
 
 ## MCP tools
 
-The tool catalogue is `service.MCPTools` in `internal/service/mcp.go`; `internal/mcpserver` registers exactly those and panics at startup if a name is missing. Adding a tool means: an entry in `MCPTools` (name, `read` or `write`, description), a handler registered with `add(...)` in `mcpserver.go`, the README tool table and `skills/docket-reference/SKILL.md`. Write tools are blocked in read-only mode by `IsWriteTool`. Results are compact JSON with IDs like `TRK-07`; keep them small, the assistant pays for every byte.
+The tool catalogue is `service.MCPTools` in `internal/service/mcp.go`; `internal/mcpserver` registers exactly those and panics at startup if a name is missing. Adding a tool means: an entry in `MCPTools` (name, `read` or `write`, description), a handler registered with `add(...)` in `mcpserver.go`, the README tool table and `skills/plandillo-reference/SKILL.md`. Write tools are blocked in read-only mode by `IsWriteTool`. Results are compact JSON with IDs like `TRK-07`; keep them small, the assistant pays for every byte.
 
 Code Mode (`/mcp/code`) exposes the same tools as `codemode.<tool>()` inside one `code` tool that runs JavaScript in goja; it derives everything from `MCPTools` and the registered schemas, so a new tool needs no change there. How integrations work and how to add one: `docs/integrations.md`.
 
@@ -69,12 +70,12 @@ Code Mode (`/mcp/code`) exposes the same tools as `codemode.<tool>()` inside one
 
 Three skills, one `SKILL.md` each, embedded by `skills/skills.go` and served at `/api/mcp/skill/{name}`:
 
-- `docket`: the workflow (task per piece of work, plan, notes, issues, end checklist). Its body is also sent to every client as MCP `instructions`, and Claude Code truncates instructions at 2048 bytes: `TestDocketSkillIsServedAndSentAsInstructions` enforces that. Keep it compact; put detail in the other two.
-- `docket-reference`: data model, every tool, errors, conventions, FAQ.
-- `docket-setup`: connecting Claude Code, Claude Desktop and Codex, installing skills, the `SessionStart` and `Stop` hooks, troubleshooting.
+- `plandillo`: the workflow (task per piece of work, plan, notes, issues, end checklist). Its body is also sent to every client as MCP `instructions`, and Claude Code truncates instructions at 2048 bytes: `TestPlandilloSkillIsServedAndSentAsInstructions` enforces that. Keep it compact; put detail in the other two.
+- `plandillo-reference`: data model, every tool, errors, conventions, FAQ.
+- `plandillo-setup`: connecting Claude Code, Claude Desktop and Codex, installing skills, the `SessionStart` and `Stop` hooks, troubleshooting.
 
-When you change a tool, a limit or a setup step, change the matching skill in the same commit. The hook JSON exists in two places that must stay identical: `skills/docket-setup/SKILL.md` and `web/src/McpAgent.tsx`. A new skill is a folder `skills/docket-<topic>/SKILL.md` with `name` equal to the folder and a `description` that starts with "Use when" and says only when to use it. The MCP page lists skills from `SKILLS` in `McpAgent.tsx`.
+When you change a tool, a limit or a setup step, change the matching skill in the same commit. The hook JSON exists in two places that must stay identical: `skills/plandillo-setup/SKILL.md` and `web/src/McpAgent.tsx`. A new skill is a folder `skills/plandillo-<topic>/SKILL.md` with `name` equal to the folder and a `description` that starts with "Use when" and says only when to use it. The MCP page lists skills from `SKILLS` in `McpAgent.tsx`.
 
-## If the maintainer uses Docket
+## If the maintainer uses Plandillo
 
-The maintainer plans their work in Docket. When their Docket MCP server is connected, follow the `docket` skill: a task per piece of work, the plan as a checklist, noticed problems recorded immediately with `report_issue`, and a reconcile step before the final message.
+The maintainer plans their work in Plandillo. When their Plandillo MCP server is connected, follow the `plandillo` skill: a task per piece of work, the plan as a checklist, noticed problems recorded immediately with `report_issue`, and a reconcile step before the final message.

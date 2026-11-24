@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Plandillo — one task board for you, Claude and Codex</title>
+  <meta name="description" content="Plan in your browser and let Claude and Codex update the same tasks through MCP. Plandillo is an open-source task planner you can host yourself.">
+  <meta name="theme-color" content="#faf9f6">
+  <link rel="canonical" href="https://plandillo.dev/">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Plandillo">
+  <meta property="og:url" content="https://plandillo.dev/">
+  <meta property="og:title" content="Plandillo — one task board for you, Claude and Codex">
+  <meta property="og:description" content="Plan in your browser. Give your agents the same task list through MCP. Run the board on your own machine.">
+  <meta property="og:image" content="https://plandillo.dev/assets/share.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="900">
+  <meta property="og:image:alt" content="A purple armadillo perched on a stack of checked-off task cards.">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="assets/favicon.ico" sizes="any">
+  <link rel="icon" href="assets/plandillo-icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="assets/plandillo-icon-192.png">
+  <link rel="preload" href="assets/fonts/inter-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="style.css">
+  <script src="copy.js" defer></script>
+</head>
+<body id="top">
+  <a class="skip-link" href="#main">Skip to content</a>
+  <svg class="glyphs" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+    <symbol id="arrow" viewBox="0 0 24 24"><path d="M4 12h15m-6-6 6 6-6 6"/></symbol>
+    <symbol id="out" viewBox="0 0 24 24"><path d="M6 18 18 6M7 6h11v11"/></symbol>
+    <symbol id="down" viewBox="0 0 24 24"><path d="M12 4v15m-6-6 6 6 6-6"/></symbol>
+    <symbol id="copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></symbol>
+  </svg>
+
+  <header class="header wrap">
+    <a class="brand" href="#top" aria-label="Plandillo home"><img src="assets/plandillo.svg" width="733" height="128" alt="Plandillo"></a>
+    <nav aria-label="Main navigation">
+      <a href="#workflow">Workflow</a>
+      <a href="#self-host">Self-host</a>
+      <a class="repo" href="https://github.com/huntly-digital/plandillo">GitHub <svg class="icon" aria-hidden="true"><use href="#out"/></svg></a>
+    </nav>
+  </header>
+
+  <main id="main" tabindex="-1">
+    <section class="hero wrap" aria-labelledby="hero-title">
+      <div class="hero-copy">
+        <h1 id="hero-title">One board.<br>You, Claude<br><em>&amp; Codex.</em></h1>
+        <p>Plan in your browser. Connect Claude and Codex through MCP to pick up tasks, leave notes, and mark work done on the same board.</p>
+        <div class="hero-actions">
+          <a class="button" href="#self-host">Quick start <svg class="icon" aria-hidden="true"><use href="#arrow"/></svg></a>
+          <a class="text-action" href="#workflow">See the workflow <svg class="icon" aria-hidden="true"><use href="#down"/></svg></a>
+        </div>
+      </div>
+      <img class="hero-art" src="assets/armadillo.webp" srcset="assets/armadillo-small.webp 640w, assets/armadillo.webp 1280w" sizes="(max-width: 760px) 92vw, (max-width: 1550px) 52vw, 780px" width="1280" height="960" fetchpriority="high" alt="Plandillo’s purple armadillo on a stack of checked-off task cards.">
+    </section>
+
+    <section class="workflow wrap" id="workflow" aria-labelledby="workflow-title">
+      <div class="section-heading">
+        <h2 id="workflow-title">From a task to done.</h2>
+        <p>Follow one example across the board and both agents.</p>
+      </div>
+      <fieldset class="demo">
+        <legend class="sr-only">Explore the three stages of task APP-24</legend>
+        <input class="sr-only" type="radio" name="stage" id="step-you" checked aria-controls="task-example">
+        <label for="step-you"><span>01</span> You</label>
+        <input class="sr-only" type="radio" name="stage" id="step-claude" aria-controls="task-example">
+        <label for="step-claude"><span>02</span> Claude</label>
+        <input class="sr-only" type="radio" name="stage" id="step-codex" aria-controls="task-example">
+        <label for="step-codex"><span>03</span> Codex</label>
+        <div class="scene" id="task-example">
+          <div class="narration">
+            <div data-stage="you">
+              <p class="channel">Browser</p><h3>Set the task.</h3>
+              <p>Create a task on your board. Describe the change and how you’ll know it works.</p>
+            </div>
+            <div data-stage="claude">
+              <p class="channel">Claude Code · MCP</p><h3>Work out the fix.</h3>
+              <p>Ask Claude to read APP-24 and trace the menu behavior. It moves the task to Doing and leaves its findings for Codex.</p>
+            </div>
+            <div data-stage="codex">
+              <p class="channel">Codex · MCP</p><h3>Close the loop.</h3>
+              <p>Ask Codex to pick up APP-24, implement the fix, and test it. Its note and status change appear on your board.</p>
+            </div>
+          </div>
+          <div class="workspace">
+            <article class="ticket" aria-labelledby="task-title">
+              <p class="crumb">Website <span>/</span> Task</p>
+              <div class="task-meta">
+                <span class="task-id">APP-24</span>
+                <span class="status" data-stage="you">Backlog</span>
+                <span class="status doing" data-stage="claude">Doing</span>
+                <span class="status done" data-stage="codex">Done</span>
+              </div>
+              <h4 id="task-title">Fix the mobile menu</h4>
+              <p>The menu should close when a visitor follows a link.</p>
+              <div class="activity">
+                <strong>Activity</strong>
+                <p data-stage="you">You created the task.</p>
+                <p data-stage="claude">Claude moved the task to Doing and left a note: “The link handler changes the route but leaves the menu open.”</p>
+                <p data-stage="codex">Codex marked the task Done: “Closed the menu on navigation. Verified with touch and keyboard.”</p>
+              </div>
+            </article>
+          </div>
+        </div>
+      </fieldset>
+    </section>
+
+    <section class="hosting" id="self-host" aria-labelledby="hosting-title">
+      <div class="hosting-inner wrap">
+        <div>
+          <h2 id="hosting-title">Run your own board.</h2>
+          <p>Start locally with Git, Docker, and Make. Your tasks live in SQLite on your machine. On a shared server, each account has its own workspace behind HTTPS.</p>
+          <div class="guide-links">
+            <a href="https://github.com/huntly-digital/plandillo#self-host">Self-hosting guide <svg class="icon" aria-hidden="true"><use href="#out"/></svg></a>
+            <a href="https://github.com/huntly-digital/plandillo#connecting-agents-mcp">Connect an agent <svg class="icon" aria-hidden="true"><use href="#out"/></svg></a>
+          </div>
+        </div>
+        <div class="install">
+          <div class="terminal">
+            <div class="terminal-head">
+              <span class="traffic" aria-hidden="true"><i></i><i></i><i></i></span>
+              <span>Terminal</span>
+              <button id="copy-commands" type="button" hidden aria-label="Copy quick start commands"><svg class="icon" aria-hidden="true"><use href="#copy"/></svg>Copy</button>
+            </div>
+            <pre><code id="commands"><span>git clone https://github.com/huntly-digital/plandillo.git</span>
+<span>cd plandillo</span>
+<span>make rebuild</span></code></pre>
+          </div>
+          <span class="sr-only" id="copy-status" role="status"></span>
+          <p>Open <code>localhost:7777</code> to create your first project. <a href="https://github.com/huntly-digital/plandillo#quick-start">Full quick start <svg class="icon" aria-hidden="true"><use href="#out"/></svg></a></p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer wrap">
+    <a class="brand" href="#top" aria-label="Plandillo, back to top"><img src="assets/plandillo.svg" width="733" height="128" alt="Plandillo"></a>
+    <nav aria-label="Project links">
+      <a href="https://github.com/huntly-digital">Huntly Digital <svg class="icon" aria-hidden="true"><use href="#out"/></svg></a>
+      <a href="https://github.com/huntly-digital/plandillo">GitHub <svg class="icon" aria-hidden="true"><use href="#out"/></svg></a>
+      <a href="https://github.com/huntly-digital/plandillo/blob/main/LICENSE">MIT license <svg class="icon" aria-hidden="true"><use href="#out"/></svg></a>
+    </nav>
+  </footer>
+</body>
+</html>

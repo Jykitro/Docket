@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#171717">
-  <title>Docket</title>
+  <meta name="theme-color" content="#261c36">
+  <title>Plandillo</title>
   <style>
     :root { color-scheme: light dark; font: 16px system-ui, sans-serif; }
     body { min-height: 100dvh; margin: 0; display: grid; place-items: center; text-align: center; }
@@ -12,7 +12,7 @@
   </style>
 </head>
 <body>
-  <main><h1>Offline</h1><button type="button">Retry</button></main>
+  <main><strong>Plandillo</strong><h1>Offline</h1><button type="button">Retry</button></main>
   <script>
     const labels = { en: ['Offline', 'Retry'], ru: ['Нет связи', 'Повторить'], uk: ['Немає зв’язку', 'Повторити'] }
     let lang = navigator.languages.map(l => l.slice(0, 2)).find(l => Object.hasOwn(labels, l)) || 'en'

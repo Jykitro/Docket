@@ -1,5 +1,7 @@
 # Self-host режим: авторизация и закрытые профили
 
+> Historical design record for Docket, now Plandillo. For current installation and configuration, see the [project README](../../../README.md).
+
 Дата: 2026-11-06. Статус: дизайн одобрен в чате, спека ждёт ревью.
 
 ## Цель

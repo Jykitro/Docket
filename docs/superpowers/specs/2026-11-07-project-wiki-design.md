@@ -1,5 +1,7 @@
 # Вики проекта (третья вкладка) — спека
 
+> Historical design record for Docket, now Plandillo. For current installation and configuration, see the [project README](../../../README.md).
+
 Дата: 2026-11-07. Статус: ждёт проверки.
 
 ## Цель

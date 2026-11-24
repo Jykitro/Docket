@@ -7,5 +7,6 @@ web/node_modules
 internal/web/dist
 
 outputs
+landing
 bin
 .env.*

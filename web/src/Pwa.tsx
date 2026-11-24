@@ -19,13 +19,13 @@ function subscribe(listener: () => void) {
   return () => changed.removeEventListener('change', listener)
 }
 
-export function InstallDocket() {
+export function InstallPlandillo() {
   const prompt = useSyncExternalStore(subscribe, () => installEvent)
   if (matchMedia('(display-mode: standalone)').matches || !window.isSecureContext) return null
   if (prompt) return <button type="button" className={btn} onClick={() => {
     setPrompt(null)
     void prompt.prompt().catch(() => {})
-  }}>{tr('Установить Docket')}</button>
+  }}>{tr('Установить Plandillo')}</button>
   if (/Safari\//.test(navigator.userAgent) && !/Chrome\/|Chromium\/|Android/.test(navigator.userAgent)) {
     const mobile = /iPad|iPhone|iPod/.test(navigator.userAgent) || navigator.maxTouchPoints > 1
     return <p className="px-3 text-sm text-t2">{mobile

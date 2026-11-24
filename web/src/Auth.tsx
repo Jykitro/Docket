@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ApiError, api, errText, useMe } from './api'
 import { Icon } from './icons'
 import { PasskeyLogin } from './Passkeys'
-import { DocketLogo } from './DocketLogo'
+import { PlandilloLogo } from './PlandilloLogo'
 import { tr, useLang } from './i18n'
 import { Link, navigate, useRoute } from './router'
 import { LangSwitch, btnPri, cap } from './ui'
@@ -27,11 +27,10 @@ function AuthForm({ title, text, fields, submit, onSubmit, children }: {
   })
   const message = send.error && errText(send.error)
   return (
-    <main className="min-h-screen grid place-items-center px-4 py-8">
+    <main className="min-h-screen grid grid-cols-1 place-items-center px-4 py-8">
       <div className="w-full max-w-[460px] bg-sf border border-ln rounded-lg shadow-pop p-6 flex flex-col gap-4">
         <div className="flex items-center gap-2.5">
-          <DocketLogo />
-          <b className="text-[17px] font-bold tracking-[-.01em] grow">Docket</b>
+          <div className="min-w-0 grow"><PlandilloLogo /></div>
           <LangSwitch />
         </div>
         <form className="flex flex-col gap-4" onSubmit={(e) => { e.preventDefault(); if (!send.isPending) send.mutate() }}>
@@ -83,7 +82,7 @@ function Setup({ saved }: { saved: Saved }) {
     <AuthForm
       title="Первый запуск" text="Создайте администратора. Он сможет приглашать других пользователей." submit="Создать"
       fields={[
-        { key: 'code', label: 'Код настройки', autoComplete: 'off', hint: 'Получите код командой docket setup-code на сервере. В Docker выполните docker compose exec docket /app/docket setup-code.' },
+        { key: 'code', label: 'Код настройки', autoComplete: 'off', hint: 'Получите код командой plandillo setup-code на сервере. В Docker выполните docker compose -f compose.selfhost.yml exec docket /app/plandillo setup-code.' },
         username, newPassword,
       ]}
       onSubmit={(v) => api.setup(v.code, v.username, v.password).then(saved)}
@@ -127,7 +126,7 @@ export function Gate({ children }: { children: ReactNode }) {
   // App sets page-specific titles that would go stale behind the login screen.
   const inApp = me.isSuccess && (me.data?.mode === 'local' || !!me.data?.user)
   useEffect(() => {
-    if (!inApp) document.title = 'Docket'
+    if (!inApp) document.title = 'Plandillo'
   }, [inApp])
 
   // Signed in already: drop /invite/<token> from the URL and history instead of letting the app print it as "not found".

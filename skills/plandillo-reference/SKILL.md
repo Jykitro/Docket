@@ -1,11 +1,11 @@
 ---
-name: docket-reference
-description: Use when unsure how a Docket tool, field, status key, task ID, date or error code behaves, or which project, area or priority to use, before guessing at an MCP call.
+name: plandillo-reference
+description: Use when unsure how a Plandillo tool, field, status key, task ID, date or error code behaves, or which project, area or priority to use, before guessing at an MCP call.
 ---
 
-# Docket reference
+# Plandillo reference
 
-Docket is the user's personal task planner. Your MCP connection identifies your edits by agent name (for example `codex` or `claude`); the user works in the same data through the web UI and sees your changes live. The workflow you follow (task per piece of work, plan, notes, issues, end checklist) is the `docket` skill. This file answers "how does X behave".
+Plandillo is the user's personal task planner. Your MCP connection identifies your edits by agent name (for example `codex` or `claude`); the user works in the same data through the web UI and sees your changes live. The workflow you follow (task per piece of work, plan, notes, issues, end checklist) is the `plandillo` skill. This file answers "how does X behave".
 
 ## Data model
 
@@ -70,15 +70,15 @@ Errors read `code: message`. Never retry the same call blindly.
 |---|---|---|
 | `invalid_argument` | Validation failed; the message names the field | Fix the argument. `unknown status "x" (this project has: a, b)` lists the valid keys |
 | `not_found` | No such task or project | Check the ID with `search`; the key may have changed |
-| `forbidden` | Docket is in read-only mode | Don't retry. List the intended updates in your final message |
+| `forbidden` | Plandillo is in read-only mode | Don't retry. List the intended updates in your final message |
 | `tool_disabled` | The user switched this tool off | Same as `forbidden` |
 | `conflict` | The page changed since you read it (`write_page`) | `read_page` again, merge, retry once |
 | `status_in_use` | A status still holds tasks (admin calls) | Not expected over MCP |
 | `quota_exceeded` | The profile reached its HTML revision budget | Ask the owner to free space before publishing another revision |
 | `page_too_large` | Several rows exceed the page byte budget | Reduce `limit` and continue at the same `offset` |
-| `internal` | Server fault | Retry once; if it repeats, tell the user and check `docket-setup` |
+| `internal` | Server fault | Retry once; if it repeats, tell the user and check `plandillo-setup` |
 
-A 401 or 403 on connect, or missing tools, is a setup problem: use `docket-setup`.
+A 401 or 403 on connect, or missing tools, is a setup problem: use `plandillo-setup`.
 
 ## Conventions
 
@@ -108,5 +108,5 @@ A 401 or 403 on connect, or missing tools, is a setup problem: use `docket-setup
 - **Can I put secrets in a task?** No. Descriptions, notes and exports are stored as plain text. Never write tokens, passwords or keys. If you find one in code or config, file an issue that says where it is ("an API token is committed in `x.env`") without the value, and tell the user in the final message.
 - **Can I change a project (rename, key, archive, delete)?** No tool does. Say what you would change and ask the user to do it in the UI.
 - **Several users (selfhost mode)?** Each user has their own database and their own token; your token selects the profile. You cannot see anyone else's data.
-- **A tool I need is missing.** The user switched it off, or Docket is read-only. Say so in the final message; don't work around it.
+- **A tool I need is missing.** The user switched it off, or Plandillo is read-only. Say so in the final message; don't work around it.
 - **The user said "just do it, no tracker".** Honour the speed, not the skip: one `create_tasks` with `status: done` and a one-line description costs one call.

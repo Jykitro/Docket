@@ -1,5 +1,5 @@
 {
-  "name": "docket-web",
+  "name": "plandillo-web",
   "private": true,
   "packageManager": "bun@1.4.5",
   "type": "module",

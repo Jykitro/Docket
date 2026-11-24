@@ -1,4 +1,4 @@
-// Integrations tab: the ways an assistant reaches Docket (MCP, Code Mode) and what they share: status and
+// Integrations tab: the ways an assistant reaches Plandillo (MCP, Code Mode) and what they share: status and
 // self-check, token and access mode, tool switches, live call log. See docs/integrations.md.
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -49,10 +49,10 @@ function config(tab: number, address: string, endpoint: string) {
   // Keep this encoding identical to skills/install.sh. Two endpoints never share a credential.
   const key = Array.from(new TextEncoder().encode(endpoint), b => b.toString(16).padStart(2, '0')).join('')
   const credential = 'DOCKET_MCP_' + key
-  const prompt = `export ${credential}="$(bash -c 'IFS= read -rs -p "Docket token: " token </dev/tty && printf %s "$token"')"`
-  if (tab === 0) return `${prompt}\nclaude mcp add --transport http docket ${shellQuote(address)} --header 'Authorization: Bearer \${${credential}}'`
-  if (tab === 2) return `${prompt}\ncodex mcp add docket --url ${shellQuote(address)} --bearer-token-env-var ${credential}`
-  return JSON.stringify({ mcpServers: { docket: { command: 'npx',
+  const prompt = `export ${credential}="$(bash -c 'IFS= read -rs -p "Plandillo token: " token </dev/tty && printf %s "$token"')"`
+  if (tab === 0) return `${prompt}\nclaude mcp add --transport http plandillo ${shellQuote(address)} --header 'Authorization: Bearer \${${credential}}'`
+  if (tab === 2) return `${prompt}\ncodex mcp add plandillo --url ${shellQuote(address)} --bearer-token-env-var ${credential}`
+  return JSON.stringify({ mcpServers: { plandillo: { command: 'npx',
     args: ['-y', 'mcp-remote', address, '--header', 'Authorization:${AUTH}', ...(address.startsWith('http:') ? ['--allow-http'] : [])],
     env: { AUTH: 'Bearer <TOKEN>' },
   } } }, null, 2)
@@ -114,7 +114,7 @@ export function Mcp() {
         <span className="grid size-10 place-items-center rounded-[11px] bg-sk"><Icon name="plug" size={20} sw={1.9} /></span>
         <div className="flex min-w-0 flex-[1_1_260px] flex-col gap-0.5">
           <h1 className="text-2xl font-bold tracking-tight">{tr('Интеграции')}</h1>
-          <span className="text-sm text-t3">{tr('Так ассистент читает и ведёт задачи: через MCP или Code Mode. Оба работают внутри Docket, отдельно ничего ставить не нужно.')}</span>
+          <span className="text-sm text-t3">{tr('Так ассистент читает и ведёт задачи: через MCP или Code Mode. Оба работают внутри Plandillo, отдельно ничего ставить не нужно.')}</span>
         </div>
         {result && !status.isError && (
           <span className={'inline-flex h-[30px] items-center gap-2 rounded-full px-3 text-[13px] font-semibold ' + (online ? 'bg-dns text-dnt' : 'bg-rds text-rd')} role="status">

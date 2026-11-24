@@ -1,13 +1,13 @@
 ---
-name: docket-patterns
-description: "Use when working in the Docket repo, especially before writing a commit message, adding a test, or editing handler, service, store or web files: conventions measured from git history"
+name: plandillo-patterns
+description: "Use when working in the Plandillo repo, especially before writing a commit message, adding a test, or editing handler, service, store or web files: conventions measured from git history"
 metadata:
   version: "1.0.0"
   source: local-git-analysis
   analyzed_commits: "51"
 ---
 
-# Docket Patterns
+# Plandillo Patterns
 
 Measured on 51 commits. Commands, layout and rules are in `AGENTS.md`; this skill is what the history shows people actually do.
 
@@ -30,8 +30,8 @@ Measured on 51 commits. Commands, layout and rules are in `AGENTS.md`; this skil
 | Change | Files that move together |
 |---|---|
 | Selfhost or auth behaviour | `internal/selfhost/handler.go` + `handler_test.go`; `internal/auth/db.go` + `db_test.go` (every commit so far) |
-| New or changed MCP tool | `internal/service/mcp.go` (`MCPTools`), `internal/mcpserver/mcpserver.go`, README tool table, `skills/docket-reference/SKILL.md` |
-| Skill text or hook JSON | `skills/docket*/SKILL.md`, `web/src/McpAgent.tsx` (hook JSON, skill list), `web/src/messages.ts` for new UI strings |
+| New or changed MCP tool | `internal/service/mcp.go` (`MCPTools`), `internal/mcpserver/mcpserver.go`, README tool table, `skills/plandillo-reference/SKILL.md` |
+| Skill text or hook JSON | `skills/plandillo*/SKILL.md`, `web/src/McpAgent.tsx` (hook JSON, skill list), `web/src/messages.ts` for new UI strings |
 | New UI string | `tr('Русский текст')` in the component and the en/uk pair in `web/src/messages.ts` |
 | New REST endpoint | `internal/httpapi/httpapi.go`, the matching `service` function, a case in `httpapi_test.go`, the README REST table, `web/src/api.ts` |
 
@@ -40,4 +40,4 @@ Measured on 51 commits. Commands, layout and rules are in `AGENTS.md`; this skil
 - Go tests sit next to the code (`*_test.go`) and change in the same commit as the code. `internal/httpapi/httpapi_test.go` builds a real server with `httptest` and a temporary SQLite file; `newEnv(t)` and `connect(t, e)` (an MCP client session) are the helpers to reuse.
 - Tests open a local port, so a sandbox that forbids binding fails them with `bind: operation not permitted`.
 - The frontend has no test runner. `make typecheck` and `make knip` are its gate; `make check` runs everything.
-- A skill change is covered by `TestDocketSkillIsServedAndSentAsInstructions` (each skill is served, the `docket` body stays under 2048 bytes).
+- A skill change is covered by `TestPlandilloSkillIsServedAndSentAsInstructions` (each skill is served, the `plandillo` body stays under 2048 bytes).

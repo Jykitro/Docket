@@ -303,15 +303,15 @@ func TestMCPToolsPolicyAndCallLog(t *testing.T) {
 func ptr[T any](v T) *T { return &v }
 
 // The skill is both installed by the user and sent as server instructions; Claude Code cuts instructions at 2048 bytes.
-func TestDocketSkillIsServedAndSentAsInstructions(t *testing.T) {
+func TestPlandilloSkillIsServedAndSentAsInstructions(t *testing.T) {
 	e := newEnv(t)
 	res := do(t, "GET", e.srv.URL+"/api/mcp/skill", "", nil)
 	body, _ := io.ReadAll(res.Body)
 	res.Body.Close()
-	if res.StatusCode != 200 || !strings.HasPrefix(string(body), "---\nname: docket\n") {
+	if res.StatusCode != 200 || !strings.HasPrefix(string(body), "---\nname: plandillo\n") {
 		t.Fatalf("skill endpoint: %d %.40q", res.StatusCode, body)
 	}
-	for _, name := range []string{"docket", "docket-reference", "docket-setup"} {
+	for _, name := range []string{"plandillo", "plandillo-reference", "plandillo-setup", "docket", "docket-reference", "docket-setup"} {
 		res := do(t, "GET", e.srv.URL+"/api/mcp/skill/"+name, "", nil)
 		b, _ := io.ReadAll(res.Body)
 		res.Body.Close()
@@ -330,8 +330,12 @@ func TestDocketSkillIsServedAndSentAsInstructions(t *testing.T) {
 	if res.StatusCode != 200 || !strings.HasPrefix(string(body), "#!/bin/sh\n") || !strings.Contains(string(body), "name: docket-setup") {
 		t.Fatalf("install.sh: %d %.40q", res.StatusCode, body)
 	}
-	ins := connect(t, e).InitializeResult().Instructions
-	if ins == "" || strings.Contains(ins, "name: docket") || len(ins) > 2048 {
+	result := connect(t, e).InitializeResult()
+	if result.ServerInfo.Name != "plandillo" || result.ServerInfo.Title != "Plandillo" {
+		t.Fatalf("server identity: %+v", result.ServerInfo)
+	}
+	ins := result.Instructions
+	if ins == "" || strings.Contains(ins, "name:") || !strings.HasPrefix(ins, "# Plandillo") || len(ins) > 2048 {
 		t.Fatalf("instructions must be the skill body within 2048 bytes, got %d bytes", len(ins))
 	}
 }

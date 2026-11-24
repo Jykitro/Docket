@@ -1,7 +1,7 @@
 package mcpserver
 
 // Code Mode, after Cloudflare's (developers.cloudflare.com/agents/tools/codemode/): instead of one tool call
-// per step, the assistant sends one `code` call with JavaScript that calls the Docket tools as
+// per step, the assistant sends one `code` call with JavaScript that calls the Plandillo tools as
 // `await codemode.<tool>(args)`, loops and filters, and returns only the value it needs. The code runs in
 // goja inside this process with no network, timers or files. Every codemode.* call goes to the classic
 // server over an in-memory MCP session, so the token, access mode, tool switches and call log apply to it
@@ -31,9 +31,9 @@ const (
 	codeMaxLogs   = 50
 )
 
-const codePreamble = "Run JavaScript inside Docket. `code` is an async arrow function such as " +
+const codePreamble = "Run JavaScript inside Plandillo. `code` is an async arrow function such as " +
 	"`async () => { const t = await codemode.get_today({}); return t.overdue.length }`, or just the statements of its body. " +
-	"Call Docket tools as `await codemode.<tool>(args)`: each returns the same JSON as the MCP tool of that name and " +
+	"Call Plandillo tools as `await codemode.<tool>(args)`: each returns the same JSON as the MCP tool of that name and " +
 	"a failed call throws Error(\"code: message\"). Return only what you need: the return value and console.log output " +
 	"come back as {result, logs}. Use it to chain calls, loop over tasks and filter without sending intermediate data " +
 	"through the chat. Limits: 30 s, 100 tool calls, 50 KB result; no fetch, timers, require or files.\n\n"
@@ -44,7 +44,7 @@ type codeIn struct {
 
 // codeServer is the /mcp/code server: one tool, `code`, whose calls go to tools (the classic server).
 func codeServer(svc *service.Service, tools *mcp.Server, execute evaluator) *mcp.Server {
-	s := mcp.NewServer(&mcp.Implementation{Name: "docket-code", Version: "1.0.0"}, &mcp.ServerOptions{Instructions: skills.Instructions()})
+	s := mcp.NewServer(&mcp.Implementation{Name: "plandillo-code", Title: "Plandillo Code Mode", Version: "1.0.0"}, &mcp.ServerOptions{Instructions: skills.Instructions()})
 	mcp.AddTool(s, &mcp.Tool{Name: "code", Description: codePreamble},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in codeIn) (*mcp.CallToolResult, any, error) {
 			sess, err := connect(ctx, tools)
@@ -214,7 +214,7 @@ func tsObject(s map[string]any, indent string) string {
 }
 
 // runCode runs code in a fresh goja runtime and returns {"result":…,"logs":[…]} as JSON. call runs one
-// Docket tool with JSON arguments and returns its JSON text, or an error worded "code: message".
+// Plandillo tool with JSON arguments and returns its JSON text, or an error worded "code: message".
 // Local mode calls this directly. Selfhost runs it only inside the isolated worker.
 func runCode(ctx context.Context, code string, call func(name string, args json.RawMessage) (string, error)) (string, error) {
 	vm := goja.New()

@@ -1,5 +1,5 @@
 // Only the generic recovery document belongs in Cache Storage.
-const cacheName = 'docket-offline-v1'
+const cacheName = 'plandillo-offline-v1'
 const offlinePage = '/offline.html'
 
 self.addEventListener('install', event => {
@@ -9,7 +9,7 @@ self.addEventListener('install', event => {
 self.addEventListener('activate', event => {
   event.waitUntil((async () => {
     for (const name of await caches.keys()) {
-      if (name.startsWith('docket-offline-') && name !== cacheName) await caches.delete(name)
+      if ((name.startsWith('docket-offline-') || name.startsWith('plandillo-offline-')) && name !== cacheName) await caches.delete(name)
     }
     await self.clients.claim()
   })())

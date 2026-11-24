@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-IMAGE := docket:local
+IMAGE := plandillo:local
 NAME  := docket
 
 .PHONY: help install web build test test-postgres typecheck knip check dev-api dev-web image rebuild stop logs clean
@@ -13,8 +13,9 @@ install: ## зависимости фронта (bun install --frozen-lockfile)
 web: ## фронт: tsc + vite build -> internal/web/dist
 	cd web && bun run build
 
-build: web ## бинарь bin/docket с вшитым UI
-	CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o bin/docket ./cmd/docket
+build: web ## бинарь bin/plandillo с вшитым UI
+	CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o bin/plandillo ./cmd/docket
+	ln -f bin/plandillo bin/docket
 
 test: ## тесты бэкенда (HTTP-тесты открывают порт на localhost)
 	go test ./...
@@ -40,8 +41,8 @@ dev-web: ## Vite с hot reload (проксирует /api на :7777)
 .env:
 	umask 077 && cp .env.example .env
 
-image: ## собрать docker-образ docket:local
-	docker build -t $(IMAGE) .
+image: ## собрать docker-образ plandillo:local
+	docker build -t $(IMAGE) $(if $(filter plandillo:local,$(IMAGE)),-t docket:local) .
 
 # Сначала собирается образ, и только потом удаляется старый контейнер: если сборка упала, старый продолжает работать.
 rebuild: .env image ## пересобрать образ и пересоздать контейнер (данные в ./data остаются)

@@ -103,7 +103,7 @@ var schemaName = regexp.MustCompile(`^docket_(auth|user_[1-9][0-9]*)$`)
 // is allowed: a missing profile schema must never resolve another profile's tables.
 func OpenPostgres(dsn, schema string) (*DB, error) {
 	if !schemaName.MatchString(schema) {
-		return nil, errors.New("invalid Docket schema")
+		return nil, errors.New("invalid Plandillo schema")
 	}
 	cfg, err := pgx.ParseConfig(dsn)
 	if err != nil {

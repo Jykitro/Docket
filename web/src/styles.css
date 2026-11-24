@@ -1,6 +1,6 @@
 @import 'tailwindcss';
 
-/* Design tokens follow shadcn-admin (satnaing/shadcn-admin, MIT): slate neutrals, near-black primary, 0.625rem radius.
+/* Design tokens follow shadcn-admin (satnaing/shadcn-admin, MIT): slate neutrals, Plandillo purple primary, 0.625rem radius.
    The short names are kept so every screen keeps working: bg/sf = background/card, sk = accent (hover, skeleton),
    ln = border, tx/t2/t3 = foreground / muted text, ink = primary, ac = ring-coloured accents.
    `inline` keeps utilities pointing at the CSS variables, so the light/dark switch still works. */
@@ -34,8 +34,8 @@
   --bg: oklch(1 0 0); --sf: oklch(1 0 0); --sf2: oklch(0.984 0.003 247.858); --sk: oklch(0.968 0.007 247.896);
   --ln: oklch(0.929 0.013 255.508); --ln2: oklch(0.869 0.022 252.894); --ring: var(--t3);
   --tx: oklch(0.129 0.042 264.695); --t2: oklch(0.446 0.043 257.281); --t3: oklch(0.554 0.046 257.417);
-  --ac: oklch(0.208 0.042 265.755); --acs: oklch(0.968 0.007 247.896); --act: oklch(0.208 0.042 265.755);
-  --ink: oklch(0.208 0.042 265.755); --inkt: oklch(0.984 0.003 247.858);
+  --ac: #543099; --acs: #f1ebfa; --act: #543099;
+  --ink: #543099; --inkt: #ffffff;
   --td: oklch(0.546 0.245 262.881); --tds: oklch(0.97 0.014 254.604); --tdt: oklch(0.488 0.243 264.376);
   --dg: oklch(0.666 0.179 58.318); --dgs: oklch(0.987 0.022 95.277); --dgt: oklch(0.555 0.163 48.998);
   --dn: oklch(0.596 0.145 163.225); --dns: oklch(0.979 0.021 166.113); --dnt: oklch(0.508 0.118 165.612);
@@ -49,8 +49,8 @@ html[data-theme='dark'] {
   --bg: oklch(0.145 0 0); --sf: oklch(0.205 0 0); --sf2: oklch(0.235 0 0);
   --sk: oklch(0.269 0 0); --ln: oklch(1 0 0 / 10%); --ln2: oklch(0.371 0 0);
   --tx: oklch(0.985 0 0); --t2: oklch(0.87 0 0); --t3: oklch(0.708 0 0);
-  --ac: oklch(0.922 0 0); --acs: oklch(0.269 0 0); --act: oklch(0.985 0 0);
-  --ink: oklch(0.922 0 0); --inkt: oklch(0.205 0 0);
+  --ac: #ceb7ff; --acs: #332746; --act: #ceb7ff;
+  --ink: #ceb7ff; --inkt: #261c36;
   --td: oklch(0.707 0.165 254.624); --tds: oklch(0.282 0.091 267.935); --tdt: oklch(0.809 0.105 251.813);
   --dg: oklch(0.828 0.189 84.429); --dgs: oklch(0.279 0.077 45.635); --dgt: oklch(0.879 0.169 91.605);
   --dn: oklch(0.765 0.177 163.223); --dns: oklch(0.262 0.051 172.552); --dnt: oklch(0.845 0.143 164.978);
@@ -59,6 +59,10 @@ html[data-theme='dark'] {
   --sh: 0 4px 6px -1px rgb(0 0 0 / .4), 0 2px 4px -2px rgb(0 0 0 / .4);
   color-scheme: dark;
 }
+/* Use the selected application theme for the outlined wordmark. */
+.plandillo-wordmark img { width: 100%; height: auto; }
+.plandillo-wordmark img:last-child, html[data-theme='dark'] .plandillo-wordmark img:first-child { display: none; }
+html[data-theme='dark'] .plandillo-wordmark img:last-child { display: block; }
 button:not(:disabled) { cursor: pointer; }
 :focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
 /* No visible scrollbars anywhere; scrolling itself (wheel, trackpad, touch, keyboard) still works. */

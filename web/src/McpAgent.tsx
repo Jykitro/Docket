@@ -1,4 +1,4 @@
-// MCP tab: the agent skill (how an assistant keeps Docket true) and the optional Stop hook for Claude Code.
+// MCP tab: the agent skill (how an assistant keeps Plandillo true) and the optional Stop hook for Claude Code.
 import { useState } from 'react'
 import { Icon } from './icons'
 import { tr } from './i18n'
@@ -15,22 +15,22 @@ const STEPS = [
 // Claude Code, Claude Desktop, Codex: where the skill file goes. Desktop has no skill folder, so it gets the text.
 const SKILL_PATH = ['~/.claude/skills/<name>/SKILL.md', '', '~/.agents/skills/<name>/SKILL.md']
 const SKILLS = [
-  ['docket', 'Рабочий процесс: задача, план, заметки, финиш. Его же сервер отправляет при подключении.'],
-  ['docket-reference', 'Справочник: инструменты, поля, ошибки и ответы на частые вопросы.'],
-  ['docket-setup', 'Подключение клиентов, установка навыков, хуки и разбор проблем.'],
+  ['plandillo', 'Рабочий процесс: задача, план, заметки, финиш. Его же сервер отправляет при подключении.'],
+  ['plandillo-reference', 'Справочник: инструменты, поля, ошибки и ответы на частые вопросы.'],
+  ['plandillo-setup', 'Подключение клиентов, установка навыков, хуки и разбор проблем.'],
 ] as const
 // One file works for both: Claude Code and Codex share the hooks format and the Stop contract.
 // SessionStart stdout becomes context. Stop blocks the first stop of a turn and lets the second pass (stop_hook_active),
-// so it cannot loop; "not tracked" gives repos without Docket a way out.
+// so it cannot loop; "not tracked" gives repos without Plandillo a way out.
 const HOOK = `{
   "hooks": {
     "SessionStart": [{ "hooks": [{
       "type": "command",
-      "command": "echo 'Docket: every piece of work needs a task. Search for it or create it with the plan, status doing. Follow the docket skill.'"
+      "command": "echo 'Plandillo: every piece of work needs a task. Search for it or create it with the plan, status doing. Follow the plandillo skill.'"
     }] }],
     "Stop": [{ "hooks": [{
       "type": "command",
-      "command": "grep -Eq '\\"stop_hook_active\\": ?true' && exit 0; echo '{\\"decision\\":\\"block\\",\\"reason\\":\\"Docket end checklist: tick finished steps, add_note the result, move_tasks to done only if checks passed, record findings with report_issue and list their IDs, check get_board doing. Not tracked in Docket: say so and finish.\\"}'"
+      "command": "grep -Eq '\\"stop_hook_active\\": ?true' && exit 0; echo '{\\"decision\\":\\"block\\",\\"reason\\":\\"Plandillo end checklist: tick finished steps, add_note the result, move_tasks to done only if checks passed, record findings with report_issue and list their IDs, check get_board doing. Not tracked in Plandillo: say so and finish.\\"}'"
     }] }]
   }
 }`
@@ -58,7 +58,7 @@ export function McpAgent({ tab, url }: { tab: number; url: string }) {
     return r.text()
   }
   // The server may sit in Docker and cannot reach the user's home, so the page hands over one command that does everything.
-  const install = () => `curl -fsSL ${shellQuote(location.origin + '/api/mcp/install.sh')} | DOCKET_URL=${shellQuote(url)} sh`
+  const install = () => `curl -fsSL ${shellQuote(location.origin + '/api/mcp/install.sh')} | PLANDILLO_URL=${shellQuote(url)} sh`
   const path = SKILL_PATH[tab]
 
   return (
@@ -67,7 +67,7 @@ export function McpAgent({ tab, url }: { tab: number; url: string }) {
         <h2 className="grow text-[16px] font-semibold tracking-[-.01em]">{tr('Навык для агента')}</h2>
       </div>
       <div className="flex flex-col gap-4 px-5 pb-5">
-        <p className="text-[13px] text-t3">{tr('Docket сам отправляет агенту эти правила при подключении. Навык нужен, чтобы они срабатывали с первого сообщения.')}</p>
+        <p className="text-[13px] text-t3">{tr('Plandillo сам отправляет агенту эти правила при подключении. Навык нужен, чтобы они срабатывали с первого сообщения.')}</p>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-[10px] border border-ln bg-sf2 px-4 py-3">
           <button type="button" className={PRI} onClick={() => copy('install', install)}>
             <Icon name={copied === 'install' ? 'check' : 'spark'} size={15} />{copied === 'install' ? tr('Команда скопирована') : tr('Установить одной командой')}

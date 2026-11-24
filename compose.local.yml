@@ -1,4 +1,4 @@
-# Single-user Docket with Code Mode. Keep the host port on loopback.
+# Single-user Plandillo with Code Mode. Keep the host port on loopback.
 services:
   docket:
     extends: {file: compose.selfhost.yml, service: docket}

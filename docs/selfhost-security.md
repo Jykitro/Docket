@@ -1,6 +1,6 @@
 # Selfhost pilot verification
 
-The pilot allows up to 50 personal workspaces on one Docket process. Applications authenticate owners with a session or a workspace MCP token. The host operator and the dedicated PostgreSQL role can access stored data. Checked on 24 November 2026 with synthetic accounts and disposable storage.
+The pilot allows up to 50 personal workspaces on one Plandillo process. Applications authenticate owners with a session or a workspace MCP token. The host operator and the dedicated PostgreSQL role can access stored data. Checked on 24 November 2026 with synthetic accounts and disposable storage.
 
 | Surface | Evidence |
 |---|---|
@@ -49,7 +49,7 @@ Older installations have no shared generation. Perform their first upgrade on an
 
 Keep the restored instance disconnected from all client networks, including existing proxy routes, until the credentials below have been revoked. A snapshot restores the credential state that existed when it was taken. Perform revocation on a separate writable copy and preserve the original evidence.
 
-1. With Docket stopped, check ownership and outstanding deletions against the complete backup set. In the auth catalog, clear restored session/invitation tokens, recovery codes and passkey registrations, and close registration. Run the following in a transaction in the SQLite auth database or with the PostgreSQL search path set to `docket_auth`. Enable foreign key enforcement on the SQLite connection before beginning.
+1. With Plandillo stopped, check ownership and outstanding deletions against the complete backup set. In the auth catalog, clear restored session/invitation tokens, recovery codes and passkey registrations, and close registration. Run the following in a transaction in the SQLite auth database or with the PostgreSQL search path set to `docket_auth`. Enable foreign key enforcement on the SQLite connection before beginning.
 
    ```sql
    BEGIN;

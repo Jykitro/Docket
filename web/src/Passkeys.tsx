@@ -93,7 +93,7 @@ export function PasskeySettings() {
     </div>)}
     {list.data && (list.data.available && supported()
       ? !action && <button type="button" className={btn + ' justify-self-start'} onClick={() => select({ kind: 'add' })}>{tr('Добавить ключ доступа')}</button>
-      : <p className="text-sm text-t2">{tr('Для добавления ключа откройте настроенный адрес Docket в браузере с поддержкой passkey.')}</p>)}
+      : <p className="text-sm text-t2">{tr('Для добавления ключа откройте настроенный адрес Plandillo в браузере с поддержкой passkey.')}</p>)}
     {action && <form className="grid gap-2" onSubmit={e => { e.preventDefault(); if (!change.isPending) change.mutate() }}>
       {action.kind === 'add'
         ? <label className="grid gap-1 text-sm">{tr('Название ключа')}<input className={input} maxLength={64} required value={name} onChange={e => setName(e.target.value)} /></label>

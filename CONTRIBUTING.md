@@ -1,7 +1,9 @@
-# Contributing
+# Contributing to Plandillo
 
 Thanks for helping. Bug reports, small fixes and ideas are all welcome; for anything bigger, open an issue or a
 discussion first so we agree on the direction before you write code.
+
+The planner and the public site share this repository. For the site on `plandillo.dev`, see [landing/README.md](landing/README.md). For changes to the planner, use the commands below.
 
 ## Setup
 
@@ -28,7 +30,7 @@ The full list is in [AGENTS.md](AGENTS.md); the short version:
 - **Security.** Do not weaken the bearer-token check on `/mcp` or the Host/Origin guard.
 - **Data.** Never commit `.env`, `data/` or a database, and no personal data.
 - **MCP tools.** A new tool needs a `service.MCPTools` entry, a handler, the README table and
-  `skills/docket-reference/SKILL.md`.
+  `skills/plandillo-reference/SKILL.md`.
 
 ## Commits and pull requests
 

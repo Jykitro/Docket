@@ -1,12 +1,17 @@
-# Docket
+# Plandillo
 
-[![CI](https://github.com/Jykitro/Docket/actions/workflows/ci.yml/badge.svg)](https://github.com/Jykitro/Docket/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/Jykitro/Docket)](https://github.com/Jykitro/Docket/releases)
-[![License: MIT](https://img.shields.io/github/license/Jykitro/Docket)](LICENSE)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="web/public/plandillo-inverse.svg">
+  <img src="web/public/plandillo.svg" alt="Plandillo" width="290">
+</picture>
 
-A personal task planner that runs locally in Docker: one Go process, SQLite by default, or PostgreSQL in self-hosted mode.
-Codex, Claude and other agents manage tasks over [MCP](https://modelcontextprotocol.io); you review and edit them in the web UI.
-Both channels go through the same service layer, so validation, change history and live updates behave identically.
+[![CI](https://github.com/huntly-digital/plandillo/actions/workflows/ci.yml/badge.svg)](https://github.com/huntly-digital/plandillo/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/huntly-digital/plandillo)](https://github.com/huntly-digital/plandillo/releases)
+[![License: MIT](https://img.shields.io/github/license/huntly-digital/plandillo)](LICENSE)
+
+Plandillo is an open-source task planner from [Huntly Digital](https://github.com/huntly-digital) for people who work with AI agents. Keep your projects, daily plan and notes in one place. You can move a task on the board, ask Claude Code to add its implementation checklist, then have Codex record what passed. Both clients work on the same task through [MCP](https://modelcontextprotocol.io), and their changes appear live in your browser.
+
+Run the planner on your machine with SQLite, or host it for several accounts with SQLite or PostgreSQL. The public site for `plandillo.dev` lives in [landing/](landing/README.md).
 
 No external services, and in the default local mode no users and no login. The UI never talks to an outside host
 (fonts are bundled).
@@ -15,7 +20,7 @@ No external services, and in the default local mode no users and no login. The U
   <img src="docs/images/today-dark.png" alt="The Today screen: day plan, progress bar, tasks grouped by project and the activity feed" width="820">
 </p>
 
-> The interface is in Russian. The screenshots show demo data, not real projects.
+> The interface supports English, Russian and Ukrainian. The screenshots show a fictional release project.
 
 ## Contents
 
@@ -56,28 +61,28 @@ Start the newest tested build of `main` on Intel/AMD or ARM64:
 
 ```bash
 mkdir -p -m 700 data
-docker run -d --name docket --user "$(id -u):$(id -g)" --pull=always -p 127.0.0.1:7777:7777 -v "$PWD/data:/data" --restart unless-stopped ghcr.io/jykitro/docket:main
+docker run -d --name docket --user "$(id -u):$(id -g)" --pull=always -p 127.0.0.1:7777:7777 -v "$PWD/data:/data" --restart unless-stopped ghcr.io/huntly-digital/plandillo:main
 ```
 
 Open <http://localhost:7777>. The image includes the web UI, API and SQLite. GitHub Actions updates
 `:main` after the SQLite and PostgreSQL checks pass. Use `:sha-<full-commit-sha>` to pin a particular main build,
 or `:latest` to follow tagged stable releases.
 
-Before updating an older root-owned installation, stop the writer and verify a restorable copy of the complete data directory. Ensure the intended non-root service UID can open the database and create a backup on a disposable copy. Apply the verified ownership changes to the private Docket volume before switching images.
+Before updating an older root-owned installation, stop the writer and verify a restorable copy of the complete data directory. Ensure the intended non-root service UID can open the database and create a backup on a disposable copy. Apply the verified ownership changes to the private Plandillo volume before switching images.
 
 To update a container started with the command above, use the **same directory** and run:
 
 ```bash
-docker pull ghcr.io/jykitro/docket:main && docker stop docket && docker rm docket && docker run -d --name docket --user "$(id -u):$(id -g)" -p 127.0.0.1:7777:7777 -v "$PWD/data:/data" --restart unless-stopped ghcr.io/jykitro/docket:main
+docker pull ghcr.io/huntly-digital/plandillo:main && docker stop docket && docker rm docket && docker run -d --name docket --user "$(id -u):$(id -g)" -p 127.0.0.1:7777:7777 -v "$PWD/data:/data" --restart unless-stopped ghcr.io/huntly-digital/plandillo:main
 ```
 
-Or download a binary for Linux, macOS or Windows from the [releases page](https://github.com/Jykitro/Docket/releases)
+Or download a binary for Linux, macOS or Windows from the [releases page](https://github.com/huntly-digital/plandillo/releases)
 and run it. The native binary listens on `127.0.0.1:7777` by default. Point
 `DOCKET_DB` and `DOCKET_BACKUP_DIR` at local paths, since they default to `/data/...` (see
 [Configuration](#configuration)). To build from source:
 
 ```bash
-make rebuild   # creates .env from .env.example, builds the docket:local image and (re)starts the container
+make rebuild   # creates .env from .env.example, builds the plandillo:local image and (re)starts the container
 ```
 
 The same command rebuilds and restarts the container after you change the code; your data in `./data` is kept.
@@ -89,16 +94,15 @@ Without `make`, run the equivalent commands:
 umask 077
 [ -f .env ] || (set -C; cat .env.example > .env)
 chmod 600 .env
-docker build -t docket:local .
+docker build -t plandillo:local -t docket:local .
 mkdir -p -m 700 data
 docker run -d --name docket --user "$(id -u):$(id -g)" --env-file .env -p 127.0.0.1:7777:7777 \
-  -v "$PWD/data:/data" --restart unless-stopped docket:local
+  -v "$PWD/data:/data" --restart unless-stopped plandillo:local
 ```
 
-Open <http://docket.localhost:7777> (Chrome resolves `*.localhost` on its own; other browsers can use
-<http://localhost:7777>). Health check: `curl localhost:7777/healthz`.
+Open <http://localhost:7777>. Existing local installations can keep using their configured hostname. Health check: `curl localhost:7777/healthz`.
 
-On the first run with an empty database Docket asks for your name and a first project, then drops you into the app.
+On the first run with an empty database Plandillo asks for your name and a first project, then drops you into the app.
 
 ### What to know
 
@@ -109,9 +113,15 @@ On the first run with an empty database Docket asks for your name and a first pr
   the last 14 are kept.
 - Seed data (optional): if `DOCKET_SEED` points to a JSON file and the database has no projects, it is imported at
   startup (`{"projects": […], "tasks": […]}`: projects by `slug`, tasks by `external_id`, author `claude`). Running it
-  again does not create duplicates. No seed file ships with Docket.
+  again does not create duplicates. No seed file ships with Plandillo.
 
-SQLite creates new database directories with mode 0700 and database, WAL and backup files with owner-only permissions on Unix. Restrict older backup files and their parent directories before moving or restoring them. On Windows, store these files in a directory whose ACL grants access only to the Docket account and trusted administrators.
+SQLite creates new database directories with mode 0700 and database, WAL and backup files with owner-only permissions on Unix. Restrict older backup files and their parent directories before moving or restoring them. On Windows, store these files in a directory whose ACL grants access only to the Plandillo account and trusted administrators.
+
+### Upgrading from Docket
+
+Plandillo is the new name for Docket. Use your existing service, data directory and hostname. The Compose service `docket`, the `DOCKET_*` settings, database and backup filenames, PostgreSQL schemas, browser preferences and the PWA installation ID keep their existing values. Installed clients can keep their MCP URL, bearer token and registration name. New installations use `plandillo` for the skills and client registration. The installer updates previously installed Docket skills under their existing names; for a manually registered `docket` connection, use `DOCKET_URL` in the installer command to keep that registration.
+
+`make build` provides `bin/plandillo` and the existing `bin/docket` command. `make image` tags the same local image as `plandillo:local` and `docket:local`. Images built from this checkout provide both `/app/plandillo` and `/app/docket`. Previously published binaries and images use the older executable name. New images are published at `ghcr.io/huntly-digital/plandillo`. Existing installations using `ghcr.io/jykitro/docket` can switch the image reference on their next update and reuse the same data mount.
 
 ## Configuration
 
@@ -123,7 +133,7 @@ Settings are read from `.env` (see `.env.example`):
 | `DOCKET_ADDR` | `127.0.0.1:7777` (native), `:7777` (image) | HTTP listen address |
 | `DOCKET_TRUSTED_PROXIES` | empty | Selfhost proxy IPs or CIDRs trusted to append the original client address to X-Forwarded-For |
 | `DOCKET_DB` | `/data/docket.db` | SQLite database file (ignored with PostgreSQL) |
-| `DOCKET_CODE_SOCKET` | `/run/docket-code/runner.sock` | Private Unix socket shared by the Docket server and the Code Mode worker |
+| `DOCKET_CODE_SOCKET` | `/run/docket-code/runner.sock` | Private Unix socket shared by the Plandillo server and the Code Mode worker |
 | `DOCKET_POSTGRES_DSN` | empty | Optional PostgreSQL connection string, requires `DOCKET_MODE=selfhost`; empty keeps SQLite |
 | `DOCKET_BACKUP_DIR` | `/data/backups` | Where backups are written |
 | `DOCKET_MCP_TOKEN` | empty | Optional. If set, it takes precedence over the token stored in the database and rotating it in the UI is disabled |
@@ -133,22 +143,22 @@ Settings are read from `.env` (see `.env.example`):
 
 ## Self-host
 
-`DOCKET_MODE=selfhost` turns Docket into a server for several people: everyone logs in with a username and password,
+`DOCKET_MODE=selfhost` turns Plandillo into a server for several people: everyone logs in with a username and password,
 and every profile has its own isolated storage and MCP token. SQLite is the default; PostgreSQL is optional (see below).
 `local` mode (the default) works as before.
 
 1. In `.env`, set `DOCKET_MODE=selfhost` and put your real domain in `DOCKET_ALLOWED_HOSTS` (for example
-   `docket.example.com`).
+   `planner.example.com`).
 2. Put an HTTPS reverse proxy in front of the container and do not publish port `7777` without it. The session cookie
    is marked `Secure` only over HTTPS (or with `X-Forwarded-Proto: https`), so logging in without a proxy is not safe.
 3. For SQLite, create the private `./data` directory and export the numeric `DOCKET_UID` and `DOCKET_GID` of its non-root owner as described under [Code Mode](#code-mode). For SQLite with Code Mode, run `docker compose -f compose.selfhost.yml up -d --build` with the existing selfhost data mounted at `./data`. The PostgreSQL Compose file also includes the worker. Existing selfhost installations using a standalone binary or container must connect the isolated worker to use Code Mode after upgrading. Ordinary MCP runs in the main server.
-4. On the server, retrieve the first administrator's setup code with `docker compose -f compose.selfhost.yml exec docket /app/docket setup-code` (use `compose.postgres.yml` for PostgreSQL). For a native installation run `docket setup-code` with the server's `DOCKET_DB` setting. Enter it on the first-run screen. Restarting before setup replaces the code. Completing setup removes the private file from the data directory.
+4. On the server, retrieve the first administrator's setup code with `docker compose -f compose.selfhost.yml exec docket /app/plandillo setup-code` (use `compose.postgres.yml` for PostgreSQL). For a native installation run `plandillo setup-code` with the server's `DOCKET_DB` setting. Enter it on the first-run screen. Restarting before setup replaces the code. Completing setup removes the private file from the data directory.
 5. Save the one-time recovery code. In **Settings → Registration**, choose **Invitation only** (the default on installation and upgrade), **Open** or **Closed**. Open signup uses `/register` and requires an available worker when enabling it. Closing signup pauses unused invitations until reopening or their original expiry. Existing owners can continue signing in. The pilot supports 50 accounts including the administrator and blocked accounts. The [pilot verification report](docs/selfhost-security.md) records the security checks, capacity sample and rollout procedure.
 6. Administrators manage signup, invitations and account suspension. Blocking ends sessions and active requests. Unblocking requires a new login and a new MCP token. Owners manage their own data and can delete their own account after confirming their password. The last administrator must remain active. The operator of the host or database has physical access to stored data.
 
 **Passkey sign-in.** In **Settings → Passkeys**, choose **Add a passkey**, name the key and confirm your current password. Follow your device’s prompt. On your next visit, select **Sign in with a passkey** to open the same workspace without typing your username. You can register up to 32 keys per account and revoke a lost key in Settings. Password sign-in remains available. Recovering your account with a recovery code revokes all enrolled passkeys.
 
-Open Docket on an HTTPS hostname in `DOCKET_ALLOWED_HOSTS`. For local testing use `http://localhost:<port>`. An IP address cannot serve as the passkey domain. For a custom public port or to select one canonical address, set `DOCKET_PASSKEY_ORIGIN` to the exact browser origin, for example `https://planner.example.com:8443`. Behind a proxy, preserve the Host (including a nonstandard port) and overwrite `X-Forwarded-Proto` with the actual external scheme. After moving to a new hostname, sign in with your password and enroll a key on that hostname.
+Open Plandillo on an HTTPS hostname in `DOCKET_ALLOWED_HOSTS`. For local testing use `http://localhost:<port>`. An IP address cannot serve as the passkey domain. For a custom public port or to select one canonical address, set `DOCKET_PASSKEY_ORIGIN` to the exact browser origin, for example `https://planner.example.com:8443`. Behind a proxy, preserve the Host (including a nonstandard port) and overwrite `X-Forwarded-Proto` with the actual external scheme. After moving to a new hostname, sign in with your password and enroll a key on that hostname.
 
 With SQLite, `auth.db` (users and sessions) and `users/<id>.db` (one database per profile) sit next to `DOCKET_DB`; SQLite profile
 backups are written to `DOCKET_BACKUP_DIR/<id>`, and a profile created later gets its first backup within an hour.
@@ -159,7 +169,7 @@ profile is picked by the token. `DOCKET_SEED` and `DOCKET_MCP_TOKEN` are ignored
 Switching an existing install to `selfhost` does not import `DOCKET_DB` (`docket.db`): the file stays untouched and
 selfhost profiles start empty. Switching back to `local` brings the old data back.
 
-Back up the auth catalog and workspace data together. For a consistent SQLite snapshot, stop Docket and copy the entire data directory, including any WAL files, before restarting. Automatic per-profile SQLite backups alone cannot restore logins. For PostgreSQL, back up the entire dedicated database with `pg_dump` or PITR. Startup verifies each workspace against its account's stable owner identifier. For the first upgrade of a legacy installation, verify the snapshot's provenance and follow the offline binding procedure in [the selfhost runbook](docs/selfhost-security.md). A mismatched or unbound workspace stops startup.
+Back up the auth catalog and workspace data together. For a consistent SQLite snapshot, stop Plandillo and copy the entire data directory, including any WAL files, before restarting. Automatic per-profile SQLite backups alone cannot restore logins. For PostgreSQL, back up the entire dedicated database with `pg_dump` or PITR. Startup verifies each workspace against its account's stable owner identifier. For the first upgrade of a legacy installation, verify the snapshot's provenance and follow the offline binding procedure in [the selfhost runbook](docs/selfhost-security.md). A mismatched or unbound workspace stops startup.
 
 Limits:
 
@@ -185,7 +195,7 @@ Upload a PNG, JPEG, WebP or SVG (up to 2 MiB) when creating a project or in its 
 
 The project create and patch endpoints accept an optional `icon_png` containing a base64-encoded 128 × 128 PNG (up to 128 KiB decoded). Project responses include an `icon_url` for custom icons. Read the PNG with `GET /api/projects/{id}/icon` in the same profile. Patching only `icon` switches to the built-in glyph.
 
-Open Docket over HTTPS or on localhost, then choose **Install Docket** in settings when the browser offers installation. On iPhone or iPad choose **Share → Add to Home Screen**; in Safari on macOS use **File → Add to Dock**. Start the installed app to open Today in its own window. Tasks require a connection. If the connection drops, Docket offers a retry and reopens the same URL when the server returns. The service worker stores only the generic offline page.
+Open Plandillo over HTTPS or on localhost, then choose **Install Plandillo** in settings when the browser offers installation. On iPhone or iPad choose **Share → Add to Home Screen**; in Safari on macOS use **File → Add to Dock**. Start the installed app to open Today in its own window. Tasks require a connection. If the connection drops, Plandillo offers a retry and reopens the same URL when the server returns. The service worker stores only the generic offline page.
 
 ### PostgreSQL storage
 
@@ -196,11 +206,11 @@ DOCKET_MODE=selfhost
 DOCKET_POSTGRES_DSN=postgres://docket:password@db.example.com:5432/docket?sslmode=verify-full
 ```
 
-The database must exist and the Docket role must own it (or have `CONNECT` and `CREATE` on it). Superuser and
+The database must exist and the Plandillo role must own it (or have `CONNECT` and `CREATE` on it). Superuser and
 `CREATEDB` permissions are not needed by the application. Use a private network or verified TLS for remote connections,
 and URL-encode special characters in credentials. The connection string is not exposed by the API or logged.
 
-Docket creates `docket_auth` for accounts, sessions and invitations, and `docket_user_<id>` for each profile's projects,
+Plandillo creates `docket_auth` for accounts, sessions and invitations, and `docket_user_<id>` for each profile's projects,
 tasks, wiki, history, settings and MCP call log. Migrations run automatically at startup/profile creation in a transaction.
 Every connection uses only its assigned schema; the public schema is not a fallback. Profile deletion drops only that
 profile's schema. These are application isolation boundaries, not separate database roles: the server's database
@@ -217,11 +227,11 @@ chmod 600 .env
 (printf 'POSTGRES_ADMIN_PASSWORD='; openssl rand -hex 32) >> .env
 (printf 'POSTGRES_PASSWORD='; openssl rand -hex 32) >> .env
 docker compose -f compose.postgres.yml up -d --build
-docker compose -f compose.postgres.yml exec docket /app/docket setup-code
+docker compose -f compose.postgres.yml exec docket /app/plandillo setup-code
 ```
 
 [`compose.postgres.yml`](compose.postgres.yml) builds the current source and starts PostgreSQL 18.7 with a persistent
-volume; PostgreSQL has no published host port. Docket binds to `127.0.0.1:7777`; use the same HTTPS reverse-proxy and
+volume; PostgreSQL has no published host port. Plandillo binds to `127.0.0.1:7777`; use the same HTTPS reverse-proxy and
 allowed-host setup described above for remote access. `sslmode=disable` in this example applies only to the private
 Compose network. The password in this example must be hex/alphanumeric so it is valid in the connection URL.
 
@@ -232,11 +242,11 @@ Operational details:
 - `DOCKET_DB` and `DOCKET_BACKUP_DIR` are ignored by PostgreSQL storage; no local SQLite files are created.
 - The bundled Alpine image applies the security updates for libxml2 and OpenSSL and uses Alpine’s su-exec to start PostgreSQL as its service user.
 - On a **fresh volume**, set `DOCKET_POSTGRES_IMAGE=postgres:19.0-alpine` to use the major version exercised in CI.
-  Existing Compose volumes default to 18.7. To upgrade from 18 to 19, stop the Docket writer, take a final
+  Existing Compose volumes default to 18.7. To upgrade from 18 to 19, stop the Plandillo writer, take a final
   `pg_dump -Fc`, start version 19 with a separate empty volume, then restore with `pg_restore --exit-on-error`
   into the dedicated database using the same owner. Verify login, projects and tasks before switching traffic.
   Keep the old volume and image for rollback before allowing new writes. An image-tag change alone does not migrate data.
-- **Back up PostgreSQL separately** with `pg_dump` or your provider's backups/PITR. Docket does not run `VACUUM INTO`
+- **Back up PostgreSQL separately** with `pg_dump` or your provider's backups/PITR. Plandillo does not run `VACUUM INTO`
   or claim to have created a PostgreSQL backup. MCP call-log retention still runs. For the Compose example, create
   a full logical backup (including accounts and every profile) with:
 
@@ -263,7 +273,7 @@ Operational details:
   Changes made in PostgreSQL do not appear in SQLite. There is no automatic conversion in either direction.
 - Never reset `docket_auth` while retaining profile schemas: reused user IDs could attach new accounts to old data.
   Back up and restore the whole database together.
-- Run **one Docket instance per database**: live events, login rate limiting and MCP routing are still kept in process.
+- Run **one Plandillo instance per database**: live events, login rate limiting and MCP routing are still kept in process.
   PostgreSQL does not enable horizontal scaling. Each loaded profile and the auth store use at most one connection;
   allow for that in PostgreSQL's connection budget (idle connections close after five minutes).
 - The database self-check checks connectivity and reports the profile's table/index size; it does not perform a full
@@ -306,7 +316,7 @@ publish it. The interactive content appears inline with the Markdown. Expand the
 to choose a version, edit the source or delete the document. Each publication records the author and
 date. The JSON export includes all versions. Agents can publish through `publish_html` and read a revision through
 `read_html`. Bundle the data, styles and scripts in the document (up to 2 MiB). The viewer runs inline JavaScript
-inside sandboxed frames with an opaque origin and a restrictive content security policy. Reports receive no Docket API
+inside sandboxed frames with an opaque origin and a restrictive content security policy. Reports receive no Plandillo API
 credentials. A report's in-memory controls reset when you leave the page or change its version.
 
 **Task IDs** look like `TRK-07`: the project key plus a number. Numbers are never reused. You can change a project key in
@@ -318,7 +328,7 @@ Paged project, task, trash and Today reads accept `limit` and `offset` (up to 10
 
 ## Connecting agents (MCP)
 
-On the first start Docket creates a `dkt_…` token and stores it in the database. It
+On the first start Plandillo creates a `dkt_…` token and stores it in the database. It
 is shown (masked, with a "Show" button) on the **Integrations** tab, where you can also rotate it and copy a ready-made config.
 
 <p align="center">
@@ -329,8 +339,16 @@ Open **Integrations**, choose the client and the intended endpoint, and copy its
 
 For another client, choose **Other client** on the Integrations tab and enter an agent name. The resulting URL
 includes `?agent=my-agent`, which sets the author on tasks, notes, history and MCP calls. Existing URLs also
-work. Docket uses the client name supplied with the call or a recognizable Codex or Claude user agent. An
+work. Plandillo uses the client name supplied with the call or a recognizable Codex or Claude user agent. An
 unidentified client appears as **MCP agent**. Older history keeps the author recorded at the time.
+
+### Try a shared task
+
+Open a project in the web UI and connect a client using **Integrations**. Try these requests with Claude Code or Codex in a workspace that allows writes:
+
+- “Find the release checklist in my project. If it exists, show me the outstanding steps.” The agent searches and reads the task before making a change.
+- “Add a task to review mobile navigation tomorrow, with a checklist for the menu and keyboard focus.” Open the new card to see its planned date and description.
+- “Add the test results to that task. Mark it done if the checks passed.” The note and status appear in the same card, including which agent changed it.
 
 ### Code Mode
 
@@ -339,43 +357,43 @@ The image runs as UID/GID 65532. For a bind-mounted SQLite directory, use the no
 mkdir -p -m 700 data
 export DOCKET_UID="$(id -u)" DOCKET_GID="$(id -g)"
 ```
-Before upgrading root-owned volumes, stop the writer and verify a restorable snapshot, then grant the intended non-root identity ownership of the private Docket data and backup directories. Check that a disposable copy opens and a backup completes before switching the live volume. Update the pinned runtime manifest in the Dockerfile when refreshing the base image, verifying both Linux architectures.
+Before upgrading root-owned volumes, stop the writer and verify a restorable snapshot, then grant the intended non-root identity ownership of the private Plandillo data and backup directories. Check that a disposable copy opens and a backup completes before switching the live volume. Update the pinned runtime manifest in the Dockerfile when refreshing the base image, verifying both Linux architectures.
 
-For single-user Docker installations, run `docker compose -f compose.local.yml up -d --build` from the source checkout to start Docket together with the isolated worker. For selfhost, use either supplied selfhost Compose file. A standalone binary or single-container launch can serve classic MCP directly. Code Mode requires a worker sharing the configured Unix socket, and returns `unavailable` if that worker is offline.
+For single-user Docker installations, run `docker compose -f compose.local.yml up -d --build` from the source checkout to start Plandillo together with the isolated worker. For selfhost, use either supplied selfhost Compose file. A standalone binary or single-container launch can serve classic MCP directly. Code Mode requires a worker sharing the configured Unix socket, and returns `unavailable` if that worker is offline.
 
 The same server is also available at `/mcp/code` (same token, same commands with that address). There the assistant
 sees one tool, `code`, after [Cloudflare's Code Mode](https://developers.cloudflare.com/agents/tools/codemode/): it
-writes JavaScript that calls the 19 tools as `await codemode.get_today({})`, loops and filters inside Docket, and gets
+writes JavaScript that calls the 19 tools as `await codemode.get_today({})`, loops and filters inside Plandillo, and gets
 back only the result. That saves round trips and context on big jobs (triage, bulk moves, reports). The code runs in
 an embedded sandbox with no network or files, for at most 30 seconds and 100 tool calls; access mode, tool switches
 and the call log apply to every call it makes. Pick MCP or Code Mode on the **Integrations** tab: the address, the
 configs and the install command follow. How it works inside: [`docs/integrations.md`](docs/integrations.md).
 
-### Agent skill: Docket as a personal planner
+### Agent skill: Plandillo as a personal planner
 
 Three skills in [`skills/`](skills), one `SKILL.md` each:
 
 | Skill | What it covers |
 |---|---|
-| [`docket`](skills/docket/SKILL.md) | Find or create a task, record the plan as a checklist, add notes, call `report_issue` when a problem appears, and reconcile the board before the final message. |
-| [`docket-reference`](skills/docket-reference/SKILL.md) | The answers an agent needs: data model, every tool and its quirks, error codes, conventions for plans, notes and issues, a FAQ |
-| [`docket-setup`](skills/docket-setup/SKILL.md) | Connecting Claude Code, Claude Desktop and Codex, installing the skills, the hooks, troubleshooting |
+| [`plandillo`](skills/plandillo/SKILL.md) | Find or create a task, record the plan as a checklist, add notes, call `report_issue` when a problem appears, and reconcile the board before the final message. |
+| [`plandillo-reference`](skills/plandillo-reference/SKILL.md) | The answers an agent needs: data model, every tool and its quirks, error codes, conventions for plans, notes and issues, a FAQ |
+| [`plandillo-setup`](skills/plandillo-setup/SKILL.md) | Connecting Claude Code, Claude Desktop and Codex, installing the skills, the hooks, troubleshooting |
 
-- Docket sends the body of `docket` to every client as the MCP server instructions, so a connected agent has the workflow already. A test keeps it under the 2048 bytes Claude Code accepts, which is why the detail lives in the other two skills.
+- Plandillo sends the body of `plandillo` to every client as the MCP server instructions, so a connected agent has the workflow already. A test keeps it under the 2048 bytes Claude Code accepts, which is why the detail lives in the other two skills.
 - To have the skills trigger from the first message, install them. The **Integrations** tab has an **Install in one command** button: it
   copies one line to paste into a terminal (macOS, Linux). The script writes all three skills for Claude Code (`~/.claude/skills`)
   and Codex (`~/.agents/skills`) and registers the MCP server in whichever of the two it finds. It is served at
-  `/api/mcp/install.sh` and takes the address from `DOCKET_URL`. It prints the credential setup command after registration:
+  `/api/mcp/install.sh` and takes the address from `PLANDILLO_URL`. It prints the credential setup command after registration:
 
   ```bash
-  curl -fsSL http://localhost:7777/api/mcp/install.sh | DOCKET_URL=http://localhost:7777/mcp sh
+  curl -fsSL http://localhost:7777/api/mcp/install.sh | PLANDILLO_URL=http://localhost:7777/mcp sh
   ```
 
   By hand, the same tab has Copy and Download buttons, and the server serves each skill at `/api/mcp/skill/<name>`.
   Claude Code reads `~/.claude/skills/<name>/SKILL.md`, Codex `~/.agents/skills/<name>/SKILL.md`:
 
   ```bash
-  for s in docket docket-reference docket-setup; do
+  for s in plandillo plandillo-reference plandillo-setup; do
     mkdir -p ~/.claude/skills/$s    # Codex: ~/.agents/skills/$s
     curl -fsS http://localhost:7777/api/mcp/skill/$s -o ~/.claude/skills/$s/SKILL.md
   done
@@ -386,7 +404,7 @@ Three skills in [`skills/`](skills), one `SKILL.md` each:
   hook reminds the agent to find or create the task, and a `Stop` hook makes it run the reconcile step before it
   finishes. It blocks only the first stop of a turn, so it cannot loop. Claude Code: the project's
   `.claude/settings.json`. Codex: `~/.codex/hooks.json` (hooks are on by default). Codex's file is global, so in a repo
-  without Docket the agent answers "not tracked" and finishes.
+  without Plandillo the agent answers "not tracked" and finishes.
 
 ### Tools
 
@@ -421,7 +439,7 @@ Go tests open a port on localhost. Run `make help` for every target:
 | Target | What it does |
 |---|---|
 | `make web` | Frontend build: `tsc --noEmit` and `vite build` into `internal/web/dist` |
-| `make build` | Builds `bin/docket` with the UI embedded |
+| `make build` | Builds `bin/plandillo` with the UI embedded |
 | `make test` | Backend tests (`go test ./...`) |
 | `make test-postgres` | Same domain, auth, REST and MCP tests against PostgreSQL; requires `DOCKET_TEST_POSTGRES_DSN` |
 | `make typecheck`, `make knip` | Frontend checks |
@@ -446,12 +464,13 @@ CI runs both the default SQLite checks and the PostgreSQL suite.
 
 For frontend work with hot reload, run `make dev-api` in one terminal and `make dev-web` in another.
 
-Working on Docket with an assistant: [`AGENTS.md`](AGENTS.md) (read by Codex and most agents) and [`CLAUDE.md`](CLAUDE.md)
+Working on Plandillo with an assistant: [`AGENTS.md`](AGENTS.md) (read by Codex and most agents) and [`CLAUDE.md`](CLAUDE.md)
 (Claude Code, imports `AGENTS.md`) describe the commands, layout, conventions and gotchas.
 
 ### Project layout
 
 ```
+landing/            public Plandillo website, built separately from the planner
 cmd/docket          config, wiring, graceful shutdown, housekeeping (daily backup and call-log cleanup)
 internal/database   SQLite/PostgreSQL connections, SQL dialect boundary and schema locks
 internal/store      task queries, SQLite/PostgreSQL migrations and SQLite backups
@@ -513,4 +532,4 @@ path can be given by code (`TRK-07`) or by id.
 ## Contributing and license
 
 Issues and pull requests are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md). Report vulnerabilities privately, as
-described in [SECURITY.md](SECURITY.md). Docket is released under the [MIT License](LICENSE).
+described in [SECURITY.md](SECURITY.md). Plandillo is released under the [MIT License](LICENSE).

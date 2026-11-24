@@ -1,10 +1,10 @@
 # Integrations
 
-For people who work on Docket's code. User-facing setup lives in the README ("Connecting agents") and in
-[`skills/docket-setup`](../skills/docket-setup/SKILL.md).
+For people who work on Plandillo's code. User-facing setup lives in the README ("Connecting agents") and in
+[`skills/plandillo-setup`](../skills/plandillo-setup/SKILL.md).
 
 An **integration** is a way for an assistant (Claude Code, Claude Desktop, Codex, any agent) to read and change tasks
-in Docket. A person uses the web UI over the REST API; an assistant uses an integration. Docket ships two, both
+in Plandillo. A person uses the web UI over the REST API; an assistant uses an integration. Plandillo ships two, both
 inside the one Go process, both on the **Integrations** tab (`/integrations`; `/mcp` still opens it):
 
 | Integration | Address | What the assistant sees | Code |
@@ -12,8 +12,7 @@ inside the one Go process, both on the **Integrations** tab (`/integrations`; `/
 | MCP | `/mcp` | 19 tools, one per action (`get_today`, `create_tasks`, …) | [`internal/mcpserver/mcpserver.go`](../internal/mcpserver/mcpserver.go) |
 | Code Mode | `/mcp/code` | One tool, `code`, that runs JavaScript calling the same 19 tools | [`internal/mcpserver/codemode.go`](../internal/mcpserver/codemode.go) |
 
-Both speak MCP over Streamable HTTP, so any MCP client connects to either. A client connects to one of them; the UI
-and the installer register both under the name `docket`, so switching replaces the other.
+Both speak MCP over Streamable HTTP, so any MCP client connects to either. A client uses one endpoint at a time. New installations register it as `plandillo`. The installer keeps the existing `docket` registration on upgrades, so switching the endpoint updates that connection.
 
 ## How a call flows
 
@@ -39,7 +38,7 @@ What every integration gets for free, because it all sits in front of or under t
   and shown live on the Integrations tab; it is kept 7 days.
 - **Same rules as the UI.** Tool handlers call `service` with the calling agent's ID, so validation, history, events and
   live updates in the browser are the same as for a human edit. Integrations never touch `store` directly.
-- **Instructions.** The body of the `docket` skill goes to every client as MCP `instructions` (`skills.Instructions()`).
+- **Instructions.** The body of the `plandillo` skill goes to every client as MCP `instructions` (`skills.Instructions()`).
 
 The optional `?agent=` URL parameter supplies a per-client attribution label on either endpoint. Otherwise
 the middleware reads MCP client info on the tool call or a recognized HTTP User-Agent. Anonymous calls use
@@ -57,7 +56,7 @@ from `service.ErrorCode`. IDs in results look like `TRK-07`; keep results small,
 
 The idea comes from [Cloudflare's Code Mode](https://developers.cloudflare.com/agents/tools/codemode/): models are
 better at writing code than at chaining many tool calls, and a script can loop, filter and join results without
-sending each intermediate result through the model's context. Cloudflare runs the code in a Worker sandbox; Docket
+sending each intermediate result through the model's context. Cloudflare runs the code in a Worker sandbox; Plandillo
 runs it in [goja](https://github.com/dop251/goja), a JavaScript engine in pure Go, so it works offline and needs
 nothing installed.
 
@@ -102,7 +101,7 @@ code throws `Error("not_found: …")`; the code may catch it. If it is not caugh
    Errors: `timeout`, `invalid_argument` (syntax error, a thrown `TypeError`, too many calls, result too large) or the
    tool's own code.
 
-**Execution.** Docket sends each invocation to a disposable evaluator in the Code Mode container. The application admits one execution per workspace and two globally. Excess calls return `rate_limited`. The worker has a 256 MiB memory limit, one CPU, a read-only root filesystem and no network. The Unix socket carries the program and its tool calls. Only the application has workspace storage and validates each callback against the initiating owner's current tool policy. A disconnected or stopped worker fails its request with `unavailable`. Single-user installations use the same worker. The local Compose example provisions it, and standalone installations set `DOCKET_CODE_SOCKET` to their worker socket.
+**Execution.** Plandillo sends each invocation to a disposable evaluator in the Code Mode container. The application admits one execution per workspace and two globally. Excess calls return `rate_limited`. The worker has a 256 MiB memory limit, one CPU, a read-only root filesystem and no network. The Unix socket carries the program and its tool calls. Only the application has workspace storage and validates each callback against the initiating owner's current tool policy. A disconnected or stopped worker fails its request with `unavailable`. Single-user installations use the same worker. The local Compose example provisions it, and standalone installations set `DOCKET_CODE_SOCKET` to their worker socket.
 
 ## Recipes
 
@@ -111,7 +110,7 @@ code throws `Error("not_found: …")`; the code may catch it. If it is not caugh
 1. An entry in `service.MCPTools` (name, `read` or `write`, description). The group decides read-only behaviour.
 2. A handler and `add(s, "name", t.handler)` in `mcpserver.go`. `Handler` panics at startup if a registered name is
    missing from `MCPTools`.
-3. A test next to the code, the README tool table, and `skills/docket-reference/SKILL.md`.
+3. A test next to the code, the README tool table, and `skills/plandillo-reference/SKILL.md`.
 
 Code Mode needs nothing: its declarations and `codemode` methods come from the same lists.
 
@@ -123,7 +122,7 @@ stay in one place:
    (behind `h.mcp`, which picks the profile by token). Never weaken the Host/Origin guard or the bearer check.
 3. A switch entry in `INTEGRATIONS` in `web/src/Mcp.tsx` (name, path, one-line description; translations in
    `web/src/messages.ts`).
-4. A test that drives it over HTTP, a row in the table above, and the matching setup step in `skills/docket-setup`.
+4. A test that drives it over HTTP, a row in the table above, and the matching setup step in `skills/plandillo-setup`.
 
 ## Tests
 

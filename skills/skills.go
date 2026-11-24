@@ -1,5 +1,5 @@
-// Package skills embeds the agent skills that teach an assistant to run Docket as a personal planner:
-// docket (the workflow, also sent to every MCP client as the server instructions), docket-reference and docket-setup.
+// Package skills embeds the agent skills that teach an assistant to run Plandillo as a personal planner:
+// plandillo (the workflow and MCP instructions), plandillo-reference and plandillo-setup.
 package skills
 
 import (
@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-//go:embed docket*/SKILL.md
+//go:embed plandillo*/SKILL.md
 var all embed.FS
 
 //go:embed install.sh
@@ -18,27 +18,47 @@ var installTemplate string
 // InstallScript is a POSIX shell script that writes every embedded skill into a client's skills folder and
 // registers the MCP server. The skills travel inside the script, so it needs no second download.
 func InstallScript() string {
-	files, _ := fs.Glob(all, "docket*/SKILL.md")
+	script := installTemplate
+	for _, prefix := range []string{"plandillo", "docket"} {
+		script = strings.Replace(script, "#"+prefix+"-skills#\n", installerSkills(prefix), 1)
+	}
+	return script
+}
+
+func installerSkills(prefix string) string {
+	files, _ := fs.Glob(all, "plandillo*/SKILL.md")
 	var b strings.Builder
 	for _, f := range files {
-		name := path.Dir(f)
+		name := prefix + strings.TrimPrefix(path.Dir(f), "plandillo")
 		body, _ := Get(name)
 		// A quoted delimiter keeps $ and backticks in the skill text literal.
 		b.WriteString("  mkdir -p \"$1/" + name + "\" && cat > \"$1/" + name + "/SKILL.md\" <<'DOCKET_SKILL_EOF'\n")
 		b.WriteString(strings.TrimRight(body, "\n") + "\nDOCKET_SKILL_EOF\n")
 	}
-	return strings.Replace(installTemplate, "#SKILLS#\n", b.String(), 1)
+	return b.String()
 }
 
 // Get returns the SKILL.md of the named skill. Only embedded names resolve; anything else, a path included, does not.
 func Get(name string) (string, bool) {
-	b, err := all.ReadFile(name + "/SKILL.md")
-	return string(b), err == nil
+	canonical := name
+	switch name {
+	case "docket", "docket-reference", "docket-setup":
+		canonical = "plandillo" + strings.TrimPrefix(name, "docket")
+	}
+	b, err := all.ReadFile(canonical + "/SKILL.md")
+	if err != nil {
+		return "", false
+	}
+	if name != canonical {
+		// Old downloads must match their installed folder and reference the sibling legacy skills.
+		return strings.ReplaceAll(string(b), "plandillo", "docket"), true
+	}
+	return string(b), true
 }
 
-// Instructions is the docket skill without its YAML frontmatter.
+// Instructions is the Plandillo skill without its YAML frontmatter.
 func Instructions() string {
-	file, _ := Get("docket")
+	file, _ := Get("plandillo")
 	_, body, ok := strings.Cut(strings.TrimPrefix(file, "---\n"), "\n---\n")
 	if !ok {
 		return file

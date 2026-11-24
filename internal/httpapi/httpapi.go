@@ -135,7 +135,7 @@ func Router(d Deps) http.Handler {
 		skill := func(w http.ResponseWriter, r *http.Request) {
 			name := chi.URLParam(r, "name")
 			if name == "" {
-				name = "docket" // /mcp/skill without a name stays the docket workflow
+				name = "plandillo"
 			}
 			text, ok := skills.Get(name)
 			if !ok {
@@ -883,7 +883,7 @@ func (a *api) sendExport(w http.ResponseWriter, r *http.Request, projectID int64
 	err := a.svc.WriteExport(ctx, projectID, exportWriter{w, controller, deadline}, func(stamp string) {
 		started = true
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
-		w.Header().Set("Content-Disposition", `attachment; filename="docket-export-`+stamp[:10]+`.json"`)
+		w.Header().Set("Content-Disposition", `attachment; filename="plandillo-export-`+stamp[:10]+`.json"`)
 	})
 	if err != nil {
 		if started {

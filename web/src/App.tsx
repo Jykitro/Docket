@@ -109,8 +109,8 @@ export function App() {
   const task = params.get('task')
   const current = proj ? projects.data?.find((p) => p.slug === proj[1]) : undefined
   const heading = path === '/attention' ? tr('Требует внимания') : path === '/' ? tr('Сегодня') : path === '/integrations' || path === '/mcp' ? tr('Интеграции') : path === '/trash' ? tr('Корзина') : taskPage ? taskPage[1].toUpperCase()
-    : proj ? (current ? current.name + (proj[2] ? `: ${tr('настройки')}` : proj[3] ? `: ${tr('вики')}` : '') : tr('Проект')) : 'Docket'
-  useEffect(() => { document.title = task ? `${task.toUpperCase()} · ${heading} · Docket` : heading === 'Docket' ? 'Docket' : `${heading} · Docket` }, [heading, task])
+    : proj ? (current ? current.name + (proj[2] ? `: ${tr('настройки')}` : proj[3] ? `: ${tr('вики')}` : '') : tr('Проект')) : 'Plandillo'
+  useEffect(() => { document.title = task ? `${task.toUpperCase()} · ${heading} · Plandillo` : heading === 'Plandillo' ? 'Plandillo' : `${heading} · Plandillo` }, [heading, task])
   if (profile.isPending) return <div className="min-h-screen bg-bg" data-theme={theme.resolved} /> // avoid flashing the app before onboarding
   if (setup) return <div className="min-h-screen bg-bg text-tx" data-theme={theme.resolved}><Onboarding hasProjects={!!active?.length} onDone={() => setSetup(false)} /></div>
   return (

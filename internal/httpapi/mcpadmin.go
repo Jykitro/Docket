@@ -151,7 +151,7 @@ func (a *api) checkProtocol(ctx context.Context) Check {
 		}
 		return env.Result, nil
 	}
-	if _, err := call(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"docket-selfcheck","version":"1"}}}`); err != nil {
+	if _, err := call(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"plandillo-selfcheck","version":"1"}}}`); err != nil {
 		c.Detail = "initialize: " + err.Error()
 		return c
 	}

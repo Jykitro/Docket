@@ -157,7 +157,7 @@ func runSelfHost(ctx context.Context, cfg config.Config) error {
 		if err != nil {
 			return err
 		}
-		slog.Info("first run: retrieve the administrator setup code with docket setup-code")
+		slog.Info("first run: retrieve the administrator setup code with plandillo setup-code")
 	} else {
 		clearSetup()
 	}
@@ -210,7 +210,7 @@ func serve(ctx context.Context, addr string, h http.Handler) error {
 	}
 	errc := make(chan error, 1)
 	go func() { errc <- srv.ListenAndServe() }()
-	slog.Info("docket listening", "addr", addr)
+	slog.Info("Plandillo listening", "addr", addr)
 
 	select {
 	case err := <-errc:

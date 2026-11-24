@@ -18,7 +18,7 @@ test('enroll a passkey, sign into its workspace and revoke it', async ({ page, b
   const port = socket.address().port
   await new Promise(resolve => socket.close(resolve))
   const url = 'http://localhost:' + port
-  const binary = process.env.DOCKET_TEST_BINARY || path.resolve(__dirname, '../../bin/docket')
+  const binary = process.env.DOCKET_TEST_BINARY || path.resolve(__dirname, '../../bin/plandillo')
   const app = spawn(binary, [], { env: { PATH: process.env.PATH, DOCKET_MODE: 'selfhost',
     DOCKET_ADDR: '127.0.0.1:' + port, DOCKET_DB: path.join(dir, 'planner.db'),
     DOCKET_BACKUP_DIR: path.join(dir, 'backups') }, stdio: ['ignore', 'ignore', 'pipe'] })

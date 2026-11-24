@@ -1,5 +1,7 @@
 # Self-host auth Implementation Plan
 
+> Historical design record for Docket, now Plandillo. For current installation and configuration, see the [project README](../../../README.md).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** `DOCKET_MODE=selfhost` puts the whole app behind a login; every profile gets its own SQLite file and MCP token.

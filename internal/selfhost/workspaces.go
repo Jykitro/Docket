@@ -258,7 +258,7 @@ func (w *Workspaces) VerifyOwners(ctx context.Context, users []auth.User, db *au
 	}
 	for _, u := range pending {
 		if u.WorkspaceKey == "" || u.DeletionKey == "" {
-			return fmt.Errorf("pending deletion %d has no verified workspace generation: reconcile the stopped backup before starting Docket", u.ID)
+			return fmt.Errorf("pending deletion %d has no verified workspace generation: reconcile the stopped backup before starting Plandillo", u.ID)
 		}
 		if known[u.ID] {
 			return fmt.Errorf("pending deletion conflicts with workspace %d", u.ID)
@@ -268,7 +268,7 @@ func (w *Workspaces) VerifyOwners(ctx context.Context, users []auth.User, db *au
 	persisted := make(map[int64]bool, len(ids))
 	for _, id := range ids {
 		if !known[id] {
-			return fmt.Errorf("workspace %d has no account: restore matching auth and workspace storage before starting Docket", id)
+			return fmt.Errorf("workspace %d has no account: restore matching auth and workspace storage before starting Plandillo", id)
 		}
 		persisted[id] = true
 	}

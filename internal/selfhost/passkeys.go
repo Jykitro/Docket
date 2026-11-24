@@ -62,7 +62,7 @@ func PasskeySites(hosts []string, addr, override string) (map[string]*webauthn.W
 		if u.Scheme == "https" && u.Port() == "443" || u.Scheme == "http" && u.Port() == "80" {
 			u.Host = u.Hostname()
 		}
-		site, err := webauthn.New(&webauthn.Config{RPDisplayName: "Docket", RPID: u.Hostname(), RPOrigins: []string{u.String()}, AuthenticatorSelection: protocol.AuthenticatorSelection{UserVerification: protocol.VerificationRequired}})
+		site, err := webauthn.New(&webauthn.Config{RPDisplayName: "Plandillo", RPID: u.Hostname(), RPOrigins: []string{u.String()}, AuthenticatorSelection: protocol.AuthenticatorSelection{UserVerification: protocol.VerificationRequired}})
 		if err != nil {
 			return nil, err
 		}

@@ -49,7 +49,7 @@ func callActor(ctx context.Context, req mcp.Request) string {
 	return "mcp"
 }
 
-// Handler returns the handler for /mcp (one MCP tool per Docket tool) and /mcp/code (Code Mode: one `code`
+// Handler returns the handler for /mcp (one MCP tool per Plandillo tool) and /mcp/code (Code Mode: one `code`
 // tool that runs JavaScript calling the same tools). Host checks and auth are done by the caller's middleware.
 func Handler(svc *service.Service, loc *time.Location) http.Handler {
 	return IsolatedHandler(svc, loc, NewRunner("/run/docket-code/runner.sock"))
@@ -61,7 +61,7 @@ func IsolatedHandler(svc *service.Service, loc *time.Location, runner *Runner) h
 }
 
 func workspaceHandler(svc *service.Service, loc *time.Location, execute evaluator) http.Handler {
-	s := mcp.NewServer(&mcp.Implementation{Name: "docket", Version: "1.0.0"}, &mcp.ServerOptions{Instructions: skills.Instructions()})
+	s := mcp.NewServer(&mcp.Implementation{Name: "plandillo", Title: "Plandillo", Version: "1.0.0"}, &mcp.ServerOptions{Instructions: skills.Instructions()})
 	t := &tools{svc: svc, loc: loc}
 
 	add(s, "list_projects", t.listProjects)
@@ -197,9 +197,9 @@ func call(ctx context.Context, svc *service.Service, method string, req mcp.Requ
 		res = &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: "invalid_argument: unknown tool"}}}
 	case allowed(pol, name) != "":
 		code = allowed(pol, name)
-		msg := "tool " + name + " is switched off in Docket (MCP settings)"
+		msg := "tool " + name + " is switched off in Plandillo (MCP settings)"
 		if code == "forbidden" {
-			msg = "Docket MCP is in read-only mode: " + name + " writes data"
+			msg = "Plandillo MCP is in read-only mode: " + name + " writes data"
 		}
 		res = &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: code + ": " + msg}}}
 	default:
