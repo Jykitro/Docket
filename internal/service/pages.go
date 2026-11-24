@@ -403,6 +403,7 @@ type TaskRef struct {
 }
 
 type PageDetail struct {
+	Documents []store.HTMLDocument `json:"documents,omitempty"`
 	store.Page
 	Backlinks []PageRef `json:"backlinks"`
 	Links     struct {
@@ -473,7 +474,8 @@ func pageDetail(tx *store.Tx, pg store.Page) (PageDetail, error) {
 			d.Links.Tasks = append(d.Links.Tasks, TaskRef{t.Code, t.Title})
 		}
 	}
-	return d, nil
+	d.Documents, err = tx.Documents(0, pg.ID)
+	return d, err
 }
 
 func (s *Service) GetPage(ctx context.Context, id int64) (d PageDetail, err error) {

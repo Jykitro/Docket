@@ -16,10 +16,12 @@ Four steps: run Docket, connect the client, install the skills, optionally turn 
 
 ## 2. Connect the client
 
+The Integrations tab supplies a client-specific URL for both MCP and Code Mode. For another client, choose **Other client** and enter its name, or append `?agent=my-agent` to the endpoint. If an existing connection shows up as “MCP agent”, update its URL in the client. The token still selects the workspace.
+
 **Claude Code** (add `-s user` to make it available in every project; the default scope is this project only):
 
 ```bash
-claude mcp add --transport http docket http://localhost:7777/mcp \
+claude mcp add --transport http docket "http://localhost:7777/mcp?agent=claude" \
   --header "Authorization: Bearer <TOKEN>"
 claude mcp list
 ```
@@ -28,7 +30,7 @@ claude mcp list
 
 ```bash
 export DOCKET_MCP_TOKEN=<TOKEN>
-codex mcp add docket --url http://localhost:7777/mcp --bearer-token-env-var DOCKET_MCP_TOKEN
+codex mcp add docket --url "http://localhost:7777/mcp?agent=codex" --bearer-token-env-var DOCKET_MCP_TOKEN
 codex mcp list
 ```
 
@@ -36,7 +38,7 @@ The same entry by hand in `~/.codex/config.toml`:
 
 ```toml
 [mcp_servers.docket]
-url = "http://localhost:7777/mcp"
+url = "http://localhost:7777/mcp?agent=codex"
 bearer_token_env_var = "DOCKET_MCP_TOKEN"
 ```
 
@@ -47,7 +49,7 @@ bearer_token_env_var = "DOCKET_MCP_TOKEN"
   "mcpServers": {
     "docket": {
       "command": "npx",
-      "args": ["-y", "mcp-remote", "http://localhost:7777/mcp",
+      "args": ["-y", "mcp-remote", "http://localhost:7777/mcp?agent=claude",
                "--header", "Authorization:${AUTH}", "--allow-http"],
       "env": { "AUTH": "Bearer <TOKEN>" }
     }
@@ -95,7 +97,7 @@ Hooks make the workflow mandatory instead of advised. One JSON works for both cl
     }] }],
     "Stop": [{ "hooks": [{
       "type": "command",
-      "command": "grep -Eq '\"stop_hook_active\": ?true' && exit 0; echo '{\"decision\":\"block\",\"reason\":\"Docket end checklist: tick finished steps, add_note the result, move_tasks to done only if checks passed, file noticed problems as area issue tasks, check get_board doing. Not tracked in Docket: say so and finish.\"}'"
+      "command": "grep -Eq '\"stop_hook_active\": ?true' && exit 0; echo '{\"decision\":\"block\",\"reason\":\"Docket end checklist: tick finished steps, add_note the result, move_tasks to done only if checks passed, record findings with report_issue and list their IDs, check get_board doing. Not tracked in Docket: say so and finish.\"}'"
     }] }]
   }
 }

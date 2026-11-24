@@ -2,7 +2,7 @@
 // `rail` is the collapsed icon-only mode (desktop); on narrow screens it is an off-canvas drawer.
 import { type ReactNode } from 'react'
 import { useQueries, useQuery } from '@tanstack/react-query'
-import { type Project, type View, api, useMe, useProfile, useProjects } from './api'
+import { type Project, type View, api, useAttention, useMe, useProfile, useProjects } from './api'
 import { Icon, ProjectTile } from './icons'
 import { DocketLogo } from './DocketLogo'
 import { tr } from './i18n'
@@ -32,6 +32,7 @@ export function Sidebar({ path, view, overdue, rail, mobileOpen, onClose, onNewP
   const name = useProfile().data?.name ?? ''
   const me = useMe().data
   const today = useQuery({ queryKey: ['today', 'now'], queryFn: () => api.today() })
+  const attention = useAttention()
   const trash = useQuery({ queryKey: ['trash'], queryFn: api.trash })
   const mcp = useQuery({ queryKey: ['mcp-status'], queryFn: api.mcpStatus })
   const all: Project[] = projects.data ?? []
@@ -44,6 +45,7 @@ export function Sidebar({ path, view, overdue, rail, mobileOpen, onClose, onNewP
 
   const nav = [
     { to: '/', label: tr('Сегодня'), icon: 'cal', n: today.data?.tasks.length, on: path === '/' && !overdue },
+    { to: '/attention', label: tr('Требует внимания'), icon: 'flag', n: attention.data?.length, on: path === '/attention' },
     { to: '/?focus=overdue', label: tr('Просрочено'), icon: 'clock', n: today.data?.overdue.length, on: overdue },
     { to: '/integrations', label: tr('Интеграции'), icon: 'plug', dot: mcp.data?.check && !mcp.isError ? (mcp.data.online ? 'var(--dn)' : 'var(--rd)') : undefined, on: path === '/integrations' || path === '/mcp' },
     { to: '/trash', label: tr('Корзина'), icon: 'trash', n: (trash.data?.length ?? 0) + (trashP.data?.length ?? 0), on: path === '/trash' },

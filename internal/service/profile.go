@@ -9,7 +9,7 @@ import (
 )
 
 // The profile is just a display name; an empty one means first run and the UI starts onboarding.
-// Actor ids in the database stay "denis"/"claude": "denis" is the id of the human, the UI shows the profile name.
+// The stored actor "denis" refers to the profile owner. The UI shows the profile name.
 const settingProfileName = "profile_name"
 
 const maxProfileName = 40

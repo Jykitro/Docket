@@ -53,6 +53,9 @@ type Task struct {
 	UpdatedAt      string         `json:"updated_at"`
 	DoneAt         *string        `json:"done_at"`
 	DeletedAt      *string        `json:"deleted_at"`
+	IssueKind      string         `json:"issue_kind,omitempty"`
+	AttentionAfter *string        `json:"attention_after,omitempty"`
+	ReportCount    int            `json:"report_count,omitempty"`
 	SubtaskCount   int            `json:"subtask_count"`
 	SubtaskDone    int            `json:"subtask_done"`
 }
@@ -260,7 +263,8 @@ const taskFrom = ` FROM tasks t JOIN statuses s ON s.id = t.status_id JOIN proje
 
 const taskCols = `t.id, t.project_id, t.number, p.key || '-' || printf('%02d', t.number), t.parent_id, t.title, t.description_md,
 	t.status_id, s.key, s.name, s.category, t.priority, t.area, t.planned_for, t.position, t.custom, t.external_id, t.created_by,
-	t.created_at, t.updated_at, t.done_at, t.deleted_at,
+	t.created_at, t.updated_at, t.done_at, t.deleted_at, t.issue_kind, t.attention_after,
+ CASE WHEN t.issue_kind = '' THEN 0 ELSE (SELECT count(*) FROM issue_reports ir WHERE ir.issue_id = t.id) END,
 	(SELECT count(*) FROM tasks c WHERE c.parent_id = t.id AND c.deleted_at IS NULL),
 	(SELECT count(*) FROM tasks c JOIN statuses cs ON cs.id = c.status_id WHERE c.parent_id = t.id AND c.deleted_at IS NULL AND cs.category = 'done'),
 	coalesce((SELECT p.key || '-' || printf('%02d', pt.number) FROM tasks pt WHERE pt.id = t.parent_id), '')`
@@ -270,7 +274,7 @@ func scanTask(r interface{ Scan(...any) error }) (Task, error) {
 	var custom string
 	err := r.Scan(&x.ID, &x.ProjectID, &x.Number, &x.Code, &x.ParentID, &x.Title, &x.DescriptionMD,
 		&x.StatusID, &x.Status, &x.StatusName, &x.StatusCategory, &x.Priority, &x.Area, &x.PlannedFor, &x.Position, &custom, &x.ExternalID, &x.CreatedBy,
-		&x.CreatedAt, &x.UpdatedAt, &x.DoneAt, &x.DeletedAt, &x.SubtaskCount, &x.SubtaskDone, &x.ParentCode)
+		&x.CreatedAt, &x.UpdatedAt, &x.DoneAt, &x.DeletedAt, &x.IssueKind, &x.AttentionAfter, &x.ReportCount, &x.SubtaskCount, &x.SubtaskDone, &x.ParentCode)
 	if errors.Is(err, sql.ErrNoRows) {
 		return x, ErrNotFound
 	}

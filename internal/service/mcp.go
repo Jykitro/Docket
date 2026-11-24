@@ -50,6 +50,9 @@ var MCPTools = []ToolInfo{
 		"parent \"\" detaches from the parent. custom is keyed by field name. Status and project change via move_tasks."},
 	{"move_tasks", "write", "Change status (key), planned date and/or project of several tasks at once. Moved tasks go to the end of the " +
 		"target column. planned_for \"\" clears the date."},
+	{"publish_html", "write", "Publish a versioned interactive HTML document on a task or wiki page."},
+	{"read_html", "read", "Read a saved HTML document, including source, by ID and optional version."},
+	{"report_issue", "write", "Immediately record a finding, link its source task, or add evidence to an existing open issue. Returns the issue ID."},
 	{"add_note", "write", "Add a markdown note to a task."},
 	{"list_pages", "read", "List the wiki pages of a project (id, title, parent page title, updated_at) without bodies."},
 	{"read_page", "read", "Read a wiki page by title: markdown body, parent, updated_at, backlinks (titles of pages linking here) and linked task IDs."},
@@ -278,15 +281,15 @@ func (s *Service) UpdateMCPSettings(ctx context.Context, in MCPSettingsPatch) (M
 }
 
 // RecordMCPCall appends one line to the call log; errCode "" means the call succeeded.
-func (s *Service) RecordMCPCall(ctx context.Context, tool, args string, dur time.Duration, errCode string) error {
+func (s *Service) RecordMCPCall(ctx context.Context, actor, tool, args string, dur time.Duration, errCode string) error {
 	if utf8.RuneCountInString(args) > 120 {
 		args = string([]rune(args)[:119]) + "…"
 	}
-	c := store.MCPCall{At: nowTS(), Tool: tool, ArgsSummary: args, DurationMS: dur.Milliseconds(), Status: "ok", Actor: ActorClaude}
+	c := store.MCPCall{At: nowTS(), Tool: tool, ArgsSummary: args, DurationMS: dur.Milliseconds(), Status: "ok", Actor: actor}
 	if errCode != "" {
 		c.Status, c.ErrorCode = "error", &errCode
 	}
-	return s.write(ctx, ActorClaude, func(o *op) error {
+	return s.write(ctx, actor, func(o *op) error {
 		if err := o.tx.InsertCall(c); err != nil {
 			return err
 		}

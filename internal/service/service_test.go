@@ -578,10 +578,10 @@ func TestMCPSettingsAndCallLog(t *testing.T) {
 	}
 
 	// The log keeps 7 days and shortens long arguments.
-	if err := s.RecordMCPCall(ctx, "get_board", strings.Repeat("x", 300), 12*time.Millisecond, ""); err != nil {
+	if err := s.RecordMCPCall(ctx, ActorClaude, "get_board", strings.Repeat("x", 300), 12*time.Millisecond, ""); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.RecordMCPCall(ctx, "get_task", `{"id":"TRK-99"}`, 3*time.Millisecond, "not_found"); err != nil {
+	if err := s.RecordMCPCall(ctx, ActorClaude, "get_task", `{"id":"TRK-99"}`, 3*time.Millisecond, "not_found"); err != nil {
 		t.Fatal(err)
 	}
 	old := time.Now().UTC().Add(-8 * 24 * time.Hour).Format("2006-01-02T15:04:05.000Z")

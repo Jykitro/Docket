@@ -1,6 +1,6 @@
 # Integrations
 
-For people who work on Docket's code. User-facing setup lives in the README ("Connecting Claude") and in
+For people who work on Docket's code. User-facing setup lives in the README ("Connecting agents") and in
 [`skills/docket-setup`](../skills/docket-setup/SKILL.md).
 
 An **integration** is a way for an assistant (Claude Code, Claude Desktop, Codex, any agent) to read and change tasks
@@ -9,8 +9,8 @@ inside the one Go process, both on the **Integrations** tab (`/integrations`; `/
 
 | Integration | Address | What the assistant sees | Code |
 |---|---|---|---|
-| MCP | `/mcp` | 16 tools, one per action (`get_today`, `create_tasks`, …) | [`internal/mcpserver/mcpserver.go`](../internal/mcpserver/mcpserver.go) |
-| Code Mode | `/mcp/code` | One tool, `code`, that runs JavaScript calling the same 16 tools | [`internal/mcpserver/codemode.go`](../internal/mcpserver/codemode.go) |
+| MCP | `/mcp` | 19 tools, one per action (`get_today`, `create_tasks`, …) | [`internal/mcpserver/mcpserver.go`](../internal/mcpserver/mcpserver.go) |
+| Code Mode | `/mcp/code` | One tool, `code`, that runs JavaScript calling the same 19 tools | [`internal/mcpserver/codemode.go`](../internal/mcpserver/codemode.go) |
 
 Both speak MCP over Streamable HTTP, so any MCP client connects to either. A client connects to one of them; the UI
 and the installer register both under the name `docket`, so switching replaces the other.
@@ -37,9 +37,14 @@ What every integration gets for free, because it all sits in front of or under t
   (`read` or `write`) is `service.MCPTools`.
 - **Call log.** Every `tools/call` is written by `service.RecordMCPCall` (tool, short arguments, duration, error code)
   and shown live on the Integrations tab; it is kept 7 days.
-- **Same rules as the UI.** Tool handlers call `service` as the actor `claude`, so validation, history, events and
+- **Same rules as the UI.** Tool handlers call `service` with the calling agent's ID, so validation, history, events and
   live updates in the browser are the same as for a human edit. Integrations never touch `store` directly.
 - **Instructions.** The body of the `docket` skill goes to every client as MCP `instructions` (`skills.Instructions()`).
+
+The optional `?agent=` URL parameter supplies a per-client attribution label on either endpoint. Otherwise
+the middleware reads MCP client info on the tool call or a recognized HTTP User-Agent. Anonymous calls use
+`mcp`. Code Mode passes the resolved label to its in-memory client. Names are normalized to short lowercase
+identifiers. The reserved profile-owner ID `denis` is unavailable over MCP. The label grants no permissions.
 
 ## MCP
 

@@ -9,13 +9,13 @@ import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalList
 import { CSS } from '@dnd-kit/utilities'
 import {
   type Category, type Field, type Label, type Meta, type Project, type Status, type Task, type View, type ViewFilter,
-  api, fmtDay, statusColor, todayStr, useProjects, useProjectsMeta, useWho,
+  api, fmtDay, statusColor, todayStr, useProjects, isAgent, useProjectsMeta, useWho,
 } from './api'
 import { Icon, ProjectTile } from './icons'
 import { tr, useLang } from './i18n'
 import { useFresh } from './live'
 import { Link, hrefWith, navigate, setParam, useRoute } from './router'
-import { AreaDot, ClaudeBadge, EmptyState, ErrorState, Menu, PriorityChip, Skeleton } from './ui'
+import { AreaDot, AgentBadge, EmptyState, ErrorState, Menu, PriorityChip, Skeleton } from './ui'
 import { Wiki } from './Wiki'
 
 type Group = 'status' | 'priority' | 'area'
@@ -113,7 +113,7 @@ function CardContent({ t, labels, fields, movable }: CardProps) {
       <div className={'flex items-center gap-2' + (movable ? ' pr-7' : '')}>
         {done && <span className="inline-flex text-dn"><Icon name="check" size={15} sw={2.4} /></span>}
         <span className="font-mono grow text-[11.5px] text-t3">{t.code}</span>
-        {t.created_by === 'claude' && <ClaudeBadge />}
+        {isAgent(t.created_by) && <AgentBadge actor={t.created_by} />}
         <PriorityChip p={t.priority} />
       </div>
       <div className={'wrap-anywhere text-[14px] font-medium leading-[1.35] ' + (done ? 'text-t2' : '')}>{t.title}</div>
@@ -199,9 +199,12 @@ function FilterBar({ filter, setFilter, group, setGroup, sort, setSort, meta, ta
   meta: Meta; tasks: Task[]; project: Project; layout: Layout
 }) {
   const qc = useQueryClient()
-  const me = useWho()('denis')
-  const AUTHOR_OPTS: [string, string][] = [['claude', 'Claude'], ['denis', me]]
-  const claudeCount = tasks.filter((t) => t.created_by === 'claude').length
+  const who = useWho()
+  const counts = new Map<string, number>()
+  for (const { created_by } of tasks) {
+    if (isAgent(created_by)) counts.set(created_by, (counts.get(created_by) ?? 0) + 1)
+  }
+  const authors = [...new Set([...counts.keys(), ...(filter.author ?? []), 'denis'])].sort()
   const toggle = (kind: 'priority' | 'area' | 'date' | 'author', v: string) => {
     const cur = filter[kind] ?? []
     const next = cur.includes(v) ? cur.filter((x) => x !== v) : [...cur, v]
@@ -219,7 +222,7 @@ function FilterBar({ filter, setFilter, group, setGroup, sort, setSort, meta, ta
   if (filter.priority?.length) chips.push({ label: `${tr('Приоритет')}: ${filter.priority.join(', ')}`, clear: () => setFilter({ ...filter, priority: undefined }) })
   if (filter.area?.length) chips.push({ label: `${tr('Область')}: ${filter.area.join(', ')}`, clear: () => setFilter({ ...filter, area: undefined }) })
   if (filter.date?.length) chips.push({ label: `${tr('Дата')}: ${filter.date.map((d) => tr(DATE_OPTS.find((o) => o[0] === d)?.[1] ?? '')).join(', ')}`, clear: () => setFilter({ ...filter, date: undefined }) })
-  if (filter.author?.length) chips.push({ label: `${tr('Автор')}: ${filter.author.map((a) => AUTHOR_OPTS.find((o) => o[0] === a)?.[1]).join(', ')}`, clear: () => setFilter({ ...filter, author: undefined }) })
+  if (filter.author?.length) chips.push({ label: `${tr('Автор')}: ${filter.author.map(who).join(', ')}`, clear: () => setFilter({ ...filter, author: undefined }) })
   for (const [id, vals] of Object.entries(filter.fields ?? {})) {
     const f = meta.fields.find((x) => String(x.id) === id)
     if (f) chips.push({ label: `${f.name}: ${vals.join(', ')}`, clear: () => { const fields = { ...filter.fields }; delete fields[id]; setFilter({ ...filter, fields }) } })
@@ -260,7 +263,7 @@ function FilterBar({ filter, setFilter, group, setGroup, sort, setSort, meta, ta
               <div className={POP_HEAD}>{tr('Дата')}</div>
               {DATE_OPTS.map(([k, n]) => item(tr(n), !!filter.date?.includes(k), () => toggle('date', k)))}
               <div className={POP_HEAD}>{tr('Автор')}</div>
-              {AUTHOR_OPTS.map(([k, n]) => item(n, !!filter.author?.includes(k), () => toggle('author', k)))}
+              {authors.map((a) => item(who(a), !!filter.author?.includes(a), () => toggle('author', a), 'author-' + a))}
               {meta.fields.filter((f) => f.type === 'select').map((f) => (
                 <div key={f.id}>
                   <div className={POP_HEAD}>{f.name}</div>
@@ -287,9 +290,11 @@ function FilterBar({ filter, setFilter, group, setGroup, sort, setSort, meta, ta
         <Menu right label={<>{tr('Сортировка')}: {tr(SORTS.find((s) => s[0] === sort)![1])}<Icon name="chevD" size={12} sw={2} /></>}>
           {(close) => SORTS.map(([k, n]) => item(tr(n), k === sort, () => { setSort(k); close() }))}
         </Menu>
-        <button type="button" className={FC_BTN + (filter.author?.includes('claude') ? FC_ON : FC_OFF)} aria-pressed={!!filter.author?.includes('claude')} onClick={() => toggle('author', 'claude')}>
-          <Icon name="plug" size={13} sw={2} />{tr('Создано Claude')}: {claudeCount}
-        </button>
+        {authors.filter((a) => counts.has(a)).map((a) => (
+          <button key={a} type="button" className={FC_BTN + (filter.author?.includes(a) ? FC_ON : FC_OFF)} aria-pressed={!!filter.author?.includes(a)} onClick={() => toggle('author', a)}>
+            <Icon name="plug" size={13} sw={2} /><span className="max-w-36 truncate" title={who(a)}>{who(a)}</span> · {counts.get(a)}
+          </button>
+        ))}
       </div>
     </div>
   )
@@ -311,7 +316,7 @@ function ListTable({ tasks, meta }: { tasks: Task[]; meta: Meta }) {
             return (
               <tr key={t.id} className="group relative">
                 <td className={TD + ' font-mono text-[12px] text-t3 whitespace-nowrap'}>{t.code}</td>
-                <td className={TD + ' font-medium wrap-anywhere'}><Link to={hrefWith('task', t.code)} aria-label={t.code + ' ' + t.title} className="no-underline after:absolute after:inset-0 focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-ring">{t.title}</Link>{t.created_by === 'claude' && <> <ClaudeBadge /></>}</td>
+                <td className={TD + ' font-medium wrap-anywhere'}><Link to={hrefWith('task', t.code)} aria-label={t.code + ' ' + t.title} className="no-underline after:absolute after:inset-0 focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-ring">{t.title}</Link>{isAgent(t.created_by) && <> <AgentBadge actor={t.created_by} /></>}</td>
                 <td className={TD + ' whitespace-nowrap'}><span className="inline-flex items-center gap-[5px] text-[13px] text-t2"><span className="inline-block w-2 h-2 flex-[0_0_8px] rounded-full" style={{ background: color(st) }} />{t.status_name}</span></td>
                 <td className={TD + ' whitespace-nowrap'}><PriorityChip p={t.priority} /></td>
                 <td className={TD + ' whitespace-nowrap'}><AreaDot area={t.area} labels={meta.labels} /></td>
@@ -471,7 +476,7 @@ function ProjectBoard({ project, onNewTask, wiki }: { project: Project; onNewTas
       {tq.isSuccess && tasks.length === 0 && (
         <div className="px-7 pt-[18px]">
           <div className="bg-sf border border-ln rounded-xl"><EmptyState icon="board" title={tr('В проекте пока нет задач')}
-            hint={tr('Добавьте первую задачу в колонке ниже или попросите Claude создать их через MCP.')} /></div>
+            hint={tr('Добавьте первую задачу в колонке ниже или попросите агента создать её через MCP.')} /></div>
         </div>
       )}
       {tq.isSuccess && noMatches && (

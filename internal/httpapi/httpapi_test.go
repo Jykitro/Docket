@@ -180,7 +180,7 @@ func (a authTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 func connect(t *testing.T, e *env) *mcp.ClientSession {
 	t.Helper()
 	client := mcp.NewClient(&mcp.Implementation{Name: "test", Version: "1"}, nil)
-	cs, err := client.Connect(context.Background(), &mcp.StreamableClientTransport{Endpoint: e.srv.URL + "/mcp",
+	cs, err := client.Connect(context.Background(), &mcp.StreamableClientTransport{Endpoint: e.srv.URL + "/mcp?agent=codex",
 		HTTPClient: &http.Client{Transport: authTransport{e.token}}}, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -210,7 +210,7 @@ func TestMCPToolsPolicyAndCallLog(t *testing.T) {
 
 	// delete_tasks is off by default and hidden from tools/list.
 	names := toolNames(t, cs)
-	if len(names) != 15 || names["delete_tasks"] {
+	if len(names) != len(service.MCPTools)-1 || names["delete_tasks"] {
 		t.Fatalf("default tools = %v", names)
 	}
 
@@ -237,7 +237,7 @@ func TestMCPToolsPolicyAndCallLog(t *testing.T) {
 		t.Fatalf("get_today is not compact: %s", out)
 	}
 	ts, _ := e.svc.ListTasks(ctx, store.TaskFilter{})
-	if ts[0].CreatedBy != "claude" {
+	if ts[0].CreatedBy != "codex" {
 		t.Fatalf("MCP task created_by = %s", ts[0].CreatedBy)
 	}
 	if out, isErr := call("get_task", map[string]any{"id": "trk-01"}); isErr || !strings.Contains(out, `"subtasks":[{"id":"TRK-02"`) {
@@ -257,7 +257,7 @@ func TestMCPToolsPolicyAndCallLog(t *testing.T) {
 		t.Fatal(err)
 	}
 	names = toolNames(t, cs)
-	if len(names) != 7 || names["create_tasks"] || names["write_page"] || !names["get_board"] || !names["read_page"] {
+	if len(names) != 8 || names["create_tasks"] || names["write_page"] || !names["get_board"] || !names["read_page"] {
 		t.Fatalf("read-only tools = %v", names)
 	}
 	if out, isErr := call("create_tasks", map[string]any{"tasks": []map[string]any{{"project": "TRK", "title": "nope"}}}); !isErr || !strings.HasPrefix(out, "forbidden:") {
@@ -285,6 +285,9 @@ func TestMCPToolsPolicyAndCallLog(t *testing.T) {
 	}
 	for i, w := range want { // newest first
 		c := calls[i]
+		if c.Actor != "codex" {
+			t.Errorf("log[%d] actor = %q, want codex", i, c.Actor)
+		}
 		code := ""
 		if c.ErrorCode != nil {
 			code = *c.ErrorCode

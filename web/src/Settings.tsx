@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { ApiError, type Field, type Label, type Project, type Status, type View, api, statusColor, useProjects } from './api'
+import { ApiError, type Field, type Label, type Project, type Status, type View, api, statusColor, useProjects, useWho } from './api'
 import { Icon, PROJECT_COLORS, ProjectTile } from './icons'
 import { ProjectIconPicker } from './ProjectIconPicker'
 import { tr } from './i18n'
@@ -418,19 +418,20 @@ const DATE_NAMES: Record<string, string> = { today: 'сегодня', overdue: '
 const GROUP_NAMES: Record<string, string> = { status: 'статус', priority: 'приоритет', area: 'область' }
 const SORT_NAMES: Record<string, string> = { manual: 'вручную', priority: 'приоритет', date: 'дата' }
 
-function describeView(v: View): string {
+function describeView(v: View, who: (actor: string) => string): string {
   const f = v.filter ?? {}
   const parts: string[] = [v.layout === 'list' ? tr('Список') : tr('Доска')]
   if (f.q) parts.push(`«${f.q}»`)
   if (f.priority?.length) parts.push(`${tr('приоритет')} ${f.priority.join('/')}`)
   if (f.area?.length) parts.push(`${tr('область')} ${f.area.join('/')}`)
   if (f.date?.length) parts.push(f.date.map((d) => tr(DATE_NAMES[d] ?? d)).join('/'))
-  if (f.author?.length) parts.push(`${tr('создали')}: ${f.author.join('/')}`)
+  if (f.author?.length) parts.push(`${tr('создали')}: ${f.author.map(who).join('/')}`)
   parts.push(`${tr('группа')}: ${tr(GROUP_NAMES[v.group_by] ?? v.group_by)}`, `${tr('сортировка')}: ${tr(SORT_NAMES[v.sort] ?? v.sort)}`)
   return parts.join(' · ')
 }
 
 function ViewRow({ v, run }: { v: View; run: Run }) {
+  const who = useWho()
   const [name, setName] = useState(v.name)
   useEffect(() => setName(v.name), [v.name])
   return (
@@ -439,7 +440,7 @@ function ViewRow({ v, run }: { v: View; run: Run }) {
       <span className="flex min-w-0 flex-[1_1_200px] flex-col gap-0.5">
         <input className={IN_TR + ' max-w-[280px]'} aria-label={tr('Название вида')} value={name} onChange={(e) => setName(e.target.value)}
           onBlur={() => name.trim() && name.trim() !== v.name ? run(() => api.updateView(v.id, { name: name.trim() })) : setName(v.name)} onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()} />
-        <span className="text-[12.5px] text-t3">{describeView(v)}</span>
+        <span className="text-[12.5px] text-t3">{describeView(v, who)}</span>
       </span>
       <span className={TLABEL}>{tr('В боковой панели')}</span>
       <Toggle on={v.pinned} label={tr('В боковой панели: {name}', { name: v.name })} onChange={(pinned) => run(() => api.updateView(v.id, { pinned }))} />

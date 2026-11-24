@@ -1,6 +1,7 @@
 // Live updates: /api/events (SSE) invalidates the queries, so changes made through MCP show up at once.
-// Tasks touched by claude are highlighted for 3 seconds.
+// Tasks touched by agents are highlighted for 3 seconds.
 import { useEffect, useSyncExternalStore } from 'react'
+import { isAgent } from './api'
 import type { QueryClient } from '@tanstack/react-query'
 
 const fresh = new Map<number, number>() // task id -> expiry timestamp
@@ -22,7 +23,7 @@ function markFresh(id: number) {
   }, 3050)
 }
 
-/** True for 3 seconds after claude changed the task. */
+/** True for 3 seconds after an agent changed the task. */
 export function useFresh(id: number) {
   useSyncExternalStore(
     (cb) => {
@@ -45,7 +46,7 @@ export function useLive(qc: QueryClient) {
     es.onmessage = (m) => {
       try {
         const e = JSON.parse(m.data) as { actor: string; task_id?: number }
-        if (e.actor === 'claude' && e.task_id) markFresh(e.task_id)
+        if (isAgent(e.actor) && e.task_id) markFresh(e.task_id)
       } catch {
         /* a malformed event still triggers a refresh */
       }

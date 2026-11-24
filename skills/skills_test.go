@@ -17,8 +17,10 @@ func TestInstallScriptWritesSkillsAndRegistersServer(t *testing.T) {
 		t.Fatal(err)
 	}
 	fake := "#!/bin/sh\necho \"$@\" >> " + log + "\n"
-	if err := os.WriteFile(filepath.Join(bin, "claude"), []byte(fake), 0o755); err != nil {
-		t.Fatal(err)
+	for _, client := range []string{"claude", "codex"} {
+		if err := os.WriteFile(filepath.Join(bin, client), []byte(fake), 0o755); err != nil {
+			t.Fatal(err)
+		}
 	}
 	script := filepath.Join(dir, "install.sh")
 	if err := os.WriteFile(script, []byte(InstallScript()), 0o755); err != nil {
@@ -26,7 +28,7 @@ func TestInstallScriptWritesSkillsAndRegistersServer(t *testing.T) {
 	}
 
 	cmd := exec.Command("sh", script)
-	cmd.Env = []string{"PATH=" + bin + ":/usr/bin:/bin", "HOME=" + home, "DOCKET_URL=http://127.0.0.1:7777/mcp", "DOCKET_TOKEN=dkt_test"}
+	cmd.Env = []string{"PATH=" + bin + ":/usr/bin:/bin", "HOME=" + home, "DOCKET_URL=http://127.0.0.1:7777/mcp/code?route=docket", "DOCKET_TOKEN=dkt_test"}
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("install.sh: %v\n%s", err, out)
 	}
@@ -39,8 +41,11 @@ func TestInstallScriptWritesSkillsAndRegistersServer(t *testing.T) {
 		}
 	}
 	calls, _ := os.ReadFile(log)
-	if !strings.Contains(string(calls), "mcp add --scope user --transport http docket http://127.0.0.1:7777/mcp --header Authorization: Bearer dkt_test") {
+	if !strings.Contains(string(calls), "mcp add --scope user --transport http docket http://127.0.0.1:7777/mcp/code?agent=claude&route=docket --header Authorization: Bearer dkt_test") {
 		t.Errorf("claude mcp add not called as expected:\n%s", calls)
+	}
+	if !strings.Contains(string(calls), "mcp add docket --url http://127.0.0.1:7777/mcp/code?agent=codex&route=docket --bearer-token-env-var DOCKET_MCP_TOKEN") {
+		t.Errorf("codex mcp add not called as expected:\n%s", calls)
 	}
 }
 

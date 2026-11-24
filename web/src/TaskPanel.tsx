@@ -3,13 +3,14 @@ import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   type Activity, type Field, type Status, type TaskDetail, addDays, api, fmtDay, fmtStamp, isoDay, statusChip, statusColor, todayStr,
-  useProjects, useProjectsMeta, useWho,
+  useProjects, isAgent, useProjectsMeta, useWho,
 } from './api'
+import { HtmlDocuments } from './HtmlDocuments'
 import { Icon, ProjectTile } from './icons'
 import { locale, tr } from './i18n'
 import { MD_NOTE, MD_PROSE, renderMarkdown, toggleCheckbox } from './markdown'
 import { Link, hrefWith, navigate, setParam } from './router'
-import { ClaudeBadge, EmptyState, ErrorState, MENUITEM, Menu, SkeletonRows, useFocusTrap } from './ui'
+import { AgentBadge, EmptyState, ErrorState, MENUITEM, Menu, SkeletonRows, useFocusTrap } from './ui'
 
 const PRIORITIES: Record<string, { name: string; cls: string }> = {
   P0: { name: 'Критично', cls: 'bg-rds text-rd' },
@@ -61,6 +62,8 @@ function histText(a: Activity): string {
   })
   switch (a.action) {
     case 'created': return tr('Задача создана')
+    case 'html_published': return tr('Опубликован HTML-документ')
+    case 'html_deleted': return tr('Удалён HTML-документ')
     case 'note_added': return tr('Добавлена заметка')
     case 'deleted': return tr('Задача перемещена в корзину')
     case 'restored': return tr('Задача восстановлена из корзины')
@@ -174,6 +177,7 @@ function PanelBody({ code, mode, onClose }: { code: string; mode: 'drawer' | 'pa
         <Description d={d!} readOnly={readOnly} onSave={(description_md) => patch.mutate({ description_md })} />
         {!d!.parent_id && <Subtasks d={d!} statuses={meta?.statuses ?? []} projectKey={project?.key} readOnly={readOnly} />}
         <Notes d={d!} readOnly={readOnly} />
+        {!readOnly && <HtmlDocuments key={d!.id} docs={d!.documents} owner={{task:d!.code}} />}
         <WikiMentions code={code} />
         <History acts={d!.activity} />
       </div>
@@ -272,8 +276,8 @@ function Properties({ d, statuses, labels, fields, readOnly, onPatch }: {
       )}
       <Prop icon="user" label={tr('Создал')}>
         <span className="inline-flex items-center gap-2 text-sm">
-          {d.created_by === 'claude' ? <ClaudeBadge /> : <b className="font-semibold">{who(d.created_by)}</b>}
-          <span className="text-t3">{d.created_by === 'claude' ? tr('через MCP · ') : ''}{fmtStamp(d.created_at)}</span>
+          {isAgent(d.created_by) ? <AgentBadge actor={d.created_by} /> : <b className="font-semibold">{who(d.created_by)}</b>}
+          <span className="text-t3">{isAgent(d.created_by) ? tr('через MCP · ') : ''}{fmtStamp(d.created_at)}</span>
         </span>
       </Prop>
       {fields.map((f) => <FieldProp key={f.id} f={f} d={d} readOnly={readOnly} onPatch={onPatch} />)}
@@ -414,7 +418,7 @@ function Notes({ d, readOnly }: { d: TaskDetail; readOnly: boolean }) {
       <div className="flex flex-col gap-3.5">
         {d.notes.map((n) => (
           <div key={n.id} className="flex gap-3">
-            <span className={'grid size-7 shrink-0 place-items-center rounded-full ' + (n.author === 'claude' ? 'bg-acs text-act' : 'bg-sk text-t2')}><Icon name={n.author === 'claude' ? 'spark' : 'user'} size={14} sw={2} /></span>
+            <span className={'grid size-7 shrink-0 place-items-center rounded-full ' + (isAgent(n.author) ? 'bg-acs text-act' : 'bg-sk text-t2')}><Icon name={isAgent(n.author) ? 'spark' : 'user'} size={14} sw={2} /></span>
             <div className="flex min-w-0 flex-[1_1_0] flex-col gap-[3px]">
               <div className="flex items-baseline gap-2">
                 <b className="text-sm font-semibold">{who(n.author)}</b>

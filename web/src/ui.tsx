@@ -1,6 +1,6 @@
 // Small shared pieces: popover menu, dialog, states, task badges.
 import { type ReactNode, useEffect, useRef, useState } from 'react'
-import { type Label } from './api'
+import { agentName, type Label } from './api'
 import { Icon } from './icons'
 import { LANGS, setLang, tr, useLang } from './i18n'
 
@@ -164,8 +164,8 @@ const PRIO: Record<string, string> = {
 }
 export const PriorityChip = ({ p }: { p: string }) => <span className={'font-mono text-[11px] font-semibold leading-[normal] rounded-[5px] ' + (PRIO[p.toLowerCase()] ?? '')}>{p}</span>
 
-export const ClaudeBadge = () => (
-  <span className="inline-flex items-center gap-1 text-[11px] font-medium text-act bg-acs rounded-[5px] py-0.5 pr-1.5 pl-[5px]" title={tr('Создано Claude')}><Icon name="spark" size={11} sw={2.2} />claude</span>
+export const AgentBadge = ({ actor }: { actor: string }) => (
+  <span className="inline-flex min-w-0 max-w-36 items-center gap-1 text-[11px] font-medium text-act bg-acs rounded-[5px] py-0.5 pr-1.5 pl-[5px]" title={tr('Автор: {name}', { name: agentName(actor) })}><Icon name="spark" size={11} sw={2.2} /><span className="truncate">{agentName(actor)}</span></span>
 )
 
 /** EN / RU / UK switch. It subscribes itself, so it works on the login screen too. */

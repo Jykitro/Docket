@@ -5,7 +5,7 @@ description: Use when unsure how a Docket tool, field, status key, task ID, date
 
 # Docket reference
 
-Docket is the user's personal task planner. You reach it over MCP as the actor `claude`; the user works in the same data through the web UI and sees your changes live. The workflow you follow (task per piece of work, plan, notes, issues, end checklist) is the `docket` skill. This file answers "how does X behave".
+Docket is the user's personal task planner. Your MCP connection identifies your edits by agent name (for example `codex` or `claude`); the user works in the same data through the web UI and sees your changes live. The workflow you follow (task per piece of work, plan, notes, issues, end checklist) is the `docket` skill. This file answers "how does X behave".
 
 ## Data model
 
@@ -13,7 +13,7 @@ Docket is the user's personal task planner. You reach it over MCP as the actor `
 - **Status**: per project, addressed by `key`. A new project has `backlog` (Бэклог), `todo` (К работе), `doing` (В работе), `done` (Готово). Each status belongs to a category (todo, doing, done); the user can rename, add or remove statuses, so never assume `doing` exists: an unknown key returns the project's real keys in the error.
 - **Task**: `title`, `description_md` (markdown; `- [ ]` and `- [x]` render as clickable checkboxes), `status`, `priority` (`P0` highest, `P1` default, `P2`; any other value fails with `priority must be one of P0, P1, P2`), `area` (free label up to 40 characters, an unknown one is created as a label), `planned_for` (`YYYY-MM-DD`, server time zone), `custom` fields (types: number, url, select) passed as `{"Field name": value}`, `parent`. There is no tool that lists custom fields: `get_task` shows a task's values by name, and an unknown name fails with `unknown custom field "x"`.
 - **Epic and subtasks**: one level only. A subtask lives in its epic's project. A task that has subtasks cannot become a subtask. Moving an epic moves its subtasks.
-- **Notes**: markdown comments on a task. **History**: every change is logged with its actor (`claude` or the user); `get_task` returns the last 20 entries.
+- **Notes**: markdown comments on a task. **History**: every change is logged with its actor (the agent ID or the profile owner); `get_task` returns the last 20 entries.
 - **Trash**: deleting moves tasks (with subtasks) to the trash; only the user restores them or empties the trash in the UI.
 - **Done-category tasks** are hidden from boards by default but stay in `get_today` for their planned date.
 
@@ -34,6 +34,9 @@ Answers are compact JSON. IDs always look like `TRK-07`; `project` arguments acc
 | `create_tasks` | New tasks | 1 to 100 per call, one transaction (any invalid item fails the whole call, reported as `tasks[2]: <reason>` with the item's index). Every item needs its own `project`, subtasks too. Defaults: status `backlog`, priority `P1`. New tasks go to the end of their column. Epic: give it `ref`, subtasks `parent_ref` = that ref, epic first. Returns `[{id, title}]` in input order. `external_id` (global across projects) makes the call idempotent: repeating it updates that task instead of duplicating, and a repeat without `description_md` keeps the old description. Use it when you might retry a batch |
 | `update_task` | Edit fields | Omitted fields stay. `description_md` replaces the whole text. `planned_for: ""` clears the date, `parent: ""` detaches. Status and project are not here |
 | `move_tasks` | Status, date, project of many tasks | Give at least one of `status`, `planned_for`, `project`. Moved tasks go to the end of the target column. Moving to another project assigns new IDs and subtasks follow their epic. The answer is only `{"updated": n}`: `search` by title to learn the new IDs |
+| `publish_html` | Attach or revise an interactive document | Exactly one of task (code) or page_id (from read_page), title, self-contained html up to 2 MiB. On update read the document, then pass expected_version. A stale revision returns conflict. Bundle CSS, JS and data. |
+| `read_html` | Read HTML source and metadata | id from get_task or read_page → documents; optional version, defaults to latest. For large sources in Code Mode, return just the needed portion. |
+| `report_issue` | Record a finding immediately | Required: project, title and observation (what, where, how found). Supply source_task when known. Same title reuses an open issue within the project; existing_issue targets a known duplicate. Repeating the same evidence from the same source and agent is idempotent. kind: problem, unverified, decision or blocker. Returns the ID. |
 | `add_note` | Comment on a task | `task_id`, `body_md` |
 | `list_pages` | Wiki pages of a project | `project`. id, title, parent, `updated_at`; no bodies |
 | `read_page` | One wiki page by `title` | Markdown body, parent, `updated_at`, backlinks, linked task IDs. Read it before `write_page` |
@@ -75,14 +78,7 @@ A 401 or 403 on connect, or missing tools, is a setup problem: use `docket-setup
 
 ## Conventions
 
-**Issue** (a problem you notice but won't fix now): `create_tasks`, `area: "issue"`, status `backlog`, no date, `priority` `P1` unless it is clearly urgent (`P0`) or cosmetic (`P2`). Title states the problem, not the fix. Description:
-
-```
-Symptom: <what goes wrong>
-Where: <file or screen>
-How found: <what you were doing>
-Found while: TRK-12
-```
+**Issue**: call `report_issue` when you notice a problem. Provide the source task and concrete evidence, even if the cause is unknown. An unverified observation uses `kind: "unverified"`. Existing open tasks with area `issue` also appear in Needs attention.
 
 **Plan** (in the working task's description):
 

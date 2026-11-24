@@ -83,7 +83,7 @@ func connect(ctx context.Context, s *mcp.Server) (*mcp.ClientSession, error) {
 	if _, err := s.Connect(ctx, st, nil); err != nil {
 		return nil, err
 	}
-	return mcp.NewClient(&mcp.Implementation{Name: "docket-code", Version: "1.0.0"}, nil).Connect(ctx, ct, nil)
+	return mcp.NewClient(&mcp.Implementation{Name: actor(ctx), Version: "1.0.0"}, nil).Connect(ctx, ct, nil)
 }
 
 // declare appends TypeScript declarations of the tools the classic server lists right now (so switched-off

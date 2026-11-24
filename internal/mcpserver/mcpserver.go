@@ -1,5 +1,5 @@
-// Package mcpserver exposes the service as MCP tools over Streamable HTTP. Every call acts
-// as claude; answers are compact JSON with IDs like TRK-07 to save the assistant's context.
+// Package mcpserver exposes the service as MCP tools over Streamable HTTP. Answers
+// are compact JSON with IDs like TRK-07 to save the assistant's context.
 // A middleware enforces the access mode and tool switches and writes every call to the log.
 package mcpserver
 
@@ -20,7 +20,34 @@ import (
 	"docket/skills"
 )
 
-const actor = service.ActorClaude
+type agentKey struct{}
+
+// actor is set for the duration of a tools/call, including its call log.
+func actor(ctx context.Context) string {
+	if name, ok := ctx.Value(agentKey{}).(string); ok {
+		return name
+	}
+	return "mcp"
+}
+
+func callActor(ctx context.Context, req mcp.Request) string {
+	if name, ok := ctx.Value(agentKey{}).(string); ok {
+		return name
+	}
+	if r, ok := req.(interface{ ClientInfo() *mcp.Implementation }); ok {
+		if info := r.ClientInfo(); info != nil && info.Name != "" {
+			return service.AgentActor(info.Name)
+		}
+	}
+	// Older stateless clients may identify themselves only by HTTP User-Agent.
+	if extra := req.GetExtra(); extra != nil {
+		product, _, _ := strings.Cut(extra.Header.Get("User-Agent"), "/")
+		if name := service.AgentActor(product); name == "codex" || name == "claude" {
+			return name
+		}
+	}
+	return "mcp"
+}
 
 // Handler returns the handler for /mcp (one MCP tool per Docket tool) and /mcp/code (Code Mode: one `code`
 // tool that runs JavaScript calling the same tools). Host checks and auth are done by the caller's middleware.
@@ -37,6 +64,13 @@ func Handler(svc *service.Service, loc *time.Location) http.Handler {
 	add(s, "create_tasks", t.createTasks)
 	add(s, "update_task", t.updateTask)
 	add(s, "move_tasks", t.moveTasks)
+	add(s, "publish_html", func(ctx context.Context, in service.PublishHTMLInput) (any, error) {
+		return svc.PublishHTML(ctx, actor(ctx), in)
+	})
+	add(s, "read_html", func(ctx context.Context, in readHTMLInput) (any, error) { return svc.ReadHTML(ctx, in.ID, in.Version) })
+	add(s, "report_issue", func(ctx context.Context, in service.ReportIssueInput) (any, error) {
+		return svc.ReportIssue(ctx, actor(ctx), in)
+	})
 	add(s, "add_note", t.addNote)
 	add(s, "list_pages", t.listPages)
 	add(s, "read_page", t.readPage)
@@ -56,6 +90,9 @@ func Handler(svc *service.Service, loc *time.Location) http.Handler {
 	classic := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return s }, opts)
 	codeMode := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return code }, opts)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if name := r.URL.Query().Get("agent"); name != "" {
+			r = r.WithContext(context.WithValue(r.Context(), agentKey{}, service.AgentActor(name)))
+		}
 		if strings.HasSuffix(r.URL.Path, "/code") { // /mcp/code: Code Mode, see codemode.go
 			codeMode.ServeHTTP(w, r)
 			return
@@ -132,6 +169,7 @@ func allowed(pol service.MCPPolicy, tool string) string {
 }
 
 func call(ctx context.Context, svc *service.Service, method string, req mcp.Request, next mcp.MethodHandler) (mcp.Result, error) {
+	ctx = context.WithValue(ctx, agentKey{}, callActor(ctx, req))
 	start := time.Now()
 	var name, args string
 	if p, ok := req.GetParams().(*mcp.CallToolParamsRaw); ok {
@@ -155,7 +193,7 @@ func call(ctx context.Context, svc *service.Service, method string, req mcp.Requ
 		res, err = next(ctx, method, req)
 		code = resultCode(res, err)
 	}
-	if rerr := svc.RecordMCPCall(context.WithoutCancel(ctx), name, args, time.Since(start), code); rerr != nil {
+	if rerr := svc.RecordMCPCall(context.WithoutCancel(ctx), actor(ctx), name, args, time.Since(start), code); rerr != nil {
 		slog.Error("mcp call log failed", "tool", name, "err", rerr)
 	}
 	return res, err
@@ -194,7 +232,7 @@ func summarize(raw json.RawMessage) string {
 		switch t := x.(type) {
 		case map[string]any:
 			for k, e := range t {
-				if k == "description_md" || k == "body_md" || k == "text" {
+				if k == "description_md" || k == "body_md" || k == "code" || k == "html" || k == "observation" || k == "text" {
 					t[k] = "…"
 				} else {
 					t[k] = strip(e)
@@ -294,7 +332,7 @@ type createProjectIn struct {
 }
 
 func (t *tools) createProject(ctx context.Context, in createProjectIn) (any, error) {
-	p, err := t.svc.CreateProject(ctx, actor, service.ProjectInput{Name: in.Name, Key: in.Key, Slug: in.Slug, Icon: in.Icon,
+	p, err := t.svc.CreateProject(ctx, actor(ctx), service.ProjectInput{Name: in.Name, Key: in.Key, Slug: in.Slug, Icon: in.Icon,
 		Color: in.Color, Description: in.Description})
 	if err != nil {
 		return nil, err
@@ -386,6 +424,11 @@ func (t *tools) getToday(ctx context.Context, in todayIn) (any, error) {
 	return map[string]any{"date": r.Date, "projects": groups, "overdue": overdue}, nil
 }
 
+type readHTMLInput struct {
+	ID      int64 `json:"id" jsonschema:"document ID from get_task or read_page"`
+	Version int   `json:"version,omitempty" jsonschema:"revision to read, latest when omitted"`
+}
+
 type taskIn struct {
 	ID string `json:"id" jsonschema:"task ID such as TRK-07"`
 }
@@ -421,16 +464,17 @@ func (t *tools) getTask(ctx context.Context, in taskIn) (any, error) {
 	}
 	out := struct {
 		ctask
-		Description string         `json:"description_md,omitempty"`
-		Custom      map[string]any `json:"custom,omitempty"`
-		CreatedBy   string         `json:"created_by"`
-		Created     string         `json:"created"`
-		Done        string         `json:"done,omitempty"`
-		Trashed     bool           `json:"trashed,omitempty"`
-		Subtasks    []sub          `json:"subtasks,omitempty"`
-		Notes       []note         `json:"notes,omitempty"`
-		History     []act          `json:"history,omitempty"`
-	}{ctask: compact(d.Task), Description: d.DescriptionMD, CreatedBy: d.CreatedBy, Created: t.short(d.CreatedAt),
+		Documents   []store.HTMLDocument `json:"documents,omitempty"`
+		Description string               `json:"description_md,omitempty"`
+		Custom      map[string]any       `json:"custom,omitempty"`
+		CreatedBy   string               `json:"created_by"`
+		Created     string               `json:"created"`
+		Done        string               `json:"done,omitempty"`
+		Trashed     bool                 `json:"trashed,omitempty"`
+		Subtasks    []sub                `json:"subtasks,omitempty"`
+		Notes       []note               `json:"notes,omitempty"`
+		History     []act                `json:"history,omitempty"`
+	}{ctask: compact(d.Task), Documents: d.Documents, Description: d.DescriptionMD, CreatedBy: d.CreatedBy, Created: t.short(d.CreatedAt),
 		Trashed: d.DeletedAt != nil}
 	out.HasDescription = false
 	out.Project = slugs[d.ProjectID]
@@ -516,7 +560,7 @@ func (t *tools) createTasks(ctx context.Context, in createTasksIn) (any, error) 
 			Priority: x.Priority, Area: x.Area, PlannedFor: x.PlannedFor, Custom: x.Custom, Parent: x.Parent,
 			Ref: x.Ref, ParentRef: x.ParentRef, ExternalID: x.ExternalID}
 	}
-	ts, err := t.svc.CreateTasks(ctx, actor, items)
+	ts, err := t.svc.CreateTasks(ctx, actor(ctx), items)
 	if err != nil {
 		return nil, err
 	}
@@ -543,7 +587,7 @@ type updateTaskIn struct {
 }
 
 func (t *tools) updateTask(ctx context.Context, in updateTaskIn) (any, error) {
-	x, err := t.svc.UpdateTask(ctx, actor, in.ID, service.Changes{Title: in.Title, DescriptionMD: in.DescriptionMD,
+	x, err := t.svc.UpdateTask(ctx, actor(ctx), in.ID, service.Changes{Title: in.Title, DescriptionMD: in.DescriptionMD,
 		Priority: in.Priority, Area: in.Area, PlannedFor: in.PlannedFor, Custom: in.Custom, ParentRef: in.Parent})
 	if err != nil {
 		return nil, err
@@ -562,7 +606,7 @@ func (t *tools) moveTasks(ctx context.Context, in moveTasksIn) (any, error) {
 	if in.Status == nil && in.PlannedFor == nil && in.Project == nil {
 		return nil, fmt.Errorf("give at least one of status, planned_for, project")
 	}
-	n, err := t.svc.MoveTasks(ctx, actor, in.IDs, service.BulkMove{Status: in.Status, PlannedFor: in.PlannedFor, Project: in.Project})
+	n, err := t.svc.MoveTasks(ctx, actor(ctx), in.IDs, service.BulkMove{Status: in.Status, PlannedFor: in.PlannedFor, Project: in.Project})
 	if err != nil {
 		return nil, err
 	}
@@ -575,7 +619,7 @@ type addNoteIn struct {
 }
 
 func (t *tools) addNote(ctx context.Context, in addNoteIn) (any, error) {
-	n, err := t.svc.AddNote(ctx, actor, in.TaskID, in.BodyMD)
+	n, err := t.svc.AddNote(ctx, actor(ctx), in.TaskID, in.BodyMD)
 	if err != nil {
 		return nil, err
 	}
@@ -646,7 +690,7 @@ func (t *tools) readPage(ctx context.Context, in readPageIn) (any, error) {
 		tasks = append(tasks, k.Code)
 	}
 	return map[string]any{"id": d.ID, "title": d.Title, "parent": parentTitle(titles, d.Page), "body_md": d.BodyMD,
-		"updated_at": d.UpdatedAt, "backlinks": backlinks, "tasks": tasks}, nil
+		"updated_at": d.UpdatedAt, "backlinks": backlinks, "tasks": tasks, "documents": d.Documents}, nil
 }
 
 type writePageIn struct {
@@ -658,7 +702,7 @@ type writePageIn struct {
 }
 
 func (t *tools) writePage(ctx context.Context, in writePageIn) (any, error) {
-	p, created, err := t.svc.WritePage(ctx, actor, in.Project, service.WritePageInput{Title: in.Title, BodyMD: in.BodyMD,
+	p, created, err := t.svc.WritePage(ctx, actor(ctx), in.Project, service.WritePageInput{Title: in.Title, BodyMD: in.BodyMD,
 		Parent: in.Parent, ExpectedUpdatedAt: in.ExpectedUpdatedAt})
 	if err != nil {
 		return nil, err
@@ -673,7 +717,7 @@ type appendToPageIn struct {
 }
 
 func (t *tools) appendToPage(ctx context.Context, in appendToPageIn) (any, error) {
-	p, err := t.svc.AppendToPage(ctx, actor, in.Project, in.Title, in.Text)
+	p, err := t.svc.AppendToPage(ctx, actor(ctx), in.Project, in.Title, in.Text)
 	if err != nil {
 		return nil, err
 	}
@@ -685,7 +729,7 @@ type idsIn struct {
 }
 
 func (t *tools) deleteTasks(ctx context.Context, in idsIn) (any, error) {
-	n, err := t.svc.DeleteTasks(ctx, actor, in.IDs)
+	n, err := t.svc.DeleteTasks(ctx, actor(ctx), in.IDs)
 	if err != nil {
 		return nil, err
 	}
@@ -721,7 +765,7 @@ type carryIn struct {
 }
 
 func (t *tools) carryOver(ctx context.Context, in carryIn) (any, error) {
-	n, err := t.svc.CarryOver(ctx, actor, in.From, in.To)
+	n, err := t.svc.CarryOver(ctx, actor(ctx), in.From, in.To)
 	if err != nil {
 		return nil, err
 	}

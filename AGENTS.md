@@ -39,7 +39,7 @@ skills/             agent skills for users of Docket, embedded in the binary (se
 web/                React + TypeScript + Vite + Tailwind CSS v4; the design tokens are in web/src/styles.css
 ```
 
-**Layering rule:** `httpapi` and `mcpserver` call only `service`; task SQL lives in `store`, auth SQL in `auth`, and connection/dialect code in `database`. Both channels (REST as the human, MCP as `claude`) go through the same service functions, so validation, history and live updates behave the same.
+**Layering rule:** `httpapi` and `mcpserver` call only `service`; task SQL lives in `store`, auth SQL in `auth`, and connection/dialect code in `database`. Both channels (REST as the human, MCP as the calling agent) go through the same service functions, so validation, history and live updates behave the same.
 
 ## Conventions
 
@@ -77,4 +77,4 @@ When you change a tool, a limit or a setup step, change the matching skill in th
 
 ## If the maintainer uses Docket
 
-The maintainer plans their work in Docket. When their Docket MCP server is connected, follow the `docket` skill: a task per piece of work, the plan as a checklist, noticed problems filed as `area: issue` tasks, and a reconcile step before the final message.
+The maintainer plans their work in Docket. When their Docket MCP server is connected, follow the `docket` skill: a task per piece of work, the plan as a checklist, noticed problems recorded immediately with `report_issue`, and a reconcile step before the final message.

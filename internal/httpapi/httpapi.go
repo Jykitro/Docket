@@ -92,6 +92,17 @@ func Router(d Deps) http.Handler {
 		r.Post("/views", a.h(a.createView))
 		r.Patch("/views/{id}", a.h(a.updateView))
 		r.Delete("/views/{id}", a.h(a.deleteView))
+		r.Post("/html-documents", a.h(a.publishHTML))
+		r.Get("/html-documents/{id}", a.h(a.readHTML))
+		r.Delete("/html-documents/{id}", a.h(a.deleteHTML))
+		r.Get("/attention", a.h(func(r *http.Request) (any, error) { return a.svc.Attention(r.Context()) }))
+		r.Post("/tasks/{id}/triage", a.h(func(r *http.Request) (any, error) {
+			var in service.TriageInput
+			if err := decode(r, &in); err != nil {
+				return nil, err
+			}
+			return none{}, a.svc.TriageIssue(r.Context(), chi.URLParam(r, "id"), in)
+		}))
 		r.Get("/today", a.h(a.today))
 		r.Get("/search", a.h(a.search))
 		r.Get("/tasks", a.h(a.listTasks))

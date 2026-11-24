@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { type Project, useProfile, useProjects } from './api'
+import { Attention } from './Attention'
 import { AppSettings } from './AppSettings'
 import { Board } from './Board'
 import { Mcp } from './Mcp'
@@ -97,6 +98,7 @@ export function App() {
   const proj = path.match(/^\/p\/([^/]+)(?:\/(settings)|\/(wiki)(?:\/(\d+))?)?$/)
   const taskPage = path.match(/^\/t\/([^/]+)$/)
   if (path === '/') page = <Today onNewTask={openNewTask} />
+  else if (path === '/attention') page = <Attention />
   else if (proj && !proj[2]) page = <Board slug={proj[1]} onNewTask={openNewTask} wiki={proj[3] ? { id: proj[4] ? Number(proj[4]) : undefined } : undefined} />
   else if (proj) page = <Settings slug={proj[1]} />
   else if (taskPage) page = <TaskPanel key={taskPage[1]} code={taskPage[1]} mode="page" />
@@ -106,7 +108,7 @@ export function App() {
 
   const task = params.get('task')
   const current = proj ? projects.data?.find((p) => p.slug === proj[1]) : undefined
-  const heading = path === '/' ? tr('Сегодня') : path === '/integrations' || path === '/mcp' ? tr('Интеграции') : path === '/trash' ? tr('Корзина') : taskPage ? taskPage[1].toUpperCase()
+  const heading = path === '/attention' ? tr('Требует внимания') : path === '/' ? tr('Сегодня') : path === '/integrations' || path === '/mcp' ? tr('Интеграции') : path === '/trash' ? tr('Корзина') : taskPage ? taskPage[1].toUpperCase()
     : proj ? (current ? current.name + (proj[2] ? `: ${tr('настройки')}` : proj[3] ? `: ${tr('вики')}` : '') : tr('Проект')) : 'Docket'
   useEffect(() => { document.title = task ? `${task.toUpperCase()} · ${heading} · Docket` : heading === 'Docket' ? 'Docket' : `${heading} · Docket` }, [heading, task])
   if (profile.isPending) return <div className="min-h-screen bg-bg" data-theme={theme.resolved} /> // avoid flashing the app before onboarding

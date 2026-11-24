@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/github/license/Jykitro/Docket)](LICENSE)
 
 A personal task planner that runs locally in Docker: one Go process, SQLite by default, or PostgreSQL in self-hosted mode.
-Claude manages tasks over [MCP](https://modelcontextprotocol.io); you review and edit them in the web UI.
+Codex, Claude and other agents manage tasks over [MCP](https://modelcontextprotocol.io); you review and edit them in the web UI.
 Both channels go through the same service layer, so validation, change history and live updates behave identically.
 
 No external services, and in the default local mode no users and no login. The UI never talks to an outside host
@@ -24,7 +24,7 @@ No external services, and in the default local mode no users and no login. The U
 - [Configuration](#configuration)
 - [Self-host](#self-host)
 - [Using the UI](#using-the-ui)
-- [Connecting Claude (MCP)](#connecting-claude-mcp)
+- [Connecting agents (MCP)](#connecting-agents-mcp)
 - [Development](#development)
 - [REST API](#rest-api)
 - [Troubleshooting](#troubleshooting)
@@ -35,7 +35,7 @@ No external services, and in the default local mode no users and no login. The U
 - **Today view.** Day plan, overdue tasks, progress, recent activity and MCP status in one place.
 - **Kanban board and list.** Per-project statuses, drag and drop, filters, grouping, sorting and saved views.
 - **Rich tasks.** Markdown description with clickable checkboxes, subtasks, notes and a full change history.
-- **Claude as a teammate.** 16 MCP tools, or all of them as one Code Mode tool that runs JavaScript, a read-only mode,
+- **Agent integrations.** 19 MCP tools, or all of them as one Code Mode tool that runs JavaScript, a read-only mode,
   per-tool switches and an audit log of every call.
 - **Live updates.** Changes made over MCP show up in the browser immediately (server-sent events).
 - **Safe by default.** Bound to `127.0.0.1`, `Host` and `Origin` checks, bearer token for `/mcp`.
@@ -139,7 +139,7 @@ and every profile has its own isolated storage and MCP token. SQLite is the defa
 
 With SQLite, `auth.db` (users and sessions) and `users/<id>.db` (one database per profile) sit next to `DOCKET_DB`; SQLite profile
 backups are written to `DOCKET_BACKUP_DIR/<id>`, and a profile created later gets its first backup within an hour.
-Every profile has its own MCP token, shown on the **Integrations** tab. Claude connects to the same `/mcp` address and the
+Every profile has its own MCP token, shown on the **Integrations** tab. Each agent connects to the same `/mcp` address and the
 profile is picked by the token. `DOCKET_SEED` and `DOCKET_MCP_TOKEN` are ignored in this mode (a warning is logged if
 `DOCKET_MCP_TOKEN` is set).
 
@@ -234,6 +234,7 @@ Operational details:
 | Screen | Address | What it does |
 |---|---|---|
 | Today | `/` | Day plan, overdue tasks, progress, activity and MCP status; the status circle cycles todo → doing → done |
+| Needs attention | `/attention` | Review agent findings across projects, open the source task, take an issue, snooze it or close it with a reason |
 | Project board | `/p/:slug` | Columns per project status, drag and drop, filters, grouping, sorting, a list tab and saved views |
 | Project wiki | `/p/:slug/wiki` | Right-click a page or open its ⋯ menu to pin it or change its place among siblings. You can also drag pages and tick Markdown checklists while reading. |
 | Task panel | `?task=TRK-07`, `/t/TRK-07` | Properties, markdown description with clickable checkboxes, subtasks, notes and history |
@@ -246,10 +247,25 @@ Operational details:
 **Layout and theme:** the top bar collapses the sidebar to an icon rail (a drawer on narrow screens) and switches the
 theme between light, dark and system.
 
+**Needs attention** brings open issues from every project together, including existing tasks with area `issue`. An agent
+calls `report_issue` as soon as it notices a problem. Supply the project, a short title, the observation and, when known,
+the source task. A matching open title in that project receives the observation. Supply `existing_issue` to target a
+known duplicate under another title. Exact retries from the same agent and source add one observation. Blockers and
+decisions appear first. Start work, snooze until a date in the server time zone, or close with a reason.
+
+**Interactive HTML documents** can be attached to tasks and wiki pages. Paste source or choose an HTML file and
+publish it. Click its title for a full-window preview and a version selector. Each publication records the author and
+date. The JSON export includes all versions. Agents can publish through `publish_html` and read a revision through
+`read_html`. Bundle the data, styles and scripts in the document (up to 2 MiB). The viewer runs inline JavaScript
+inside sandboxed frames with an opaque origin and a restrictive content security policy. Reports receive no Docket API
+credentials. A report's in-memory controls reset when its viewer closes.
+
 **Task IDs** look like `TRK-07`: the project key plus a number. Numbers are never reused. You can change a project key in
 its settings and every ID is renumbered, but old links that use the previous key stop working.
 
-## Connecting Claude (MCP)
+<a id="connecting-claude-mcp"></a>
+
+## Connecting agents (MCP)
 
 On the first start Docket creates a `dkt_…` token, prints it to the log once and stores it in the database. After that it
 is shown (masked, with a "Show" button) on the **Integrations** tab, where you can also rotate it and copy a ready-made config.
@@ -261,7 +277,7 @@ is shown (masked, with a "Show" button) on the **Integrations** tab, where you c
 **Claude Code:**
 
 ```bash
-claude mcp add --transport http docket http://localhost:7777/mcp --header "Authorization: Bearer <TOKEN>"
+claude mcp add --transport http docket "http://localhost:7777/mcp?agent=claude" --header "Authorization: Bearer <TOKEN>"
 ```
 
 **Claude Desktop** (`claude_desktop_config.json`):
@@ -271,7 +287,7 @@ claude mcp add --transport http docket http://localhost:7777/mcp --header "Autho
   "mcpServers": {
     "docket": {
       "command": "npx",
-      "args": ["-y", "mcp-remote", "http://localhost:7777/mcp",
+      "args": ["-y", "mcp-remote", "http://localhost:7777/mcp?agent=claude",
                "--header", "Authorization:${AUTH}", "--allow-http"],
       "env": { "AUTH": "Bearer <TOKEN>" }
     }
@@ -283,14 +299,19 @@ claude mcp add --transport http docket http://localhost:7777/mcp --header "Autho
 
 ```bash
 export DOCKET_MCP_TOKEN=<TOKEN>
-codex mcp add docket --url http://localhost:7777/mcp --bearer-token-env-var DOCKET_MCP_TOKEN
+codex mcp add docket --url "http://localhost:7777/mcp?agent=codex" --bearer-token-env-var DOCKET_MCP_TOKEN
 ```
+
+For another client, choose **Other client** on the Integrations tab and enter an agent name. The resulting URL
+includes `?agent=my-agent`, which sets the author on tasks, notes, history and MCP calls. Existing URLs also
+work. Docket uses the client name supplied with the call or a recognizable Codex or Claude user agent. An
+unidentified client appears as **MCP agent**. Older history keeps the author recorded at the time.
 
 ### Code Mode
 
 The same server is also available at `/mcp/code` (same token, same commands with that address). There the assistant
 sees one tool, `code`, after [Cloudflare's Code Mode](https://developers.cloudflare.com/agents/tools/codemode/): it
-writes JavaScript that calls the 16 tools as `await codemode.get_today({})`, loops and filters inside Docket, and gets
+writes JavaScript that calls the 19 tools as `await codemode.get_today({})`, loops and filters inside Docket, and gets
 back only the result. That saves round trips and context on big jobs (triage, bulk moves, reports). The code runs in
 an embedded sandbox with no network or files, for at most 30 seconds and 100 tool calls; access mode, tool switches
 and the call log apply to every call it makes. Pick MCP or Code Mode on the **Integrations** tab: the address, the
@@ -302,7 +323,7 @@ Three skills in [`skills/`](skills), one `SKILL.md` each:
 
 | Skill | What it covers |
 |---|---|
-| [`docket`](skills/docket/SKILL.md) | The workflow: find or create a task and put its plan in the description as a checklist, tick steps and add notes as it goes, file every problem it spots as a backlog task with the area `issue`, reconcile before each final message so nothing is left stale. About 2 KB on purpose |
+| [`docket`](skills/docket/SKILL.md) | Find or create a task, record the plan as a checklist, add notes, call `report_issue` when a problem appears, and reconcile the board before the final message. |
 | [`docket-reference`](skills/docket-reference/SKILL.md) | The answers an agent needs: data model, every tool and its quirks, error codes, conventions for plans, notes and issues, a FAQ |
 | [`docket-setup`](skills/docket-setup/SKILL.md) | Connecting Claude Code, Claude Desktop and Codex, installing the skills, the hooks, troubleshooting |
 
@@ -335,12 +356,12 @@ Three skills in [`skills/`](skills), one `SKILL.md` each:
 
 ### Tools
 
-There are 16 tools. Tasks are referred to by ID (`TRK-07`) in responses, `project` accepts a key, a slug or an id, and a
+There are 19 tools. Tasks are referred to by ID (`TRK-07`) in responses, `project` accepts a key, a slug or an id, and a
 status is given by its key.
 
 | Read | Write |
 |---|---|
-| `list_projects`, `get_board`, `get_today`, `get_task`, `search`, `list_pages`, `read_page` | `create_project`, `create_tasks` (up to 100 at a time, epics with subtasks via `ref`/`parent_ref`, idempotent by `external_id`), `update_task`, `move_tasks`, `add_note`, `write_page`, `append_to_page`, `carry_over`, `delete_tasks` |
+| `list_projects`, `get_board`, `get_today`, `get_task`, `search`, `list_pages`, `read_page`, `read_html` | `create_project`, `create_tasks` (up to 100 at a time, epics with subtasks via `ref`/`parent_ref`, idempotent by `external_id`), `update_task`, `move_tasks`, `add_note`, `report_issue`, `publish_html`, `write_page`, `append_to_page`, `carry_over`, `delete_tasks` |
 
 - `delete_tasks` is **off** by default. It only moves tasks to the trash; the owner empties the trash in the UI.
 - Wiki: `write_page` creates a page or replaces its whole body (pass the `updated_at` from `read_page` as `expected_updated_at`;
@@ -433,6 +454,11 @@ path can be given by code (`TRK-07`) or by id.
 | `GET /api/tasks/:id/pages` | Wiki pages that mention the task (`[{id, title, project}]`) |
 | `GET/POST /api/projects/:id/pages` | Wiki pages of a project (without bodies); create (`title`, `body_md?`, `parent_id?`) |
 | `GET/PUT/DELETE /api/pages/:id` | A page with backlinks and links; update (`expected_updated_at` returns `conflict` 409 if the page changed); `DELETE` re-parents children |
+| `GET /api/attention` | Open issues due for attention across projects |
+| `POST /api/tasks/:id/triage` | Send `action` of `take`, `snooze` (with `until`) or `close` (with `reason`) |
+| `POST /api/html-documents` | Publish `title` and `html` on exactly one `task` or `page_id`. Supply the current `expected_version` for updates |
+| `GET /api/html-documents/:id` | JSON with source and metadata. Optional `?version=N` selects a historical revision |
+| `DELETE /api/html-documents/:id?version=N` | Delete the document and its versions if N is current |
 | `PUT /api/pages/:id/layout` | Send one of `pinned` (boolean), `before_id` or `after_id` (sibling page ID). Changes navigation without changing the content revision. |
 | `GET /api/search?q=&scope=all\|tasks\|projects` | Tasks by title and description (with a snippet), and projects |
 | `GET /api/trash`, `GET /api/trash/projects`, `DELETE /api/trash` | Trash and emptying it (physical delete) |

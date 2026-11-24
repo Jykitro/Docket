@@ -3,6 +3,7 @@
 import { type KeyboardEvent, type MouseEvent, type ReactNode, type RefObject, useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ApiError, type Page, type PageDetail, type Project, type TaskRef, api, errText, fmtStamp } from './api'
+import { HtmlDocuments } from './HtmlDocuments'
 import { Icon } from './icons'
 import { tr } from './i18n'
 import { MD_PROSE, renderWiki, toggleWikiCheckbox } from './markdown'
@@ -174,6 +175,7 @@ function PageArea({ id, c, dirty, startEdit }: { id: number; c: Ctx; dirty: RefO
       </p>}
       {d.body_md.trim() ? <Body md={check.isPending ? check.variables.body : d.body_md} c={cc} busy={check.isPending || del.isPending}
         onCheck={(body) => check.mutate({ body, revision: d.updated_at })} /> : <p className="text-sm text-t3">{tr('Страница пока пуста. Нажмите «Изменить», чтобы написать.')}</p>}
+      <HtmlDocuments key={d.id} docs={d.documents} owner={{page_id:d.id}} />
       {d.backlinks.length > 0 && (
         <Block title={tr('Ссылаются сюда')}>
           {d.backlinks.map((b) => <li key={b.id}><Link to={`${base}/${b.id}`} className="text-act">{b.title}</Link></li>)}

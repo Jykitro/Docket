@@ -30,7 +30,7 @@ const HOOK = `{
     }] }],
     "Stop": [{ "hooks": [{
       "type": "command",
-      "command": "grep -Eq '\\"stop_hook_active\\": ?true' && exit 0; echo '{\\"decision\\":\\"block\\",\\"reason\\":\\"Docket end checklist: tick finished steps, add_note the result, move_tasks to done only if checks passed, file noticed problems as area issue tasks, check get_board doing. Not tracked in Docket: say so and finish.\\"}'"
+      "command": "grep -Eq '\\"stop_hook_active\\": ?true' && exit 0; echo '{\\"decision\\":\\"block\\",\\"reason\\":\\"Docket end checklist: tick finished steps, add_note the result, move_tasks to done only if checks passed, record findings with report_issue and list their IDs, check get_board doing. Not tracked in Docket: say so and finish.\\"}'"
     }] }]
   }
 }`
@@ -94,7 +94,7 @@ export function McpAgent({ tab, url, token }: { tab: number; url: string; token:
           ))}
         </div>
         {error && <div className="text-[13px] text-rd" role="alert">{error}</div>}
-        {tab !== 1 && (
+        {(tab === 0 || tab === 2) && (
           <div>
             <div className="mb-2 flex flex-wrap items-center gap-3">
               <span className="text-[12.5px] font-medium text-t2">{tr('Строгий режим (необязательно)')}</span>

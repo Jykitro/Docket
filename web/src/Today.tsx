@@ -2,13 +2,13 @@ import { useEffect, useRef } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   type Activity, type Category, type Meta, type Project, type Task, type TodayData, addDays, api, fmtDay, fmtLongDay, fmtTime, mcpHealthLabel, mcpLastCallLabel,
-  todayStr, useProjectsMeta, useWho,
+  todayStr, isAgent, useProjectsMeta, useWho,
 } from './api'
 import { Icon, ProjectTile } from './icons'
 import { plural, tr } from './i18n'
 import { useFresh } from './live'
 import { Link, hrefWith, navigate, scrollToSection, useRoute } from './router'
-import { AreaDot, ClaudeBadge, ConfirmButton, EmptyState, ErrorState, Menu, PriorityChip, SkeletonRows, btn, btnPri, btnSq, cap, kbdPri, mc } from './ui'
+import { AreaDot, AgentBadge, ConfirmButton, EmptyState, ErrorState, Menu, PriorityChip, SkeletonRows, btn, btnPri, btnSq, cap, kbdPri, mc } from './ui'
 
 const panel = 'bg-sf border border-ln rounded-xl'
 const panelHead = 'flex flex-wrap items-center gap-2.5 px-4 py-3'
@@ -43,7 +43,7 @@ function TaskRow({ t, meta, late, onCycle }: { t: Task; meta?: Meta; late?: bool
         <span className="font-mono text-[11.5px] text-t3 w-[58px] flex-[0_0_58px]">{t.code}</span>
         <span className={'flex-[1_1_200px] min-w-0 wrap-anywhere font-medium' + (done ? ' text-t3 line-through' : '')}>{t.title}</span>
         {late && t.planned_for && <span className="inline-flex items-center gap-[5px] text-[12px] text-rd font-medium">{fmtDay(t.planned_for)}</span>}
-        {t.created_by === 'claude' && <ClaudeBadge />}
+        {isAgent(t.created_by) && <AgentBadge actor={t.created_by} />}
         {!late && <AreaDot area={t.area} labels={meta?.labels ?? []} />}
         <PriorityChip p={t.priority} />
       </Link>
@@ -67,6 +67,8 @@ function actText(a: Activity): string {
       return d.title ? tr('Задача {code} переименована', { code }) : tr('Задача {code} обновлена', { code })
     case 'deleted': return tr('Задача {code} удалена', { code })
     case 'restored': return tr('Задача {code} восстановлена', { code })
+    case 'html_published': return tr('Опубликован HTML-документ')
+    case 'html_deleted': return tr('Удалён HTML-документ')
     case 'note_added': return tr('Добавлена заметка к {code}', { code })
     case 'carried_over': return tr('Задача {code} перенесена на {day}', { code, day: fmtDay(String(d.planned_for?.[1] ?? '')) })
     case 'project_created': return tr('Проект создан')
@@ -198,7 +200,7 @@ export function Today({ onNewTask }: { onNewTask: (o: { project?: Project; date:
               {total === 0 && (
                 <section className={panel}>
                   <EmptyState icon="cal" title={tr('На этот день задач нет')}
-                    hint={tr('Добавьте задачу вручную или попросите Claude спланировать день через MCP.')}
+                    hint={tr('Добавьте задачу вручную или попросите агента спланировать день через MCP.')}
                     action={<button type="button" className={btnPri} onClick={() => onNewTask({ date })}><Icon name="plus" size={16} sw={2} />{tr('Новая задача')}</button>} />
                 </section>
               )}
@@ -242,7 +244,7 @@ export function Today({ onNewTask }: { onNewTask: (o: { project?: Project; date:
             {data && data.activity.length === 0 && <div className={feed}><span className="text-t3 text-[13px]">{tr('Пока ничего не происходило')}</span></div>}
             {data?.activity.map((a) => (
               <div className={feed} key={a.id}>
-                <span className={'size-[26px] rounded-full flex-[0_0_26px] grid place-items-center ' + (a.actor === 'claude' ? 'bg-acs text-act' : 'bg-sk text-t2')}><Icon name={a.actor === 'claude' ? 'spark' : 'user'} size={13} sw={2} /></span>
+                <span className={'size-[26px] rounded-full flex-[0_0_26px] grid place-items-center ' + (isAgent(a.actor) ? 'bg-acs text-act' : 'bg-sk text-t2')}><Icon name={isAgent(a.actor) ? 'spark' : 'user'} size={13} sw={2} /></span>
                 <span className="flex-[1_1_0] min-w-0 flex flex-col gap-0.5 text-[13px] leading-[1.4]">
                   <span>{actText(a)}</span>
                   <span className="text-xs text-t3">{who(a.actor)} · <time dateTime={a.at} className="tabular-nums">{fmtTime(a.at)}</time></span>

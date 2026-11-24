@@ -13,7 +13,7 @@ Every piece of work has a task: the task is the record, not the diff or your cha
 
 **During**
 - Decision, obstacle or scope change: `add_note`. Tick finished steps in one `update_task` (`get_task` first: it replaces the whole text), at a note or at the end, not one call per step.
-- Bug, risk, flaky test or follow-up you won't fix now, even if unsure it is real: `search` for a duplicate, else `create_tasks` with `area: "issue"`, backlog, no date; description = symptom, where, how found, "found while TRK-nn". `add_note` the new ID on the current task. Never leave it only in chat.
+- Finding: call `report_issue` immediately with the symptom, evidence and source_task. Use kind `unverified` for suspicions. Reuse a matching open issue via existing_issue. Keep the returned ID for the handoff.
 
 **End** (before every final message)
 1. Every step ticked or moved to its own task. `add_note` the result: what changed, which checks ran, what is unchecked.

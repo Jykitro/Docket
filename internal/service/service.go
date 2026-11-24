@@ -1,5 +1,5 @@
 // Package service holds all domain rules. REST and MCP both call it, so validation,
-// activity and live events behave the same for denis and claude.
+// activity and live events behave the same for the profile owner and MCP agents.
 package service
 
 import (
@@ -96,7 +96,7 @@ func (o *op) log(action string, taskID, projectID int64, d diff) error {
 }
 
 func (s *Service) write(ctx context.Context, actor string, fn func(*op) error) error {
-	if actor != ActorDenis && actor != ActorClaude {
+	if !actorID.MatchString(actor) {
 		return invalid("unknown actor %q", actor)
 	}
 	o := &op{actor: actor}
@@ -444,6 +444,14 @@ func (s *Service) ResolveProject(ctx context.Context, ref string) (p store.Proje
 	return p, err
 }
 
+func requireLiveProject(tx *store.Tx, id int64) error {
+	p, err := tx.GetProject(id)
+	if err == nil && p.DeletedAt != nil {
+		return notFound("project is in trash")
+	}
+	return err
+}
+
 // resolveTask accepts a code (TRK-07, case-insensitive) or a numeric id.
 func resolveTask(tx *store.Tx, ref string) (store.Task, error) {
 	ref = strings.TrimSpace(ref)
@@ -488,6 +496,7 @@ func (s *Service) ListTasks(ctx context.Context, f store.TaskFilter) (out []stor
 }
 
 type TaskDetail struct {
+	Documents []store.HTMLDocument `json:"documents,omitempty"`
 	store.Task
 	Subtasks []store.Task     `json:"subtasks"`
 	Notes    []store.Note     `json:"notes"`
@@ -505,6 +514,11 @@ func (s *Service) GetTask(ctx context.Context, ref string, activityLimit int) (d
 		}
 		if d.Notes, err = tx.ListNotes(d.ID); err != nil {
 			return err
+		}
+		if d.DeletedAt == nil {
+			if d.Documents, err = tx.Documents(d.ID, 0); err != nil {
+				return err
+			}
 		}
 		d.Activity, err = tx.ListActivity(d.ID, activityLimit)
 		return err
@@ -550,16 +564,17 @@ func (s *Service) Trash(ctx context.Context) ([]store.Task, error) {
 }
 
 type Export struct {
-	ExportedAt string           `json:"exported_at"`
-	Projects   []store.Project  `json:"projects"`
-	Statuses   []store.Status   `json:"statuses"`
-	Labels     []store.Label    `json:"labels"`
-	Fields     []store.Field    `json:"fields"`
-	Views      []store.View     `json:"views"`
-	Tasks      []store.Task     `json:"tasks"`
-	Notes      []store.Note     `json:"notes"`
-	Pages      []store.Page     `json:"pages"`
-	Activity   []store.Activity `json:"activity"`
+	Documents  []store.HTMLDocument `json:"html_documents"`
+	ExportedAt string               `json:"exported_at"`
+	Projects   []store.Project      `json:"projects"`
+	Statuses   []store.Status       `json:"statuses"`
+	Labels     []store.Label        `json:"labels"`
+	Fields     []store.Field        `json:"fields"`
+	Views      []store.View         `json:"views"`
+	Tasks      []store.Task         `json:"tasks"`
+	Notes      []store.Note         `json:"notes"`
+	Pages      []store.Page         `json:"pages"`
+	Activity   []store.Activity     `json:"activity"`
 }
 
 // Export dumps everything, or one project when projectID is set.
@@ -615,6 +630,9 @@ func (s *Service) Export(ctx context.Context, projectID int64) (e Export, err er
 			return err
 		}
 		e.Views = vs
+		if e.Documents, err = tx.ExportDocuments(projectID); err != nil {
+			return err
+		}
 		if e.Tasks, err = tx.AllTasks(projectID); err != nil {
 			return err
 		}

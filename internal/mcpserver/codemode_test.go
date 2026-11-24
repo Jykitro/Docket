@@ -117,8 +117,16 @@ func TestCodeMode(t *testing.T) {
 	if out = run(`await codemode.add_note({ task_id: "PP-01", body_md: "x" })`); !strings.HasPrefix(out, "ERR forbidden:") {
 		t.Fatalf("read-only write: %s", out)
 	}
-	if err := json.Unmarshal(rpc("tools/list", `{}`), &list); err != nil || strings.Contains(list.Tools[0].Description, "create_tasks(") {
-		t.Fatalf("read-only declarations still list write tools: %v", err)
+	if err := json.Unmarshal(rpc("tools/list", `{}`), &list); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"create_tasks", "report_issue", "publish_html"} {
+		if strings.Contains(list.Tools[0].Description, name+"(") {
+			t.Fatalf("read-only declarations include %s", name)
+		}
+	}
+	if !strings.Contains(list.Tools[0].Description, "read_html(") {
+		t.Fatal("read-only declarations omit read_html")
 	}
 
 	calls, err := svc.ListMCPCalls(ctx, "all", 100)

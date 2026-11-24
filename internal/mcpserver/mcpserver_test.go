@@ -3,6 +3,7 @@ package mcpserver
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -115,5 +116,89 @@ func TestResultCodeAndSummarize(t *testing.T) {
 	got := summarize(json.RawMessage(`{"title":"Log","text":"long appended text","body_md":"b"}`))
 	if strings.Contains(got, "appended") || strings.Contains(got, `"b"`) || !strings.Contains(got, `"title":"Log"`) {
 		t.Errorf("summarize = %s", got)
+	}
+}
+
+func TestAgentAttributionOverHTTP(t *testing.T) {
+	st, err := openTestStore(t)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { st.Close() })
+	ctx := context.Background()
+	svc := service.New(st, events.NewBus(), time.UTC)
+	if _, err := svc.CreateProject(ctx, service.ActorDenis, service.ProjectInput{Name: "Agents", Key: "AG"}); err != nil {
+		t.Fatal(err)
+	}
+	h := Handler(svc, time.UTC)
+	call := func(path, client, userAgent, tool string, args any) {
+		t.Helper()
+		params := map[string]any{"name": tool, "arguments": args}
+		if client != "" {
+			params["_meta"] = map[string]any{mcp.MetaKeyClientInfo: map[string]string{"name": client, "version": "1"}}
+		}
+		body, err := json.Marshal(map[string]any{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": params})
+		if err != nil {
+			t.Fatal(err)
+		}
+		r := httptest.NewRequest("POST", path, strings.NewReader(string(body)))
+		r.Header.Set("User-Agent", userAgent)
+		r.Header.Set("Content-Type", "application/json")
+		r.Header.Set("Accept", "application/json, text/event-stream")
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		// Result content has interface elements, so inspect just the error flag.
+		var envelope struct {
+			Result *struct {
+				IsError bool `json:"isError"`
+			}
+		}
+		if err := json.Unmarshal(w.Body.Bytes(), &envelope); w.Code != 200 || err != nil || envelope.Result == nil || envelope.Result.IsError {
+			t.Fatalf("%s: %s", tool, w.Body)
+		}
+	}
+	for i, tc := range []struct{ path, client, userAgent, want string }{
+		{"/mcp", "codex-mcp-client", "", "codex"},
+		{"/mcp?agent=claude", "proxy", "", "claude"},
+		{"/mcp/code", "Gemini CLI", "", "gemini-cli"},
+		{"/mcp/code?agent=codex", "", "", "codex"},
+		{"/mcp/code?agent=codex-review", "", "", "codex-review"},
+		{"/mcp", "", "codex_cli_rs/1.0", "codex"},
+		{"/mcp", "", "generic-http/1.0", "mcp"},
+		{"/mcp?agent=denis", "", "", "mcp"},
+		{"/mcp/code", "Мой агент", "", "мой-агент"},
+	} {
+		id := fmt.Sprintf("AG-%02d", i+1)
+		if strings.HasPrefix(tc.path, "/mcp/code") {
+			call(tc.path, tc.client, tc.userAgent, "code", map[string]string{"code": fmt.Sprintf(`await codemode.create_tasks({tasks:[{project:"AG",title:"Test"}]}); await codemode.add_note({task_id:%q,body_md:"hello"});`, id)})
+		} else {
+			call(tc.path, tc.client, tc.userAgent, "create_tasks", map[string]any{"tasks": []map[string]string{{"project": "AG", "title": "Test"}}})
+			call(tc.path, tc.client, tc.userAgent, "add_note", map[string]string{"task_id": id, "body_md": "hello"})
+		}
+		d, err := svc.GetTask(ctx, id, 20)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if d.CreatedBy != tc.want || len(d.Notes) != 1 || d.Notes[0].Author != tc.want || len(d.Activity) != 2 {
+			t.Fatalf("%s %q: creator=%s, notes=%v, activity=%v, want %s", tc.path, tc.client, d.CreatedBy, d.Notes, d.Activity, tc.want)
+		}
+		for _, a := range d.Activity {
+			if a.Actor != tc.want {
+				t.Fatalf("history actor %q, want %q", a.Actor, tc.want)
+			}
+		}
+		n := 2
+		if strings.HasPrefix(tc.path, "/mcp/code") {
+			n++
+		}
+		calls, err := svc.ListMCPCalls(ctx, "all", n)
+		if err != nil || len(calls) != n {
+			t.Fatalf("calls: %v, %v", calls, err)
+		}
+		for _, c := range calls {
+			if c.Actor != tc.want {
+				t.Fatalf("%s logged as %q, want %q", c.Tool, c.Actor, tc.want)
+			}
+		}
 	}
 }

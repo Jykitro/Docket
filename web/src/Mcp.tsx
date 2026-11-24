@@ -2,7 +2,7 @@
 // self-check, token and access mode, tool switches, live call log. See docs/integrations.md.
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { type McpTool, api, mcpHealthLabel, mcpLastCallLabel, fmtStamp } from './api'
+import { type McpTool, agentName, api, mcpHealthLabel, mcpLastCallLabel, fmtStamp } from './api'
 import { Icon } from './icons'
 import { locale, tr } from './i18n'
 import { McpAgent } from './McpAgent'
@@ -26,7 +26,7 @@ const SEG = 'inline-flex gap-0.5 rounded-md border border-ln p-0.5 text-[12.5px]
 const SEGBTN = 'rounded-md px-2.5 py-[3px] text-t3 disabled:cursor-default disabled:opacity-50 '
 const FC = 'inline-flex h-7 items-center gap-1.5 whitespace-nowrap rounded-full border border-ln bg-sf px-2.5 text-[12.5px] text-t2 hover:bg-sk aria-pressed:border-transparent aria-pressed:bg-acs aria-pressed:font-medium aria-pressed:text-act aria-pressed:hover:bg-sk'
 const MONO = 'font-mono text-[11.5px] text-t3'
-const CODE_TAB = ['Claude Code', 'Claude Desktop', 'Codex'] as const
+const CODE_TAB = ['Claude Code', 'Claude Desktop', 'Codex', 'Другой клиент'] as const
 // Both endpoints take the same token and run the same tools (mcpserver/codemode.go); a client connects to one.
 const INTEGRATIONS = [
   ['MCP', '/mcp', 'Инструмент на каждое действие: ассистент вызывает их по одному. Работает в любом MCP-клиенте.'],
@@ -45,9 +45,10 @@ function copyText(text: string) {
 }
 
 function config(tab: number, address: string, token: string) {
-  if (tab === 0) return `claude mcp add --transport http docket ${address} \\\n  --header "Authorization: Bearer ${token}"`
+  if (tab === 3) return `${address}\nAuthorization: Bearer ${token}`
+  if (tab === 0) return `claude mcp add --transport http docket "${address}" \\\n  --header "Authorization: Bearer ${token}"`
   // Codex reads the token from an environment variable, so it never lands in config.toml.
-  if (tab === 2) return `export DOCKET_MCP_TOKEN=${token}\ncodex mcp add docket --url ${address} \\\n  --bearer-token-env-var DOCKET_MCP_TOKEN`
+  if (tab === 2) return `export DOCKET_MCP_TOKEN=${token}\ncodex mcp add docket --url "${address}" \\\n  --bearer-token-env-var DOCKET_MCP_TOKEN`
   return `{\n  "mcpServers": {\n    "docket": {\n      "command": "npx",\n      "args": ["-y", "mcp-remote", "${address}",\n               "--header", "Authorization:\${AUTH}", "--allow-http"],\n      "env": { "AUTH": "Bearer ${token}" }\n    }\n  }\n}`
 }
 
@@ -70,6 +71,7 @@ export function Mcp() {
   })
 
   const [tab, setTab] = useState(0)
+  const [customAgent, setCustomAgent] = useState('')
   const [kind, setKind] = useState(0) // index in INTEGRATIONS
   const [token, setToken] = useState<string | null>(null) // full token once revealed or rotated
   const [rotated, setRotated] = useState(false)
@@ -83,7 +85,9 @@ export function Mcp() {
   const flash = (what: string) => { setCopied(what); setTimeout(() => setCopied(''), 1500) }
   const fullToken = async () => token ?? (await api.mcpToken()).token
 
-  const address = `${location.protocol}//${location.host}${INTEGRATIONS[kind][1]}`
+  const endpoint = location.origin + INTEGRATIONS[kind][1]
+  const agent = tab === 3 ? customAgent.trim() : tab === 2 ? 'codex' : 'claude'
+  const address = agent ? endpoint + '?' + new URLSearchParams({ agent }) : endpoint
   const s = settings.data
   const st = status.data
   const result = st?.check
@@ -179,8 +183,8 @@ export function Mcp() {
               </div>
               <div>
                 <div className="mb-2.5 flex flex-wrap items-center gap-3">
-                  <span className={SEG} role="tablist" aria-label={tr('Клиент')}>
-                    {CODE_TAB.map((n, i) => <button key={n} type="button" role="tab" aria-selected={tab === i} className={SEGBTN + 'aria-selected:bg-sk aria-selected:font-semibold aria-selected:text-tx'} onClick={() => setTab(i)}>{n}</button>)}
+                  <span className={SEG + ' max-w-full flex-wrap'} role="tablist" aria-label={tr('Клиент')}>
+                    {CODE_TAB.map((n, i) => <button key={n} type="button" role="tab" aria-selected={tab === i} className={SEGBTN + 'aria-selected:bg-sk aria-selected:font-semibold aria-selected:text-tx'} onClick={() => setTab(i)}>{tr(n)}</button>)}
                   </span>
                   <span className="grow" />
                   <button type="button" className={BTN_SM} onClick={async () => { await copyText(config(tab, address, await fullToken())); flash('cfg') }}>
@@ -189,6 +193,9 @@ export function Mcp() {
                   <ConfirmButton className={BTN_SM + ' [&.warn]:border-rd [&.warn]:text-rd'} label={tr('Перевыпустить токен')} armed={tr('Старый токен перестанет работать. Перевыпустить?')} disabled={!s || s.token_from_env || rotate.isPending}
                     icon={<Icon name="clock" size={14} />} onConfirm={() => rotate.mutate()} />
                 </div>
+                {tab === 3 && <label className={LB + ' mb-2'}>{tr('Имя агента')}
+                  <input className={FLD} value={customAgent} maxLength={48} placeholder={tr('Из запроса MCP')} onChange={(e) => setCustomAgent(e.target.value)} />
+                </label>}
                 {rotated && <div className="mb-2 text-[13px] text-dgt" role="status">{tr('Токен перевыпущен. Обновите его в клиенте: скопируйте конфиг ниже.')}</div>}
                 <pre className="overflow-x-auto rounded-[10px] border border-ln bg-sf2 px-4 py-3.5 font-mono text-[12.5px] leading-[1.65] whitespace-pre text-t2">{config(tab, address, shownToken)}</pre>
                 {rotate.isError && <div className="text-[13px] text-rd" role="alert">{rotate.error.message}</div>}
@@ -196,7 +203,7 @@ export function Mcp() {
             </div>
           </section>
 
-          <McpAgent tab={tab} url={address} token={fullToken} />
+          <McpAgent tab={tab} url={endpoint} token={fullToken} />
 
           <section className={PANEL}>
             <div className={PH_ROW + ' pb-3'}><h2 className={PH_H2}>{tr('Инструменты')}</h2><span className="text-[13px] text-t3">{tr('{n} из {total} включено', { n: enabled, total: s?.tools.length ?? 0 })}</span></div>
@@ -219,7 +226,7 @@ export function Mcp() {
                 })}
               </div>
             ))}
-            <div className="border-t border-ln px-5 py-3 text-[12.5px] text-t3">{tr('Число справа: вызовы за 7 дней. Выключенный инструмент пропадает из списка, который видит Claude, и из codemode в Code Mode.')}</div>
+            <div className="border-t border-ln px-5 py-3 text-[12.5px] text-t3">{tr('Число справа: вызовы за 7 дней. Выключенный инструмент пропадает из списка, который видит агент, и из codemode в Code Mode.')}</div>
             {patch.isError && <div className={ERR_PAD} role="alert">{patch.error.message}</div>}
           </section>
         </div>
@@ -242,9 +249,10 @@ export function Mcp() {
             {calls.data?.map((c) => (
               <div className={'grid grid-cols-[62px_20px_minmax(0,1fr)_auto] ' + LG} key={c.id}>
                 <span className="font-mono text-t3">{new Date(c.at).toLocaleTimeString(locale())}</span>
-                <span className="grid size-5 place-items-center rounded-full bg-acs text-act" title={c.actor}><Icon name="spark" size={11} sw={2.2} /></span>
+                <span className="grid size-5 place-items-center rounded-full bg-acs text-act" title={agentName(c.actor)}><Icon name="spark" size={11} sw={2.2} /></span>
                 <span className="flex min-w-0 flex-col gap-px">
                   <span className="font-mono text-[12.5px] font-medium">{c.tool}</span>
+                  <span className="truncate text-xs text-t2" title={agentName(c.actor)}>{agentName(c.actor)}</span>
                   <span className={MONO + ' truncate'} title={c.args_summary}>{c.args_summary}</span>
                 </span>
                 <span className="flex items-center gap-2">

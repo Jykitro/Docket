@@ -18,14 +18,15 @@ export type Field = {
   show_on_card: boolean; position: number
 }
 export type Task = {
+  issue_kind?: string; report_count?: number; attention_after?: string
   id: number; project_id: number; number: number; code: string; parent_id: number | null; parent_code: string
   title: string; description_md: string; status_id: number; status: string; status_name: string
   status_category: Category; priority: 'P0' | 'P1' | 'P2'; area: string; planned_for: string | null
-  position: number; custom: Record<string, string | number>; created_by: 'denis' | 'claude'
+  position: number; custom: Record<string, string | number>; created_by: string
   created_at: string; updated_at: string; done_at: string | null; deleted_at: string | null; subtask_count: number; subtask_done: number
 }
 export type Activity = {
-  id: number; task_id: number | null; project_id: number | null; actor: 'denis' | 'claude'; action: string
+  id: number; task_id: number | null; project_id: number | null; actor: string; action: string
   diff_json: string; at: string; task_code: string; task_title: string
 }
 export type TodayData = { date: string; projects: Project[]; tasks: Task[]; overdue: Task[]; activity: Activity[] }
@@ -51,8 +52,10 @@ export type View = {
 export type NewTask = {
   project: string; title: string; status?: string; priority?: string; area?: string; planned_for?: string; parent?: string
 }
-export type Note = { id: number; task_id: number; author: 'denis' | 'claude'; body_md: string; created_at: string }
-export type TaskDetail = Task & { subtasks: Task[]; notes: Note[]; activity: Activity[] }
+export type Note = { id: number; task_id: number; author: string; body_md: string; created_at: string }
+export type AttentionItem = Pick<Task, 'id' | 'code' | 'title' | 'status_name' | 'status_category' | 'priority' | 'issue_kind' | 'report_count'> & { project: string }
+export type HTMLDocumentInfo = { id: number; title: string; version: number; author: string; created_at: string }
+export type TaskDetail = Task & { documents?: HTMLDocumentInfo[]; subtasks: Task[]; notes: Note[]; activity: Activity[] }
 export type Hit = {
   id: number; project_id: number; code: string; title: string; status: string; status_name: string; status_color: string; snippet?: string
 }
@@ -67,7 +70,7 @@ export type Page = {
 export type PageRef = { id: number; title: string }
 export type TaskRef = { code: string; title: string }
 export type TaskPage = PageRef & { project: string }
-export type PageDetail = Page & { backlinks: PageRef[]; links: { pages: PageRef[]; tasks: TaskRef[] } }
+export type PageDetail = Page & { documents?: HTMLDocumentInfo[]; backlinks: PageRef[]; links: { pages: PageRef[]; tasks: TaskRef[] } }
 
 export type AuthUser = { id: number; username: string; is_admin: boolean; created_at: string }
 export type Me = { mode: 'local' | 'selfhost'; setup?: boolean; user?: AuthUser }
@@ -142,6 +145,11 @@ export const api = {
   statuses: (pid: number) => req<Status[]>('GET', `/api/projects/${pid}/statuses`),
   labels: (pid: number) => req<Label[]>('GET', `/api/projects/${pid}/labels`),
   fields: (pid: number) => req<Field[]>('GET', `/api/projects/${pid}/fields`),
+  readHTML: (id: number, version: number) => req<HTMLDocumentInfo & { html: string }>('GET', `/api/html-documents/${id}?version=${version}`),
+  publishHTML: (data: { task?: string; page_id?: number; title: string; html: string; expected_version: number }) => req<HTMLDocumentInfo>('POST', '/api/html-documents', data),
+  deleteHTML: (id: number, version: number) => req<void>('DELETE', `/api/html-documents/${id}?version=${version}`),
+  attention: () => req<AttentionItem[]>('GET', '/api/attention'),
+  triage: (id: number, action: string, value: string) => req<void>('POST', `/api/tasks/${id}/triage`, { action, until: action === 'snooze' ? value : undefined, reason: action === 'close' ? value : undefined }),
   today: (date?: string) => req<TodayData>('GET', '/api/today' + (date ? `?date=${date}` : '')),
   tasks: (project: string) => req<Task[]>('GET', `/api/tasks?project=${encodeURIComponent(project)}&include_done=1`),
   createTask: (b: NewTask) => req<Task>('POST', '/api/tasks', b),
@@ -195,14 +203,28 @@ export const api = {
 
 // ---- hooks ----
 
+export const useAttention = () => useQuery({ queryKey: ['attention'], queryFn: api.attention, refetchInterval: 60_000 })
 export const useMe = () => useQuery({ queryKey: ['me'], queryFn: api.me, retry: false })
 export const useProjects = () => useQuery({ queryKey: ['projects'], queryFn: api.projects })
 export const useProfile = () => useQuery({ queryKey: ['profile'], queryFn: api.profile })
 
-/** Display name of an actor: claude stays "claude", the stored actor "denis" is whoever the profile says. */
+export function isAgent(actor: string) {
+  return !!actor && actor !== 'denis'
+}
+
+export function agentName(actor: string) {
+  switch (actor) {
+    case 'claude': return 'Claude'
+    case 'codex': return 'Codex'
+    case 'mcp': return tr('MCP-агент')
+    default: return actor
+  }
+}
+
+/** The profile owner's stored ID is independent of their display name. */
 export function useWho() {
   const name = useProfile().data?.name || tr('Вы')
-  return (actor: string) => (actor === 'claude' ? 'claude' : name)
+  return (actor: string) => (isAgent(actor) ? agentName(actor) : name)
 }
 
 export type Meta = { statuses: Status[]; labels: Label[]; fields: Field[] }
