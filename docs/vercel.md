@@ -27,7 +27,7 @@ Use an exact public HTTPS hostname for each environment. Give previews and devel
 
 Generate each secret separately, e.g. with `openssl rand -hex 32` on a trusted terminal. Open the planner at `/` and enter the setup code on the first-admin screen. Registration starts in invite-only mode. The existing administrator and workspace data survive restarts. Enable open signup in the administrator interface if desired. The readiness check there calls the isolated worker.
 
-Choose a Vercel function region near PostgreSQL. Allow at least 60 seconds of function duration. Container services read the platform's `PORT`. The platform default without a project override is port 80. The normal Docker and Compose entrypoints continue to use their existing local settings. [Vercel container runtime](https://vercel.com/docs/functions/runtimes/container)
+Choose a Vercel function region near PostgreSQL. Allow at least 60 seconds of function duration. The API and replies images pin their respective commands in their Docker `ENTRYPOINT`. Each container reads the platform's `PORT`. The platform default without a project override is port 80. The normal Docker and Compose entrypoints continue to use their existing local settings. [Vercel container runtime](https://vercel.com/docs/functions/runtimes/container)
 
 ## Replicas and storage
 

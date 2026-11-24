@@ -17,8 +17,7 @@
     "app": {
       "root": ".",
       "runtime": "container",
-      "entrypoint": "Dockerfile",
-      "command": ["vercel"],
+      "entrypoint": "Dockerfile.vercel",
       "bindings": [{ "type": "service", "service": "worker", "format": "url", "env": "PLANDILLO_RUNNER_URL" }]
     },
     "worker": {
@@ -30,8 +29,7 @@
     "replies": {
       "root": ".",
       "runtime": "container",
-      "entrypoint": "Dockerfile",
-      "command": ["vercel-replies"]
+      "entrypoint": "Containerfile.vercel"
     }
   },
   "rewrites": [
