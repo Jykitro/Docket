@@ -1,4 +1,4 @@
-// The trusted supervisor uses its app binding to fetch tool replies.
+// The trusted supervisor uses its replies binding to fetch tool replies.
 // Guest WebAssembly instances receive no environment, filesystem or network access.
 package main
 
@@ -17,7 +17,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	worker, err := vercelrun.NewWorker(context.Background(), data, os.Getenv("PLANDILLO_APP_URL"), os.Getenv("PLANDILLO_RUNNER_SECRET"))
+	worker, err := vercelrun.NewWorker(context.Background(), data, os.Getenv("PLANDILLO_REPLIES_URL"), os.Getenv("PLANDILLO_RUNNER_SECRET"))
 	if err != nil {
 		log.Fatal(err)
 	}

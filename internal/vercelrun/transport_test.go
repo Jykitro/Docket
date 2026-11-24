@@ -3,7 +3,6 @@ package vercelrun_test
 import (
 	"context"
 	"encoding/json"
-	"net/http"
 	"net/http/httptest"
 	"os"
 	"os/exec"
@@ -35,8 +34,8 @@ func TestIsolatedWorkerWithCrossReplicaReply(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer receiver.Close()
-	reply := vercelrun.App{DB: receiver.DB}
-	callbacks := httptest.NewServer(http.HandlerFunc(reply.Reply))
+	reply := vercelrun.Replies{DB: receiver.DB}
+	callbacks := httptest.NewServer(reply)
 	defer callbacks.Close()
 	guest := filepath.Join(t.TempDir(), "eval.wasm")
 	build := exec.CommandContext(ctx, "go", "build", "-trimpath", "-ldflags=-s -w", "-o", guest, "../../cmd/code-guest")

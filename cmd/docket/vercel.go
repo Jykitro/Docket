@@ -10,6 +10,7 @@ import (
 	"os"
 
 	"docket/internal/config"
+	"docket/internal/database"
 	"docket/internal/events"
 	"docket/internal/httpapi"
 	"docket/internal/mcpserver"
@@ -18,20 +19,28 @@ import (
 	"docket/internal/vercelrun"
 )
 
-func runVercel(ctx context.Context, cfg config.Config) error {
+func runVercel(ctx context.Context, cfg config.Config, command string) error {
 	if cfg.PostgresDSN == "" {
 		cfg.PostgresDSN = os.Getenv("DATABASE_URL_UNPOOLED")
 	}
 	if !cfg.SelfHost || cfg.PostgresDSN == "" {
 		return errors.New("Vercel requires DOCKET_MODE=selfhost and DOCKET_POSTGRES_DSN or DATABASE_URL_UNPOOLED")
 	}
-	if os.Getenv("DOCKET_ALLOWED_HOSTS") == "" {
-		return errors.New("configure DOCKET_ALLOWED_HOSTS for the planner domain")
-	}
 	var err error
 	cfg.Addr, err = vercelrun.ListenPort(os.Getenv("PORT"))
 	if err != nil {
 		return err
+	}
+	if command == "vercel-replies" {
+		db, err := database.OpenPostgres(cfg.PostgresDSN, "docket_auth")
+		if err != nil {
+			return err
+		}
+		defer db.Close()
+		return serve(ctx, cfg.Addr, vercelrun.Replies{DB: db.DB})
+	}
+	if os.Getenv("DOCKET_ALLOWED_HOSTS") == "" {
+		return errors.New("configure DOCKET_ALLOWED_HOSTS for the planner domain")
 	}
 	remote := &vercelrun.App{URL: os.Getenv("PLANDILLO_RUNNER_URL"), Secret: os.Getenv("PLANDILLO_RUNNER_SECRET")}
 	if err = remote.Validate(); err != nil {

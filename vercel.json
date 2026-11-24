@@ -25,7 +25,13 @@
       "root": ".",
       "runtime": "container",
       "entrypoint": "Containerfile",
-      "bindings": [{ "type": "service", "service": "app", "format": "url", "env": "PLANDILLO_APP_URL" }]
+      "bindings": [{ "type": "service", "service": "replies", "format": "url", "env": "PLANDILLO_REPLIES_URL" }]
+    },
+    "replies": {
+      "root": ".",
+      "runtime": "container",
+      "entrypoint": "Dockerfile",
+      "command": ["vercel-replies"]
     }
   },
   "rewrites": [

@@ -181,12 +181,14 @@ func (a App) Execute(ctx context.Context, owner, code string, call func(string, 
 	}
 }
 
-// Reply is reachable through the worker-to-app binding. A reply can land on any replica.
-func (a App) Reply(w http.ResponseWriter, r *http.Request) {
+// Replies exposes only the capability-protected result mailbox on the private service.
+type Replies struct{ DB *sql.DB }
+
+func (a Replies) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "private, no-store")
 	key, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
 	seq, err := strconv.Atoi(r.URL.Query().Get("seq"))
-	if r.Method != "POST" || !ok || len(key) < 26 || len(key) > 128 || err != nil || seq < 1 || seq > codeeval.MaxCalls {
+	if r.URL.Path != "/_plandillo/reply" || r.Method != "POST" || !ok || len(key) < 26 || len(key) > 128 || err != nil || seq < 1 || seq > codeeval.MaxCalls {
 		http.NotFound(w, r)
 		return
 	}

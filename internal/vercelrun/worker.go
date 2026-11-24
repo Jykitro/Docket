@@ -25,11 +25,11 @@ type Worker struct {
 	slots            chan struct{}
 }
 
-func NewWorker(ctx context.Context, wasm []byte, appURL, secret string) (*Worker, error) {
+func NewWorker(ctx context.Context, wasm []byte, repliesURL, secret string) (*Worker, error) {
 	if len(secret) < 32 {
 		return nil, errors.New("PLANDILLO_RUNNER_SECRET must contain at least 32 characters")
 	}
-	reply, err := endpoint(appURL, "_plandillo/reply")
+	reply, err := endpoint(repliesURL, "_plandillo/reply")
 	if err != nil {
 		return nil, err
 	}

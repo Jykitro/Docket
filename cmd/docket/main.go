@@ -47,8 +47,8 @@ func run() error {
 
 	if len(os.Args) > 1 {
 		switch os.Args[1] {
-		case "vercel":
-			return runVercel(ctx, cfg)
+		case "vercel", "vercel-replies":
+			return runVercel(ctx, cfg, os.Args[1])
 		case "setup-code":
 			return printSetupCode(cfg.DataDir, os.Stdout)
 		case "code-runner":
@@ -205,18 +205,8 @@ func runSelfHost(ctx context.Context, cfg config.Config, remote *vercelrun.App) 
 	handler := selfhost.Handler(selfhost.Options{Cluster: cluster, VercelIngress: cluster != nil && os.Getenv("VERCEL") == "1" && (os.Getenv("VERCEL_ENV") == "production" || os.Getenv("VERCEL_ENV") == "preview"),
 		SetupComplete: clearSetup, TrustedProxies: proxies, Passkeys: sites, Auth: ad, WS: ws, Web: webHandler, AllowedHosts: cfg.AllowedHosts, SetupCode: code, RunnerReady: ready,
 	})
-	if remote != nil {
-		if os.Getenv("VERCEL_ENV") == "development" {
-			handler = developmentOrigin(handler, cfg.PasskeyOrigin)
-		}
-		public := handler
-		handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.URL.Path == "/_plandillo/reply" {
-				remote.Reply(w, r)
-				return
-			}
-			public.ServeHTTP(w, r)
-		})
+	if remote != nil && os.Getenv("VERCEL_ENV") == "development" {
+		handler = developmentOrigin(handler, cfg.PasskeyOrigin)
 	}
 	return serve(ctx, cfg.Addr, handler)
 }

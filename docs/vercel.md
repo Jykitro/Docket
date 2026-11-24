@@ -6,9 +6,10 @@ Import this repository as one Vercel project with its **Root Directory set to th
 | --- | --- | --- |
 | `web` | `/`, planner pages and static assets | The browser uses same-origin REST and SSE |
 | `app` | `/api`, `/mcp`, their descendants, and `/healthz` | Sends Code Mode jobs to `worker` through `PLANDILLO_RUNNER_URL` |
-| `worker` | Internal only | Retrieves each authorized tool result from `app` through `PLANDILLO_APP_URL` |
+| `worker` | Internal only | Retrieves each authorized tool result through `PLANDILLO_REPLIES_URL` |
+| `replies` | Internal only | Reads a single job result from PostgreSQL using its short-lived capability |
 
-Vercel supplies both binding URLs at runtime. Keep them out of the project's environment settings. The worker's HTTP supervisor starts a fresh WebAssembly instance for each evaluation. The guest receives protocol frames over stdin and stdout, with a 128 MiB memory limit and a 30-second deadline. Only the app can execute MCP tools against a workspace. [Vercel service bindings](https://vercel.com/docs/services/bindings)
+Vercel requires an acyclic service graph. The runtime calls are `app → worker → replies`. Vercel supplies both binding URLs at runtime. Keep them out of the project's environment settings. The worker's HTTP supervisor starts a fresh WebAssembly instance for each evaluation. The guest receives protocol frames over stdin and stdout, with a 128 MiB memory limit and a 30-second deadline. Only the app can execute MCP tools against a workspace. [Vercel service bindings](https://vercel.com/docs/services/bindings)
 
 ## Project settings
 
@@ -16,7 +17,7 @@ Use an exact public HTTPS hostname for each environment. Give previews and devel
 
 | Variable | Value |
 | --- | --- |
-| `PORT` | Set to `8080` for the cloud deployment so both non-root containers listen on an unprivileged port. |
+| `PORT` | Set to `8080` for the cloud deployment so the non-root containers listen on an unprivileged port. |
 | `DOCKET_MODE` | `selfhost` |
 | `DOCKET_POSTGRES_DSN` | A dedicated PostgreSQL database URL with TLS. The role must own the database or have permission to create and manage its schemas. Use a direct or session-pooled connection that preserves the connection's `search_path`. With Vercel's Neon integration, leave this unset so Plandillo reads the integration-managed `DATABASE_URL_UNPOOLED` directly. |
 | `DOCKET_ALLOWED_HOSTS` | Comma-separated exact hostnames of the planner, without scheme or port |
