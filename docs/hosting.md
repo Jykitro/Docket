@@ -214,7 +214,7 @@ Operational details:
   To return to the previous SQLite installation, remove `DOCKET_POSTGRES_DSN` and restart with the original data volume.
   Changes made in PostgreSQL do not appear in SQLite. There is no automatic conversion in either direction.
 - Back up and restore the entire database and its TOTP key together.
-- Native and Compose installations use one Plandillo instance per database. Account and workspace operations share a pool of up to eight PostgreSQL connections. The [Vercel deployment](vercel.md) coordinates multiple replicas.
+- Native and Compose installations use one Plandillo instance per database. Account and workspace operations share a pool of up to eight PostgreSQL connections.
 - The database self-check verifies connectivity and reports storage size. It does not perform a full
   PostgreSQL integrity check or verify external backups. Full-text search uses PostgreSQL's `simple` dictionary with
   prefix matching for Russian, Ukrainian and English; ranking/snippets can differ from SQLite FTS5.

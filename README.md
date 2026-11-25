@@ -79,7 +79,7 @@ You can also download individual files from **Integrations → Download individu
 
 ### Self-host
 
-For a shared installation, each account can own several private workspaces, each with its own MCP token. The [self-hosting guide](docs/hosting.md#self-host) covers invitations, HTTPS, SQLite or PostgreSQL, and backups. For the full planner on Vercel, see the [Vercel deployment guide](docs/vercel.md).
+For a shared installation, each account can own several private workspaces, each with its own MCP token. The [self-hosting guide](docs/hosting.md#self-host) covers invitations, HTTPS, SQLite or PostgreSQL, and backups. The landing at plandillo.dev is deployed on Vercel; see the [Vercel guide](docs/vercel.md).
 
 ## Development
 
