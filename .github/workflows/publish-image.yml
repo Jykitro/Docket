@@ -12,7 +12,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7.0.1
-      - uses: docker/setup-buildx-action@v4.4.1
+      - id: buildx
+        uses: docker/setup-buildx-action@v4.4.1
+      # The layer cache misses on every code change; keep the Go compiler cache between runs instead.
+      - id: go-cache
+        uses: actions/cache@v6.1.0
+        with:
+          path: go-build-cache
+          key: go-build-${{ hashFiles('go.sum') }}
+          restore-keys: go-build-
+      - uses: reproducible-containers/buildkit-cache-dance@v3.4.0
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          cache-map: '{"go-build-cache": "/root/.cache/go-build"}'
+          skip-extraction: ${{ steps.go-cache.outputs.cache-hit }}
       - uses: docker/login-action@v4.8.0
         with:
           registry: ghcr.io
