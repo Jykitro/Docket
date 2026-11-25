@@ -1,6 +1,6 @@
 # Plandillo landing page
 
-The root Vercel project builds and serves this English site ([Vercel guide](../docs/vercel.md)). There is no hosted demo: every call to action leads to the one-command Docker install in the self-host section.
+Vercel builds and serves this English site as an Astro project with its Root Directory set to `landing` ([Vercel guide](../docs/vercel.md)). The Makefile is only for local work. There is no hosted demo: every call to action leads to the one-command Docker install in the self-host section.
 
 The English site for `plandillo.dev` lives in this directory. It is built with [Astro](https://astro.build) and [Tailwind CSS](https://tailwindcss.com) v4 (the same version as `web/`) into a static page with no client framework. One dependency-free script (`src/scripts/app.js`) runs the board demo, the tabs, the copy button, the mobile menu and the GitHub star count. The demo plays on its own, pauses off screen or in a hidden tab, and stays on one stage with `prefers-reduced-motion`. The script also runs the theme switch. The star count is the only request to another host (`api.github.com`, cached for an hour in localStorage); if it fails, the counter stays hidden.
 

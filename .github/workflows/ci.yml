@@ -6,13 +6,9 @@ on:
     branches: [main]
     paths-ignore:
       - "landing/**"
-      - vercel.json
-      - .vercelignore
   pull_request:
     paths-ignore:
       - "landing/**"
-      - vercel.json
-      - .vercelignore
 
 permissions:
   contents: read
