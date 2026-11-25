@@ -6,41 +6,74 @@
 @font-face { font-family: 'Inter'; font-style: normal; font-weight: 600; font-display: swap; src: url('/assets/fonts/inter-latin-600-normal.woff2') format('woff2'); }
 @font-face { font-family: 'JetBrains Mono'; font-style: normal; font-weight: 400; font-display: swap; src: url('/assets/fonts/jetbrains-mono-latin-400-normal.woff2') format('woff2'); }
 
-@theme {
+@theme static {
   --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  --color-page: #0D0C14;
-  --color-page-2: #100E18;
-  --color-code: #0A0910;
-  --color-surface: #14121D;
-  --color-raised: #1B1928;
-  --color-chip: #1D1A2E;
-  --color-deep: #17152A;
-  --color-sel: #24213A;
-  --color-line-soft: #1E1C2C;
-  --color-line: #262338;
-  --color-line-2: #2A2740;
-  --color-line-3: #2E2A4A;
-  --color-line-dash: #34304A;
-  --color-edge: #2C2942;
-  --color-edge-2: #221F33;
-  --color-ink: #F1F0F7;
-  --color-ink-2: #D9D5F0;
-  --color-ink-3: #C9C5DD;
-  --color-muted: #A7A3BD;
-  --color-dim: #8580A0;
-  --color-faint: #4A4663;
-  --color-code-ink: #E9E7F5;
-  --color-code-dim: #6E6A88;
-  --color-agent: #8B74FF;
-  --color-primary: #6D4DF2;
-  --color-primary-hover: #7C5EFF;
-  --color-link: #B9ABFF;
-  --color-done: #3DD68C;
-  --color-note: #211C3D;
-  --color-note-line: #2F2858;
-  --color-note-ink: #DCD6FF;
+  /* Every colour is light-dark(light, dark); `color-scheme` on <html> picks the side. */
+  --color-page: light-dark(#FAFAFC, #0D0C14);
+  --color-page-2: light-dark(#F4F3F8, #100E18);
+  --color-code: light-dark(#F6F5FA, #0A0910);
+  --color-surface: light-dark(#FFFFFF, #14121D);
+  --color-raised: light-dark(#FFFFFF, #1B1928);
+  --color-chip: light-dark(#F1EFF8, #1D1A2E);
+  --color-deep: light-dark(#F3F0FF, #17152A);
+  --color-sel: light-dark(#ECE9F5, #24213A);
+  --color-line-soft: light-dark(#ECEAF2, #1E1C2C);
+  --color-line: light-dark(#E4E1EE, #262338);
+  --color-line-2: light-dark(#DDD9EA, #2A2740);
+  --color-line-3: light-dark(#D6D1E8, #2E2A4A);
+  --color-line-dash: light-dark(#CFCAE0, #34304A);
+  --color-edge: light-dark(#DDD9EA, #2C2942);
+  --color-edge-2: light-dark(#E9E6F2, #221F33);
+  --color-ink: light-dark(#15131F, #F1F0F7);
+  --color-ink-2: light-dark(#2E2A40, #D9D5F0);
+  --color-ink-3: light-dark(#4A4560, #C9C5DD);
+  --color-muted: light-dark(#5F5A75, #A7A3BD);
+  --color-dim: light-dark(#757089, #8580A0);
+  --color-faint: light-dark(#B9B4CC, #4A4663);
+  --color-code-ink: light-dark(#2A2638, #E9E7F5);
+  --color-code-dim: light-dark(#8F8AA6, #6E6A88);
+  --color-agent: light-dark(#6D4DF2, #8B74FF);
+  --color-primary: light-dark(#6D4DF2, #6D4DF2);
+  --color-primary-hover: light-dark(#5B3BE0, #7C5EFF);
+  --color-link: light-dark(#5B3BE0, #B9ABFF);
+  --color-done: light-dark(#0F8F58, #3DD68C);
+  --color-note: light-dark(#F1EDFF, #211C3D);
+  --color-note-line: light-dark(#DDD3FF, #2F2858);
+  --color-note-ink: light-dark(#3F2F8F, #DCD6FF);
+  --color-header: light-dark(rgb(250 250 252 / .82), rgb(13 12 20 / .82));
+  --color-dots: light-dark(#DCD8E8, #2E2A42);
+  --color-featured-line: light-dark(#B3A3FF, #5A45C9);
+  --color-featured-top: light-dark(#EFEAFF, #1F1A3A);
+  --color-doing-bg: light-dark(rgb(109 77 242 / .1), rgb(139 116 255 / .16));
+  --color-doing-ink: light-dark(#5B3BE0, #C9BEFF);
+  --color-done-bg: light-dark(rgb(15 143 88 / .1), rgb(61 214 140 / .14));
+  --color-glow: light-dark(rgb(109 77 242 / .14), rgb(109 77 242 / .32));
+  --color-window-shadow: light-dark(rgb(40 30 90 / .18), rgb(0 0 0 / .9));
+
+  /* The board demo copies the planner itself: these are web/src/styles.css tokens as app-*; keep them in sync. */
+  --color-app-bg: light-dark(oklch(1 0 0), oklch(0.145 0 0));
+  --color-app-sf: light-dark(oklch(1 0 0), oklch(0.205 0 0));
+  --color-app-sf2: light-dark(oklch(0.984 0.003 247.858), oklch(0.235 0 0));
+  --color-app-sk: light-dark(oklch(0.968 0.007 247.896), oklch(0.269 0 0));
+  --color-app-ln: light-dark(oklch(0.929 0.013 255.508), oklch(1 0 0 / 10%));
+  --color-app-ln2: light-dark(oklch(0.869 0.022 252.894), oklch(0.371 0 0));
+  --color-app-tx: light-dark(oklch(0.129 0.042 264.695), oklch(0.985 0 0));
+  --color-app-t2: light-dark(oklch(0.446 0.043 257.281), oklch(0.87 0 0));
+  --color-app-t3: light-dark(oklch(0.554 0.046 257.417), oklch(0.708 0 0));
+  --color-app-ac: light-dark(#543099, #ceb7ff);
+  --color-app-acs: light-dark(#f1ebfa, #332746);
+  --color-app-inkt: light-dark(#ffffff, #261c36);
+  --color-app-bk: light-dark(oklch(0.704 0.04 256.788), oklch(0.556 0 0));
+  --color-app-bks: light-dark(oklch(0.968 0.007 247.896), oklch(0.269 0 0));
+  --color-app-bkt: light-dark(oklch(0.446 0.043 257.281), oklch(0.708 0 0));
+  --color-app-dg: light-dark(oklch(0.666 0.179 58.318), oklch(0.828 0.189 84.429));
+  --color-app-dgs: light-dark(oklch(0.987 0.022 95.277), oklch(0.279 0.077 45.635));
+  --color-app-dgt: light-dark(oklch(0.555 0.163 48.998), oklch(0.879 0.169 91.605));
+  --color-app-dn: light-dark(oklch(0.596 0.145 163.225), oklch(0.765 0.177 163.223));
+  --color-app-dns: light-dark(oklch(0.979 0.021 166.113), oklch(0.262 0.051 172.552));
+  --color-app-dnt: light-dark(oklch(0.508 0.118 165.612), oklch(0.845 0.143 164.978));
 
   /* The design keeps the body's 1.5 line height at every size; set leading-* where it differs. */
   --text-xs--line-height: 1.5;
@@ -52,7 +85,7 @@
   /* The design is desktop-first, so the page uses max-* variants of these. */
   --breakpoint-xs: 35rem;
   --breakpoint-tab: 55rem;
-  --breakpoint-nav: 60rem;
+  --breakpoint-nav: 66.25rem;
   --breakpoint-board: 66.25rem;
 
   --animate-land: land .5s cubic-bezier(.2, .7, .2, 1);
@@ -60,6 +93,10 @@
 }
 
 @layer base {
+  /* System theme unless the visitor picked one with the header switch (data-theme). */
+  :root { color-scheme: light dark; }
+  :root[data-theme='light'] { color-scheme: light; }
+  :root[data-theme='dark'] { color-scheme: dark; }
   html { scroll-behavior: smooth; }
   @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
   body { background: var(--color-page); color: var(--color-ink); font-family: var(--font-sans); font-size: 16px; line-height: 1.5; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; overflow-x: hidden; }
@@ -68,29 +105,18 @@
   :focus-visible { outline: 2px solid var(--color-agent); outline-offset: 3px; border-radius: 6px; }
 }
 
-/* Nodes that app.js builds for the board demo, and the status pill it switches. */
+/* Classes shared by the static task card ("Done means checked") and the pricing pills. */
 @layer components {
   .row-between { @apply flex items-center justify-between gap-2; }
   .mono { @apply font-mono text-xs; }
   .dim { @apply text-dim; }
   .pill { @apply rounded-full border border-transparent bg-sel px-2.5 py-1 text-xs font-semibold whitespace-nowrap text-ink-3; }
-  .pill.is-doing { background: rgb(139 116 255 / .16); color: #C9BEFF; }
-  .pill.is-done { background: rgb(61 214 140 / .14); color: var(--color-done); }
-  .col { @apply flex min-h-[380px] flex-col gap-2.5; }
-  .col-head { @apply flex items-center justify-between px-1 pt-0.5 pb-1.5 text-sm font-semibold; }
-  .col-head span:last-child { @apply text-[13px] font-normal text-dim; }
-  .card { @apply flex flex-col gap-2.5 rounded-xl border border-line-2 bg-raised p-3.5; }
-  .card.is-focus { @apply animate-land border-agent motion-reduce:animate-none; box-shadow: 0 0 0 4px rgb(139 116 255 / .15), 0 12px 30px -12px rgb(139 116 255 / .5); }
-  .card-title { @apply text-[15px] leading-[1.35] font-medium; }
-  .card-status { @apply text-[13px] font-medium text-agent; }
-  .card-status.is-done { @apply text-done; }
-  .owner { @apply inline-flex items-center gap-1.5 text-xs font-medium text-ink-3; }
+  .pill.is-doing { @apply bg-doing-bg text-doing-ink; }
+  .pill.is-done { @apply bg-done-bg text-done; }
   .who { @apply size-[9px] shrink-0; }
   .who.sq { @apply rounded-[2px] bg-agent; }
-  .who.human { @apply rounded-full bg-ink; }
   .act { @apply flex items-start gap-2.5; }
   .act .who { @apply mt-1.5; }
-  .act-new { @apply animate-land motion-reduce:animate-none; }
   .act-body { @apply flex min-w-0 flex-col gap-1.5; }
   .act-line { @apply text-sm leading-[1.4] text-ink-2; }
   .act-line strong { @apply font-semibold text-ink; }

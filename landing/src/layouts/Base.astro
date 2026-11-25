@@ -9,7 +9,10 @@ import '../styles/global.css';
 <title>Plandillo — a task board for you and your AI agent</title>
 <meta name="description" content="Plan in your browser and let your AI agent work the same board through MCP or Code Mode. Open source, one Docker container, SQLite or PostgreSQL.">
 <link rel="canonical" href="https://plandillo.dev/">
-<meta name="theme-color" content="#0D0C14">
+<meta name="theme-color" content="#FAFAFC" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0D0C14" media="(prefers-color-scheme: dark)">
+<!-- Apply the theme the visitor picked before the first paint; app.js owns the switch. -->
+<script is:inline>try { var t = localStorage.getItem('plandillo:theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {}</script>
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://plandillo.dev/">
 <meta property="og:site_name" content="Plandillo">

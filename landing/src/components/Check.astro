@@ -1,6 +1,5 @@
 ---
-// One "Done when" line. `demo` lets app.js tick it (it toggles `is-on`) as the board demo plays;
-// demo lines sit in the compact task panel, the others in the larger card.
-const { on = false, demo = false } = Astro.props;
+// One checked "Done when" line in the static task card.
+const { on = false } = Astro.props;
 ---
-<div class:list={['group flex gap-2.5 leading-[1.4] text-ink-2', demo ? 'items-start text-sm' : 'items-center text-[15px]', { 'is-on': on }]} data-check={demo || undefined}><span class="mt-px grid size-4 shrink-0 place-items-center rounded-[4px] border-[1.5px] border-faint group-[.is-on]:border-done group-[.is-on]:bg-done" aria-hidden="true"><svg class="opacity-0 group-[.is-on]:opacity-100" width="10" height="10" viewBox="0 0 10 10"><path class="stroke-page" d="M2 5.2l2 2L8 3" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></span><slot /></div>
+<div class:list={['group flex items-center gap-2.5 text-[15px] leading-[1.4] text-ink-2', { 'is-on': on }]}><span class="mt-px grid size-4 shrink-0 place-items-center rounded-[4px] border-[1.5px] border-faint group-[.is-on]:border-done group-[.is-on]:bg-done" aria-hidden="true"><svg class="opacity-0 group-[.is-on]:opacity-100" width="10" height="10" viewBox="0 0 10 10"><path class="stroke-page" d="M2 5.2l2 2L8 3" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></span><slot /></div>

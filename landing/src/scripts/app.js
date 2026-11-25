@@ -18,29 +18,61 @@
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') setMenu(false); });
   }
 
-  /* ---------- Board demo ---------- */
+  /* ---------- Theme: the system one unless the visitor picked one (stored, applied in Base.astro) ---------- */
+  var themeBtn = document.querySelector('.theme-btn');
+  if (themeBtn) {
+    var root = document.documentElement;
+    var systemLight = window.matchMedia('(prefers-color-scheme: light)');
+    var theme = function () { return root.dataset.theme || (systemLight.matches ? 'light' : 'dark'); };
+    var syncTheme = function () {
+      var light = theme() === 'light';
+      var label = light ? 'Switch to dark theme' : 'Switch to light theme';
+      themeBtn.classList.toggle('is-light', light);
+      themeBtn.setAttribute('aria-label', label);
+      themeBtn.title = label;
+    };
+    themeBtn.addEventListener('click', function () {
+      var next = theme() === 'light' ? 'dark' : 'light';
+      root.dataset.theme = next;
+      try { localStorage.setItem('plandillo:theme', next); } catch (e) {}
+      syncTheme();
+    });
+    systemLight.addEventListener('change', syncTheme);
+    themeBtn.hidden = false;
+    syncTheme();
+  }
+
+  /* ---------- Board demo: the planner's own board and task panel (classes follow web/src/Board.tsx, TaskPanel.tsx) ---------- */
   var BASE = [
     [{ id: 'APP-27', title: 'Add CSV export to the reports page', agent: false }, { id: 'APP-29', title: 'Draft copy for the welcome email', agent: false }],
     [{ id: 'APP-22', title: 'Move settings to the new form layout', agent: true }],
     [{ id: 'APP-18', title: 'Fix the date picker time zone offset', agent: true }, { id: 'APP-15', title: 'Update the README quick start', agent: false }]
   ];
-  var COLUMNS = ['Backlog', 'Doing', 'Done'];
-  var FOCUS_STATUS = ['New task, waiting for the agent', 'Agent is working on it', 'Done, checked by the agent'];
+  var FOCUS = { id: 'APP-24', title: 'Fix the mobile menu', agent: false };
+  var COLUMNS = [
+    { name: 'Backlog', dot: 'bg-app-bk', chip: 'bg-app-bks text-app-bkt' },
+    { name: 'Doing', dot: 'bg-app-dg', chip: 'bg-app-dgs text-app-dgt' },
+    { name: 'Done', dot: 'bg-app-dn', chip: 'bg-app-dns text-app-dnt' }
+  ];
   var CAPTIONS = [
     'You create the task in the browser and write down how to check it.',
     'The agent picks up APP-24, moves it to Doing and notes why the menu stays open.',
     'The agent fixes the handler, tests touch and keyboard, marks it done and updates the wiki.'
   ];
-  var ACTIVITY = [
-    { agent: false, what: 'created the task', time: '10:02' },
-    { agent: true, what: 'moved it to Doing', time: '10:06', note: 'The link handler never closes the menu, so the overlay stays open after navigation.' },
-    { agent: true, what: 'marked it Done and updated the wiki', time: '10:19', note: 'Menu now closes on link click. Tested with touch and keyboard.' }
+  var NOTES = [
+    { step: 1, time: '10:06', text: 'The link handler never closes the menu, so the overlay stays open after navigation.' },
+    { step: 2, time: '10:19', text: 'Menu now closes on link click. Tested with touch and keyboard. Updated the wiki: Architecture / Navigation.' }
   ];
   var DURATIONS = [2800, 3600, 4800];
+  var SPARK = 'M12 3v18M3 12h18M6 6l12 12M18 6L6 18';
+  var CHECK = 'M5 12.5l4.5 4.5L19 7.5';
+  var LANDED = ' animate-land motion-reduce:animate-none';
 
   var boardEl = document.querySelector('[data-board]');
   var statusEl = document.querySelector('[data-status]');
   var activityEl = document.querySelector('[data-activity]');
+  var noteCountEl = document.querySelector('[data-note-count]');
+  var openEls = document.querySelectorAll('[data-open]');
   var captionEl = document.querySelector('[data-caption]');
   var checks = document.querySelectorAll('[data-check]');
   var pills = document.querySelectorAll('.stage-pill');
@@ -53,17 +85,36 @@
     return n;
   }
 
-  function cardNode(c, focus, step) {
-    var card = el('div', 'card' + (focus ? ' is-focus' : ''));
-    var top = el('div', 'row-between');
-    top.appendChild(el('span', 'mono dim', c.id));
-    var owner = el('span', 'owner');
-    owner.appendChild(el('span', 'who ' + (c.agent ? 'sq' : 'human')));
-    owner.appendChild(document.createTextNode(c.agent ? 'Agent' : 'You'));
-    top.appendChild(owner);
+  function icon(d, size, sw) {
+    var ns = 'http://www.w3.org/2000/svg';
+    var svg = document.createElementNS(ns, 'svg');
+    var attrs = { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': sw, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true' };
+    Object.keys(attrs).forEach(function (k) { svg.setAttribute(k, attrs[k]); });
+    var path = document.createElementNS(ns, 'path');
+    path.setAttribute('d', d);
+    svg.appendChild(path);
+    return svg;
+  }
+
+  // A card as the planner draws it; `fresh` is its inset ring for a task that just changed live.
+  function cardNode(c, done, fresh) {
+    var card = el('div', 'flex flex-col gap-2.5 rounded-[10px] border border-app-ln bg-app-sf p-3' + (fresh ? ' shadow-[inset_0_0_0_2px_var(--color-app-ac)]' + LANDED : ''));
+    var top = el('div', 'flex items-center gap-2');
+    if (done) {
+      var ok = el('span', 'inline-flex text-app-dn');
+      ok.appendChild(icon(CHECK, 15, 2.4));
+      top.appendChild(ok);
+    }
+    top.appendChild(el('span', 'grow font-mono text-[11.5px] whitespace-nowrap text-app-t3', c.id));
+    if (c.agent) {
+      var badge = el('span', 'inline-flex items-center gap-1 rounded-[5px] bg-app-acs py-0.5 pr-1.5 pl-[5px] text-[11px] font-medium text-app-ac');
+      badge.appendChild(icon(SPARK, 11, 2.2));
+      badge.appendChild(document.createTextNode('Agent'));
+      top.appendChild(badge);
+    }
+    top.appendChild(el('span', 'rounded-[5px] bg-app-sk px-1.5 py-0.5 font-mono text-[11px] leading-[normal] font-semibold text-app-t2', 'P1'));
     card.appendChild(top);
-    card.appendChild(el('span', 'card-title', c.title));
-    if (focus) card.appendChild(el('span', 'card-status' + (step === 2 ? ' is-done' : ''), FOCUS_STATUS[step]));
+    card.appendChild(el('div', 'text-[14px] leading-[1.35] font-medium' + (done ? ' text-app-t2' : ''), c.title));
     return card;
   }
 
@@ -74,40 +125,45 @@
     var step = state.step;
     if (boardEl) {
       boardEl.textContent = '';
-      COLUMNS.forEach(function (name, i) {
-        var col = el('div', 'col');
-        var head = el('div', 'col-head');
-        var cards = BASE[i].slice();
-        var count = cards.length + (i === step ? 1 : 0);
-        head.appendChild(el('span', null, name));
-        head.appendChild(el('span', null, String(count)));
-        col.appendChild(head);
-        if (i === step) col.appendChild(cardNode({ id: 'APP-24', title: 'Fix the mobile menu', agent: step > 0 }, true, step));
-        cards.forEach(function (c) { col.appendChild(cardNode(c, false, step)); });
-        boardEl.appendChild(col);
+      COLUMNS.forEach(function (col, i) {
+        var colEl = el('div', 'flex min-w-0 flex-col gap-2.5');
+        var head = el('div', 'flex h-[26px] items-center gap-2 px-1');
+        head.appendChild(el('span', 'inline-block size-[9px] shrink-0 rounded-full ' + col.dot));
+        head.appendChild(el('b', 'text-sm font-semibold', col.name));
+        head.appendChild(el('span', 'grow font-mono text-[12px] text-app-t3 tabular-nums', String(BASE[i].length + (i === step ? 1 : 0))));
+        colEl.appendChild(head);
+        if (i === step) colEl.appendChild(cardNode(FOCUS, i === 2, step > 0));
+        BASE[i].forEach(function (c) { colEl.appendChild(cardNode(c, i === 2, false)); });
+        boardEl.appendChild(colEl);
       });
     }
+    var open = String(BASE[0].length + BASE[1].length + (step < 2 ? 1 : 0));
+    openEls.forEach(function (n) { n.textContent = open; });
     if (statusEl) {
-      statusEl.textContent = COLUMNS[step];
-      statusEl.className = 'pill' + (step === 1 ? ' is-doing' : step === 2 ? ' is-done' : '');
+      statusEl.className = 'inline-flex h-[26px] w-fit items-center gap-[7px] rounded-[7px] px-2.5 text-[13px] font-medium ' + COLUMNS[step].chip;
+      statusEl.textContent = '';
+      statusEl.appendChild(el('span', 'inline-block size-2 shrink-0 rounded-full ' + COLUMNS[step].dot));
+      statusEl.appendChild(document.createTextNode(COLUMNS[step].name));
     }
     checks.forEach(function (c) { c.classList.toggle('is-on', step === 2); });
     if (activityEl) {
       activityEl.textContent = '';
-      for (var i = 0; i <= step; i++) {
-        var a = ACTIVITY[i];
-        var row = el('div', 'act' + (i > state.prevStep && state.prevStep >= 0 ? ' act-new' : ''));
-        row.appendChild(el('span', 'who ' + (a.agent ? 'sq' : 'human')));
-        var body = el('div', 'act-body');
-        var line = el('span', 'act-line');
-        line.appendChild(el('strong', null, a.agent ? 'Agent' : 'You'));
-        line.appendChild(document.createTextNode(' ' + a.what + ' '));
-        line.appendChild(el('span', 'dim', a.time));
-        body.appendChild(line);
-        if (a.note) body.appendChild(el('span', 'note', a.note));
+      var shown = NOTES.filter(function (n) { return n.step <= step; });
+      shown.forEach(function (n) {
+        var row = el('div', 'flex gap-3' + (n.step > state.prevStep && state.prevStep >= 0 ? LANDED : ''));
+        var avatar = el('span', 'grid size-7 shrink-0 place-items-center rounded-full bg-app-acs text-app-ac');
+        avatar.appendChild(icon(SPARK, 14, 2));
+        row.appendChild(avatar);
+        var body = el('div', 'flex min-w-0 flex-1 flex-col gap-[3px]');
+        var head = el('div', 'flex items-baseline gap-2');
+        head.appendChild(el('b', 'text-sm font-semibold', 'Agent'));
+        head.appendChild(el('span', 'font-mono text-[11.5px] text-app-t3', n.time));
+        body.appendChild(head);
+        body.appendChild(el('p', 'text-[13.5px] leading-[1.5]', n.text));
         row.appendChild(body);
         activityEl.appendChild(row);
-      }
+      });
+      if (noteCountEl) noteCountEl.textContent = String(shown.length);
     }
     if (captionEl) captionEl.textContent = CAPTIONS[step];
     pills.forEach(function (p) { p.setAttribute('aria-pressed', String(Number(p.dataset.stage) === step)); });
