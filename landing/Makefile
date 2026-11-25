@@ -5,7 +5,7 @@ PORT ?= 4174
 
 build:
 	mkdir -p dist
-	cp index.html style.css copy.js dist/
+	cp index.html style.css app.js dist/
 	rm -rf dist/assets
 	cp -R assets dist/
 

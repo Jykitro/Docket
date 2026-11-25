@@ -2,7 +2,7 @@
 
 The landing service in the root Vercel project serves this English site. The free demo button opens `https://app.plandillo.dev/register`, and Sign in opens the planner. Campaign parameters are preserved on both links.
 
-The English site for `plandillo.dev` lives in this directory. It uses static HTML, CSS, and a small clipboard script. The three stages of the example task work with the keyboard and with JavaScript disabled.
+The English site for `plandillo.dev` lives in this directory. It uses static HTML, CSS, and one dependency-free script (`app.js`): the board demo, the tabs, the copy button, the mobile menu and the GitHub star count. The demo plays on its own, pauses off screen or in a hidden tab, and stays on one stage with `prefers-reduced-motion`. The star count is the only request to another host (`api.github.com`, cached for an hour in localStorage); if it fails, the counter stays hidden.
 
 ## Preview and build
 
@@ -22,6 +22,8 @@ The static site is in `landing/dist/`. Serve its contents at the domain root. Bu
 
 ## Editing
 
-Edit `index.html` for copy, links, task stages, metadata, and the installation snippet. The copy button reads the displayed commands. Styles are in `style.css`. Keep product commands and README anchors in sync with the [installation guide](../docs/hosting.md#quick-start) and [MCP setup guide](../docs/agents.md). The navigation points to the [huntly-digital/plandillo repository](https://github.com/huntly-digital/plandillo).
+Edit `index.html` for copy, links, metadata, and the install commands. The copy button reads the `data-command` attribute of the open tab, so change it together with the `<pre>` block. The board demo data is at the top of `app.js`. Styles are in `style.css`. Links to the planner carry `data-app`, which forwards `utm_*` parameters.
 
-All runtime assets are local to `assets/`. The wordmark and icons come from the supplied Plandillo vector kit. The armadillo illustration is generated artwork, with two WebP sizes for the page and a JPEG for social previews. Bundled Inter font files include their [SIL Open Font License](assets/fonts/Inter-LICENSE.txt). The project uses the [MIT license](../LICENSE).
+The CLI tab is marked as coming soon. The Go metrics, the paid Cloud price, and the partner and sponsor blocks are left out until there are real numbers and names. Keep product commands and README anchors in sync with the [installation guide](../docs/hosting.md#quick-start) and [MCP setup guide](../docs/agents.md). The navigation points to the [huntly-digital/plandillo repository](https://github.com/huntly-digital/plandillo).
+
+All runtime assets are local to `assets/`. The icons come from the supplied Plandillo vector kit. The social preview `share.jpg` is generated artwork. Bundled Inter and JetBrains Mono font files include their SIL Open Font Licenses ([Inter](assets/fonts/Inter-LICENSE.txt), [JetBrains Mono](assets/fonts/JetBrainsMono-LICENSE.txt)). The project uses the [MIT license](../LICENSE).
