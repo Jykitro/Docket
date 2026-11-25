@@ -16,7 +16,7 @@ Attach `plandillo.dev` as the production domain and redirect `www.plandillo.dev`
 
 ## When it builds
 
-The `ignoreCommand` in `vercel.json` skips a deployment unless `landing/`, `vercel.json` or `.vercelignore` changed since the last successful deployment (`VERCEL_GIT_PREVIOUS_SHA`, or the previous commit when there is none). The paths start with `:/`, so they count from the repository root whatever directory the command runs in. If Git cannot compare the two commits, the command fails and Vercel builds anyway.
+The `ignoreCommand` in `vercel.json` skips a deployment unless `landing/`, `vercel.json` or `.vercelignore` changed since the last successful deployment (`VERCEL_GIT_PREVIOUS_SHA`, or the previous commit when there is none). The paths start with `:/`, so they count from the repository root whatever directory the command runs in. Vercel clones only recent history, so after a run of skipped pushes the last deployed commit may be missing from the clone. The command then prints that it is building and exits 1, and Vercel builds anyway. Vercel accepts only 0 (skip) and 1 (build); any other code, such as git's 128 for a missing commit, fails the deployment.
 
 GitHub Actions works the other way round: [`ci.yml`](../.github/workflows/ci.yml) ignores pushes that touch only those files, so a landing-only change runs no app tests and publishes no Docker image.
 
