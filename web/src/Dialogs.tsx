@@ -1,5 +1,5 @@
 // "New task" (key C) and "New project" dialogs. Pickers are chips and segmented buttons, not native selects.
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { type Project, addDays, api, fmtDay, todayStr, useProjectsMeta } from './api'
 import { PROJECT_COLORS, ProjectTile } from './icons'
@@ -105,8 +105,10 @@ export function NewTaskDialog({ projects, project, date, status, title: initial 
 }
 
 /** The "new project" fields and buttons; used by the dialog and by onboarding. */
-export function NewProjectForm({ onCreated, onCancel, cancelLabel = 'Отмена' }: {
-  onCreated: (p: Project) => void; onCancel: () => void; cancelLabel?: string
+export type ProjectDraft = { name: string; icon: string; png?: string; color: string }
+
+export function NewProjectForm({ onCreated, onCancel, onDraft, cancelLabel = 'Отмена', submitLabel = 'Создать' }: {
+  onCreated: (p: Project) => void; onCancel: () => void; onDraft?: (d: ProjectDraft) => void; cancelLabel?: string; submitLabel?: string
 }) {
   const qc = useQueryClient()
   const [name, setName] = useState('')
@@ -123,6 +125,7 @@ export function NewProjectForm({ onCreated, onCancel, cancelLabel = 'Отмен�
     },
   })
   const submit = () => name.trim() && !iconBusy && !create.isPending && create.mutate()
+  useEffect(() => onDraft?.({ name, icon, png, color }), [name, icon, png, color]) // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <>
       <div className={field}>
@@ -150,7 +153,7 @@ export function NewProjectForm({ onCreated, onCancel, cancelLabel = 'Отмен�
       {create.isError && <div className={errline} role="alert">{create.error.message}</div>}
       <div className={foot}>
         <button type="button" className={btn} onClick={onCancel}>{tr(cancelLabel)}</button>
-        <button type="button" className={btnPri} disabled={!name.trim() || iconBusy || create.isPending} onClick={submit}>{tr('Создать')}</button>
+        <button type="button" className={btnPri} disabled={!name.trim() || iconBusy || create.isPending} onClick={submit}>{tr(submitLabel)}</button>
       </div>
     </>
   )

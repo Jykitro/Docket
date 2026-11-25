@@ -14,6 +14,41 @@ const kbdBase = 'font-mono text-[11px] font-medium leading-[normal] rounded-sm p
 export const kbd = `${kbdBase} text-t3 border-ln bg-sk`
 export const kbdPri = `${kbdBase} bg-transparent text-inkt border-current opacity-70`
 export const cap = 'text-xs font-medium text-t3'
+export const textInput = 'h-9 w-full min-w-0 rounded-md border border-ln bg-sf px-2.5 text-sm text-tx shadow-xs focus:border-ring focus:ring-[3px] focus:ring-ring/30 focus:outline-none'
+export const MENUSEP = 'my-1 h-px bg-ln'
+
+/** The user's photo, or the first letter of their name on a soft tile. */
+export function Avatar({ name, photo, size = 32 }: { name?: string; photo?: string | null; size?: number }) {
+  const box = { width: size, height: size, fontSize: Math.round(size * 0.42) }
+  if (photo) return <img src={photo} style={box} className="shrink-0 rounded-full object-cover" alt="" />
+  return <span style={box} className="grid shrink-0 place-items-center rounded-full bg-acs font-semibold text-act">{name ? name.charAt(0).toUpperCase() : <Icon name="user" size={Math.round(size * 0.47)} sw={2} />}</span>
+}
+
+/** A titled block of a settings page: heading and hint on top, a card of rows below. */
+export function SettingsSection({ title, hint, danger, children }: { title: string; hint?: string; danger?: boolean; children: ReactNode }) {
+  return (
+    <section className="flex flex-col gap-3">
+      <div className="flex flex-col gap-0.5">
+        <h2 className={'text-[15px] font-semibold ' + (danger ? 'text-rd' : '')}>{title}</h2>
+        {hint && <p className="text-[13px] text-t2">{hint}</p>}
+      </div>
+      <div className={'flex flex-col rounded-xl border bg-sf ' + (danger ? 'border-rd/40' : 'border-ln')}>{children}</div>
+    </section>
+  )
+}
+
+/** One row of a settings card: what it is on the left, the control on the right (stacked on narrow screens). */
+export function SettingsRow({ label, hint, children }: { label: string; hint?: ReactNode; children: ReactNode }) {
+  return (
+    <div className="grid gap-3 border-t border-ln px-5 py-4 first:border-t-0 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] md:items-center">
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <span className="text-sm font-medium">{label}</span>
+        {hint && <span className="text-[13px] text-t3">{hint}</span>}
+      </div>
+      <div className="flex min-w-0 flex-col gap-2">{children}</div>
+    </div>
+  )
+}
 export const mc = 'inline-flex items-center gap-[5px] text-[12px] text-t3'
 // shadcn-admin's faceted filter: a small dashed outline button
 const fc = 'inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-dashed border-ln bg-sf text-xs font-medium text-t2 whitespace-nowrap hover:bg-sk'
@@ -22,8 +57,8 @@ const fc = 'inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-d
 export const MENUITEM = 'flex h-8 w-full items-center gap-2 rounded-sm bg-transparent px-2 text-left text-sm hover:bg-sk'
 
 /** A button that opens a popover; closes on outside click and Esc. children gets a close() callback. */
-export function Menu({ label, className = fc, right, up, ariaLabel, children }: {
-  label: ReactNode; className?: string; right?: boolean; up?: boolean; ariaLabel?: string; children: (close: () => void) => ReactNode
+export function Menu({ label, className = fc, right, up, block, ariaLabel, title, children }: {
+  label: ReactNode; className?: string; right?: boolean; up?: boolean; block?: boolean; ariaLabel?: string; title?: string; children: (close: () => void) => ReactNode
 }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLSpanElement>(null)
@@ -41,8 +76,8 @@ export function Menu({ label, className = fc, right, up, ariaLabel, children }: 
     }
   }, [open])
   return (
-    <span className="relative inline-block" ref={ref}>
-      <button type="button" className={className} aria-haspopup="menu" aria-expanded={open} aria-label={ariaLabel} onClick={() => setOpen(!open)}>
+    <span className={'relative ' + (block ? 'block' : 'inline-block')} ref={ref}>
+      <button type="button" className={className} aria-haspopup="menu" aria-expanded={open} aria-label={ariaLabel} title={title} onClick={() => setOpen(!open)}>
         {label}
       </button>
       {open && <div data-menu className={'absolute z-30 min-w-[200px] max-h-80 overflow-y-auto bg-sf border border-ln rounded-md shadow-pop p-1 ' + (up ? 'bottom-[calc(100%+6px)] ' : 'top-[calc(100%+6px)] ') + (right ? 'right-0' : 'left-0')} role="menu">{children(() => setOpen(false))}</div>}

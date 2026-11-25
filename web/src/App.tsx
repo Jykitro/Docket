@@ -2,11 +2,11 @@ import { useEffect, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { type Project, useProfile, useProjects } from './api'
 import { Attention } from './Attention'
-import { AppSettings } from './AppSettings'
 import { Board } from './Board'
 import { Mcp } from './Mcp'
-import { Onboarding } from './Onboarding'
+import { Onboarding, isOnboarded } from './Onboarding'
 import { Settings } from './Settings'
+import { SettingsPage } from './SettingsPage'
 import { NewProjectDialog, NewTaskDialog } from './Dialogs'
 import { useLive } from './live'
 import { tr, useLang } from './i18n'
@@ -66,12 +66,11 @@ export function App() {
   const [newTask, setNewTask] = useState<NewTaskOpts | null>(null)
   const [newProject, setNewProject] = useState(false)
   const [search, setSearch] = useState(false)
-  const [settings, setSettings] = useState<'Профиль' | 'Пространство' | null>(null)
-  // Onboarding starts when the profile has no name and stays up (latched) until it finishes, even though
-  // saving the name in step 1 makes the profile non-empty.
+  // Onboarding opens for a workspace with no name yet, or with no projects that has not finished it in this browser.
+  // It stays up (latched) until it finishes, even though its own steps fill the name and add a project.
   const profile = useProfile()
-  const [setup, setSetup] = useState(false)
-  if (profile.isSuccess && !profile.data.name && !setup) setSetup(true)
+  const [setup, setSetup] = useState<'open' | 'done' | null>(null)
+  if (setup === null && profile.isSuccess && projects.isSuccess && (!profile.data.name || (!projects.data.length && !isOnboarded()))) setSetup('open')
 
   // C opens "new task" unless the user is typing or a dialog is open; Cmd/Ctrl+K opens search.
   useEffect(() => {
@@ -97,6 +96,8 @@ export function App() {
   let page
   const proj = path.match(/^\/p\/([^/]+)(?:\/(settings)|\/(wiki)(?:\/(\d+))?)?$/)
   const taskPage = path.match(/^\/t\/([^/]+)$/)
+  const settingsPage = path.match(/^\/settings(?:\/([a-z]+))?\/?$/)
+  const section = settingsPage ? settingsPage[1] ?? 'profile' : null
   if (path === '/') page = <Today onNewTask={openNewTask} />
   else if (path === '/attention') page = <Attention />
   else if (proj && !proj[2]) page = <Board slug={proj[1]} onNewTask={openNewTask} wiki={proj[3] ? { id: proj[4] ? Number(proj[4]) : undefined } : undefined} />
@@ -104,21 +105,22 @@ export function App() {
   else if (taskPage) page = <TaskPanel key={taskPage[1]} code={taskPage[1]} mode="page" />
   else if (path === '/integrations' || path === '/mcp') page = <Mcp /> // /mcp: old bookmarks
   else if (path === '/trash') page = <Trash />
+  else if (section) page = <SettingsPage section={section} theme={theme.pref} onTheme={theme.set} />
   else page = <Soon title={tr('Страница не найдена')} hint={path} />
 
   const task = params.get('task')
   const current = proj ? projects.data?.find((p) => p.slug === proj[1]) : undefined
-  const heading = path === '/attention' ? tr('Требует внимания') : path === '/' ? tr('Сегодня') : path === '/integrations' || path === '/mcp' ? tr('Интеграции') : path === '/trash' ? tr('Корзина') : taskPage ? taskPage[1].toUpperCase()
+  const heading = path === '/attention' ? tr('Требует внимания') : path === '/' ? tr('Сегодня') : path === '/integrations' || path === '/mcp' ? tr('Интеграции') : path === '/trash' ? tr('Корзина') : section ? tr('Настройки') : taskPage ? taskPage[1].toUpperCase()
     : proj ? (current ? current.name + (proj[2] ? `: ${tr('настройки')}` : proj[3] ? `: ${tr('вики')}` : '') : tr('Проект')) : 'Plandillo'
   useEffect(() => { document.title = task ? `${task.toUpperCase()} · ${heading} · Plandillo` : heading === 'Plandillo' ? 'Plandillo' : `${heading} · Plandillo` }, [heading, task])
-  if (profile.isPending) return <div className="min-h-screen bg-bg" data-theme={theme.resolved} /> // avoid flashing the app before onboarding
-  if (setup) return <div className="min-h-screen bg-bg text-tx" data-theme={theme.resolved}><Onboarding hasProjects={!!active?.length} onDone={() => setSetup(false)} /></div>
+  if (profile.isPending || projects.isPending) return <div className="min-h-screen bg-bg" data-theme={theme.resolved} /> // avoid flashing the app before onboarding
+  if (setup === 'open') return <div className="min-h-screen bg-bg text-tx" data-theme={theme.resolved}><Onboarding hasProjects={!!active?.length} onDone={() => setSetup('done')} /></div>
   return (
     <div className="min-h-screen flex items-stretch bg-bg text-tx" data-theme={theme.resolved}>
-      <Sidebar path={path} view={params.get('view')} overdue={path === '/' && params.get('focus') === 'overdue'} rail={sidebar.rail} mobileOpen={sidebar.open} onClose={sidebar.close}
-        onWorkspaceSettings={() => {sidebar.close();setSettings('Пространство')}} onNewProject={() => { sidebar.close(); setNewProject(true) }} onSettings={() => { sidebar.close(); setSettings('Профиль') }} />
+      <Sidebar path={path} view={params.get('view')} overdue={path === '/' && params.get('focus') === 'overdue'} settings={section} rail={sidebar.rail} mobileOpen={sidebar.open} onClose={sidebar.close}
+        onNewProject={() => { sidebar.close(); setNewProject(true) }} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <Header onToggle={sidebar.toggle} sidebarExpanded={sidebar.expanded} onSearch={() => setSearch(true)} theme={theme.pref} resolved={theme.resolved} onTheme={theme.set} onSettings={() => setSettings('Профиль')} />
+        <Header onToggle={sidebar.toggle} sidebarExpanded={sidebar.expanded} onSearch={() => setSearch(true)} theme={theme.pref} resolved={theme.resolved} onTheme={theme.set} />
         <main className="flex min-w-0 flex-1 flex-col">{page}</main>
       </div>
       {task && <TaskPanel key={task} code={task} mode="drawer" />}
@@ -127,7 +129,6 @@ export function App() {
       )}
       {newTask && active && <NewTaskDialog projects={active} {...newTask} onClose={() => setNewTask(null)} />}
       {newProject && <NewProjectDialog onClose={() => setNewProject(false)} />}
-      {settings && <AppSettings initial={settings} theme={theme.pref} onTheme={theme.set} onClose={() => setSettings(null)} />}
     </div>
   )
 }

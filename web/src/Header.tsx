@@ -1,6 +1,5 @@
 // Top bar in the shadcn-admin layout: sidebar trigger, separator, search, then theme switch and profile on the right.
-import { useProfile } from './api'
-import { THEMES } from './AppSettings'
+import { THEMES, UserMenu } from './SettingsPage'
 import { Icon } from './icons'
 import { tr } from './i18n'
 import { type ThemePref } from './theme'
@@ -8,10 +7,9 @@ import { MENUITEM, Menu, kbd } from './ui'
 
 const ghost = 'inline-grid size-8 place-items-center rounded-md bg-transparent p-0 text-tx hover:bg-sk'
 
-export function Header({ onToggle, sidebarExpanded, onSearch, theme, resolved, onTheme, onSettings }: {
-  onToggle: () => void; sidebarExpanded: boolean; onSearch: () => void; theme: ThemePref; resolved: 'light' | 'dark'; onTheme: (t: ThemePref) => void; onSettings: () => void
+export function Header({ onToggle, sidebarExpanded, onSearch, theme, resolved, onTheme }: {
+  onToggle: () => void; sidebarExpanded: boolean; onSearch: () => void; theme: ThemePref; resolved: 'light' | 'dark'; onTheme: (t: ThemePref) => void
 }) {
-  const name = useProfile().data?.name ?? ''
   return (
     <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-3 border-b border-ln bg-bg/80 px-4 backdrop-blur-lg sm:gap-4">
       <button type="button" className="inline-grid size-7 place-items-center rounded-md border border-ln bg-sf p-0 text-tx shadow-xs hover:bg-sk max-md:scale-125" aria-label={tr('Боковая панель')} aria-controls="app-sidebar" aria-expanded={sidebarExpanded} onClick={onToggle}>
@@ -29,9 +27,7 @@ export function Header({ onToggle, sidebarExpanded, onSearch, theme, resolved, o
             </button>
           ))}
         </Menu>
-        <button type="button" className="grid size-8 place-items-center rounded-full bg-sk text-sm font-semibold hover:bg-ln2" aria-label={tr('Профиль и настройки')} onClick={onSettings}>
-          {name ? name.charAt(0).toUpperCase() : <Icon name="user" size={15} sw={2} />}
-        </button>
+        <UserMenu variant="header" />
       </div>
     </header>
   )

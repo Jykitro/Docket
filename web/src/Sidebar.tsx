@@ -1,9 +1,11 @@
-// Sidebar in the shadcn-admin layout: team block on top, labelled nav groups, user card at the bottom.
+// Sidebar in the shadcn-admin layout: workspace switcher on top, labelled nav groups, account menu at the bottom.
+// On /settings/* the nav groups give way to the settings sections.
 // `rail` is the collapsed icon-only mode (desktop); on narrow screens it is an off-canvas drawer.
-import { WorkspaceSelector } from './Workspaces'
+import { WorkspaceSwitcher } from './Workspaces'
+import { SettingsNav, UserMenu } from './SettingsPage'
 import { type ReactNode } from 'react'
 import { useQueries, useQuery } from '@tanstack/react-query'
-import { type Project, type View, api, useAttention, useMe, useProfile, useProjects } from './api'
+import { type Project, type View, api, useAttention, useProjects } from './api'
 import { Icon, ProjectTile } from './icons'
 import { PlandilloLogo } from './PlandilloLogo'
 import { tr } from './i18n'
@@ -25,13 +27,11 @@ function Group({ label, rail, action, children }: { label: string; rail: boolean
   )
 }
 
-export function Sidebar({ path, view, overdue, rail, mobileOpen, onClose, onNewProject, onSettings, onWorkspaceSettings }: {
-  path: string; view: string | null; overdue: boolean; rail: boolean; mobileOpen: boolean; onClose: () => void; onNewProject: () => void; onSettings: () => void; onWorkspaceSettings: () => void
+export function Sidebar({ path, view, overdue, settings, rail, mobileOpen, onClose, onNewProject }: {
+  path: string; view: string | null; overdue: boolean; settings: string | null; rail: boolean; mobileOpen: boolean; onClose: () => void; onNewProject: () => void
 }) {
   const trap = useFocusTrap<HTMLElement>(mobileOpen)
   const projects = useProjects()
-  const name = useProfile().data?.name ?? ''
-  const me = useMe().data
   const today = useQuery({ queryKey: ['today', 'now'], queryFn: () => api.today() })
   const attention = useAttention()
   const trash = useQuery({ queryKey: ['trash'], queryFn: api.trash })
@@ -72,9 +72,10 @@ export function Sidebar({ path, view, overdue, rail, mobileOpen, onClose, onNewP
           <PlandilloLogo compact={rail} />
           {mobileOpen && <button type="button" className="ml-auto grid size-8 place-items-center rounded-md text-t2 hover:bg-sk" aria-label={tr('Закрыть')} onClick={onClose}><Icon name="x" /></button>}
         </div>
+        <div className={'px-2 pb-2 ' + (rail ? 'flex justify-center' : '')}><WorkspaceSwitcher rail={rail} /></div>
 
         <div className="flex min-h-0 grow flex-col gap-3 overflow-y-auto px-2 py-1">
-          <WorkspaceSelector rail={rail} onSettings={onWorkspaceSettings}/>
+          {settings !== null ? <SettingsNav section={settings} rail={rail} /> : <>
           <Group label={tr('Общее')} rail={rail}>
             <nav className="flex flex-col gap-0.5" aria-label={tr('Разделы')}>
               {nav.map((n) => (
@@ -123,10 +124,11 @@ export function Sidebar({ path, view, overdue, rail, mobileOpen, onClose, onNewP
               ))}
             </Group>
           )}
+          </>}
         </div>
 
         <div className="flex shrink-0 flex-col gap-1 p-2">
-          <Group label={tr('Дополнительно')} rail={rail}>
+          {settings === null && <Group label={tr('Дополнительно')} rail={rail}>
             <a href="https://github.com/huntly-digital/plandillo" target="_blank" rel="noopener noreferrer" className={cls(false)} title={rail ? 'GitHub' : undefined}>
               <Icon name="github" />
               {!rail && <span className={nvName}>GitHub</span>}
@@ -135,19 +137,8 @@ export function Sidebar({ path, view, overdue, rail, mobileOpen, onClose, onNewP
               <Icon name="flag" />
               {!rail && <span className={nvName}>{tr('Сообщить о проблеме')}</span>}
             </a>
-          </Group>
-          <button type="button" className={'flex w-full items-center gap-2 rounded-md p-2 text-left hover:bg-sk ' + (rail ? 'justify-center px-0' : '')} aria-label={tr('Настройки')} title={tr('Настройки: профиль, тема, платформа')} onClick={onSettings}>
-            <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-sk text-sm font-semibold">{me?.user?.photo ? <img src={me.user.photo} className="size-8 rounded-lg" alt="" /> : name ? name.charAt(0).toUpperCase() : <Icon name="user" size={15} sw={2} />}</span>
-            {!rail && (
-              <>
-                <span className="flex min-w-0 grow flex-col leading-tight">
-                  <b className="truncate text-sm font-semibold">{name || tr('Профиль')}</b>
-                  <span className="truncate text-xs text-t3">{me?.mode === 'selfhost' ? (me.user?.is_admin ? tr('администратор') : tr('пользователь')) : tr('локально · без входа')}</span>
-                </span>
-                <span className="text-t3"><Icon name="chevUD" size={16} /></span>
-              </>
-            )}
-          </button>
+          </Group>}
+          <UserMenu variant="sidebar" rail={rail} />
         </div>
         </div>
       </aside>

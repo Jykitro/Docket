@@ -1,5 +1,4 @@
-// Self-host account block of the settings dialog: who you are, logout, password change and, for admins,
-// users and invites. Rendered by AppSettings only in self-host mode.
+// Self-host account blocks of the settings pages: sign-in and password (Security) and, for admins, users and invites.
 import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ApiError, type AuthUser, type Registration, api, errText } from './api'
@@ -95,7 +94,7 @@ function Invites({ closed }: { closed: boolean }) {
   )
 }
 
-function Users({ me }: { me: AuthUser }) {
+export function Users({ me }: { me: AuthUser }) {
   const qc = useQueryClient()
   const users = useQuery({ queryKey: ['admin', 'users'], queryFn: api.adminUsers })
   const registration = useQuery({ queryKey: ['signup-mode'], queryFn: api.registration })
@@ -172,7 +171,6 @@ export function AccountSection({ user }: { user: AuthUser }) {
       </div>
       <PasskeySettings />
       <ChangePassword username={user.username} /><OwnerControls admin={user.is_admin} />
-      {user.is_admin && <Users me={user} />}
     </>
   )
 }

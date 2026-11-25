@@ -3,10 +3,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, errText, useMe } from './api'
 import { thumbnail } from './ProjectIconPicker'
 import { tr, locale } from './i18n'
-import { btn, btnPri, cap } from './ui'
+import { Avatar, btn, btnPri, cap } from './ui'
 
 const field = 'rounded-md border border-ln bg-sf px-2 py-1.5'
-export function ProfilePhoto() {
+export function ProfilePhoto({ name }: { name: string }) {
   const me = useMe().data?.user
   const qc = useQueryClient()
   const update = useMutation({
@@ -14,10 +14,10 @@ export function ProfilePhoto() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['me'] }),
   })
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      {me?.photo && <img src={me.photo + '?v=' + me.updated_at} className="size-9 rounded-md" alt="" />}
-      <label className={btn}>
-        {tr('Фото профиля')}
+    <div className="flex flex-wrap items-center gap-3">
+      <Avatar name={name} photo={me?.photo && me.photo + '?v=' + me.updated_at} size={48} />
+      <label className={btn + ' cursor-pointer has-disabled:opacity-50'}>
+        {tr(me?.photo ? 'Заменить фото' : 'Загрузить фото')}
         <input
           className="sr-only"
           type="file"
@@ -31,11 +31,11 @@ export function ProfilePhoto() {
         />
       </label>
       {me?.photo && (
-        <button className={btn} disabled={update.isPending} onClick={() => update.mutate(null)}>
+        <button type="button" className={btn} disabled={update.isPending} onClick={() => update.mutate(null)}>
           {tr('Удалить фото')}
         </button>
       )}
-      {update.isError && <p role="alert">{errText(update.error)}</p>}
+      {update.isError && <p className="w-full text-[13px] text-rd" role="alert">{errText(update.error)}</p>}
     </div>
   )
 }
