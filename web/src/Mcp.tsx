@@ -1,3 +1,4 @@
+import { OAuthConnections } from './OAuth'
 // Integrations tab: the ways an assistant reaches Plandillo (MCP, Code Mode) and what they share: status and
 // self-check, token and access mode, tool switches, live call log. See docs/integrations.md.
 import { useState } from 'react'
@@ -27,7 +28,7 @@ const SEGBTN = 'rounded-md px-2.5 py-[3px] text-t3 disabled:cursor-default disab
 const FC = 'inline-flex h-7 items-center gap-1.5 whitespace-nowrap rounded-full border border-ln bg-sf px-2.5 text-[12.5px] text-t2 hover:bg-sk aria-pressed:border-transparent aria-pressed:bg-acs aria-pressed:font-medium aria-pressed:text-act aria-pressed:hover:bg-sk'
 const MONO = 'font-mono text-[11.5px] text-t3'
 const CODE_TAB = ['Claude Code', 'Claude Desktop', 'Codex', 'Другой клиент'] as const
-// Both endpoints take the same token and run the same tools (mcpserver/codemode.go); a client connects to one.
+// Each endpoint is a separate OAuth resource backed by the same workspace tools.
 const INTEGRATIONS = [
   ['MCP', '/mcp', 'Инструмент на каждое действие: ассистент вызывает их по одному. Работает в любом MCP-клиенте.'],
   ['Code Mode', '/mcp/code', 'Один инструмент code: ассистент пишет JavaScript, который вызывает те же инструменты (codemode.get_today() и другие), и получает только итог. Меньше шагов и контекста на больших задачах.'],
@@ -44,17 +45,12 @@ function copyText(text: string) {
   return navigator.clipboard?.writeText(text)
 }
 
-function config(tab: number, address: string, endpoint: string) {
-  if (tab === 3) return `${address}\nAuthorization: Bearer <TOKEN>`
-  // Keep this encoding identical to skills/install.sh. Two endpoints never share a credential.
-  const key = Array.from(new TextEncoder().encode(endpoint), b => b.toString(16).padStart(2, '0')).join('')
-  const credential = 'DOCKET_MCP_' + key
-  const prompt = `export ${credential}="$(bash -c 'IFS= read -rs -p "Plandillo token: " token </dev/tty && printf %s "$token"')"`
-  if (tab === 0) return `${prompt}\nclaude mcp add --transport http plandillo ${shellQuote(address)} --header 'Authorization: Bearer \${${credential}}'`
-  if (tab === 2) return `${prompt}\ncodex mcp add plandillo --url ${shellQuote(address)} --bearer-token-env-var ${credential}`
+function config(tab: number, address: string) {
+  if (tab === 3) return address
+  if (tab === 0) return `claude mcp add --transport http plandillo ${shellQuote(address)}\nclaude mcp login plandillo`
+  if (tab === 2) return `codex mcp add plandillo --url ${shellQuote(address)}\ncodex mcp login plandillo`
   return JSON.stringify({ mcpServers: { plandillo: { command: 'npx',
-    args: ['-y', 'mcp-remote', address, '--header', 'Authorization:${AUTH}', ...(address.startsWith('http:') ? ['--allow-http'] : [])],
-    env: { AUTH: 'Bearer <TOKEN>' },
+    args: ['-y', 'mcp-remote', address, ...(address.startsWith('http:') ? ['--allow-http'] : [])],
   } } }, null, 2)
 }
 
@@ -84,7 +80,7 @@ export function Mcp() {
   const reveal = useMutation({ mutationFn: api.mcpToken, onSuccess: (t) => setToken(t.token) })
   const rotate = useMutation({
     mutationFn: api.rotateMcpToken,
-    onSuccess: (t) => { setToken(t.token); setRotated(true); qc.invalidateQueries({ queryKey: ['mcp-settings'] }) },
+    onSuccess: (t) => { setToken(t.token); setRotated(true); qc.invalidateQueries({ queryKey: ['mcp-settings'] }); qc.invalidateQueries({ queryKey: ['oauth-connections'] }) },
   })
   const clear = useMutation({ mutationFn: api.clearMcpCalls, onSettled: () => qc.invalidateQueries({ queryKey: ['mcp-calls'] }) })
   const [copied, setCopied] = useState('')
@@ -92,7 +88,7 @@ export function Mcp() {
   const fullToken = async () => token ?? (await api.mcpToken()).token
 
   const endpoint = location.origin + INTEGRATIONS[kind][1]
-  const agent = tab === 3 ? customAgent.trim() : tab === 2 ? 'codex' : 'claude'
+  const agent = tab === 3 ? customAgent.trim() : ''
   const address = agent ? endpoint + '?' + new URLSearchParams({ agent }) : endpoint
   const s = settings.data
   const st = status.data
@@ -179,12 +175,12 @@ export function Mcp() {
                   </div>
                   <span className={HINT}>{tr('Транспорт — Streamable HTTP')}</span>
                 </div>
-                <div className={LB}>{tr('Токен')}
+                <div className={LB}>{tr('Токен для скриптов')}
                   <div className={FLD}><Icon name="key" size={15} /><span className="flex-1 truncate font-mono">{shownToken}</span>
                     <button type="button" className={BTN_SM_SQ} aria-label={token ? tr('Скрыть токен') : tr('Показать токен')} onClick={() => (token ? setToken(null) : reveal.mutate())}><Icon name={token ? 'x' : 'search'} size={15} /></button>
                     <button type="button" className={BTN_SM_SQ} aria-label={tr('Копировать токен')} onClick={async () => { await copyText(await fullToken()); flash('token') }}><Icon name={copied === 'token' ? 'check' : 'link'} size={15} /></button>
                   </div>
-                  <span className={HINT}>{s?.token_from_env ? tr('Задан в .env как DOCKET_MCP_TOKEN: перевыпуск отключён.') : tr('Хранится в базе. После перевыпуска обновите клиент.')}</span>
+                  <span className={HINT}>{s?.token_from_env ? tr('Задан в .env как DOCKET_MCP_TOKEN: перевыпуск отключён.') : tr('Для входа через браузер достаточно адреса сервера.')}</span>
                 </div>
               </div>
               <div>
@@ -193,22 +189,23 @@ export function Mcp() {
                     {CODE_TAB.map((n, i) => <button key={n} type="button" role="tab" aria-selected={tab === i} className={SEGBTN + 'aria-selected:bg-sk aria-selected:font-semibold aria-selected:text-tx'} onClick={() => setTab(i)}>{tr(n)}</button>)}
                   </span>
                   <span className="grow" />
-                  <button type="button" className={BTN_SM} onClick={async () => { await copyText(config(tab, address, endpoint)); flash('cfg') }}>
+                  <button type="button" className={BTN_SM} onClick={async () => { await copyText(config(tab, address)); flash('cfg') }}>
                     <Icon name={copied === 'cfg' ? 'check' : 'doc'} size={14} />{copied === 'cfg' ? tr('Скопировано') : tr('Скопировать конфиг')}
                   </button>
-                  <ConfirmButton className={BTN_SM + ' [&.warn]:border-rd [&.warn]:text-rd'} label={tr('Перевыпустить токен')} armed={tr('Старый токен перестанет работать. Перевыпустить?')} disabled={!s || s.token_from_env || rotate.isPending}
+                  <ConfirmButton className={BTN_SM + ' [&.warn]:border-rd [&.warn]:text-rd'} label={tr('Перевыпустить токен')} armed={tr('Перевыпуск отключит токен и приложения этого пространства. Продолжить?')} disabled={!s || s.token_from_env || rotate.isPending}
                     icon={<Icon name="clock" size={14} />} onConfirm={() => rotate.mutate()} />
                 </div>
                 {tab === 3 && <label className={LB + ' mb-2'}>{tr('Имя агента')}
                   <input className={FLD} value={customAgent} maxLength={48} placeholder={tr('Из запроса MCP')} onChange={(e) => setCustomAgent(e.target.value)} />
                 </label>}
                 {rotated && <div className="mb-2 text-[13px] text-dgt" role="status">{tr('Токен перевыпущен. Скопируйте новый токен и обновите его в клиенте.')}</div>}
-                <pre className="overflow-x-auto rounded-[10px] border border-ln bg-sf2 px-4 py-3.5 font-mono text-[12.5px] leading-[1.65] whitespace-pre text-t2">{config(tab, address, endpoint)}</pre>
+                <pre className="overflow-x-auto rounded-[10px] border border-ln bg-sf2 px-4 py-3.5 font-mono text-[12.5px] leading-[1.65] whitespace-pre text-t2">{config(tab, address)}</pre>
                 {rotate.isError && <div className="text-[13px] text-rd" role="alert">{rotate.error.message}</div>}
               </div>
             </div>
           </section>
 
+          <OAuthConnections />
           <McpAgent tab={tab} url={endpoint} />
 
           <section className={PANEL}>

@@ -30,7 +30,9 @@ Open <http://localhost:7777>, enter your name and create your first project. The
 
 ## Connecting agents (MCP)
 
-Open **Integrations** to get the MCP server URL and bearer token for your agent. Choose **Other client** for the settings you can use with any client that supports Streamable HTTP and bearer authentication.
+Open **Integrations** and copy the configuration for your agent. Codex and Claude Code need only the MCP URL. Sign in through the browser, choose a workspace and approve access. The client receives and refreshes its tokens automatically. A manual workspace token is available for scripts.
+
+Install the three agent skills through skills.sh or the Plandillo plugin for Codex and Claude Code. [Installation commands](docs/agents.md#install-agent-skills)
 
 Try asking *“Add a task to test the mobile menu tomorrow. Give it a checklist for touch and keyboard.”* Open the card to see the plan. After testing, ask your agent to record the results on that same card. [Agent setup and examples](docs/agents.md)
 

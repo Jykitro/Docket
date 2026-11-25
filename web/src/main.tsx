@@ -22,6 +22,7 @@ import { ConnectionGate } from './Pwa'
 import { WorkspaceGate } from './Workspaces'
 import { workspaceId } from './workspacePath'
 import { hashKey } from '@tanstack/react-query'
+import { OAuthConsent } from './OAuth'
 import { Gate } from './Auth'
 
 const client = new QueryClient({ defaultOptions: { queries: { queryKeyHashFn: key => hashKey([workspaceId, ...key]), retry: (failures, error) => failures < 1 && !(error instanceof CollectionLimit), staleTime: 5_000 } } })
@@ -35,7 +36,7 @@ if (import.meta.env.PROD && window.isSecureContext && 'serviceWorker' in navigat
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={client}>
-      <ConnectionGate><Gate><WorkspaceGate><App /></WorkspaceGate></Gate></ConnectionGate>
+      <ConnectionGate><Gate>{location.pathname === '/oauth/authorize' ? <OAuthConsent /> : <WorkspaceGate><App /></WorkspaceGate>}</Gate></ConnectionGate>
       <PagingRequests />
     </QueryClientProvider>
   </StrictMode>,

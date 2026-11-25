@@ -1,0 +1,12 @@
+{
+  "name": "huntly-digital",
+  "description": "Agent plugins from Huntly Digital for working with Plandillo.",
+  "owner": { "name": "Huntly Digital" },
+  "plugins": [
+    {
+      "name": "plandillo",
+      "source": "./skills",
+      "description": "Plan work, track findings and maintain a project wiki through Plandillo MCP."
+    }
+  ]
+}

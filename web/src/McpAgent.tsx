@@ -21,16 +21,16 @@ const SKILLS = [
 ] as const
 // One file works for both: Claude Code and Codex share the hooks format and the Stop contract.
 // SessionStart stdout becomes context. Stop blocks the first stop of a turn and lets the second pass (stop_hook_active),
-// so it cannot loop; "not tracked" gives repos without Plandillo a way out.
+// so the reminder also lets read-only and untracked work finish.
 const HOOK = `{
   "hooks": {
     "SessionStart": [{ "hooks": [{
       "type": "command",
-      "command": "echo 'Plandillo: every piece of work needs a task. Search for it or create it with the plan, status doing. Follow the plandillo skill.'"
+      "command": "echo 'Plandillo: for tracked work, follow the Plandillo workflow. Answer board questions with reads and respect a request to skip tracking.'"
     }] }],
     "Stop": [{ "hooks": [{
       "type": "command",
-      "command": "grep -Eq '\\"stop_hook_active\\": ?true' && exit 0; echo '{\\"decision\\":\\"block\\",\\"reason\\":\\"Plandillo end checklist: tick finished steps, add_note the result, move_tasks to done only if checks passed, record findings with report_issue and list their IDs, check get_board doing. Not tracked in Plandillo: say so and finish.\\"}'"
+      "command": "grep -Eq '\\"stop_hook_active\\": ?true' && exit 0; echo '{\\"decision\\":\\"block\\",\\"reason\\":\\"Plandillo end checklist: tick finished steps, add_note the result, move_tasks to done only if checks passed, record findings with report_issue and list their IDs, check get_board doing. For read-only requests or untracked work, finish without planner writes.\\"}'"
     }] }]
   }
 }`
@@ -72,7 +72,7 @@ export function McpAgent({ tab, url }: { tab: number; url: string }) {
           <button type="button" className={PRI} onClick={() => copy('install', install)}>
             <Icon name={copied === 'install' ? 'check' : 'spark'} size={15} />{copied === 'install' ? tr('Команда скопирована') : tr('Установить одной командой')}
           </button>
-          <span className="min-w-0 flex-[1_1_260px] text-[12.5px] text-t3">{tr('Выполните команду в терминале на macOS или Linux. Скрипт установит навыки и покажет команду для скрытого ввода токена. Запускайте Claude Code или Codex из этой оболочки.')}</span>
+          <span className="min-w-0 flex-[1_1_260px] text-[12.5px] text-t3">{tr('Установите навыки в терминале и подтвердите подключение в браузере. Для Claude Code откройте /mcp, для Codex выполните команду входа из установщика.')}</span>
         </div>
         <ol className="flex flex-col gap-1.5 text-[13px]">
           {STEPS.map(([name, text], i) => (

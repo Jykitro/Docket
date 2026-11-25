@@ -1,13 +1,13 @@
 # Connecting your AI agent
 
-Plandillo exposes your task board through the Model Context Protocol (MCP). Use an agent that can connect to a Streamable HTTP server and send a bearer token.
+Connect Codex, Claude Code or another OAuth-capable Streamable HTTP client using just the server URL.
 
-1. Open **Integrations** on your board and select **MCP**. Under **Other client**, optionally enter a name for your agent. Plandillo includes that name in the URL so you can recognize the agent’s notes and changes in the activity log.
-2. Copy the server URL into your client’s MCP settings. For a local agent, the default endpoint is `http://localhost:7777/mcp`. For a hosted board, use its HTTPS address.
-3. Copy the token from **Integrations** into the client’s secret settings and send it as `Authorization: Bearer <TOKEN>`. In a shared installation, use the token from your own profile.
-4. Ask “What’s on my board today?” and check the call log in **Integrations** to confirm the connection.
+1. In **Integrations**, choose **MCP** or **Code Mode** and copy the configuration for your client. The local MCP URL is `http://localhost:7777/mcp`. On a hosted installation use its HTTPS URL.
+2. Run `codex mcp login plandillo` or `claude mcp login plandillo` after registering the server. Claude Code also offers authentication through `/mcp`. For a plugin-managed connection, select its server in the client's MCP settings.
+3. Sign in to Plandillo if prompted, select the workspace and approve the requested access. Clear the write checkbox to allow reads only. The client receives and refreshes its tokens automatically.
+4. Ask “What’s on my board today?” and check the workspace call log. To disconnect one client, open **Integrations → Connected apps** in that workspace.
 
-The same tab has ready-made configurations for Claude Code, Claude Desktop and Codex. For a CLI preset, run the hidden-input command in the shell that starts the client. Repeat this step after rotating the token. When switching endpoints, copy the new endpoint’s configuration.
+For a local board, authorize using a loopback address on the machine running Plandillo. A remote client must be able to reach the HTTPS installation. For a script or a client that only supports static credentials, copy the workspace token from **Integrations** into its secret settings and send `Authorization: Bearer <TOKEN>`. Rotating this token also requires OAuth clients for that workspace to authorize again.
 
 <p align="center">
   <img src="images/mcp-dark.png" alt="Integrations showing the server address, masked token and access mode" width="820">
@@ -25,7 +25,7 @@ Open a project in the web UI and connect a client using **Integrations**. Try th
 
 [Start the isolated worker](hosting.md#code-mode-worker) to enable Code Mode.
 
-At `/mcp/code`, the agent uses the same bearer token and
+At `/mcp/code`, the agent authorizes that endpoint separately and
 sees one tool, `code`, after [Cloudflare's Code Mode](https://developers.cloudflare.com/agents/tools/codemode/): it
 writes JavaScript that calls the 19 tools as `await codemode.get_today({})`, loops and filters inside Plandillo, and gets
 back only the result. That saves round trips and context on big jobs (triage, bulk moves, reports). The code runs in
@@ -33,42 +33,49 @@ an embedded sandbox with no network or files, for at most 30 seconds and 100 too
 and the call log apply to every call it makes. Pick MCP or Code Mode on the **Integrations** tab: the address, the
 configs and the install command follow. How it works inside: [Integration internals](integrations.md).
 
-## Agent skill: Plandillo as a personal planner
+## Install agent skills
 
-Three skills in [`skills/`](../skills), one `SKILL.md` each:
+Choose one method per client. For a new board, **Integrations → Install in one command** sets up the skills and registers MCP in Claude Code and Codex on macOS or Linux. The script runs locally. Follow the printed login instructions to authorize in the browser.
 
-| Skill | What it covers |
+The native plugins include the three skills and the hosted MCP endpoint at `https://app.plandillo.dev/mcp`. For a local board, a different host or Code Mode, install the skills and register the URL from that board’s **Integrations** tab. The skills.sh command installs the instructions only.
+
+### skills.sh
+
+Run this in the project where you want the skills. Select one or both agents. Add `-g` for a personal installation.
+
+```sh
+npx skills add huntly-digital/plandillo --skill plandillo plandillo-reference plandillo-setup --agent codex claude-code
+```
+
+Once the changes are available on GitHub, installations from the repository can surface the skills on the skills.sh leaderboard through its CLI telemetry. [How listing works](https://skills.sh/docs/faq)
+
+### Codex plugin
+
+```sh
+codex plugin marketplace add huntly-digital/plandillo
+codex plugin add plandillo@huntly-digital
+```
+
+### Claude Code plugin
+
+```sh
+claude plugin marketplace add huntly-digital/plandillo
+claude plugin install plandillo@huntly-digital
+```
+
+To test an unreleased checkout, replace `huntly-digital/plandillo` in the **add source** command with the absolute path to the checkout. Use the same plugin ID. The native setup skill is available as `$plandillo:plandillo-setup` in Codex and `/plandillo:plandillo-setup` in Claude Code. Open a new client session and ask it to list your Plandillo projects. On Code Mode it calls `code` with `return await codemode.list_projects({})`. Check the workspace and agent label in the Integrations call log.
+
+### What the agent loads
+
+| Skill | When the agent uses it |
 |---|---|
-| [`plandillo`](../skills/plandillo/SKILL.md) | Find or create a task, record the plan as a checklist, add notes, call `report_issue` when a problem appears, and reconcile the board before the final message. |
-| [`plandillo-reference`](../skills/plandillo-reference/SKILL.md) | The answers an agent needs: data model, every tool and its quirks, error codes, conventions for plans, notes and issues, a FAQ |
-| [`plandillo-setup`](../skills/plandillo-setup/SKILL.md) | Connecting Claude Code, Claude Desktop and Codex, installing the skills, the hooks, troubleshooting |
+| [plandillo](../skills/plandillo/SKILL.md) | Read the board or track a piece of work from its checklist to verified completion. The server also sends this workflow as MCP instructions. |
+| [plandillo-reference](../skills/plandillo-reference/SKILL.md) | Choose among the 19 MCP tools, construct arguments, resolve a conflict or recover from an uncertain write. |
+| [plandillo-setup](../skills/plandillo-setup/SKILL.md) | Connect a client, install the skills, enable optional session reminders or diagnose missing tools. |
 
-- Plandillo sends the body of `plandillo` to every client as the MCP server instructions, so a connected agent has the workflow already. A test keeps it under the 2048 bytes Claude Code accepts, which is why the detail lives in the other two skills.
-- To have the skills trigger from the first message, install them. The **Integrations** tab has an **Install in one command** button: it
-  copies one line to paste into a terminal (macOS, Linux). The script writes all three skills for Claude Code (`~/.claude/skills`)
-  and Codex (`~/.agents/skills`) and registers the MCP server in whichever of the two it finds. It is served at
-  `/api/mcp/install.sh` and takes the address from `PLANDILLO_URL`. It prints the credential setup command after registration:
+**Manual installation.** The Integrations tab offers Copy and Download for each SKILL.md. Put each file under its skill name in `~/.claude/skills/` or `~/.agents/skills/` (Codex). The server also serves them at `/api/mcp/skill/<name>` and its shell installer at `/api/mcp/install.sh`. For authenticated self-hosted downloads use the signed-in UI.
 
-  ```bash
-  curl -fsSL http://localhost:7777/api/mcp/install.sh | PLANDILLO_URL=http://localhost:7777/mcp sh
-  ```
-
-  By hand, the same tab has Copy and Download buttons, and the server serves each skill at `/api/mcp/skill/<name>`.
-  Claude Code reads `~/.claude/skills/<name>/SKILL.md`, Codex `~/.agents/skills/<name>/SKILL.md`:
-
-  ```bash
-  for s in plandillo plandillo-reference plandillo-setup; do
-    mkdir -p ~/.claude/skills/$s    # Codex: ~/.agents/skills/$s
-    curl -fsS http://localhost:7777/api/mcp/skill/$s -o ~/.claude/skills/$s/SKILL.md
-  done
-  ```
-
-  In selfhost mode the API needs a login: use the Download buttons instead.
-- Optional strict mode, the same JSON for Claude Code and Codex (the snippet is on the **Integrations** tab): a `SessionStart`
-  hook reminds the agent to find or create the task, and a `Stop` hook makes it run the reconcile step before it
-  finishes. It blocks only the first stop of a turn, so it cannot loop. Claude Code: the project's
-  `.claude/settings.json`. Codex: `~/.codex/hooks.json` (hooks are on by default). Codex's file is global, so in a repo
-  without Plandillo the agent answers "not tracked" and finishes.
+**Optional hooks.** The setup skill and Integrations tab provide the same SessionStart and Stop configuration. Install it separately if you want a reminder before the agent finishes a turn.
 
 ## Tools
 

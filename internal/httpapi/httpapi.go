@@ -237,9 +237,20 @@ func hostname(hostport string) string {
 	return strings.ToLower(strings.Trim(h, "[]"))
 }
 
+type verifiedMCPWorkspace struct{}
+
+// WithVerifiedMCPWorkspace binds a verified OAuth request to the exact in-process workspace service.
+func WithVerifiedMCPWorkspace(ctx context.Context, svc *service.Service) context.Context {
+	return context.WithValue(ctx, verifiedMCPWorkspace{}, svc)
+}
+
 // bearer checks the MCP token on every request, so a rotated token takes effect at once.
 func bearer(svc *service.Service, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Context().Value(verifiedMCPWorkspace{}) == svc {
+			next.ServeHTTP(w, r)
+			return
+		}
 		token, err := svc.MCPToken(r.Context())
 		want := []byte("Bearer " + token)
 		if err != nil || token == "" || subtle.ConstantTimeCompare([]byte(r.Header.Get("Authorization")), want) != 1 {

@@ -114,6 +114,7 @@ function Guest({ path, saved }: { path: string; saved: Saved }) {
 
 export function Gate({ children }: { children: ReactNode }) {
   const me = useMe()
+  const [returnPath] = useState(() => location.pathname === '/oauth/authorize' ? location.pathname + location.search : '/')
   const [issued, setIssued] = useState<IssuedCode | null>(null)
   const { path } = useRoute()
   useLang() // re-render the login screens when the language changes (App does the same for the app)
@@ -136,11 +137,11 @@ export function Gate({ children }: { children: ReactNode }) {
   // Signed in already: drop /invite/<token> from the URL and history instead of letting the app print it as "not found".
   const leaving = !loggedOut && !!me.data?.user && (path.startsWith('/invite/') || path === '/register' || path === '/recover')
   useEffect(() => {
-    if (leaving) navigate('/', true)
-  }, [leaving])
+    if (leaving) navigate(returnPath, true)
+  }, [leaving, returnPath])
 
   const wrap = (el: ReactNode) => <div className="min-h-screen bg-bg text-tx">{el}</div>
-  const saved: Saved = ({ recovery_code, id }) => { setIssued({ recovery_code, id }); navigate('/', true) }
+  const saved: Saved = ({ recovery_code, id }) => { setIssued({ recovery_code, id }); navigate(returnPath, true) }
   // Registration signs in the new owner, while recovery issues a code on the guest screen.
   if (issued && (issued.id === undefined ? loggedOut : me.isSuccess && me.data.user?.id === issued.id)) return wrap(<main className="min-h-screen grid place-items-center p-4"><section className="w-full max-w-md bg-sf border border-ln rounded-lg p-6 grid gap-4">
     <h1 className="font-semibold">{tr('Сохраните резервный код')}</h1><p>{tr('Этот одноразовый код позволит задать новый пароль. Сохраните его в менеджере паролей.')}</p>

@@ -119,6 +119,9 @@ func (s *Store) ChangeSpace(ctx context.Context, owner, id int64, in SpaceChange
 				return v, ErrLastSpace
 			}
 		}
+		if _, err = tx.Exec("DELETE FROM oauth_grants WHERE workspace_id=?", id); err != nil {
+			return v, err
+		}
 		_, err = tx.Exec("UPDATE workspaces SET archived_at=?,updated_at=?,mcp_token=NULL,token_digest=NULL WHERE id=?", now, now, id)
 	case "restore":
 		_, err = tx.Exec("UPDATE workspaces SET archived_at=NULL,updated_at=? WHERE id=?", now, id)

@@ -1,0 +1,12 @@
+{
+  "name": "huntly-digital",
+  "interface": { "displayName": "Huntly Digital" },
+  "plugins": [
+    {
+      "name": "plandillo",
+      "source": { "source": "local", "path": "./skills" },
+      "category": "Productivity",
+      "policy": { "installation": "AVAILABLE", "authentication": "ON_INSTALL" }
+    }
+  ]
+}

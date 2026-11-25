@@ -32,7 +32,12 @@ found=
 if command -v claude >/dev/null 2>&1; then
   install_skills "$HOME/.claude/skills"
   claude mcp remove "$name" --scope user >/dev/null 2>&1 || true
-  claude mcp add --scope user --transport http "$name" "$(agent_url claude)" --header "Authorization: Bearer \${$credential}"
+  if [ -n "${PLANDILLO_URL:-}" ]; then
+    claude mcp add --scope user --transport http "$name" "$endpoint"
+    echo "To authorize Plandillo in your browser, run: claude mcp login $name (or open /mcp in Claude Code)."
+  else
+    claude mcp add --scope user --transport http "$name" "$(agent_url claude)" --header "Authorization: Bearer \${$credential}"
+  fi
   echo "Claude Code: skills installed, MCP server added"
   found=1
 fi
@@ -40,7 +45,12 @@ if command -v codex >/dev/null 2>&1; then
   install_skills "$HOME/.agents/skills"
   codex mcp remove "$name" >/dev/null 2>&1 || true
   # Codex reads the token from an environment variable, so it never lands in config.toml.
-  codex mcp add "$name" --url "$(agent_url codex)" --bearer-token-env-var "$credential"
+  if [ -n "${PLANDILLO_URL:-}" ]; then
+    codex mcp add "$name" --url "$endpoint"
+    echo "To authorize Plandillo in your browser, run: codex mcp login $name"
+  else
+    codex mcp add "$name" --url "$(agent_url codex)" --bearer-token-env-var "$credential"
+  fi
   echo "Codex: skills installed, MCP server added"
   found=1
 fi
@@ -48,6 +58,7 @@ if [ -z "$found" ]; then
   echo "Neither claude nor codex is in PATH. Install one of them and run this again." >&2
   exit 1
 fi
+if [ -n "${PLANDILLO_URL:-}" ]; then exit 0; fi
 echo "In the shell that starts the client, run the following command and paste the token at the hidden prompt:"
 cat <<DOCKET_PROMPT
 export ${credential}="\$(bash -c 'IFS= read -rs -p "Plandillo token: " token </dev/tty && printf %s "\$token"')"

@@ -1,114 +1,81 @@
 ---
 name: plandillo-reference
-description: Use when unsure how a Plandillo tool, field, status key, task ID, date or error code behaves, or which project, area or priority to use, before guessing at an MCP call.
+description: Use when choosing a Plandillo MCP tool or its arguments, editing a task or wiki page without losing work, publishing HTML, paginating results, or handling a failed write.
 ---
 
-# Plandillo reference
+# Plandillo MCP reference
 
-Plandillo is the user's personal task planner. Your MCP connection identifies your edits by agent name (for example `codex` or `claude`); the user works in the same data through the web UI and sees your changes live. The workflow you follow (task per piece of work, plan, notes, issues, end checklist) is the `plandillo` skill. This file answers "how does X behave".
+Use the schema advertised by the connected server. Tool names below are the names on the wire. Clients may prefix them with the connection name, including `docket` on older installations. The workspace selected during OAuth approval, or the workspace that issued a manual token, determines which data you can access. A client label such as `codex` identifies the author in history.
 
-## Data model
+## Read the right record
 
-- **Project**: `key` 2-5 characters, A-Z first then A-Z or 0-9 (`TRK`); `slug` a-z, 0-9, `-`; `name`; optional `icon`, `color` (`#rrggbb`), `description`. Task IDs are `KEY-NN` (`TRK-07`). Numbers are never reused. A key change renumbers every ID.
-- **Status**: per project, addressed by `key`. A new project has `backlog` (Бэклог), `todo` (К работе), `doing` (В работе), `done` (Готово). Each status belongs to a category (todo, doing, done); the user can rename, add or remove statuses, so never assume `doing` exists: an unknown key returns the project's real keys in the error.
-- **Task**: `title`, `description_md` (markdown; `- [ ]` and `- [x]` render as clickable checkboxes), `status`, `priority` (`P0` highest, `P1` default, `P2`; any other value fails with `priority must be one of P0, P1, P2`), `area` (free label up to 40 characters, an unknown one is created as a label), `planned_for` (`YYYY-MM-DD`, server time zone), `custom` fields (types: number, url, select) passed as `{"Field name": value}`, `parent`. There is no tool that lists custom fields: `get_task` shows a task's values by name, and an unknown name fails with `unknown custom field "x"`.
-- **Epic and subtasks**: one level only. A subtask lives in its epic's project. A task that has subtasks cannot become a subtask. Moving an epic moves its subtasks.
-- **Notes**: markdown comments on a task. **History**: every change is logged with its actor (the agent ID or the profile owner); `get_task` returns the last 20 entries.
-- **Trash**: deleting moves tasks (with subtasks) to the trash; only the user restores them or empties the trash in the UI.
-- **Done-category tasks** are hidden from boards by default but stay in `get_today` for their planned date.
-
-## Tools
-
-Answers are compact JSON. IDs always look like `TRK-07`; `project` arguments accept a key, a slug or an id.
-
-`list_projects`, `list_pages`, `get_board`, `get_today` and `get_task` accept `limit` (1–100, default 100) and `offset` (default 0). Advance by `limit` when a list is full. For the board, count tasks across status groups. For Today, check both planned and overdue tasks. Task details page subtasks, notes and attachment headers independently with the same offset. History shows the latest 20 events. Large change details (over 64 KiB) are available in the export. On wiki details, `document_offset` advances both attachment headers and backlinks in groups of 100.
-
-Each MCP connection operates within the workspace selected by its bearer token. Project keys and task codes are unique within that workspace.
-
-**Code Mode.** Connected to `/mcp/code` you see one tool, `code`, instead of these. Its argument is JavaScript: an async arrow function or its body, calling the tools below as `await codemode.<tool>(args)` with the same arguments and results. It returns `{result, logs}` (your return value and `console.log` lines). A failed call throws `Error("code: message")`; uncaught, the whole `code` call fails with it. Limits: 30 s (`timeout`), 100 calls, 50 KB result; no fetch or timers. Use it to chain steps and filter big answers, and return only what you need. Access mode, switches and the call log apply to every inner call. Selfhost accepts up to 256 KiB of code, one active run per workspace and two per instance. Busy calls return `rate_limited`; an offline isolated worker returns `unavailable`.
-
-| Tool | Use it for | Behaviour you must know |
+| Tool | Arguments | Result and use |
 |---|---|---|
-| `list_projects` | Find the project key | `include_archived` optional. Returns key, slug, name, open count, counts per status key |
-| `get_board` | Tasks of a project, by status | Filters: `project`, `status`, `planned_for`, `area`. Excludes done-category unless `include_done: true` (ignored when `status` is given). No descriptions: use `get_task`. Without `project` each task carries its project slug |
-| `get_today` | The day's plan | `date` defaults to server today. Tasks planned for the date, grouped by project, plus `overdue` open tasks planned earlier. Use the returned `date`, don't compute your own |
-| `get_task` | Full context of one task | Description, subtasks, notes, custom fields, last 20 history entries. Read it before you replace a description |
-| `search` | Find a task or a duplicate | Prefix match on titles and descriptions; also finds by ID. `limit` default 20. Returns id, title, status, snippet |
-| `create_project` | New project | Only when the user asked. `key` is derived from the name when omitted. No tool renames, re-keys, archives or deletes a project: ask the user to do that in the UI |
-| `create_tasks` | New tasks | 1 to 100 per call, one transaction (any invalid item fails the whole call, reported as `tasks[2]: <reason>` with the item's index). Every item needs its own `project`, subtasks too. Defaults: status `backlog`, priority `P1`. New tasks go to the end of their column. Epic: give it `ref`, subtasks `parent_ref` = that ref, epic first. Returns `[{id, title}]` in input order. `external_id` (global across projects) makes the call idempotent: repeating it updates that task instead of duplicating, and a repeat without `description_md` keeps the old description. Use it when you might retry a batch |
-| `update_task` | Edit fields | Omitted fields stay. `description_md` replaces the whole text. `planned_for: ""` clears the date, `parent: ""` detaches. Status and project are not here |
-| `move_tasks` | Status, date, project of many tasks | Give at least one of `status`, `planned_for`, `project`. Moved tasks go to the end of the target column. Moving to another project assigns new IDs and subtasks follow their epic. The answer is only `{"updated": n}`: `search` by title to learn the new IDs |
-| `publish_html` | Attach or revise an interactive document | Exactly one of task (code) or page_id (from read_page), title, self-contained html up to 2 MiB. On update read the document, then pass expected_version. A stale revision returns conflict. Bundle CSS, JS and data. A profile holds up to 64 MiB or 4096 HTML revisions across all owners. Deleting a document releases its history quota. |
-| `read_html` | Read HTML source and metadata | id from get_task or read_page → documents; optional version, defaults to latest. For large sources in Code Mode, return just the needed portion. |
-| `report_issue` | Record a finding immediately | Required: project, title and observation (what, where, how found). Supply source_task when known. Same title reuses an open issue within the project; existing_issue targets a known duplicate. Repeating the same evidence from the same source and agent is idempotent. kind: problem, unverified, decision or blocker. Returns the ID. |
-| `add_note` | Comment on a task | `task_id`, `body_md` |
-| `list_pages` | Wiki pages of a project | `project`. id, title, parent, `updated_at`, and `format: html` on HTML pages; no bodies |
-| `read_page` | One wiki page by `title` | `body_md` for Markdown or `body_html` for standalone HTML, parent, `updated_at`, backlinks, linked task IDs. Read it before `write_page` |
-| `write_page` | Create a page or replace its body | `project`, `title`, exactly one of `body_md` or `body_html`, optional `parent` (title), `expected_updated_at` (from `read_page`; a newer edit, or a page deleted since, fails with `conflict`). Title matches ignoring case and keeps the stored casing. Replaces the WHOLE body |
-| `append_to_page` | Add to the end of a page | `project`, `title`, `text`. The Markdown page must exist; no need to read it first |
-| `carry_over` | Roll a day forward | Moves open tasks planned for `from` to `to`. Only when the user asks |
-| `delete_tasks` | Trash tasks | Off by default. Never use it on the user's tasks unprompted |
+| `list_projects` | `{}`, optionally `include_archived` | Key, slug, name and task counts by status. Resolve the user's project before writing. |
+| `get_today` | `{}` for today or `date` as YYYY-MM-DD | Server-local `date`, planned tasks grouped in `projects`, and earlier open tasks in `overdue`. |
+| `get_board` | Optional `project`, `status`, `area`, `planned_for`, `include_done` | Tasks grouped by status key. Done-category tasks are hidden by default. An explicit status selects that column. Fetch details to see checklists. |
+| `search` | `q`, optional `limit` (default 20) | Prefix search of task titles and descriptions across projects, or lookup by ID. Match by project and status before reusing a result. For wiki titles use `list_pages`. |
+| `get_task` | `id`, e.g. `TRK-07` | Latest description, custom fields, subtasks, notes, document headers and up to 20 recent history entries. |
+| `list_pages` | `project` | Wiki headers including title and numeric ID. |
+| `read_page` | `project`, `title`, optional `document_offset` | Matches title case-insensitively. Returns the page ID, `body_md` or `body_html`, `updated_at`, backlinks, linked tasks and document headers. |
+| `read_html` | Numeric document `id`, optional `version` | Source and metadata of a versioned attachment. Get its ID from the owner's `documents` list. |
 
-An epic with two subtasks in one call (epic first; the subtasks name its `ref`):
+**Pagination.** `list_projects`, `get_board`, `get_today`, `get_task` and `list_pages` take `limit` (1–100, default 100) and `offset` (default 0). Advance by the requested limit while a list fills its page. Count board tasks across columns. For Today, check the total across planned groups and the separate overdue list. For task details, check notes, subtasks and attachments separately. On `read_page`, advance `document_offset` by 100 for further attachments or backlinks.
+
+## Change tasks
+
+| Tool | Arguments | Effect and constraints |
+|---|---|---|
+| `create_project` | `name`, optional `key`, `slug`, `icon`, `color`, `description` | Create a project when requested. The server can derive the key. The UI handles renaming and archiving. |
+| `create_tasks` | `tasks` array, each item needs `project` and `title` | 1–100 items in one transaction. Returns IDs and titles in input order. Use `ref` on an epic and `parent_ref` on later children in the same batch, or `parent` for an existing epic. One subtask level within one project. |
+| `update_task` | `id` and changed fields, e.g. `description_md`, `title`, `priority`, `area`, `custom`, `planned_for`, `parent` | Omitted fields stay. An empty date clears the plan date, an empty parent detaches a subtask, and a null custom value clears that field. Read the latest description before replacing it. |
+| `move_tasks` | `ids` array and at least one of `status`, `planned_for`, `project` | Returns an updated count. Moving across projects gives tasks new codes and moves an epic's children too. Look up the new codes in the destination board. |
+| `add_note` | `task_id`, `body_md` | Append a decision or result to the task. Keep changes to the plan in the description. |
+| `report_issue` | `project`, `title`, `observation`, optional `source_task`, `existing_issue`, `kind`, `priority` | Returns the issue ID and whether it was created or evidence was added. Same open title within a project is reused. Kinds are `problem`, `unverified`, `decision`, `blocker`. |
+| `carry_over` | `from`, `to` as YYYY-MM-DD | Moves **all** open tasks planned for the source date across the workspace. For specific tasks, use `move_tasks` with their IDs. |
+| `delete_tasks` | `ids` array | Moves tasks and their children to trash when the user requests deletion. Off by default. The owner can restore them in the UI. |
+
+**Fields.** Project arguments accept a key, slug or ID. Status keys are project-specific. New projects start with `backlog`, `todo`, `doing`, `done`. If `backlog` has been removed, new tasks default to the first status. Priorities are `P0`, `P1` (default), `P2`. An unfamiliar `area` creates a label. Pass configured custom fields by name, such as `{"Estimate": 3}`. Keep tokens and credentials out of task records.
+
+**Create an epic.** Pass this object to `create_tasks` after resolving the project. A failed item rolls back the entire batch. For an import with a stable external key, `external_id` matches across projects in the workspace. Resending the same import updates the matching task, so reuse the original payload. Use `update_task` for partial edits.
 
 ```json
-{"tasks": [
-  {"project": "TRK", "title": "Export the board to CSV", "status": "doing", "planned_for": "2026-11-06",
-   "ref": "epic", "description_md": "- [ ] Button in the column header\n- [ ] CSV escaping\n- [ ] Tests"},
-  {"project": "TRK", "title": "CSV escaping", "parent_ref": "epic"},
-  {"project": "TRK", "title": "Button in the column header", "parent_ref": "epic", "area": "UI"}
+{"tasks":[
+  {"project":"TRK","title":"Export the board","ref":"export","description_md":"- [ ] Implement CSV export\n- [ ] Verify escaped fields"},
+  {"project":"TRK","title":"Verify exported CSV","parent_ref":"export"}
 ]}
 ```
 
-## Wiki
+**Resume a checklist.** Read `get_task({"id":"TRK-07"})`, change the relevant checkbox in the returned Markdown and pass the complete text back as `description_md`. A task description has no revision guard. If concurrent edits are likely and you only need to record results, append a note. After a lost write response, inspect the task before retrying a create or appending a second note.
 
-Pages can use Markdown or self-contained HTML (up to 2 MiB via `body_html`). Keep the original format on update. For an interactive block between Markdown paragraphs, use a top-level fenced code block labelled `html-preview`. A fence labelled `html` shows a code example. Link pages as `[[Title]]` and tasks by ID (`TRK-07`); only IDs of existing tasks become links. `write_page` replaces the whole body: `read_page` first, change it, send it back with `expected_updated_at`. `append_to_page` is safe for adding a section. There is no delete tool: the user deletes pages in the UI. A title is 1 to 120 characters without `[`, `]` or a newline; a Markdown body is up to 200 KiB.
+## Write wiki pages and HTML
 
-## Errors
-
-Errors read `code: message`. Never retry the same call blindly.
-
-| Code | Meaning | What to do |
+| Tool | Arguments | Effect and constraints |
 |---|---|---|
-| `invalid_argument` | Validation failed; the message names the field | Fix the argument. `unknown status "x" (this project has: a, b)` lists the valid keys |
-| `not_found` | No such task or project | Check the ID with `search`; the key may have changed |
-| `forbidden` | Plandillo is in read-only mode | Don't retry. List the intended updates in your final message |
-| `tool_disabled` | The user switched this tool off | Same as `forbidden` |
-| `conflict` | The page changed since you read it (`write_page`) | `read_page` again, merge, retry once |
-| `status_in_use` | A status still holds tasks (admin calls) | Not expected over MCP |
-| `quota_exceeded` | The profile reached its HTML revision budget | Ask the owner to free space before publishing another revision |
-| `page_too_large` | Several rows exceed the page byte budget | Reduce `limit` and continue at the same `offset` |
-| `internal` | Server fault | Retry once; if it repeats, tell the user and check `plandillo-setup` |
+| `append_to_page` | `project`, `title`, `text` | Append a section to an existing Markdown page. |
+| `write_page` | `project`, `title`, exactly one of `body_md` or `body_html`, optional `parent`, `expected_updated_at` | Create or replace the entire body. For an edit, read the page, preserve its format, merge the requested changes and pass its exact timestamp back. |
+| `publish_html` | Exactly one of `task` or numeric `page_id`, plus `title`, `html`, optional `expected_version` | Attach a self-contained document. For a new title omit the version or pass 0. To revise, use the same owner and title with the current version from `read_html`. |
 
-A 401 or 403 on connect, or missing tools, is a setup problem: use `plandillo-setup`.
+Use `[[Title]]` to link wiki pages and a task code to link an existing task. For an interactive block within Markdown use a top-level `html-preview` fence. For a whole HTML wiki page use `write_page` with `body_html`. For a separately versioned attachment use `publish_html`. Inline CSS, scripts and data in the HTML. A Markdown page holds up to 200 KiB, an HTML page or attachment up to 2 MiB. Versioned attachments share a workspace history budget of 64 MiB or 4096 revisions.
 
-## Conventions
+## Code Mode and errors
 
-**Issue**: call `report_issue` when you notice a problem. Provide the source task and concrete evidence, even if the cause is unknown. An unverified observation uses `kind: "unverified"`. Existing open tasks with area `issue` also appear in Needs attention.
+At `/mcp/code` the client exposes one `code` tool. Pass JavaScript in the `code` string. For example, to return the IDs of overdue P0 tasks:
 
-**Plan** (in the working task's description):
-
-```
-- [ ] Read how the board query is built
-- [ ] Pass `area` through the request and the handler
-- [ ] Run tests and the build
+```json
+{"code":"const day = await codemode.get_today({}); return day.overdue.filter(t => t.priority === 'P0').map(t => t.id)"}
 ```
 
-**Result note** (the `add_note` at the end): what changed, which checks ran, what is unchecked, follow-ups as IDs. Short and factual. Write it in the user's language.
+The response includes the return value in `result` and any console output in `logs`. The runtime allows 100 calls in 30 seconds and a 50,000-byte result. Filter before returning. The runtime has no network, file or timer APIs. Each inner tool call has its own policy check and transaction. If a later call throws or times out, earlier writes can already be committed.
 
-**Titles**: imperative or plain noun phrase, the user's language, no ID in the title. **Areas**: reuse labels already on the board (`get_board` shows them) before inventing one.
+| Error | How to proceed |
+|---|---|
+| `invalid_argument` | Correct the named field. An unknown status error includes valid keys. A failed batch can identify the zero-based item index. |
+| `not_found` | Check the workspace, task code or page title. A task may have moved to another project. |
+| `conflict` | Reread the current page or HTML revision. Merge the requested edit with current content and submit the fresh timestamp or version. A deleted or renamed page needs a new decision. |
+| `forbidden`, `tool_disabled` | Report the blocked operation. Read-only mode hides writes, and the owner can disable individual tools. |
+| `page_too_large` | Reduce `limit`, keeping the same `offset`. |
+| `quota_exceeded` | Tell the owner which quota the service reported. |
+| `timeout`, `rate_limited`, `unavailable`, `internal` | Check whether a write landed before retrying. If the isolated worker is unavailable, consult `plandillo-setup`. |
 
-## Questions you will have
-
-- **Which project?** `list_projects`, match by key, slug or name. None fits: ask the user. Don't create projects on your own.
-- **Is there already a task for this?** `search` with two or three distinctive words, then `get_board` for `doing` and `todo`. Reuse an open task; don't open a twin.
-- **The matching task is already done.** If the user wants more work on it, create a new task whose description says "follows TRK-12". Reopen with `move_tasks` only when the user says to, and add a note why.
-- **Where do I put a big job?** One epic (`ref`) with subtasks (`parent_ref`) in a single `create_tasks`. Keep the checklist in the epic's description.
-- **What date?** Work you start now: `planned_for` today, taken from `get_today`'s `date`. Ideas and issues: no date.
-- **How do I tick a step?** `get_task`, change `- [ ]` to `- [x]`, `update_task` with the whole description.
-- **What counts as verified?** Your own checks ran and passed (tests, build, type check) and the note lists what you did not check. A manual check you could not do goes under "unchecked".
-- **Can I put secrets in a task?** No. Descriptions, notes and exports are stored as plain text. Never write tokens, passwords or keys. If you find one in code or config, file an issue that says where it is ("an API token is committed in `x.env`") without the value, and tell the user in the final message.
-- **Can I change a project (rename, key, archive, delete)?** No tool does. Say what you would change and ask the user to do it in the UI.
-- **Several users (selfhost mode)?** Each user has their own database and their own token; your token selects the profile. You cannot see anyone else's data.
-- **A tool I need is missing.** The user switched it off, or Plandillo is read-only. Say so in the final message; don't work around it.
-- **The user said "just do it, no tracker".** Honour the speed, not the skip: one `create_tasks` with `status: done` and a one-line description costs one call.
+For an HTTP 401 or 403 during connection, use `plandillo-setup`.

@@ -2,6 +2,17 @@
 // {name} placeholders must stay as they are. "a|b|c" keys are plural forms (see plural() in i18n.ts): Russian and
 // Ukrainian take three forms (1, 2-4, 5+), English two (1, other). Add a key here whenever a new tr('…') appears.
 export const MESSAGES: Record<string, [en: string, uk: string]> = {
+  'Приложение «{name}» запрашивает доступ к задачам и страницам.': ['“{name}” is requesting access to tasks and pages.', 'Застосунок «{name}» запитує доступ до завдань і сторінок.'],
+  'Токен для скриптов': ['Token for scripts', 'Токен для скриптів'],
+  'Для входа через браузер достаточно адреса сервера.': ['Browser sign-in only needs the server URL.', 'Для входу через браузер достатньо адреси сервера.'],
+  'Перевыпуск отключит токен и приложения этого пространства. Продолжить?': ['Reissuing disconnects this workspace’s token and apps. Continue?', 'Перевипуск відключить токен і застосунки цього простору. Продовжити?'],
+  'Подключение к Plandillo': ['Connect to Plandillo', 'Підключення до Plandillo'],
+  'Адрес возврата': ['Return address', 'Адреса повернення'],
+  'Разрешить изменения в этом пространстве': ['Allow changes in this workspace', 'Дозволити зміни в цьому просторі'],
+  'Разрешить': ['Allow', 'Дозволити'],
+  'Подключённые приложения': ['Connected apps', 'Підключені застосунки'],
+  'Отключить': ['Disconnect', 'Відключити'],
+  'Установите навыки в терминале и подтвердите подключение в браузере. Для Claude Code откройте /mcp, для Codex выполните команду входа из установщика.': ['Install the skills in your terminal and approve access in your browser. In Claude Code open /mcp. For Codex use the login command printed by the installer.', 'Встановіть навички в терміналі та підтвердьте доступ у браузері. У Claude Code відкрийте /mcp, у Codex виконайте команду входу з інсталятора.'],
   'Приложение': ['App', 'Застосунок'],
   'Безопасность': ['Security', 'Безпека'],
   'Пространство': ['Workspace', 'Простір'],

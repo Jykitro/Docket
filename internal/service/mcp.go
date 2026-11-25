@@ -208,8 +208,18 @@ func loadPolicy(tx *store.Tx) (MCPPolicy, error) {
 	return p, nil
 }
 
+type readOnlyMCP struct{}
+
+// ReadOnlyMCPContext restricts all calls, including nested Code Mode calls.
+func ReadOnlyMCPContext(ctx context.Context) context.Context {
+	return context.WithValue(ctx, readOnlyMCP{}, true)
+}
+
 func (s *Service) MCPPolicy(ctx context.Context) (p MCPPolicy, err error) {
 	err = s.read(ctx, func(tx *store.Tx) error { p, err = loadPolicy(tx); return err })
+	if ctx.Value(readOnlyMCP{}) == true {
+		p.Mode = ModeReadOnly
+	}
 	return p, err
 }
 

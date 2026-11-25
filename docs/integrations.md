@@ -28,8 +28,8 @@ assistant ──HTTP──▶ Host/Origin guard ─▶ bearer token ─▶ mcpse
 
 What every integration gets for free, because it all sits in front of or under the classic server:
 
-- **Auth.** One token per workspace (`service.MCPToken`), checked on every request so a rotated token works at once.
-  In selfhost mode the token also chooses the profile (`selfhost/handler.go`, `h.mcp`).
+- **Auth.** Both endpoints accept a manual workspace bearer or a client-specific OAuth access token. The 401 response advertises protected resource metadata. Public clients discover the authorization server, register a callback and use authorization code with S256 PKCE. The existing Plandillo account session approves a specific workspace, endpoint and set of permissions. Each MCP request checks the grant, account, workspace and current tool policy. Code Mode applies the same grant inside each tool call.
+- **Lifetime and revocation.** Codes expire in five minutes and can be used once. Access tokens last up to 15 minutes, with rotating refresh tokens for up to 30 days from authorization. Reuse of a spent refresh token revokes its grant. Integrations lists and disconnects individual clients. Archiving, account recovery and workspace credential rotation invalidate prior access. The database stores digests of OAuth credentials.
 - **Policy.** `policy()` in `mcpserver.go` hides switched-off tools from `tools/list`, refuses them with
   `tool_disabled`, and refuses write tools with `forbidden` in read-only mode. The list of tools and their group
   (`read` or `write`) is `service.MCPTools`.

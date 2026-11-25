@@ -117,6 +117,7 @@ func Handler(o Options) http.Handler {
 	r.Get("/api/auth/me", h.me)
 	if o.WS.shared != nil {
 		h.catalogRoutes(r)
+		h.oauthRoutes(r)
 	}
 	if o.LocalID == 0 {
 		h.securityRoutes(r)
@@ -663,8 +664,12 @@ func (h *handler) mcp(w http.ResponseWriter, r *http.Request) {
 		h.Web.ServeHTTP(w, r)
 		return
 	}
+	challenge := "Bearer"
+	if h.WS.shared != nil {
+		challenge = `Bearer resource_metadata="` + oauthOrigin(r) + "/.well-known/oauth-protected-resource" + r.URL.Path + `"`
+	}
 	if !strings.HasPrefix(r.Header.Get("Authorization"), "Bearer ") {
-		w.Header().Set("WWW-Authenticate", "Bearer")
+		w.Header().Set("WWW-Authenticate", challenge)
 		writeError(w, 401, "unauthorized", "missing or invalid bearer token")
 		return
 	}
@@ -675,11 +680,16 @@ func (h *handler) mcp(w http.ResponseWriter, r *http.Request) {
 		var err error
 		if h.LocalID != 0 && h.WS.envToken != "" && subtle.ConstantTimeCompare([]byte(raw), []byte(h.WS.envToken)) == 1 {
 			sp, err = h.WS.shared.Space(r.Context(), h.LocalID, h.WS.firstID)
+		} else if strings.HasPrefix(raw, "plo_") {
+			w.Header().Set("WWW-Authenticate", challenge)
+			h.oauthMCP(w, r, raw)
+			return
 		} else {
 			sp, err = h.WS.shared.SpaceByToken(r.Context(), auth.TokenHash(raw))
 		}
 		if err != nil {
 			if errors.Is(err, store.ErrNotFound) {
+				w.Header().Set("WWW-Authenticate", challenge)
 				writeError(w, 401, "unauthorized", "invalid bearer token")
 			} else {
 				internalError(w, err)
@@ -717,7 +727,7 @@ func (h *handler) mcp(w http.ResponseWriter, r *http.Request) {
 	}
 	match, tokenCtx := h.WS.tokens.lookup(strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "))
 	if match == nil {
-		w.Header().Set("WWW-Authenticate", "Bearer")
+		w.Header().Set("WWW-Authenticate", challenge)
 		writeError(w, 401, "unauthorized", "missing or invalid bearer token")
 		return
 	}

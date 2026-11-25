@@ -23,8 +23,11 @@ import (
 func sharedServer(t *testing.T) *server {
 	t.Helper()
 	s := newServerWith(t, func(ctx context.Context, svc *service.Service, bus *events.Bus) http.Handler {
-		// Run a fixed list_projects callback. The subprocess protocol is exercised in runner tests.
-		mcp := mcpserver.WithEvaluator(svc, time.UTC, func(_ context.Context, _ string, call func(string, json.RawMessage) (string, error)) (string, error) {
+		// Exercise the tool callback without starting a worker subprocess.
+		mcp := mcpserver.WithEvaluator(svc, time.UTC, func(_ context.Context, code string, call func(string, json.RawMessage) (string, error)) (string, error) {
+			if code == "return await codemode.create_project({name:'Test',key:'TE'})" {
+				return call("create_project", json.RawMessage(`{"name":"Test","key":"TE"}`))
+			}
 			return call("list_projects", json.RawMessage("{}"))
 		})
 		return httpapi.Router(httpapi.Deps{Svc: svc, Bus: bus, AllowedHosts: hosts, MCP: mcp, Web: http.NotFoundHandler()})

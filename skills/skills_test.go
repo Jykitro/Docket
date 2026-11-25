@@ -2,12 +2,70 @@ package skills
 
 import (
 	"encoding/hex"
+	"encoding/json"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
+
+	"docket/internal/toolcatalog"
 )
+
+func TestReferenceCoversToolCatalogue(t *testing.T) {
+	reference, _ := Get("plandillo-reference")
+	for _, tool := range toolcatalog.MCPTools {
+		if !strings.Contains(reference, "\n| `"+tool.Name+"` |") {
+			t.Errorf("reference has no tool entry for %s", tool.Name)
+		}
+	}
+}
+
+func TestCodexPluginLoadsEmbeddedSkillDirectories(t *testing.T) {
+	data, err := os.ReadFile(".codex-plugin/plugin.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var manifest struct {
+		Skills []string `json:"skills"`
+	}
+	if err := json.Unmarshal(data, &manifest); err != nil {
+		t.Fatal(err)
+	}
+	files, err := fs.Glob(all, "plandillo*/SKILL.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var want []string
+	for _, file := range files {
+		want = append(want, "./"+strings.TrimSuffix(file, "/SKILL.md"))
+	}
+	slices.Sort(manifest.Skills)
+	if !slices.Equal(manifest.Skills, want) {
+		t.Errorf("Codex skill directories %v, want %v", manifest.Skills, want)
+	}
+}
+
+func TestLegacySkillKeepsDistributionAddresses(t *testing.T) {
+	setup, _ := Get("docket-setup")
+	for _, command := range []string{
+		"npx skills add huntly-digital/plandillo --skill plandillo plandillo-reference plandillo-setup",
+		"codex plugin add plandillo@huntly-digital",
+		"claude plugin install plandillo@huntly-digital",
+	} {
+		if !strings.Contains(setup, command) {
+			t.Errorf("missing upstream installation command %q in legacy skill", command)
+		}
+	}
+	workflow, _ := Get("docket")
+	for _, sibling := range []string{"docket-reference", "docket-setup"} {
+		if !strings.Contains(workflow, "`"+sibling+"`") {
+			t.Errorf("legacy workflow lost its reference to installed skill %s", sibling)
+		}
+	}
+}
 
 // Runs the generated installer against a fake `claude` and a throwaway HOME: every skill must land byte for byte
 // (the heredoc must not expand $ or backticks) and the MCP server must be registered with the given address and token.
@@ -65,6 +123,13 @@ func TestInstallScriptWritesSkillsAndRegistersServer(t *testing.T) {
 			name := "DOCKET_MCP_" + hex.EncodeToString([]byte("http://127.0.0.1:7777/mcp/code?route=docket"))
 			if strings.Contains(string(calls), "dkt_test") {
 				t.Fatal("credential passed on a client command line")
+			}
+			if tc.variable == "PLANDILLO_URL" {
+				endpoint := "http://127.0.0.1:7777/mcp/code?route=docket"
+				if !strings.Contains(string(calls), "mcp add --scope user --transport http "+tc.name+" "+endpoint+"\n") || !strings.Contains(string(calls), "mcp add "+tc.name+" --url "+endpoint+"\n") || strings.Contains(string(calls), "Bearer") {
+					t.Fatal("expected URL-only OAuth registration for both clients")
+				}
+				return
 			}
 			if !strings.Contains(string(calls), "mcp add --scope user --transport http "+tc.name+" http://127.0.0.1:7777/mcp/code?agent=claude&route=docket --header Authorization: Bearer ${"+name+"}") {
 				t.Error("Claude registration did not reference the endpoint credential")

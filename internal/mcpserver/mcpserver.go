@@ -23,6 +23,11 @@ import (
 
 type agentKey struct{}
 
+// WithClientName supplies a caller label when a stateless MCP request carries no client metadata.
+func WithClientName(ctx context.Context, name string) context.Context {
+	return context.WithValue(ctx, agentKey{}, service.AgentActor(name))
+}
+
 // actor is set for the duration of a tools/call, including its call log.
 func actor(ctx context.Context) string {
 	if name, ok := ctx.Value(agentKey{}).(string); ok {
@@ -101,7 +106,7 @@ func WithEvaluator(svc *service.Service, loc *time.Location, execute evaluator) 
 	codeMode := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return code }, opts)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if name := r.URL.Query().Get("agent"); name != "" {
-			r = r.WithContext(context.WithValue(r.Context(), agentKey{}, service.AgentActor(name)))
+			r = r.WithContext(WithClientName(r.Context(), name))
 		}
 		if strings.HasSuffix(r.URL.Path, "/code") { // /mcp/code: Code Mode, see codemode.go
 			codeMode.ServeHTTP(w, r)

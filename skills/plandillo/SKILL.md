@@ -1,32 +1,21 @@
 ---
 name: plandillo
-description: Use when starting, planning, finishing or pausing any work in a project tracked in Plandillo, or when you notice a bug, risk or follow-up while working. Plandillo is the user's personal planner and you keep it true.
+description: Use when the user asks about their Plandillo board or wants work planned, tracked, resumed or reconciled in a Plandillo project.
 ---
 
-# Plandillo: keep the planner true
+# Plandillo workflow
 
-Every piece of work has a task: the task is the record, not the diff or your chat. Use the user's language.
+Use the user's language. For a question, read only. If the user opts out of tracking, skip planner writes. Use the tools exposed by the connected workspace. On `/mcp/code`, send JavaScript to `code`, e.g. `return await codemode.get_today({})`.
 
-**Start**
-1. `search` the request. Found: `get_task`, then `move_tasks` to `doing`. Missing: `create_tasks` once with the plan in `description_md`, `status: doing`, `planned_for` today, right project (`list_projects`; none fits: ask, don't create one).
-2. The plan is `- [ ]` steps in `description_md`. A changed plan edits the list, never a second task.
+## Find the work
 
-**During**
-- Decision, obstacle or scope change: `add_note`. Tick finished steps in one `update_task` (`get_task` first: it replaces the whole text), at a note or at the end, not one call per step.
-- Finding: call `report_issue` immediately with the symptom, evidence and source_task. Use kind `unverified` for suspicions. Reuse a matching open issue via existing_issue. Keep the returned ID for the handoff.
+- Today's plan or overdue work: `get_today`. Project overview: `get_board`. A known task ID: `get_task`. Otherwise `search` by distinctive words, then read the matching task.
+- For tracked work, reuse the open task in the right project. If none fits, use `list_projects` to resolve the project, then `create_tasks` with a Markdown checklist in `description_md`. Ask if the project is ambiguous. For work starting today, use the date from `get_today` and the project's active status (normally `doing`). Change an existing task's status with `move_tasks`.
 
-**End** (before every final message)
-1. Every step ticked or moved to its own task. `add_note` the result: what changed, which checks ran, what is unchecked.
-2. `move_tasks` to `done` only when your checks ran and passed; otherwise stay `doing` and say why in the note.
-3. `get_board` status `doing` has nothing of yours stale.
-4. The final message lists task IDs touched and issues filed.
+## Keep the record current
 
-Tiny work: one `create_tasks` with `status: done`, one-line description. Hurry means one-line notes, same calls.
-`forbidden`, `tool_disabled`, 401, 403: don't retry or work around; say it in the final message (`plandillo-setup`). Unsure how a tool or field behaves: `plandillo-reference`. Older installs use `docket-setup` and `docket-reference`.
+- Read the latest `get_task` before using `update_task` to replace the whole checklist. Preserve the user's edits. Use `add_note` for decisions, obstacles and results.
+- Record a finding with `report_issue`: project, title, observation and `source_task` when known. Use `kind: "unverified"` for a suspicion or `existing_issue` to add evidence to a known open issue. Keep its ID.
+- At handoff, tick verified steps and record the checks and remaining work. Move to the project's completed status only when the requested work and checks passed. Check your active tasks with `get_board`; report touched task and issue IDs. A small completed item can be recorded in one `create_tasks` call.
 
-| Excuse | Reality |
-|---|---|
-| "Too small, the diff is the record" | The user reads Plandillo, not git. It is one call. |
-| "Nobody sees `doing`" | Today shows it, and a crash leaves a trail. |
-| "I'll file it at the end" | Late is forgotten. Write at the moment. |
-| "Not sure it's a real problem" | File it with what you know. The user triages. |
+Use `plandillo-reference` for tool arguments, wiki edits and conflicts. Use `plandillo-setup` for connection or installation issues. On 401, 403, `forbidden` or `tool_disabled`, report the limitation and leave the intended change pending.

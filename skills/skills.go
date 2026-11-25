@@ -50,8 +50,12 @@ func Get(name string) (string, bool) {
 		return "", false
 	}
 	if name != canonical {
-		// Old downloads must match their installed folder and reference the sibling legacy skills.
-		return strings.ReplaceAll(string(b), "plandillo", "docket"), true
+		// Rename the installed skills, keeping upstream repository URLs and plugin install commands intact.
+		legacy := strings.Replace(string(b), "\nname: "+canonical+"\n", "\nname: "+name+"\n", 1)
+		for _, skill := range []string{"plandillo", "plandillo-reference", "plandillo-setup"} {
+			legacy = strings.ReplaceAll(legacy, "`"+skill+"`", "`docket"+strings.TrimPrefix(skill, "plandillo")+"`")
+		}
+		return legacy, true
 	}
 	return string(b), true
 }

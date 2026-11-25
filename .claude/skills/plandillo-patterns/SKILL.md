@@ -2,6 +2,7 @@
 name: plandillo-patterns
 description: "Use when working in the Plandillo repo, especially before writing a commit message, adding a test, or editing handler, service, store or web files: conventions measured from git history"
 metadata:
+  internal: "true"
   version: "1.0.0"
   source: local-git-analysis
   analyzed_commits: "51"

@@ -1,0 +1,18 @@
+{
+  "name": "plandillo",
+  "version": "1.0.0",
+  "description": "Plan work, track findings and maintain a project wiki through Plandillo MCP.",
+  "author": { "name": "Huntly Digital" },
+  "repository": "https://github.com/huntly-digital/plandillo",
+  "license": "MIT",
+  "mcpServers": "./.mcp.json",
+  "skills": ["./plandillo", "./plandillo-reference", "./plandillo-setup"],
+  "interface": {
+    "displayName": "Plandillo",
+    "shortDescription": "Tasks, checklists and wiki pages for your Plandillo workspace.",
+    "developerName": "Huntly Digital",
+    "category": "Productivity",
+    "composerIcon": "./assets/icon.png",
+    "logo": "./assets/icon.png"
+  }
+}

@@ -192,7 +192,7 @@ async function req<T>(method: string, url: string, body?: unknown, budget?: Coll
   }
   if (data?.error?.code === 'session_changed' || (res.status === 401 && typeof owner === 'number' && (data?.error?.code === 'unauthorized' || !url.startsWith('/api/auth/')))) leaveWorkspace()
   sessionRequests.signal.throwIfAborted()
-  if (!res.ok) throw new ApiError(data?.error?.code ?? 'internal', data?.error?.message ?? res.statusText)
+  if (!res.ok) throw new ApiError(data?.error?.code ?? 'internal', data?.error?.message ?? data?.error_description ?? res.statusText)
   if (!data?.challenge && (['/api/auth/login/totp','/api/auth/login', '/api/auth/passkeys/login/finish', '/api/auth/logout', '/api/auth/setup', '/api/auth/register', '/api/auth/account', '/api/auth/recover'].includes(url) || url.startsWith('/api/auth/invite/'))) {
     sessionGeneration++
     try {
@@ -281,6 +281,10 @@ export type Space = { id: number; owner_user_id: number; name: string; icon: str
 type SpaceChange = { name?: string; icon?: string; icon_png?: string; action?: 'archive' | 'restore' }
 type Device = { id: string; user_agent: string; current: boolean; created_at: string; last_seen_at: string; expires_at: string }
 export const api = {
+  oauthRequest: (query: string) => req<{client: string; redirect_uri: string; write: boolean}>('GET', '/api/auth/oauth/request' + query),
+  oauthDecision: (query: string, workspace: number, allow: boolean, write: boolean) => req<{redirect: string}>('POST', '/api/auth/oauth/decision' + query, { workspace, allow, write }),
+  oauthConnections: (workspace: number) => req<{id: string; name: string; scope: string}[]>('GET', '/api/auth/oauth/connections?workspace=' + workspace),
+  revokeOAuth: (id: string) => req<void>('DELETE', '/api/auth/oauth/connections/' + encodeURIComponent(id)),
   spaces: () => req<Space[]>('GET', '/api/workspaces'),
   createSpace: (name: string) => req<Space>('POST', '/api/workspaces', {name}),
   changeSpace: (id: number, change: SpaceChange) => req<Space>('PATCH', `/api/workspaces/${id}`, change),

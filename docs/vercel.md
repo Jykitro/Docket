@@ -48,7 +48,7 @@ Install the Vercel CLI, Bun and Docker. Export the project variables above in yo
 vercel dev --local --listen 127.0.0.1:3000
 ```
 
-Open `http://localhost:3000/` and complete setup. Check `/healthz`, sign in and reload `/integrations` directly. Connect an MCP client with the profile token. Run `list_projects` on `/mcp`, then run `return await codemode.list_projects({})` on `/mcp/code`. Matching results exercise both internal bindings. In development Docker containers reach the host-published ports through the Docker host gateway.
+Open `http://localhost:3000/` and complete setup. Check `/healthz`, sign in and reload `/integrations` directly. Register the HTTPS endpoint and sign in through the browser. Authorize each endpoint for the same workspace. Run `list_projects` on `/mcp`, then run `return await codemode.list_projects({})` on `/mcp/code`. Matching results exercise both internal bindings. In development Docker containers reach the host-published ports through the Docker host gateway.
 
 Run `make check`. Set `DOCKET_TEST_POSTGRES_DSN` to a disposable PostgreSQL server where the test role has `CREATEDB`, then run `make test-postgres`. The suite creates separate test databases and exercises cross-replica session revocation, token rotation, live events, passkey challenge consumption and isolated execution.
 

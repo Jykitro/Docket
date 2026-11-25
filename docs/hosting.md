@@ -232,7 +232,7 @@ For single-user Docker installations, run `docker compose -f compose.local.yml u
 
 ## Troubleshooting
 
-- **`/mcp` returns 401.** You need the header `Authorization: Bearer <TOKEN>`; find the token on the Integrations tab. The **MCP**
+- **`/mcp` returns 401.** On first connection this starts OAuth discovery. Use the client’s MCP login, select the workspace and approve access. Forward `/.well-known/oauth-*`, `/oauth/*` and `/api/*` under the same public HTTPS origin when using a reverse proxy. Local single-user approval requires localhost or a loopback IP. For a bearer-only client, set `Authorization: Bearer <TOKEN>` using the manual token in Integrations. The **MCP**
   page itself opens in a browser without a token: requests with `Accept: text/html` get the UI.
 - **403 `forbidden_host`.** Add the host name to `DOCKET_ALLOWED_HOSTS` and restart the container.
 - **The self-check is red.** Each row on the Integrations tab explains what to do. For the Docker quick start, run `docker logs plandillo`. For a source installation started with `make rebuild`, run `make logs`.
