@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -26,18 +27,11 @@ func TestDevelopmentOriginRequiresConfiguredPublicAuthority(t *testing.T) {
 	}
 }
 
-func TestVercelFrontendRoutes(t *testing.T) {
+func TestVercelDeploysOnlyTheStaticLanding(t *testing.T) {
 	var config struct {
-		Services map[string]struct {
-			Root, BuildCommand, OutputDirectory string
-			Runtime, Entrypoint                 string
-			Rewrites                            []json.RawMessage
-		}
-		Rewrites []struct {
-			Source       string
-			Has, Missing []json.RawMessage
-			Destination  struct{ Service string }
-		}
+		Services                                     map[string]json.RawMessage
+		Rewrites                                     []json.RawMessage
+		BuildCommand, OutputDirectory, IgnoreCommand string
 	}
 	data, err := os.ReadFile("../../vercel.json")
 	if err != nil {
@@ -46,21 +40,14 @@ func TestVercelFrontendRoutes(t *testing.T) {
 	if err := json.Unmarshal(data, &config); err != nil {
 		t.Fatal(err)
 	}
-	landing, ok := config.Services["landing"]
-	if !ok || len(config.Services) != 1 {
-		t.Fatalf("expected only the landing service, got %v", config.Services)
+	if len(config.Services) != 0 || len(config.Rewrites) != 0 {
+		t.Fatalf("expected a plain static deployment without services or rewrites: %s", data)
 	}
-	if landing.Root != "landing" || landing.BuildCommand != "make build" || landing.OutputDirectory != "dist" {
-		t.Fatalf("unexpected landing build settings: %+v", landing)
+	if config.BuildCommand != "make -C landing build" || config.OutputDirectory != "landing/dist" {
+		t.Fatalf("unexpected landing build settings: %q %q", config.BuildCommand, config.OutputDirectory)
 	}
-	if landing.Runtime != "" || landing.Entrypoint != "" || len(landing.Rewrites) != 0 {
-		t.Fatalf("expected a static landing without backend routes: %+v", landing)
-	}
-	if len(config.Rewrites) != 1 {
-		t.Fatalf("expected one landing route, got %d", len(config.Rewrites))
-	}
-	route := config.Rewrites[0]
-	if route.Source != "/(.*)" || route.Destination.Service != "landing" || len(route.Has) != 0 || len(route.Missing) != 0 {
-		t.Fatalf("expected every request to route to the landing: %+v", route)
+	// Root-relative pathspecs keep the skip rule right whatever directory Vercel runs it from.
+	if !strings.Contains(config.IgnoreCommand, "-- :/landing ") {
+		t.Fatalf("landing changes must still trigger a build: %q", config.IgnoreCommand)
 	}
 }
