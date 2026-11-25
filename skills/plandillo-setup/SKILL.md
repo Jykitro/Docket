@@ -13,7 +13,7 @@ A new installation needs two things: the planner instructions and a connection t
 |---|---|
 | A running board, macOS or Linux | In **Integrations → Agent setup**, select the CLI and **Skills + MCP for this board**. Copy the command into a terminal. It installs all three skills and registers MCP for that client. Follow the printed login instructions in the browser. Older Docket installations keep their names. |
 | A team using skills.sh | In the target project run `npx skills add huntly-digital/plandillo --skill plandillo plandillo-reference plandillo-setup --agent codex claude-code`. Select just one agent if appropriate. Add `-g` for a personal install. |
-| A team using native plugins | Add the repository marketplace and install its Plandillo plugin using the commands below. The plugin includes all three skills and the endpoint `https://app.plandillo.dev/mcp`, the maintainer's private board with sign-up closed. For your own board or Code Mode, use the board installer or skills.sh and register your URL. |
+| A team using native plugins | Add the repository marketplace and install its Plandillo plugin using the commands below. The plugin includes all three skills and MCP for a local board at `http://localhost:7777/mcp`. In Claude Code, set `PLANDILLO_URL` to a self-hosted board's `/mcp` URL before starting it. For a self-hosted board in Codex, or Code Mode, use the board installer or skills.sh and register your URL. |
 | Manual install | Download each SKILL.md from **Integrations** into its own named folder under `~/.claude/skills/` or `~/.agents/skills/` (Codex). The signed-in UI works on self-hosted workspaces. For Claude Desktop projects, copy the workflow into project instructions if needed. |
 
 Codex:
@@ -47,6 +47,7 @@ To switch endpoints or workspaces, authorize the new connection. Revoke it in th
 |---|---|
 | Skills are visible but no planner tools | Check that the selected workspace has a registered HTTP MCP connection and restart the client. On Code Mode, seeing only `code` is expected. |
 | Connection refused | Check that the configured host and port are reachable from the client. For a local installation check whether the Plandillo process or container is running. |
+| The plugin connects to localhost, but the board is elsewhere | The plugin defaults to `http://localhost:7777/mcp`. In Claude Code, set `PLANDILLO_URL` to the board's `/mcp` URL and start a new session. Codex keeps the plugin address fixed; run the board installer from Integrations. |
 | HTTP 401 | Use the client’s MCP login again for this endpoint after expiry or revocation. For a manually configured bearer, check the workspace and the client’s secret after rotation. |
 | HTTP 403 | Check the failing host/origin against the operator's permitted hosts. Use the public URL shown in Integrations for a hosted board. |
 | Read succeeds, write is missing or returns `forbidden` | Check both the approved OAuth permissions and the workspace’s access mode. Authorize again to request additional access. |

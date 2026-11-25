@@ -37,7 +37,7 @@ configs and the install command follow. How it works inside: [Integration intern
 
 Choose one method per client. For a new board, **Integrations → Agent setup → Skills + MCP for this board** installs all three skills and registers MCP in the selected CLI on macOS or Linux. The script runs locally. Follow the printed login instructions to authorize in the browser.
 
-The native plugins include the three skills and an MCP connection to `https://app.plandillo.dev/mcp`, the maintainer's private board, which is not open for sign-up. For your own board, local or on your server, or for Code Mode, install the skills and register the URL from that board’s **Integrations** tab. The skills.sh command installs the instructions only.
+The native plugins include the three skills and an MCP connection to a local board at `http://localhost:7777/mcp`. Claude Code reads `PLANDILLO_URL` for another address, for example `PLANDILLO_URL=https://plans.example.com/mcp claude`; Codex keeps the local address. For a self-hosted board in Codex, or for Code Mode, install the skills and register the URL from that board’s **Integrations** tab. The skills.sh command installs the instructions only.
 
 ### skills.sh
 
@@ -64,6 +64,22 @@ claude plugin install plandillo@huntly-digital
 ```
 
 To test an unreleased checkout, replace `huntly-digital/plandillo` in the **add source** command with the absolute path to the checkout. Use the same plugin ID. The native setup skill is available as `$plandillo:plandillo-setup` in Codex and `/plandillo:plandillo-setup` in Claude Code. Open a new client session and ask it to list your Plandillo projects. On Code Mode it calls `code` with `return await codemode.list_projects({})`. Check the workspace and agent label in the Integrations call log.
+
+### Board address for the plugins
+
+Both plugins connect to `http://localhost:7777/mcp`, the address of the one-command Docker install, so a local board needs no extra setup.
+
+**Claude Code** expands `PLANDILLO_URL` in the plugin's MCP address. To use a self-hosted board, set it to that board's `/mcp` URL before you start Claude Code:
+
+```sh
+PLANDILLO_URL=https://plans.example.com/mcp claude
+```
+
+To keep the address for every session, add `export PLANDILLO_URL=https://plans.example.com/mcp` to your shell profile. Remove the variable to return to the local board. An empty value counts as set and breaks the address. For Code Mode, use the `/mcp/code` URL instead.
+
+**Codex** does not expand variables in a plugin's MCP address, so its plugin always uses the local board. For a self-hosted board, open that board's **Integrations → Agent setup** and run **Skills + MCP for this board** for Codex.
+
+Plugin 1.1.0 changed the default address from `https://app.plandillo.dev/mcp` to the local board. If you relied on the old default, set `PLANDILLO_URL` to your board's address.
 
 ### What the agent loads
 

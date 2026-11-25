@@ -482,7 +482,7 @@ test('agent setup copies the selected client, method and endpoint without readin
     await setup.getByLabel('MCP mode').selectOption('code')
     expect(await copied()).toBe(`curl -fsSL '${planner.url}/api/mcp/install.sh' | PLANDILLO_CLIENT=${agent} PLANDILLO_URL='${planner.url}/mcp/code' sh`)
     await setup.getByRole('button', { name: 'GitHub plugin' }).click()
-    await expect(setup.getByText('https://app.plandillo.dev/mcp', { exact: false })).toBeVisible()
+    await expect(setup.getByText('http://localhost:7777/mcp', { exact: false })).toBeVisible()
     expect(await copied()).toBe(`${cli} plugin marketplace add huntly-digital/plandillo\n${cli} plugin ${action} plandillo@huntly-digital`)
     await setup.getByRole('button', { name: 'Skills only' }).click()
     expect(await copied()).toBe(`npx skills add huntly-digital/plandillo --skill plandillo plandillo-reference plandillo-setup --agent ${agent}`)

@@ -39,7 +39,7 @@ const METHODS = {
 } as const
 type Method = keyof typeof METHODS
 const repo = 'huntly-digital/plandillo'
-const hosted = 'https://app.plandillo.dev/mcp'
+const local = 'http://localhost:7777/mcp' // the plugin's default board, skills/.mcp.json
 const select = 'max-w-full rounded-md border border-ln bg-sf px-2 py-1.5 text-sm text-tx'
 
 function installCommand(client: Client, method: Method, address: string) {
@@ -65,7 +65,7 @@ function installCommand(client: Client, method: Method, address: string) {
 
 export function McpAgent() {
   const [client, setClient] = useState<Client>('Claude Code')
-  const [method, setMethod] = useState<Method>(location.origin + '/mcp' === hosted ? 'plugin' : 'workspace')
+  const [method, setMethod] = useState<Method>(location.origin + '/mcp' === local ? 'plugin' : 'workspace')
   const [codeMode, setCodeMode] = useState(false)
   const [agentName, setAgentName] = useState('')
   const cli = client === 'Claude Code' || client === 'Codex'
@@ -97,14 +97,15 @@ export function McpAgent() {
   }
   const instructions = {
     workspace: 'Запустите в терминале на macOS или Linux. Установщик добавит три навыка и MCP в выбранный клиент. Подтвердите вход в браузере или воспользуйтесь командой входа из терминала.',
-    plugin: 'Плагин содержит три навыка и MCP облачного Plandillo по адресу {url}. Выполните команды, откройте новый сеанс клиента и подтвердите доступ к пространству в настройках MCP.',
+    plugin: client === 'Codex' ? 'Плагин содержит три навыка и MCP локальной доски {url}. Для другой доски выберите «Навыки и MCP этой доски». Выполните команды, откройте новый сеанс клиента и подтвердите доступ к пространству в настройках MCP.'
+      : 'Плагин содержит три навыка и MCP локальной доски {url}. Для другой доски запускайте Claude Code с PLANDILLO_URL={board}. Выполните команды, откройте новый сеанс клиента и подтвердите доступ к пространству в настройках MCP.',
     skills: 'Запустите в папке проекта с установленным Node.js. Команда установит три навыка из GitHub. Для доступа к задачам добавьте MCP этой доски.',
     mcp: client === 'Codex' ? 'Выполните команду и подтвердите доступ в браузере. Если вход не открылся, выполните codex mcp login plandillo.'
       : 'Выполните команды в терминале и подтвердите доступ к пространству в браузере.',
   } as const
   const help = client === 'Claude Desktop' ? tr('Добавьте запись в mcpServers файла claude_desktop_config.json и перезапустите Claude Desktop. Для запуска npx нужен Node.js.')
     : client === 'Другой клиент' ? tr('Вставьте адрес в настройки клиента, выберите Streamable HTTP и подтвердите вход через браузер.')
-    : tr(instructions[active], { url: hosted })
+    : tr(instructions[active], { url: local, board: endpoint })
   const copyLabel = active === 'mcp' ? tr('Скопировать конфиг') : tr('Скопировать команду')
   return (
     <section className={PANEL} aria-labelledby="agent-install-title">

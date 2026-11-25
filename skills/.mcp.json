@@ -1,5 +1,5 @@
 {
   "mcpServers": {
-    "plandillo": { "type": "http", "url": "https://app.plandillo.dev/mcp" }
+    "plandillo": { "type": "http", "url": "${PLANDILLO_URL:-http://localhost:7777/mcp}" }
   }
 }

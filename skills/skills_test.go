@@ -48,6 +48,42 @@ func TestCodexPluginLoadsEmbeddedSkillDirectories(t *testing.T) {
 	}
 }
 
+func TestPluginsConnectToALocalBoard(t *testing.T) {
+	read := func(name string, v any) {
+		data, err := os.ReadFile(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := json.Unmarshal(data, v); err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+	}
+	var codex, claude struct {
+		Version string `json:"version"`
+		MCP     string `json:"mcpServers"`
+	}
+	read(".codex-plugin/plugin.json", &codex)
+	read(".claude-plugin/plugin.json", &claude)
+	if codex.Version != claude.Version {
+		t.Errorf("plugin versions differ: Codex %s, Claude %s", codex.Version, claude.Version)
+	}
+	// Claude Code expands PLANDILLO_URL for a self-hosted board; Codex does not expand variables in a URL.
+	for file, want := range map[string]string{
+		".mcp.json": "${PLANDILLO_URL:-http://localhost:7777/mcp}",
+		codex.MCP:   "http://localhost:7777/mcp",
+	} {
+		var config struct {
+			Servers map[string]struct {
+				URL string `json:"url"`
+			} `json:"mcpServers"`
+		}
+		read(file, &config)
+		if got := config.Servers["plandillo"].URL; got != want {
+			t.Errorf("%s: plandillo url %q, want %q", file, got, want)
+		}
+	}
+}
+
 func TestLegacySkillKeepsDistributionAddresses(t *testing.T) {
 	setup, _ := Get("docket-setup")
 	for _, command := range []string{
