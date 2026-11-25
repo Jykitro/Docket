@@ -18,7 +18,7 @@ Open <http://127.0.0.1:4174/>. Press Ctrl+C to stop the server. Pass `PORT=4180`
 make -C landing build
 ```
 
-The static site is in `landing/dist/`. Serve its contents at the domain root. Building uses Make, cp, and rsync. The preview also uses Python 3. No package install is required.
+The static site is in `landing/dist/`. Serve its contents at the domain root. Building uses Make and standard file utilities. The preview also uses Python 3. No package install is required.
 
 ## Editing
 

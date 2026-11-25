@@ -6,7 +6,8 @@ PORT ?= 4174
 build:
 	mkdir -p dist
 	cp index.html style.css copy.js dist/
-	rsync -a --delete assets/ dist/assets/
+	rm -rf dist/assets
+	cp -R assets dist/
 
 serve: build
 	python3 -m http.server $(PORT) --bind 127.0.0.1 --directory dist
