@@ -475,6 +475,7 @@ func samePage(a, b *int64) bool { return (a == nil && b == nil) || (a != nil && 
 // DeletePage removes a page; its subpages move up to its parent.
 func (s *Service) DeletePage(ctx context.Context, actor string, id int64) error {
 	return s.write(ctx, actor, func(o *op) error {
+		o.skipStorageCheck = true
 		pg, err := getPage(o.tx, id)
 		if err != nil {
 			return err

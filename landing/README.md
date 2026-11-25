@@ -1,5 +1,7 @@
 # Plandillo landing page
 
+The landing service in the root Vercel project serves this English site. The free demo button opens `https://app.plandillo.dev/register`, and Sign in opens the planner. Campaign parameters are preserved on both links.
+
 The English site for `plandillo.dev` lives in this directory. It uses static HTML, CSS, and a small clipboard script. The three stages of the example task work with the keyboard and with JavaScript disabled.
 
 ## Preview and build

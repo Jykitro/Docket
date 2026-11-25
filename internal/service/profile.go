@@ -14,12 +14,28 @@ const settingProfileName = "profile_name"
 
 const maxProfileName = 40
 
+// SetStorageLimit opts a hosted PostgreSQL workspace into a byte quota before serving it.
+func (s *Service) SetStorageLimit(bytes int64) { s.storageLimit = bytes }
+
+type StorageUsage struct {
+	Used  int64 `json:"used"`
+	Limit int64 `json:"limit"`
+}
 type Profile struct {
-	Name string `json:"name"`
+	Storage *StorageUsage `json:"storage,omitempty"`
+	Name    string        `json:"name"`
 }
 
 func (s *Service) GetProfile(ctx context.Context) (p Profile, err error) {
-	err = s.read(ctx, func(tx *store.Tx) error { p.Name, _, err = tx.Setting(settingProfileName); return err })
+	err = s.read(ctx, func(tx *store.Tx) error {
+		p.Name, _, err = tx.Setting(settingProfileName)
+		if err != nil || s.storageLimit == 0 {
+			return err
+		}
+		used, err := tx.WorkspaceBytes()
+		p.Storage = &StorageUsage{Used: used, Limit: s.storageLimit}
+		return err
+	})
 	return p, err
 }
 

@@ -32,7 +32,7 @@ export type Activity = {
   diff_json: string; at: string; task_code: string; task_title: string
 }
 export type TodayData = { date: string; projects: Project[]; tasks: Task[]; overdue: Task[]; activity: Activity[] }
-export type Profile = { name: string }
+export type Profile = { name: string; storage?: { used: number; limit: number } }
 type Check = { key: string; label: string; ok: boolean; detail: string; value: string; hint?: string }
 export type CheckResult = { ok: boolean; took_ms: number; at: string; checks: Check[] }
 export type McpStatus = {
@@ -115,6 +115,7 @@ const SERVER: Record<string, [string, string]> = {
   'too many requests, try again later': ['Слишком много запросов, попробуйте позже', 'Забагато запитів, спробуйте пізніше'],
   'admin only': ['Только для администратора', 'Лише для адміністратора'],
   'trash changed; reload and review before purging': ['Состав корзины изменился. Проверьте список и подтвердите очистку ещё раз.', 'Вміст кошика змінився. Перегляньте список і підтвердьте очищення ще раз.'],
+  'demo storage is full; delete content and empty the trash to free space': ['Хранилище демо заполнено. Удалите данные и очистите корзину.', 'Сховище демо заповнено. Видаліть дані й очистьте кошик.'],
   'internal error': ['Внутренняя ошибка сервера, попробуйте позже', 'Внутрішня помилка сервера, спробуйте пізніше'],
 }
 export const errText = (e: unknown): string => {

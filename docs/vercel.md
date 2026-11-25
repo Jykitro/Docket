@@ -1,9 +1,10 @@
 # Run the self-hosted planner on Vercel
 
-Import this repository as one Vercel project with its **Root Directory set to the repository root**. The planner lives on the project's domain. The marketing site in `landing/` has its own deployment. See the [service configuration](../vercel.json).
+Import this repository as one Vercel project with its **Root Directory set to the repository root**. The landing and planner share a deployment. Attach `plandillo.dev` and `app.plandillo.dev` to the project. Redirect `www.plandillo.dev` to the apex. Host rules for the marketing site precede the planner path rules; Vercel aliases and local development still serve the planner. See the [service configuration](../vercel.json).
 
 | Service | Public paths | Internal calls |
 | --- | --- | --- |
+| `landing` | All paths on `plandillo.dev` | None |
 | `web` | `/`, planner pages and static assets | The browser uses same-origin REST and SSE |
 | `app` | `/api`, `/mcp`, their descendants, and `/healthz` | Sends Code Mode jobs to `worker` through `PLANDILLO_RUNNER_URL` |
 | `worker` | Internal only | Retrieves each authorized tool result through `PLANDILLO_REPLIES_URL` |
@@ -17,6 +18,7 @@ Use an exact public HTTPS hostname for each environment. Give previews and devel
 
 | Variable | Value |
 | --- | --- |
+| `PLANDILLO_DEMO_STORAGE_MB` | Optional positive integer in decimal MB. Set to `5` for the hosted demo. Applies per non-administrator workspace on Vercel. |
 | `PORT` | Set to `8080` for the cloud deployment so the non-root containers listen on an unprivileged port. |
 | `DOCKET_MODE` | `selfhost` |
 | `DOCKET_POSTGRES_DSN` | A dedicated PostgreSQL database URL with TLS. The role must own the database or have permission to create and manage its schemas. Use a direct or session-pooled connection that preserves the connection's `search_path`. With Vercel's Neon integration, leave this unset so Plandillo reads the integration-managed `DATABASE_URL_UNPOOLED` directly. |
@@ -48,3 +50,5 @@ vercel dev --local --listen 127.0.0.1:3000
 Open `http://localhost:3000/` and complete setup. Check `/healthz`, sign in and reload `/integrations` directly. Connect an MCP client with the profile token. Run `list_projects` on `/mcp`, then run `return await codemode.list_projects({})` on `/mcp/code`. Matching results exercise both internal bindings. In development Docker containers reach the host-published ports through the Docker host gateway.
 
 Run `make check`. Set `DOCKET_TEST_POSTGRES_DSN` to a disposable PostgreSQL server where the test role has `CREATEDB`, then run `make test-postgres`. The suite creates separate test databases and exercises cross-replica session revocation, token rotation, live events, passkey challenge consumption and isolated execution.
+
+The demo quota covers the uncompressed workspace records, including icons, task activity, HTML revisions and trash. Emptying the trash frees space. Database indexes, cleanup metadata and operational MCP logs are outside the meter. The server checks each content write before commit. Administrators retain the normal self-host limits. Check Settings for current usage.

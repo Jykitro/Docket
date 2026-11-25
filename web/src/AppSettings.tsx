@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, useMe, useProfile } from './api'
 import { Icon } from './icons'
-import { tr } from './i18n'
+import { locale, tr } from './i18n'
 import { NAME_MAX } from './Onboarding'
 import { Link } from './router'
 import { type ThemePref } from './theme'
@@ -33,6 +33,10 @@ export function AppSettings({ theme, onTheme, onClose }: { theme: ThemePref; onT
 
   return (
     <Dialog title={tr('Настройки')} onClose={onClose}>
+      {profile.data?.storage && <p className="text-sm text-t2">{tr('Хранилище демо: {used} из {limit} МБ', {
+        used: (profile.data.storage.used / 1_000_000).toLocaleString(locale(), { maximumFractionDigits: 2 }),
+        limit: profile.data.storage.limit / 1_000_000,
+      })}</p>}
       <form className="flex flex-col gap-1.5" onSubmit={(e) => { e.preventDefault(); dirty && !save.isPending && save.mutate() }}>
         <span className={cap}>{tr('Профиль')}</span>
         <div className="flex gap-2">

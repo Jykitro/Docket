@@ -1,6 +1,11 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "services": {
+    "landing": {
+      "root": "landing",
+      "buildCommand": "make build",
+      "outputDirectory": "dist"
+    },
     "web": {
       "root": "web",
       "framework": "vite",
@@ -33,6 +38,8 @@
     }
   },
   "rewrites": [
+    { "source": "/(.*)", "has": [{ "type": "host", "value": "plandillo.dev" }], "destination": { "service": "landing" } },
+    { "source": "/(.*)", "has": [{ "type": "host", "value": "www.plandillo.dev" }], "destination": { "service": "landing" } },
     { "source": "/api/:path*", "destination": { "service": "app" } },
     { "source": "/mcp/:path*", "destination": { "service": "app" } },
     { "source": "/healthz", "destination": { "service": "app" } },

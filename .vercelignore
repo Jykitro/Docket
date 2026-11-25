@@ -7,7 +7,7 @@ outputs/
 .claude/
 .vercel/
 bin/
-landing/
+landing/dist/
 web/node_modules/
 web/dist/
 internal/web/dist/

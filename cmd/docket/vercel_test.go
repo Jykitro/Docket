@@ -41,7 +41,7 @@ func TestVercelServiceBindings(t *testing.T) {
 	if err = json.Unmarshal(data, &config); err != nil {
 		t.Fatal(err)
 	}
-	expected := map[string]string{"web": "", "app": "worker", "worker": "replies", "replies": ""}
+	expected := map[string]string{"landing": "", "web": "", "app": "worker", "worker": "replies", "replies": ""}
 	if len(config.Services) != len(expected) {
 		t.Fatal("unexpected service graph")
 	}
@@ -61,7 +61,7 @@ func TestVercelServiceBindings(t *testing.T) {
 		}
 	}
 	for _, route := range config.Rewrites {
-		if svc := route.Destination.Service; svc != "web" && svc != "app" {
+		if svc := route.Destination.Service; svc != "web" && svc != "app" && svc != "landing" {
 			t.Fatalf("unexpected public route to %s", svc)
 		}
 	}

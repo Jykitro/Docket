@@ -10,18 +10,19 @@ import (
 )
 
 type Config struct {
-	Addr          string
-	DB            string
-	BackupDir     string
-	MCPToken      string // optional: when set it overrides the token stored in the database
-	AllowedHosts  []string
-	PasskeyOrigin string
-	Seed          string
-	Loc           *time.Location
-	SelfHost      bool   // DOCKET_MODE=selfhost: many users, each with their own database
-	PostgresDSN   string // optional selfhost PostgreSQL database; empty keeps SQLite
-	RunnerSocket  string
-	DataDir       string // directory of DB; holds auth.db and users/<id>.db in selfhost mode
+	DemoStorageBytes int64 // configured by the Vercel entrypoint for non-administrator profiles
+	Addr             string
+	DB               string
+	BackupDir        string
+	MCPToken         string // optional: when set it overrides the token stored in the database
+	AllowedHosts     []string
+	PasskeyOrigin    string
+	Seed             string
+	Loc              *time.Location
+	SelfHost         bool   // DOCKET_MODE=selfhost: many users, each with their own database
+	PostgresDSN      string // optional selfhost PostgreSQL database; empty keeps SQLite
+	RunnerSocket     string
+	DataDir          string // directory of DB; holds auth.db and users/<id>.db in selfhost mode
 }
 
 func Load() (Config, error) {

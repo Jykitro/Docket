@@ -16,3 +16,13 @@ if (navigator.clipboard?.writeText) {
     feedback.textContent = message;
   });
 }
+
+// Carry campaign attribution to the planner without forwarding unrelated query parameters.
+const campaign = new URLSearchParams(location.search);
+for (const link of document.querySelectorAll("a[data-app]")) {
+  const target = new URL(link.href);
+  for (const [name, value] of campaign) {
+    if (/^utm_[a-z0-9_]+$/i.test(name)) target.searchParams.append(name, value);
+  }
+  link.href = target.href;
+}

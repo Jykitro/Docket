@@ -153,6 +153,7 @@ func runSelfHost(ctx context.Context, cfg config.Config, remote *vercelrun.App) 
 	}
 	ws := selfhost.NewWorkspaces(ctx, cfg.DataDir, cfg.Loc, buildRouter)
 	ws.UsePostgres(cfg.PostgresDSN)
+	ws.DemoStorageBytes = cfg.DemoStorageBytes
 	defer ws.Close()
 
 	var code string

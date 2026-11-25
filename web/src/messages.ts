@@ -2,6 +2,7 @@
 // {name} placeholders must stay as they are. "a|b|c" keys are plural forms (see plural() in i18n.ts): Russian and
 // Ukrainian take three forms (1, 2-4, 5+), English two (1, other). Add a key here whenever a new tr('…') appears.
 export const MESSAGES: Record<string, [en: string, uk: string]> = {
+  'Хранилище демо: {used} из {limit} МБ': ['Demo storage: {used} of {limit} MB', 'Сховище демо: {used} з {limit} МБ'],
   'Загрузка списка остановлена.': ['List loading stopped.', 'Завантаження списку зупинено.'],
   'Список слишком велик для одного экрана. Используйте поиск или выгрузите данные через экспорт.': ['This list is too large for one view. Use search or download an export.', 'Список завеликий для одного екрана. Скористайтеся пошуком або експортуйте дані.'],
   'Загружено строк для раздела «{name}»: {n}.': ['Loaded {n} rows for “{name}”.', 'Завантажено рядків для розділу «{name}»: {n}.'],
