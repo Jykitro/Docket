@@ -100,7 +100,7 @@ const footLink = 'py-1.5 text-sm text-muted no-underline hover:text-ink';
       <h1 class="max-w-[13ch] text-[clamp(44px,6.6vw,88px)] leading-[.98] font-semibold tracking-[-0.045em]">A task board for you and your AI agent.</h1>
       <p class="max-w-[50ch] text-[19px] leading-normal text-muted max-xs:text-[17px]">Plan in your browser. Your agent works the same board through MCP or Code Mode, and keeps a wiki of everything it learns about the project.</p>
       <div class:list={[ctaRow, 'mt-1']}>
-        <a class:list={[btn, lg, primary, 'shadow-[0_10px_30px_-10px_rgba(109,77,242,.8)]']} data-app href="https://app.plandillo.dev/register" data-cta="hero-demo">Try the free demo</a>
+        <a class:list={[btn, lg, primary, 'shadow-[0_10px_30px_-10px_rgba(84,48,153,.8)]']} data-app href="https://app.plandillo.dev/register" data-cta="hero-demo">Try the free demo</a>
         <a class:list={[btn, lg, secondary]} href="#self-host" data-cta="hero-docker">Run it with Docker</a>
       </div>
       <p class="text-sm text-dim">One container, free to self-host. The cloud demo is the same app with a 5 MB workspace quota.</p>
@@ -380,7 +380,7 @@ $ make rebuild</pre>
         <a class:list={[btn, md, secondary, 'w-full']} href="https://github.com/huntly-digital/plandillo/blob/main/docs/hosting.md#quick-start" data-cta="price-selfhost">Self-hosting guide</a>
         <Ticks items={['Board, project wiki and activity log', 'Agents over MCP and Code Mode', 'One or many accounts, a workspace each', 'SQLite or PostgreSQL', 'MIT-licensed source']} />
       </div>
-      <div class:list={[price, 'border-featured-line bg-[linear-gradient(180deg,var(--color-featured-top)_0%,var(--color-surface)_60%)] shadow-[0_30px_80px_-40px_rgba(109,77,242,.6)] max-board:-order-1']}>
+      <div class:list={[price, 'border-featured-line bg-[linear-gradient(180deg,var(--color-featured-top)_0%,var(--color-surface)_60%)] shadow-[0_30px_80px_-40px_rgba(84,48,153,.6)] max-board:-order-1']}>
         <div class={priceHead}><div class="row-between"><h3 class={priceTitle}>Cloud Free</h3><span class="pill is-doing">Try it now</span></div><p class={muted}>The self-hosted Plandillo, run by us.</p></div>
         <div class={amount}><strong class={amountValue}>Free</strong><span class="text-sm text-dim">hosted by us</span></div>
         <div class={quota}><span class={quotaLabel}>Workspace quota</span><strong class={quotaValue}>5 MB</strong></div>
@@ -412,18 +412,34 @@ $ make rebuild</pre>
 </main>
 
 <footer class="border-t border-line-soft">
-  <section class:list={[wrap, 'grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] items-start gap-16 border-b border-line-soft pt-16 pb-14 scroll-mt-[72px] max-tab:grid-cols-1 max-tab:gap-8']} id="about" aria-labelledby="about-title">
-    <div class="flex flex-col gap-3.5">
-      <h2 id="about-title" class="text-[22px] font-semibold tracking-[-0.02em]">About Plandillo</h2>
-      <p class="max-w-[60ch] text-base leading-[1.65] text-muted">Plandillo is an open-source task board and project wiki for people who work with AI agents. You plan the work; your agent picks it up through MCP or Code Mode, reports back on the board and keeps the wiki current. It is written in Go, runs in a single container and stores data in SQLite or PostgreSQL.</p>
-      <p class="max-w-[60ch] text-base leading-[1.65] text-muted">The code is MIT licensed and developed in the open on GitHub. Issues and pull requests are welcome.</p>
-    </div>
-    <div class="flex flex-col gap-3.5 rounded-2xl border border-line bg-surface p-6">
-      <span class="text-sm text-dim">Developed by</span>
-      <a class="text-[22px] font-semibold tracking-[-0.02em] no-underline" href="https://github.com/huntly-digital">Huntly Digital</a>
-      <div class="mt-1 flex flex-wrap gap-2.5">
-        <a class:list={[btn, secondary, 'h-11 rounded-[10px] px-3.5 text-sm']} href="https://github.com/huntly-digital/plandillo" data-cta="about-github">Contribute on GitHub</a>
-        <a class:list={[btn, ghost, 'h-11 rounded-[10px] px-3.5 text-sm']} href="https://github.com/huntly-digital/plandillo/blob/main/LICENSE">MIT license</a>
+  <section class="border-b border-line-soft bg-page-2 scroll-mt-[72px]" id="about" aria-labelledby="about-title">
+    <div class:list={[wrap, 'grid grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)] items-center gap-16 py-20 max-tab:grid-cols-1 max-tab:gap-10 max-tab:py-14']}>
+      <div class="flex flex-col gap-5">
+        <span class="inline-flex items-center gap-2 text-[13px] font-semibold tracking-[0.08em] text-ink-3 uppercase"><span class={sq}></span>About Plandillo</span>
+        <h2 id="about-title" class="max-w-[22ch] text-balance text-[clamp(28px,3.2vw,40px)] leading-[1.08] font-semibold tracking-[-0.035em]">Built in the open for people who work with AI agents.</h2>
+        <p class:list={[body, 'max-w-[54ch]']}>An open-source task board and project wiki. You plan the work; your agent picks it up through MCP or Code Mode, reports back on the board and keeps the wiki current.</p>
+        <dl class="mt-3 grid grid-cols-[repeat(4,max-content)] gap-x-10 gap-y-5 max-tab:grid-cols-2 max-tab:gap-x-6">
+          {[['Written in', 'Go'], ['Runs as', 'One container'], ['Stores data in', 'SQLite or Postgres'], ['License', 'MIT']].map(([k, v]) => (
+            <div class="flex flex-col gap-1 border-t border-line pt-3">
+              <dt class="text-xs text-dim">{k}</dt>
+              <dd class="text-[15px] font-semibold text-ink">{v}</dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+      <div class="relative overflow-hidden rounded-[20px] border border-featured-line bg-[linear-gradient(180deg,var(--color-featured-top)_0%,var(--color-surface)_70%)] p-8 max-xs:p-6">
+        <div class="flex items-center gap-4">
+          <span class="grid size-12 shrink-0 place-items-center rounded-[14px] bg-primary text-[17px] font-semibold tracking-[-0.02em] text-white" aria-hidden="true">HD</span>
+          <div class="flex flex-col">
+            <span class="text-[13px] text-dim">Developed by</span>
+            <a class="text-[22px] leading-tight font-semibold tracking-[-0.02em] text-ink no-underline hover:text-link" href="https://github.com/huntly-digital">Huntly Digital</a>
+          </div>
+        </div>
+        <p class:list={[muted, 'mt-5']}>The code lives on GitHub under the MIT license. Issues and pull requests are welcome.</p>
+        <div class="mt-6 flex flex-wrap gap-2.5">
+          <a class:list={[btn, md, primary]} href="https://github.com/huntly-digital/plandillo" data-cta="about-github">Contribute on GitHub</a>
+          <a class:list={[btn, md, secondary]} href="https://github.com/huntly-digital/plandillo/issues">Open an issue</a>
+        </div>
       </div>
     </div>
   </section>
@@ -456,9 +472,13 @@ $ make rebuild</pre>
       <a class={footLink} href="https://github.com/huntly-digital">Huntly Digital</a>
     </nav>
   </div>
-  <div class:list={[wrap, 'flex flex-wrap justify-between gap-3 border-t border-line-soft pt-6 pb-10 text-[13px] text-dim']}>
+  <div class:list={[wrap, 'flex flex-wrap items-center justify-between gap-3 border-t border-line-soft pt-6 pb-10 text-[13px] text-dim']}>
     <span>© 2026 Huntly Digital. Plandillo is open source under the MIT license.</span>
-    <a class="text-muted underline hover:text-link" href="https://github.com/huntly-digital/plandillo">github.com/huntly-digital/plandillo</a>
+    <a class="group inline-flex items-center gap-2 rounded-lg border border-line-soft px-2.5 py-1 text-muted no-underline transition-colors hover:border-line-2 hover:text-ink" href="https://github.com/huntly-digital/plandillo" data-cta="footer-github">
+      <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"></path></svg>
+      <span class="mono">huntly-digital/plandillo</span>
+      <span class="transition-transform group-hover:translate-x-0.5" aria-hidden="true">→</span>
+    </a>
   </div>
 </footer>
 </Base>

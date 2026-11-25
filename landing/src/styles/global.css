@@ -34,22 +34,22 @@
   --color-faint: light-dark(#B9B4CC, #4A4663);
   --color-code-ink: light-dark(#2A2638, #E9E7F5);
   --color-code-dim: light-dark(#8F8AA6, #6E6A88);
-  --color-agent: light-dark(#6D4DF2, #8B74FF);
-  --color-primary: light-dark(#6D4DF2, #6D4DF2);
-  --color-primary-hover: light-dark(#5B3BE0, #7C5EFF);
-  --color-link: light-dark(#5B3BE0, #B9ABFF);
+  --color-agent: light-dark(#543099, #ceb7ff);
+  --color-primary: light-dark(#543099, #543099);
+  --color-primary-hover: light-dark(#452780, #6639B8);
+  --color-link: light-dark(#543099, #ceb7ff);
   --color-done: light-dark(#0F8F58, #3DD68C);
-  --color-note: light-dark(#F1EDFF, #211C3D);
-  --color-note-line: light-dark(#DDD3FF, #2F2858);
-  --color-note-ink: light-dark(#3F2F8F, #DCD6FF);
+  --color-note: light-dark(#f1ebfa, #241B34);
+  --color-note-line: light-dark(#DDCFF2, #3A2B55);
+  --color-note-ink: light-dark(#3F2473, #E2D6FF);
   --color-header: light-dark(rgb(250 250 252 / .82), rgb(13 12 20 / .82));
   --color-dots: light-dark(#DCD8E8, #2E2A42);
-  --color-featured-line: light-dark(#B3A3FF, #5A45C9);
-  --color-featured-top: light-dark(#EFEAFF, #1F1A3A);
-  --color-doing-bg: light-dark(rgb(109 77 242 / .1), rgb(139 116 255 / .16));
-  --color-doing-ink: light-dark(#5B3BE0, #C9BEFF);
+  --color-featured-line: light-dark(#C4AEEA, #4E3285);
+  --color-featured-top: light-dark(#f1ebfa, #1E1730);
+  --color-doing-bg: light-dark(rgb(84 48 153 / .1), rgb(206 183 255 / .14));
+  --color-doing-ink: light-dark(#543099, #ceb7ff);
   --color-done-bg: light-dark(rgb(15 143 88 / .1), rgb(61 214 140 / .14));
-  --color-glow: light-dark(rgb(109 77 242 / .14), rgb(109 77 242 / .32));
+  --color-glow: light-dark(rgb(84 48 153 / .12), rgb(84 48 153 / .34));
   --color-window-shadow: light-dark(rgb(40 30 90 / .18), rgb(0 0 0 / .9));
 
   /* The board demo copies the planner itself: these are web/src/styles.css tokens as app-*; keep them in sync. */
