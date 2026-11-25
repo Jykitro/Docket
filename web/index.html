@@ -16,6 +16,12 @@
         var p = localStorage.getItem('docket-theme')
         var dark = p === 'dark' || (p !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches)
         document.documentElement.dataset.theme = dark ? 'dark' : 'light'
+        // Appearance choices (src/theme.ts useLookPref); styles.css reads the data-* attributes.
+        ;['accent', 'radius', 'scale', 'weight', 'font'].forEach(function (k) {
+          var v = localStorage.getItem('plandillo-' + k)
+          if (v) document.documentElement.dataset[k] = v
+          if (v && k === 'scale') document.documentElement.style.setProperty('--zoom', v / 100)
+        })
       } catch (e) {}
     </script>
   </head>

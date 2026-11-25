@@ -1,10 +1,14 @@
 import { useState } from 'react'
 import { Icon } from './icons'
 import { tr } from './i18n'
+import { Select } from './ui'
 
-const PANEL = 'overflow-hidden rounded-xl border border-ln bg-sf'
+const PANEL = 'rounded-xl border border-ln bg-sf' // no overflow-hidden: the selects' popovers must spill out
 const BTN = 'inline-flex h-[30px] items-center gap-2 whitespace-nowrap rounded-md border border-ln bg-sf px-2.5 text-[13px] font-medium text-tx no-underline hover:bg-sk'
-const PRI = 'inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-md border border-ink bg-ink px-3 text-sm font-medium text-inkt hover:opacity-90'
+const COPY = 'absolute top-1.5 right-1.5 grid size-8 place-items-center rounded-md border border-ink bg-ink text-inkt hover:opacity-90'
+const SUMMARY = 'flex cursor-pointer list-none items-center justify-between gap-2 font-medium [&::-webkit-details-marker]:hidden'
+const CHEVRON = 'text-t3 motion-safe:transition-transform group-open:rotate-180'
+const INPUT ='h-8 min-w-0 rounded-md border border-ln bg-sf px-2.5 text-[13px] text-tx'
 const PRE = 'overflow-x-auto rounded-[10px] border border-ln bg-sf2 px-4 py-3 font-mono text-[12.5px] leading-[1.65] whitespace-pre text-t2'
 const SKILLS = [
   ['plandillo', 'Рабочий процесс: задача, план, заметки, финиш. Его же сервер отправляет при подключении.'],
@@ -40,7 +44,6 @@ const METHODS = {
 type Method = keyof typeof METHODS
 const repo = 'huntly-digital/plandillo'
 const local = 'http://localhost:7777/mcp' // the plugin's default board, skills/.mcp.json
-const select = 'max-w-full rounded-md border border-ln bg-sf px-2 py-1.5 text-sm text-tx'
 
 function installCommand(client: Client, method: Method, address: string) {
   if (client === 'Другой клиент') return address
@@ -106,53 +109,34 @@ export function McpAgent() {
   const help = client === 'Claude Desktop' ? tr('Добавьте запись в mcpServers файла claude_desktop_config.json и перезапустите Claude Desktop. Для запуска npx нужен Node.js.')
     : client === 'Другой клиент' ? tr('Вставьте адрес в настройки клиента, выберите Streamable HTTP и подтвердите вход через браузер.')
     : tr(instructions[active], { url: local, board: endpoint })
-  const copyLabel = active === 'mcp' ? tr('Скопировать конфиг') : tr('Скопировать команду')
+  const copyLabel = client === 'Claude Desktop' ? tr('Скопировать конфиг') : client === 'Другой клиент' ? tr('Копировать адрес') : tr('Скопировать команду')
   return (
     <section className={PANEL} aria-labelledby="agent-install-title">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-ln px-5 py-4">
-        <h2 id="agent-install-title" className="grow text-base font-semibold">{tr('Установка для агента')}</h2>
-        <label className="flex items-center gap-2 text-sm text-t2">{tr('Клиент')}
-          <select className={select} value={client} onChange={e => setClient(e.target.value as Client)}>
-            {CLIENTS.map(name => <option key={name} value={name}>{tr(name)}</option>)}
-          </select>
-        </label>
+      <div className="flex flex-wrap items-center gap-2 px-4 pt-3.5 pb-3">
+        <h2 id="agent-install-title" className="mr-auto text-[15px] font-semibold">{tr('Подключение агента')}</h2>
+        <Select right label={tr('Клиент')} showLabel value={client} options={CLIENTS.map((c) => ({ value: c, label: tr(c) }))} onChange={setClient} />
       </div>
-      <div className="grid min-w-0 gap-3 px-5 py-4">
-        {cli && <div role="group" aria-label={tr('Способ установки')} className="flex flex-wrap gap-1.5">
-          {(Object.keys(METHODS) as Method[]).map(m => (
-            <button key={m} type="button" aria-pressed={m === active} onClick={() => setMethod(m)}
-              className={BTN + ' aria-pressed:border-act aria-pressed:bg-acs aria-pressed:text-act'}>{tr(METHODS[m])}</button>
-          ))}
+      <div className="grid min-w-0 gap-2.5 px-4 pb-4">
+        {(cli || useBoard) && <div className="flex flex-wrap gap-2">
+          {cli && <Select label={tr('Способ установки')} value={active} options={(Object.keys(METHODS) as Method[]).map((m) => ({ value: m, label: tr(METHODS[m]) }))} onChange={setMethod} />}
+          {useBoard && <Select label={tr('Режим MCP')} showLabel value={codeMode ? 'code' : 'tools'} options={[{ value: 'tools', label: 'MCP' }, { value: 'code', label: 'Code Mode' }]} onChange={(v) => setCodeMode(v === 'code')} />}
         </div>}
-        {useBoard && <div className="flex flex-wrap items-center gap-2 text-[13px] text-t2">
-          <label className="flex items-center gap-2">{tr('Режим MCP')}
-            <select className={select} value={codeMode ? 'code' : 'tools'} onChange={e => setCodeMode(e.target.value === 'code')}>
-              <option value="tools">MCP</option><option value="code">Code Mode</option>
-            </select>
-          </label>
-          <code className="min-w-0 break-all text-xs">{address}</code>
-          <button type="button" className={BTN} aria-label={tr('Копировать адрес')} title={tr('Копировать адрес')} onClick={() => copy('url:' + address, () => address)}>
-            <Icon name={copied === 'url:' + address ? 'check' : 'link'} size={14} />
-          </button>
-        </div>}
-        {client === 'Другой клиент' && <label className="grid gap-1 text-sm text-t2">{tr('Имя агента')}
-          <input className={select} value={agentName} maxLength={48} placeholder={tr('Из запроса MCP')} onChange={e => setAgentName(e.target.value)} />
+        {client === 'Другой клиент' && <label className="flex flex-wrap items-center gap-2 text-[13px] text-t2">{tr('Имя агента')}
+          <input className={INPUT} value={agentName} maxLength={48} placeholder={tr('Из запроса MCP')} onChange={e => setAgentName(e.target.value)} />
         </label>}
-        <p className="break-words text-sm text-t2">{help}</p>
-        <div className="min-w-0 overflow-hidden rounded-lg border border-ln bg-sf2">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-ln px-3 py-2">
-            <span className="text-xs font-medium text-t2">{cli ? tr('Терминал') : client === 'Claude Desktop' ? 'claude_desktop_config.json' : tr('Адрес сервера')}</span>
-            <button type="button" className={PRI} onClick={() => copy(command, () => command)}>
-              <Icon name={copied === command ? 'check' : 'doc'} size={14} /><span aria-live="polite">{copied === command ? tr('Скопировано') : copyLabel}</span>
-            </button>
-          </div>
-          <pre className="whitespace-pre-wrap [overflow-wrap:anywhere] px-3 py-3 font-mono text-xs leading-relaxed" dir="ltr">{command}</pre>
+        <p className="break-words text-[13px] leading-snug text-t2">{help}</p>
+        <div className="relative min-w-0 rounded-lg border border-ln bg-sf2">
+          <pre className="whitespace-pre-wrap [overflow-wrap:anywhere] py-2.5 pr-12 pl-3 font-mono text-xs leading-relaxed" dir="ltr">{command}</pre>
+          <button type="button" className={COPY} aria-label={copyLabel} title={copyLabel} onClick={() => copy(command, () => command)}>
+            <Icon name={copied === command ? 'check' : 'doc'} size={14} />
+          </button>
+          <span className="sr-only" aria-live="polite">{copied === command ? tr('Скопировано') : ''}</span>
         </div>
         {active !== 'skills' && <p className="text-xs text-t3">{tr('Для проверки попросите агента показать проекты выбранного пространства.')}</p>}
         {error && <p role="alert" className="text-sm text-rd">{error}</p>}
       </div>
-      <details className="border-t border-ln px-5 py-3 text-[13px]">
-        <summary className="cursor-pointer font-medium">{tr('Скачать отдельные навыки')}</summary>
+      <details className="group border-t border-ln px-4 py-2.5 text-[13px]">
+        <summary className={SUMMARY}>{tr('Скачать отдельные навыки')}<span className={CHEVRON}><Icon name="chevron" size={15} /></span></summary>
         <div className="pt-3">
           <div className="mb-2 break-all font-mono text-xs text-t3">{cli ? path : tr('Вставьте в инструкции проекта')}</div>
           {SKILLS.map(([name, text]) => (
@@ -168,8 +152,8 @@ export function McpAgent() {
         </div>
       </details>
       {cli && (
-        <details className="border-t border-ln px-5 py-3 text-[13px]">
-          <summary className="cursor-pointer font-medium">{tr('Строгий режим (необязательно)')}</summary>
+        <details className="group border-t border-ln px-4 py-2.5 text-[13px]">
+          <summary className={SUMMARY}>{tr('Строгий режим (необязательно)')}<span className={CHEVRON}><Icon name="chevron" size={15} /></span></summary>
           <div className="mt-3 mb-2 flex flex-wrap items-center gap-3">
             <span className="min-w-0 truncate font-mono text-[12px] text-t3">{hookPath}</span>
             <span className="grow" />

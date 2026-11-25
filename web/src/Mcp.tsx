@@ -1,6 +1,7 @@
 import { OAuthConnections } from './OAuth'
 // Integrations tab: the ways an assistant reaches Plandillo (MCP, Code Mode) and what they share: status and
 // self-check, token and access mode, tool switches, live call log. See docs/integrations.md.
+// Main column: connect, access, tools (folded). Side column: status (checks folded unless one failed) and the log.
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { type McpTool, agentName, api, mcpHealthLabel, mcpLastCallLabel, fmtStamp } from './api'
@@ -10,23 +11,21 @@ import { McpAgent } from './McpAgent'
 import { ConfirmButton, ErrorState, Skeleton, Toggle } from './ui'
 
 const BTN_LOOK = 'items-center gap-2 whitespace-nowrap rounded-md border font-medium no-underline disabled:cursor-default disabled:opacity-50'
-const BTN_PRI = 'inline-flex h-9 px-3 text-sm border-ink bg-ink text-inkt hover:opacity-90 ' + BTN_LOOK
-const BTN_SM = 'inline-flex h-[30px] px-2.5 text-[13px] border-ln bg-sf text-tx hover:bg-sk ' + BTN_LOOK
-const BTN_SM_SQ = 'inline-flex size-[30px] justify-center p-0 text-[13px] border-ln bg-sf text-tx hover:bg-sk ' + BTN_LOOK
+const BTN_SM = 'inline-flex h-8 px-2.5 text-[13px] border-ln bg-sf text-tx hover:bg-sk ' + BTN_LOOK
+const BTN_SQ = 'inline-flex size-7 justify-center p-0 text-[13px] border-transparent bg-transparent text-t2 hover:bg-sk hover:text-tx ' + BTN_LOOK
 const PANEL = 'overflow-hidden rounded-xl border border-ln bg-sf'
-const PH_ROW = 'flex items-center gap-3 px-5 pt-4'
-const PH_H2 = 'grow text-[16px] font-semibold tracking-[-.01em]'
-const LB = 'flex min-w-0 flex-col gap-1.5 text-[12.5px] font-medium text-t2'
-const FLD = 'flex h-[38px] min-w-0 items-center gap-2 rounded-md border border-ln bg-sf2 pr-1.5 pl-3 text-[13px]'
-const HINT = 'text-[12px] font-normal text-t3'
-const ERR_PAD = 'px-5 pb-3.5 text-[13px] text-rd'
-const CK = 'flex flex-wrap items-center gap-3 border-t border-ln px-5 py-[11px]'
-const TL = 'flex items-center gap-3 border-t border-ln px-5 py-2.5'
-const LG = 'items-center gap-2.5 border-t border-ln px-[18px] py-[9px] text-[12.5px]'
+const HEAD = 'flex flex-wrap items-center gap-2 px-4 pt-3.5 pb-3'
+const H2 = 'mr-auto text-[15px] font-semibold'
+const ERR_PAD = 'px-4 pb-3 text-[13px] text-rd'
+const ROW = 'flex items-center gap-3 border-t border-ln px-4 py-2'
+const LG = 'items-center gap-2.5 border-t border-ln px-4 py-2 text-[12.5px]'
 const SEG = 'inline-flex gap-0.5 rounded-md border border-ln p-0.5 text-[12.5px]'
-const SEGBTN = 'rounded-md px-2.5 py-[3px] text-t3 disabled:cursor-default disabled:opacity-50 '
+const SEGBTN = 'rounded-sm px-2.5 py-[3px] text-t3 disabled:cursor-default disabled:opacity-50 aria-pressed:bg-sk aria-pressed:font-semibold aria-pressed:text-tx'
 const FC = 'inline-flex h-7 items-center gap-1.5 whitespace-nowrap rounded-full border border-ln bg-sf px-2.5 text-[12.5px] text-t2 hover:bg-sk aria-pressed:border-transparent aria-pressed:bg-acs aria-pressed:font-medium aria-pressed:text-act aria-pressed:hover:bg-sk'
 const MONO = 'font-mono text-[11.5px] text-t3'
+// A <details> whose summary is a panel header: no browser marker, a chevron that turns when open.
+const SUMMARY = 'flex cursor-pointer list-none items-center gap-2 px-4 py-3 [&::-webkit-details-marker]:hidden'
+const CHEVRON = 'text-t3 motion-safe:transition-transform group-open:rotate-180'
 // The server writes its check texts in Russian. Fixed parts go through tr(); a trailing ": value" or timestamp stays as is.
 const detail = (s: string) => s.split(' · ').map((p) => {
   const m = p.match(/^(.*?)(: .*| \d\d\.\d\d \d\d:\d\d)$/)
@@ -72,6 +71,7 @@ export function Mcp() {
   const st = status.data
   const result = st?.check
   const online = !!st?.online
+  const failed = result?.checks.filter((c) => !c.ok).length ?? 0
   const enabled = s?.tools.filter((t) => t.enabled).length ?? 0
   const masked = s?.token_masked ?? 'dkt_••••'
   const shownToken = token ?? masked
@@ -81,139 +81,148 @@ export function Mcp() {
     ['Запись', (s?.tools ?? []).filter((t) => t.group === 'write')],
   ]
   const readOnly = s?.access_mode === 'ro'
+  const patchError = patch.isError && <div className={ERR_PAD} role="alert">{patch.error.message}</div>
 
   return (
     <>
-      <header className="flex flex-wrap items-center gap-3.5 px-8 pt-6 pb-4 max-[640px]:px-4">
-        <span className="grid size-10 place-items-center rounded-[11px] bg-sk"><Icon name="plug" size={20} sw={1.9} /></span>
-        <div className="flex min-w-0 flex-[1_1_260px] flex-col gap-0.5">
-          <h1 className="text-2xl font-bold tracking-tight">{tr('Интеграции')}</h1>
-          <span className="text-sm text-t3">{tr('Подключите ассистента к задачам и страницам вашего пространства.')}</span>
+      <header className="flex items-center gap-3 px-6 pt-5 pb-4 max-[640px]:px-4">
+        <span className="grid size-9 shrink-0 place-items-center rounded-[10px] bg-sk"><Icon name="plug" size={18} sw={1.9} /></span>
+        <div className="flex min-w-0 flex-col">
+          <h1 className="text-xl font-bold tracking-tight">{tr('Интеграции')}</h1>
+          <span className="text-[13px] text-t3">{tr('Подключите ассистента к задачам и страницам вашего пространства.')}</span>
         </div>
-        {result && !status.isError && (
-          <span className={'inline-flex h-[30px] items-center gap-2 rounded-full px-3 text-[13px] font-semibold ' + (online ? 'bg-dns text-dnt' : 'bg-rds text-rd')} role="status">
-            <span className={'inline-block size-2 shrink-0 rounded-full ' + (online ? 'bg-dn' : 'bg-rd')} />
-            {online ? tr('Онлайн · {v}', { v: unit(result?.checks.find((c) => c.key === 'server')?.value ?? '') }) : tr('Недоступен')}
-          </span>
-        )}
       </header>
 
-      <div className="flex flex-wrap items-start gap-6 px-8 pt-6 pb-10 max-[640px]:px-4 max-[640px]:py-4">
-        <div className="flex min-w-0 flex-[999_1_540px] flex-col gap-5">
+      <div className="flex flex-wrap items-start gap-4 px-6 pb-8 max-[640px]:px-4">
+        <div className="flex min-w-0 flex-[999_1_500px] flex-col gap-4">
           <McpAgent />
-          <section className={PANEL}>
-            <div className="flex flex-wrap items-center gap-4 p-5">
-              <span className={'grid size-[46px] shrink-0 place-items-center rounded-full ' + (!result || status.isError ? 'bg-sk text-t3' : online ? 'bg-dns text-dnt' : 'bg-rds text-rd')}>
-                <Icon name={!result || status.isError ? 'plug' : online ? 'check' : 'x'} size={22} sw={2.2} />
-              </span>
-              <div className="flex min-w-0 flex-[1_1_220px] flex-col gap-0.5">
-                <span className="text-[19px] font-bold tracking-[-.01em]">{mcpHealthLabel(st, status.isError)}</span>
-                <span className="text-[13px] text-t3">
-                  {st && <span className="block">{mcpLastCallLabel(st)}</span>}
-                  {result && tr('Проверка: {when}, {ok} из {n}.', { when: fmtStamp(result.at), ok: result.checks.filter((c) => c.ok).length, n: result.checks.length })}
-                </span>
-              </div>
-              <button type="button" className={BTN_PRI} disabled={check.isPending} onClick={() => check.mutate()}>
-                <Icon name="clock" size={15} />{check.isPending ? tr('Проверяю…') : tr('Проверить соединение')}
-              </button>
-            </div>
-            {status.isError && <ErrorState error={status.error} onRetry={() => status.refetch()} />}
-            {status.isPending && <div className={CK}><Skeleton w="70%" /></div>}
-            {result?.checks.map((c) => (
-              <div className={CK} key={c.key}>
-                <span className={'grid size-5 shrink-0 place-items-center rounded-full ' + (c.ok ? 'bg-dns text-dnt' : 'bg-rds text-rd')}><Icon name={c.ok ? 'check' : 'x'} size={12} sw={3} /></span>
-                <span className="flex-[0_0_160px] text-sm font-medium">{tr(c.label)}</span>
-                <span className="min-w-0 flex-[1_1_180px] font-mono text-[12px] text-t3 [overflow-wrap:anywhere]">{detail(c.detail)}</span>
-                <span className="font-mono text-[12px] text-t2">{c.ok ? unit(c.value) || tr('ок') : tr('ошибка')}</span>
-                {!c.ok && c.hint && <span className="basis-full pl-8 text-[12.5px] text-rd">{tr('Что делать: {hint}', { hint: tr(c.hint) })}</span>}
-              </div>
-            ))}
-            {check.isError && <div className={ERR_PAD} role="alert">{check.error.message}</div>}
-          </section>
 
           <section className={PANEL}>
-            <div className={PH_ROW + ' flex-wrap pb-3'}>
-              <h2 className={PH_H2}>{tr('Настройки MCP')}</h2>
+            <div className={HEAD}>
+              <h2 className={H2}>{tr('Доступ')}</h2>
               <span className={SEG} role="group" aria-label={tr('Режим доступа')}>
                 {([['rw', 'Чтение и запись'], ['ro', 'Только чтение']] as const).map(([k, n]) => (
-                  <button key={k} type="button" className={SEGBTN + 'aria-pressed:bg-sk aria-pressed:font-semibold aria-pressed:text-tx'} aria-pressed={s?.access_mode === k} disabled={!s || patch.isPending} onClick={() => patch.mutate({ access_mode: k })}>{tr(n)}</button>
+                  <button key={k} type="button" className={SEGBTN} aria-pressed={s?.access_mode === k} disabled={!s || patch.isPending} onClick={() => patch.mutate({ access_mode: k })}>{tr(n)}</button>
                 ))}
               </span>
             </div>
-            <div className="flex flex-col gap-4 px-5 pb-5">
-              <div className={LB}>{tr('Токен для скриптов')}
-                <div className={FLD}><Icon name="key" size={15} /><span className="flex-1 truncate font-mono">{shownToken}</span>
-                  <button type="button" className={BTN_SM_SQ} aria-label={token ? tr('Скрыть токен') : tr('Показать токен')} onClick={() => (token ? setToken(null) : reveal.mutate())}><Icon name={token ? 'x' : 'search'} size={15} /></button>
-                  <button type="button" className={BTN_SM_SQ} aria-label={tr('Копировать токен')} onClick={async () => { await copyText(await fullToken()); flash('token') }}><Icon name={copied === 'token' ? 'check' : 'link'} size={15} /></button>
+            <div className="flex flex-col gap-1.5 px-4 pb-4">
+              <span className="text-[12.5px] font-medium text-t2">{tr('Токен для скриптов')}</span>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex h-8 min-w-0 flex-[1_1_240px] items-center gap-2 rounded-md border border-ln bg-sf2 pr-0.5 pl-2.5 text-[13px]">
+                  <Icon name="key" size={14} /><span className="flex-1 truncate font-mono text-[12.5px]">{shownToken}</span>
+                  <button type="button" className={BTN_SQ} aria-label={token ? tr('Скрыть токен') : tr('Показать токен')} title={token ? tr('Скрыть токен') : tr('Показать токен')} onClick={() => (token ? setToken(null) : reveal.mutate())}><Icon name={token ? 'x' : 'search'} size={14} /></button>
+                  <button type="button" className={BTN_SQ} aria-label={tr('Копировать токен')} title={tr('Копировать токен')} onClick={async () => { await copyText(await fullToken()); flash('token') }}><Icon name={copied === 'token' ? 'check' : 'link'} size={14} /></button>
                 </div>
-                <span className={HINT}>{s?.token_from_env ? tr('Задан в .env как PLANDILLO_MCP_TOKEN: перевыпуск отключён.') : tr('Для входа через браузер достаточно адреса сервера.')}</span>
+                <ConfirmButton className={BTN_SM + ' [&.warn]:border-rd [&.warn]:text-rd'} label={tr('Перевыпустить токен')} armed={tr('Перевыпуск отключит токен и приложения этого пространства. Продолжить?')} disabled={!s || s.token_from_env || rotate.isPending}
+                  icon={<Icon name="clock" size={14} />} onConfirm={() => rotate.mutate()} />
               </div>
-              <ConfirmButton className={BTN_SM + ' self-start [&.warn]:border-rd [&.warn]:text-rd'} label={tr('Перевыпустить токен')} armed={tr('Перевыпуск отключит токен и приложения этого пространства. Продолжить?')} disabled={!s || s.token_from_env || rotate.isPending}
-                icon={<Icon name="clock" size={14} />} onConfirm={() => rotate.mutate()} />
-              {rotated && <div className="mb-2 text-[13px] text-dgt" role="status">{tr('Токен перевыпущен. Скопируйте новый токен и обновите его в клиенте.')}</div>}
+              <span className="text-xs text-t3">{s?.token_from_env ? tr('Задан в .env как PLANDILLO_MCP_TOKEN: перевыпуск отключён.') : tr('Для входа через браузер достаточно адреса сервера.')}</span>
+              {rotated && <div className="text-[13px] text-dgt" role="status">{tr('Токен перевыпущен. Скопируйте новый токен и обновите его в клиенте.')}</div>}
               {rotate.isError && <div className="text-[13px] text-rd" role="alert">{rotate.error.message}</div>}
             </div>
+            {patchError}
           </section>
 
           <OAuthConnections />
 
-          <section className={PANEL}>
-            <div className={PH_ROW + ' pb-3'}><h2 className={PH_H2}>{tr('Инструменты')}</h2><span className="text-[13px] text-t3">{tr('{n} из {total} включено', { n: enabled, total: s?.tools.length ?? 0 })}</span></div>
+          <details className={PANEL + ' group'}>
+            <summary className={SUMMARY}>
+              <h2 className={H2}>{tr('Инструменты')}</h2>
+              <span className="text-[13px] text-t3">{tr('{n} из {total} включено', { n: enabled, total: s?.tools.length ?? 0 })}</span>
+              <span className={CHEVRON}><Icon name="chevron" size={16} /></span>
+            </summary>
             {settings.isError && <ErrorState error={settings.error} onRetry={() => settings.refetch()} />}
-            {settings.isPending && <div className={TL}><Skeleton w="70%" /></div>}
+            {settings.isPending && <div className={ROW}><Skeleton w="70%" /></div>}
             {groups.map(([name, tools]) => (
               <div key={name}>
-                <div className="border-t border-ln bg-sf2 px-5 pt-2 pb-1.5 text-xs font-medium text-t3">{tr(name)}{name === 'Запись' && readOnly && tr(' · недоступна в режиме «Только чтение»')}</div>
+                <div className="border-t border-ln bg-sf2 px-4 pt-2 pb-1.5 text-xs font-medium text-t3">{tr(name)}{name === 'Запись' && readOnly && tr(' · недоступна в режиме «Только чтение»')}</div>
                 {tools.map((t) => {
                   const off = name === 'Запись' && readOnly
                   const dim = off ? ' opacity-[.55]' : ''
                   return (
-                    <div className={TL} key={t.name}>
-                      <span className={'flex-[0_0_150px] font-mono text-[12.5px] font-medium' + dim}>{t.name}</span>
+                    <div className={ROW} key={t.name}>
+                      <span className={'flex-[0_0_140px] font-mono text-[12.5px] font-medium' + dim}>{t.name}</span>
                       <span className={'min-w-0 flex-[1_1_200px] text-[13px] text-t2' + dim}>{t.description}</span>
-                      <span className="flex-[0_0_52px] text-right font-mono text-[12px] tabular-nums text-t3" title={tr('Вызовы за 7 дней')}>{t.calls_7d}</span>
+                      <span className="flex-[0_0_40px] text-right font-mono text-[12px] tabular-nums text-t3" title={tr('Вызовы за 7 дней')}>{t.calls_7d}</span>
                       <Toggle on={t.enabled} disabled={off || patch.isPending} label={tr('Инструмент {name}', { name: t.name })} onChange={(v) => patch.mutate({ tools: { [t.name]: v } })} />
                     </div>
                   )
                 })}
               </div>
             ))}
-            <div className="border-t border-ln px-5 py-3 text-[12.5px] text-t3">{tr('Число справа: вызовы за 7 дней. Выключенный инструмент пропадает из списка, который видит агент, и из codemode в Code Mode.')}</div>
-            {patch.isError && <div className={ERR_PAD} role="alert">{patch.error.message}</div>}
-          </section>
+            <div className="border-t border-ln px-4 py-2.5 text-xs text-t3">{tr('Число справа: вызовы за 7 дней. Выключенный инструмент пропадает из списка, который видит агент, и из codemode в Code Mode.')}</div>
+            {patchError}
+          </details>
         </div>
 
-        <aside className="min-w-0 max-w-[480px] flex-[1_1_380px]">
+        <aside className="flex min-w-0 max-w-[440px] flex-[1_1_320px] flex-col gap-4">
           <section className={PANEL}>
-            <div className={PH_ROW + ' pb-2.5'}>
-              <h2 className={PH_H2}>{tr('Журнал вызовов')}</h2>
+            <div className="flex items-center gap-3 px-4 py-3">
+              <span className={'grid size-8 shrink-0 place-items-center rounded-full ' + (!result || status.isError ? 'bg-sk text-t3' : online ? 'bg-dns text-dnt' : 'bg-rds text-rd')}>
+                <Icon name={!result || status.isError ? 'plug' : online ? 'check' : 'x'} size={16} sw={2.4} />
+              </span>
+              <div className="flex min-w-0 grow flex-col">
+                <span className="text-sm font-semibold" role="status">{mcpHealthLabel(st, status.isError)}</span>
+                {st && <span className="truncate text-xs text-t3" title={mcpLastCallLabel(st)}>{mcpLastCallLabel(st)}</span>}
+              </div>
+              <button type="button" className={BTN_SM} disabled={check.isPending} title={tr('Проверить соединение')} onClick={() => check.mutate()}>
+                <Icon name="clock" size={14} />{check.isPending ? tr('Проверяю…') : tr('Проверить')}
+              </button>
             </div>
-            <div className="flex flex-wrap items-center gap-2 px-[18px] pb-3">
+            {status.isError && <ErrorState error={status.error} onRetry={() => status.refetch()} />}
+            {status.isPending && <div className={ROW}><Skeleton w="70%" /></div>}
+            {result && (
+              <details className="group border-t border-ln" open={failed > 0}>
+                <summary className={SUMMARY + ' py-2 text-[12.5px] text-t2'}>
+                  <span className="mr-auto">{tr('Проверка: {when}, {ok} из {n}.', { when: fmtStamp(result.at), ok: result.checks.length - failed, n: result.checks.length })}</span>
+                  <span className={CHEVRON}><Icon name="chevron" size={15} /></span>
+                </summary>
+                {result.checks.map((c) => (
+                  <div className="grid grid-cols-[20px_minmax(0,1fr)_auto] items-center gap-x-2.5 gap-y-0.5 border-t border-ln px-4 py-2 text-[13px]" key={c.key}>
+                    <span className={'grid size-5 place-items-center rounded-full ' + (c.ok ? 'bg-dns text-dnt' : 'bg-rds text-rd')}><Icon name={c.ok ? 'check' : 'x'} size={12} sw={3} /></span>
+                    <span className="font-medium">{tr(c.label)}</span>
+                    <span className="font-mono text-[12px] text-t2">{c.ok ? unit(c.value) || tr('ок') : tr('ошибка')}</span>
+                    <span className="col-start-2 col-end-4 font-mono text-[11.5px] text-t3 [overflow-wrap:anywhere]">{detail(c.detail)}</span>
+                    {!c.ok && c.hint && <span className="col-start-2 col-end-4 text-[12.5px] text-rd">{tr('Что делать: {hint}', { hint: tr(c.hint) })}</span>}
+                  </div>
+                ))}
+              </details>
+            )}
+            {check.isError && <div className={ERR_PAD} role="alert">{check.error.message}</div>}
+          </section>
+
+          <section className={PANEL}>
+            <div className={HEAD + ' pb-2'}>
+              <h2 className={H2}>{tr('Журнал вызовов')}</h2>
+              {st && <span className={MONO}>{tr('{calls} сегодня · медиана {ms} мс', { calls: st.calls_today, ms: st.median_ms })}</span>}
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5 px-4 pb-3">
               {([['all', tr('Все')], ['write', tr('Запись')], ['error', tr('Ошибки: {n}', { n: errors.data?.length ?? 0 })]] as const).map(([k, n]) => (
                 <button key={k} type="button" className={FC} aria-pressed={filter === k} onClick={() => setFilter(k)}>{n}</button>
               ))}
-              <span className="grow" />
-              {st && <span className={MONO}>{tr('{calls} сегодня · медиана {ms} мс', { calls: st.calls_today, ms: st.median_ms })}</span>}
             </div>
             {calls.isError && <ErrorState error={calls.error} onRetry={() => calls.refetch()} />}
             {calls.isPending && <div className={'grid grid-cols-[62px_20px_minmax(0,1fr)_auto] ' + LG}><Skeleton w={40} /><span /><Skeleton /><span /></div>}
             {calls.isSuccess && calls.data.length === 0 && <div className={'block text-t3 ' + LG}>{filter === 'all' ? tr('В журнале пока нет вызовов') : tr('Вызовов по этому фильтру нет')}</div>}
-            {calls.data?.map((c) => (
-              <div className={'grid grid-cols-[62px_20px_minmax(0,1fr)_auto] ' + LG} key={c.id}>
-                <span className="font-mono text-t3">{new Date(c.at).toLocaleTimeString(locale())}</span>
-                <span className="grid size-5 place-items-center rounded-full bg-acs text-act" title={agentName(c.actor)}><Icon name="spark" size={11} sw={2.2} /></span>
-                <span className="flex min-w-0 flex-col gap-px">
-                  <span className="font-mono text-[12.5px] font-medium">{c.tool}</span>
-                  <span className="truncate text-xs text-t2" title={agentName(c.actor)}>{agentName(c.actor)}</span>
-                  <span className={MONO + ' truncate'} title={c.args_summary}>{c.args_summary}</span>
-                </span>
-                <span className="flex items-center gap-2">
-                  <span className={MONO}>{c.duration_ms} {tr('мс')}</span>
-                  <span className={'rounded-[5px] px-[7px] py-0.5 font-mono text-[11px] leading-[normal] font-semibold ' + (c.status === 'ok' ? 'bg-dns text-dnt' : 'bg-rds text-rd')} title={c.error_code ?? undefined}>{c.status === 'ok' ? 'ok' : tr('ошибка')}</span>
-                </span>
-              </div>
-            ))}
-            <div className="flex items-center border-t border-ln px-[18px] py-3 text-[12.5px] text-t3">
+            <div className="max-h-[55vh] overflow-y-auto">
+              {calls.data?.map((c) => (
+                <div className={'grid grid-cols-[62px_20px_minmax(0,1fr)_auto] ' + LG} key={c.id}>
+                  <span className="font-mono text-t3">{new Date(c.at).toLocaleTimeString(locale())}</span>
+                  <span className="grid size-5 place-items-center rounded-full bg-acs text-act" title={agentName(c.actor)}><Icon name="spark" size={11} sw={2.2} /></span>
+                  <span className="flex min-w-0 flex-col gap-px">
+                    <span className="font-mono text-[12.5px] font-medium">{c.tool}</span>
+                    <span className="truncate text-xs text-t2" title={agentName(c.actor)}>{agentName(c.actor)}</span>
+                    <span className={MONO + ' truncate'} title={c.args_summary}>{c.args_summary}</span>
+                  </span>
+                  <span className="flex items-center gap-2">
+                    <span className={MONO}>{c.duration_ms} {tr('мс')}</span>
+                    <span className={'rounded-[5px] px-[7px] py-0.5 font-mono text-[11px] leading-[normal] font-semibold ' + (c.status === 'ok' ? 'bg-dns text-dnt' : 'bg-rds text-rd')} title={c.error_code ?? undefined}>{c.status === 'ok' ? 'ok' : tr('ошибка')}</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center border-t border-ln px-4 py-2.5 text-[12.5px] text-t3">
               <span className="grow">{tr('Хранится 7 дней')}</span>
               <ConfirmButton className="p-0 text-[12.5px] text-t3 hover:text-tx" label={tr('Очистить журнал')} armed={tr('Точно очистить?')} disabled={clear.isPending || !calls.data?.length} onConfirm={() => clear.mutate()} />
             </div>

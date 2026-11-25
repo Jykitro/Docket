@@ -10,7 +10,7 @@ import { LANGS, locale, setLang, tr, useLang } from './i18n'
 import { NAME_MAX } from './Onboarding'
 import { InstallPlandillo } from './Pwa'
 import { Link } from './router'
-import { type ThemePref } from './theme'
+import { ACCENTS, FONTS, RADII, SCALES, type ThemePref, WEIGHTS, useLookPref } from './theme'
 import { AccountSection, Users } from './Users'
 import { WorkspaceGeneral, WorkspaceList } from './Workspaces'
 import { Avatar, ErrorState, MENUITEM, MENUSEP, Menu, SettingsRow, SettingsSection, SkeletonRows, btn, btnPri, cap, textInput } from './ui'
@@ -28,7 +28,7 @@ const SECTIONS: Section[] = [
   { id: 'security', group: 'Аккаунт', label: 'Безопасность', icon: 'key', hint: 'Вход, пароль, ключи доступа и активные сессии.', when: selfhost },
   { id: 'workspace', group: 'Пространство', label: 'Общие', icon: 'sliders', hint: 'Название, иконка и данные текущего пространства.' },
   { id: 'workspaces', group: 'Пространство', label: 'Все пространства', icon: 'stack', hint: 'Создавайте, открывайте и архивируйте пространства.' },
-  { id: 'appearance', group: 'Система', label: 'Оформление', icon: 'sun', hint: 'Тема и язык интерфейса на этом устройстве.' },
+  { id: 'appearance', group: 'Система', label: 'Оформление', icon: 'sun', hint: 'Тема, цвета, шрифт и язык интерфейса на этом устройстве.' },
   { id: 'app', group: 'Система', label: 'Приложение', icon: 'monitor', hint: 'Установка, адрес сервера и ссылки на проект.' },
   { id: 'backups', group: 'Система', label: 'Бэкапы', icon: 'clock', hint: 'Копии базы данных сервера: создайте новую или скачайте готовую.', when: (me) => !!me?.user?.is_admin },
   { id: 'users', group: 'Система', label: 'Пользователи', icon: 'list', hint: 'Регистрация, приглашения и учётные записи сервера.', when: (me) => !!me?.user?.is_admin },
@@ -177,8 +177,8 @@ const SWATCH = {
   light: { bg: '#ffffff', side: '#f8fafc', line: '#e2e8f0', ink: '#543099' },
   dark: { bg: '#0a0a0a', side: '#171717', line: '#2e2e2e', ink: '#ceb7ff' },
 }
-function Swatch({ kind }: { kind: 'light' | 'dark' }) {
-  const c = SWATCH[kind]
+function Swatch({ kind, ink }: { kind: 'light' | 'dark'; ink?: string }) {
+  const c = { ...SWATCH[kind], ...(ink && { ink }) }
   return (
     <span className="flex h-full w-full" style={{ background: c.bg }}>
       <span className="flex w-1/3 flex-col gap-1.5 p-2" style={{ background: c.side }}>
@@ -197,8 +197,31 @@ function Swatch({ kind }: { kind: 'light' | 'dark' }) {
 
 const tile = 'flex flex-col gap-2 rounded-xl border border-ln bg-sf p-1.5 pb-2.5 text-left text-sm hover:border-ln2 aria-pressed:border-ink aria-pressed:ring-[3px] aria-pressed:ring-ink/20'
 
+const STEP = 'grid size-7 place-items-center rounded-sm text-t2 hover:bg-sk hover:text-tx disabled:opacity-40'
+
+/** A row of mutually exclusive buttons; a font option shows its label in that font. */
+function Segmented<T extends string>({ label, value, options, onChange }: {
+  label: string; value: T; options: readonly { id: T; label: string; family?: string }[]; onChange: (v: T) => void
+}) {
+  return (
+    <span className="inline-flex w-fit flex-wrap gap-0.5 rounded-md border border-ln p-0.5 text-[13px]" role="group" aria-label={label}>
+      {options.map((o) => (
+        <button key={o.id} type="button" aria-pressed={value === o.id} onClick={() => onChange(o.id)} style={{ fontFamily: o.family }}
+          className="rounded-sm px-3 py-1 text-t3 aria-pressed:bg-sk aria-pressed:font-semibold aria-pressed:text-tx">{tr(o.label)}</button>
+      ))}
+    </span>
+  )
+}
+
 function Appearance({ theme, onTheme }: { theme: ThemePref; onTheme: (t: ThemePref) => void }) {
   const lang = useLang()
+  const [accent, setAccent] = useLookPref('accent', ACCENTS, 'purple')
+  const [radius, setRadius] = useLookPref('radius', RADII, 'md')
+  const [font, setFont] = useLookPref('font', FONTS, 'inter')
+  const [weight, setWeight] = useLookPref('weight', WEIGHTS, 'normal')
+  const [scale, setScale] = useLookPref('scale', SCALES, '100')
+  const step = SCALES.findIndex((s) => s.id === scale)
+  const ink = accent === 'purple' ? undefined : ACCENTS.find((a) => a.id === accent)?.color
   return (
     <>
       <SettingsSection title={tr('Тема')} hint={tr('«Как в системе» следует за настройкой устройства.')}>
@@ -207,14 +230,42 @@ function Appearance({ theme, onTheme }: { theme: ThemePref; onTheme: (t: ThemePr
             <button key={t.id} type="button" className={tile} aria-pressed={theme === t.id} onClick={() => onTheme(t.id)}>
               <span className="relative block h-24 overflow-hidden rounded-lg border border-ln">
                 {t.id === 'system'
-                  ? <><Swatch kind="light" /><span className="absolute inset-0 [clip-path:polygon(100%_0,100%_100%,0_100%)]"><Swatch kind="dark" /></span></>
-                  : <Swatch kind={t.id} />}
+                  ? <><Swatch kind="light" ink={ink} /><span className="absolute inset-0 [clip-path:polygon(100%_0,100%_100%,0_100%)]"><Swatch kind="dark" ink={ink} /></span></>
+                  : <Swatch kind={t.id} ink={ink} />}
               </span>
               <span className="flex items-center gap-1.5 px-1 font-medium"><Icon name={t.icon} size={14} sw={2} />{tr(t.label)}
                 {theme === t.id && <span className="ml-auto text-act"><Icon name="check" size={14} sw={2.4} /></span>}</span>
             </button>
           ))}
         </div>
+        <SettingsRow label={tr('Акцентный цвет')} hint={tr('Кнопки, ссылки и выделение.')}>
+          <div className="flex flex-wrap gap-2" role="group" aria-label={tr('Акцентный цвет')}>
+            {ACCENTS.map((a) => (
+              <button key={a.id} type="button" title={tr(a.label)} aria-label={tr(a.label)} aria-pressed={accent === a.id} onClick={() => setAccent(a.id)}
+                className="grid size-8 place-items-center rounded-full text-white ring-offset-2 ring-offset-sf aria-pressed:ring-2 aria-pressed:ring-tx" style={{ background: a.color }}>
+                {accent === a.id && <Icon name="check" size={14} sw={2.6} />}
+              </button>
+            ))}
+          </div>
+        </SettingsRow>
+        <SettingsRow label={tr('Скругление углов')} hint={tr('Карточки, кнопки и поля.')}>
+          <Segmented label={tr('Скругление углов')} value={radius} options={RADII} onChange={setRadius} />
+        </SettingsRow>
+      </SettingsSection>
+      <SettingsSection title={tr('Текст')} hint={tr('Шрифт, насыщенность и масштаб всего интерфейса.')}>
+        <SettingsRow label={tr('Шрифт')}>
+          <Segmented label={tr('Шрифт')} value={font} options={FONTS} onChange={setFont} />
+        </SettingsRow>
+        <SettingsRow label={tr('Насыщенность')} hint={tr('Толщина букв во всём интерфейсе.')}>
+          <Segmented label={tr('Насыщенность')} value={weight} options={WEIGHTS} onChange={setWeight} />
+        </SettingsRow>
+        <SettingsRow label={tr('Масштаб')} hint={tr('Как масштаб в браузере, но только для Plandillo. На небольших экранах удобно 90%.')}>
+          <span className="inline-flex w-fit items-center gap-0.5 rounded-md border border-ln p-0.5 text-[13px]" role="group" aria-label={tr('Масштаб')}>
+            <button type="button" className={STEP} aria-label={tr('Уменьшить')} title={tr('Уменьшить')} disabled={step === 0} onClick={() => setScale(SCALES[step - 1].id)}><Icon name="minus" size={14} sw={2.2} /></button>
+            <button type="button" className="h-7 min-w-14 rounded-sm px-2 font-semibold tabular-nums hover:bg-sk" title={tr('Сбросить до 100%')} aria-live="polite" onClick={() => setScale('100')}>{scale}%</button>
+            <button type="button" className={STEP} aria-label={tr('Увеличить')} title={tr('Увеличить')} disabled={step === SCALES.length - 1} onClick={() => setScale(SCALES[step + 1].id)}><Icon name="plus" size={14} sw={2.2} /></button>
+          </span>
+        </SettingsRow>
       </SettingsSection>
       <SettingsSection title={tr('Язык')} hint={tr('Даты и числа тоже следуют выбранному языку.')}>
         <div className="grid grid-cols-3 gap-3 p-5 max-[520px]:grid-cols-1" role="group" aria-label={tr('Язык')}>

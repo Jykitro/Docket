@@ -15,7 +15,7 @@
   --color-dn: var(--dn); --color-dns: var(--dns); --color-dnt: var(--dnt);
   --color-bk: var(--bk); --color-bks: var(--bks); --color-bkt: var(--bkt);
   --color-rd: var(--rd); --color-rds: var(--rds);
-  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-sans: var(--ui-font); /* Settings → Appearance → Font, see html[data-font] below */
   --font-mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
   --shadow-pop: var(--sh);
   /* shadcn radius scale: rounded-md = controls, rounded-lg = dialogs, rounded-xl = cards */
@@ -31,6 +31,7 @@
 @layer base {
 :root {
   --radius: 0.625rem;
+  --ui-font: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --bg: oklch(1 0 0); --sf: oklch(1 0 0); --sf2: oklch(0.984 0.003 247.858); --sk: oklch(0.968 0.007 247.896);
   --ln: oklch(0.929 0.013 255.508); --ln2: oklch(0.869 0.022 252.894); --ring: var(--t3);
   --tx: oklch(0.129 0.042 264.695); --t2: oklch(0.446 0.043 257.281); --t3: oklch(0.554 0.046 257.417);
@@ -59,6 +60,33 @@ html[data-theme='dark'] {
   --sh: 0 4px 6px -1px rgb(0 0 0 / .4), 0 2px 4px -2px rgb(0 0 0 / .4);
   color-scheme: dark;
 }
+/* Settings → Appearance. Purple is the default above; the other accents share one formula over a hue (--h),
+   graphite drops the chroma (--c) and darkens the light ink (--l). */
+html[data-accent='blue'] { --h: 258; }
+html[data-accent='teal'] { --h: 195; }
+html[data-accent='green'] { --h: 155; }
+html[data-accent='orange'] { --h: 45; }
+html[data-accent='pink'] { --h: 350; }
+html[data-accent='graphite'] { --h: 0; --c: 0; --l: 0.25; }
+html[data-accent]:not([data-accent='purple']) {
+  --ac: oklch(var(--l, 0.5) calc(0.17 * var(--c, 1)) var(--h)); --acs: oklch(0.96 calc(0.03 * var(--c, 1)) var(--h));
+  --act: var(--ac); --ink: var(--ac); --inkt: #ffffff;
+}
+html[data-theme='dark'][data-accent]:not([data-accent='purple']) {
+  --ac: oklch(0.82 calc(0.1 * var(--c, 1)) var(--h)); --acs: oklch(0.3 calc(0.06 * var(--c, 1)) var(--h)); --inkt: oklch(0.22 calc(0.05 * var(--c, 1)) var(--h));
+}
+html[data-radius='sm'] { --radius: 0.375rem; }
+html[data-radius='lg'] { --radius: 0.875rem; }
+html[data-font='system'] { --ui-font: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+html[data-font='serif'] { --ui-font: ui-serif, 'New York', Georgia, 'Times New Roman', serif; }
+html[data-font='mono'] { --ui-font: 'JetBrains Mono', ui-monospace, Menlo, monospace; }
+/* Text weight shifts every Tailwind weight one step; plain text follows --font-weight-normal through body. */
+html[data-weight='light'] { --font-weight-normal: 300; --font-weight-medium: 400; --font-weight-semibold: 500; --font-weight-bold: 600; }
+html[data-weight='bold'] { --font-weight-normal: 500; --font-weight-medium: 600; --font-weight-semibold: 700; --font-weight-bold: 800; }
+body { font-weight: var(--font-weight-normal, 400); }
+/* Scale zooms the whole page like the browser's zoom. --zoom is set inline on <html> (theme.ts, index.html);
+   the viewport-height fixes are unlayered at the end of the file. */
+html[data-scale] { zoom: var(--zoom, 1); }
 /* Use the selected application theme for the outlined wordmark. */
 .plandillo-wordmark img { width: 100%; height: auto; }
 .plandillo-wordmark img:last-child, html[data-theme='dark'] .plandillo-wordmark img:first-child { display: none; }
@@ -69,3 +97,8 @@ button:not(:disabled) { cursor: pointer; }
 * { scrollbar-width: none; }
 *::-webkit-scrollbar { display: none; }
 }
+
+/* Under zoom, 100vh shrinks with the page: undo it for the full-height layouts. Unlayered, so it beats the utilities. */
+html[data-scale] .min-h-screen { min-height: calc(100vh / var(--zoom, 1)); }
+html[data-scale] .h-screen { height: calc(100vh / var(--zoom, 1)); }
+html[data-scale] .min-h-dvh { min-height: calc(100dvh / var(--zoom, 1)); }

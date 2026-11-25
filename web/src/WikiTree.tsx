@@ -5,6 +5,7 @@ import { api, errText, type Page, type Project } from './api'
 import { locale, tr } from './i18n'
 import { Icon } from './icons'
 import { Link } from './router'
+import { zoom } from './theme'
 import { cap, MENUITEM } from './ui'
 
 type Anchor = { id: number; shortcut: boolean; x: number; y: number; trigger: HTMLElement }
@@ -17,9 +18,9 @@ function PageMenu({ anchor, title, actions, close, run }: {
   const menu = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
     const el = menu.current!
-    const box = el.getBoundingClientRect()
-    el.style.left = Math.max(4, Math.min(anchor.x, window.innerWidth - box.width - 4)) + 'px'
-    el.style.top = Math.max(4, Math.min(anchor.y, window.innerHeight - box.height - 4)) + 'px'
+    const box = el.getBoundingClientRect(), z = zoom() // anchor and box are on-screen pixels; left/top are zoomed again
+    el.style.left = Math.max(4, Math.min(anchor.x, window.innerWidth - box.width - 4)) / z + 'px'
+    el.style.top = Math.max(4, Math.min(anchor.y, window.innerHeight - box.height - 4)) / z + 'px'
     el.querySelector('button')?.focus({ preventScroll: true })
     const outside = (e: Event) => { if (!el.contains(e.target as Node)) close() }
     document.addEventListener('pointerdown', outside)

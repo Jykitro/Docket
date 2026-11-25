@@ -58,17 +58,28 @@ const fc = 'inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-d
 export const MENUITEM = 'flex h-8 w-full items-center gap-2 rounded-sm bg-transparent px-2 text-left text-sm hover:bg-sk'
 
 /** A button that opens a popover; closes on outside click and Esc. children gets a close() callback. */
-export function Menu({ label, className = fc, right, up, block, ariaLabel, title, children }: {
-  label: ReactNode; className?: string; right?: boolean; up?: boolean; block?: boolean; ariaLabel?: string; title?: string; children: (close: () => void) => ReactNode
+export function Menu({ label, className = fc, right, up, block, ariaLabel, title, disabled, children }: {
+  label: ReactNode; className?: string; right?: boolean; up?: boolean; block?: boolean; ariaLabel?: string; title?: string; disabled?: boolean; children: (close: () => void) => ReactNode
 }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLSpanElement>(null)
+  // Closing from inside the list gives focus back to the trigger instead of dropping it on <body>.
+  const close = () => { setOpen(false); ref.current?.querySelector('button')?.focus() }
   useEffect(() => {
     if (!open) return
     const down = (e: MouseEvent) => {
       if (!ref.current?.contains(e.target as Node)) setOpen(false)
     }
-    const key = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
+    const key = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { setOpen(false); ref.current?.querySelector('button')?.focus() }
+      if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return
+      // Arrow keys walk the items, starting from the trigger.
+      const items = [...(ref.current?.querySelectorAll<HTMLElement>('[data-menu] button:not(:disabled), [data-menu] a[href]') ?? [])]
+      if (!items.length) return
+      e.preventDefault()
+      const i = items.indexOf(document.activeElement as HTMLElement), down = e.key === 'ArrowDown'
+      items[i < 0 ? (down ? 0 : items.length - 1) : (i + (down ? 1 : -1) + items.length) % items.length].focus()
+    }
     document.addEventListener('mousedown', down)
     document.addEventListener('keydown', key)
     return () => {
@@ -78,11 +89,30 @@ export function Menu({ label, className = fc, right, up, block, ariaLabel, title
   }, [open])
   return (
     <span className={'relative ' + (block ? 'block' : 'inline-block')} ref={ref}>
-      <button type="button" className={className} aria-haspopup="menu" aria-expanded={open} aria-label={ariaLabel} title={title} onClick={() => setOpen(!open)}>
+      <button type="button" className={className} aria-haspopup="menu" aria-expanded={open} aria-label={ariaLabel} title={title} disabled={disabled} onClick={() => setOpen(!open)}>
         {label}
       </button>
-      {open && <div data-menu className={'absolute z-30 min-w-[200px] max-h-80 overflow-y-auto bg-sf border border-ln rounded-md shadow-pop p-1 ' + (up ? 'bottom-[calc(100%+6px)] ' : 'top-[calc(100%+6px)] ') + (right ? 'right-0' : 'left-0')} role="menu">{children(() => setOpen(false))}</div>}
+      {open && <div data-menu className={'absolute z-30 min-w-[200px] max-h-80 overflow-y-auto bg-sf border border-ln rounded-md shadow-pop p-1 ' + (up ? 'bottom-[calc(100%+6px)] ' : 'top-[calc(100%+6px)] ') + (right ? 'right-0' : 'left-0')} role="menu">{children(close)}</div>}
     </span>
+  )
+}
+
+const selectBtn = 'inline-flex h-8 max-w-full items-center gap-1.5 rounded-md border border-ln bg-sf px-2.5 text-[13px] text-tx shadow-xs hover:bg-sk aria-expanded:border-ring disabled:opacity-50 '
+
+/** A dropdown in place of the native <select>: the chosen option on a button, the list in a popover. showLabel also prints the label on the button. */
+export function Select<T extends string>({ value, options, onChange, label, showLabel, disabled, block, right }: {
+  value: T; options: readonly { value: T; label: string }[]; onChange: (v: T) => void; label: string; showLabel?: boolean; disabled?: boolean; block?: boolean; right?: boolean
+}) {
+  const current = options.find((o) => o.value === value)
+  return (
+    <Menu block={block} right={right} disabled={disabled} ariaLabel={label + (current ? ': ' + current.label : '')} className={selectBtn + (block ? 'w-full' : '')}
+      label={<>{showLabel && <span className="shrink-0 text-t3">{label}</span>}<span className="min-w-0 grow truncate text-left font-medium">{current?.label ?? '—'}</span><span className="text-t3"><Icon name="chevron" size={15} /></span></>}>
+      {(close) => options.map((o) => (
+        <button key={o.value} type="button" role="menuitemradio" aria-checked={o.value === value} className={MENUITEM} onClick={() => { onChange(o.value); close() }}>
+          <span className="grow truncate">{o.label}</span>{o.value === value && <Icon name="check" size={14} sw={2.2} />}
+        </button>
+      ))}
+    </Menu>
   )
 }
 

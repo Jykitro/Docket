@@ -5,7 +5,7 @@ import { ApiError, type AuthUser, type Registration, api, errText } from './api'
 import { PasskeySettings } from './Passkeys'
 import { Icon } from './icons'
 import { locale, tr } from './i18n'
-import { ConfirmButton, btn, btnPri, cap } from './ui'
+import { ConfirmButton, Select, btn, btnPri, cap } from './ui'
 
 const input = 'h-9 w-full min-w-0 border border-ln rounded-md bg-sf px-2.5 text-sm text-tx focus:border-ring focus:ring-[3px] focus:ring-ring focus:outline-none'
 const item = 'flex items-center gap-3 min-h-10 px-3 rounded-md border border-ln bg-sf2 text-sm'
@@ -106,12 +106,9 @@ export function Users({ me }: { me: AuthUser }) {
   return (
     <>
       <div className="flex flex-col gap-1.5">
-        <label className="grid gap-1"><span className={cap}>{tr('Регистрация')}</span>
-          <select className={input} value={registration.data?.mode ?? ''} disabled={!registration.data || mode.isPending}
-            onChange={e => mode.mutate(e.target.value as Registration)}>
-            {!registration.data && <option value="">{tr('Загрузка…')}</option>}
-            <option value="invite">{tr('По приглашению')}</option><option value="closed">{tr('Закрытая')}</option><option value="open">{tr('Открытая')}</option>
-          </select></label>
+        <div className="grid gap-1"><span className={cap}>{tr('Регистрация')}</span>
+          <Select<Registration> block label={tr('Регистрация')} value={registration.data?.mode ?? 'invite'} disabled={!registration.data || mode.isPending} onChange={(v) => mode.mutate(v)}
+            options={[{ value: 'invite', label: tr('По приглашению') }, { value: 'closed', label: tr('Закрытая') }, { value: 'open', label: tr('Открытая') }]} /></div>
         {(mode.isError || registration.isError) && <p role="alert">{errText(mode.error ?? registration.error)}</p>}
         <span className={cap}>{tr('Пользователи')}</span>
         {users.isPending && <span className="px-3 text-[12.5px] text-t3">{tr('Загрузка…')}</span>}

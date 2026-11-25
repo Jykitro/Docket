@@ -60,7 +60,7 @@ export function Sidebar({ path, view, overdue, settings, rail, mobileOpen, onClo
       {/* Floating variant (shadcn): the aside is a padded slot, the inner card floats with border, radius and shadow. */}
       <aside
         className={'z-50 shrink-0 p-2 motion-safe:transition-[width,translate] motion-safe:duration-200 '
-          + 'max-[900px]:fixed max-[900px]:inset-y-0 max-[900px]:left-0 max-[900px]:w-68 min-[900px]:sticky min-[900px]:top-0 min-[900px]:h-screen '
+          + 'max-[900px]:fixed max-[900px]:inset-y-0 max-[900px]:left-0 max-[900px]:w-68 min-[900px]:sticky min-[900px]:top-0 min-[900px]:h-[calc(100vh/var(--zoom,1))] '
           + (rail ? 'min-[900px]:w-18 ' : 'min-[900px]:w-68 ') + (mobileOpen ? '' : 'max-[900px]:invisible max-[900px]:-translate-x-full')}
         id="app-sidebar" ref={trap} tabIndex={mobileOpen ? -1 : undefined} role={mobileOpen ? 'dialog' : undefined} aria-modal={mobileOpen || undefined}
         onKeyDown={e => { if (mobileOpen && e.key === 'Escape') { e.stopPropagation(); onClose() } }}

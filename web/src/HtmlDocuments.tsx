@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, fmtStamp, type HTMLDocumentInfo, useWho } from './api'
 import { HtmlPreview } from './HtmlPreview'
 import { tr } from './i18n'
-import { ConfirmButton, ErrorState, SkeletonRows, btn, btnPri } from './ui'
+import { ConfirmButton, ErrorState, Select, SkeletonRows, btn, btnPri } from './ui'
 
 type Owner = { task: string } | { page_id: number }
 type Revision = HTMLDocumentInfo & { html: string }
@@ -74,16 +74,16 @@ function InlineDocument({ doc, owner }: { doc: HTMLDocumentInfo; owner: Owner })
     <details className="text-xs text-t3">
       <summary className="w-fit max-w-full cursor-pointer wrap-anywhere hover:text-tx">{doc.title} · {tr('Версия')} {version}</summary>
       <div className="mt-2 flex flex-wrap items-center gap-2">
-        <label className="flex items-center gap-2">{tr('Версия')}
-          {doc.version <= 50 ? <select className={input} value={version} onChange={e => setPrevious(Number(e.target.value) === doc.version ? null : Number(e.target.value))}>
-            {Array.from({ length: doc.version }, (_, i) => doc.version - i).map(v => <option key={v}>{v}</option>)}
-          </select> : <input key={version} className={input + ' w-24'} type="number" min={1} max={doc.version} defaultValue={version}
+        <span className="flex items-center gap-2">{tr('Версия')}
+          {doc.version <= 50 ? <Select label={tr('Версия')} value={String(version)} onChange={v => setPrevious(Number(v) === doc.version ? null : Number(v))}
+            options={Array.from({ length: doc.version }, (_, i) => String(doc.version - i)).map(v => ({ value: v, label: v }))} />
+            : <input key={version} aria-label={tr('Версия')} className={input + ' w-24'} type="number" min={1} max={doc.version} defaultValue={version}
             onBlur={e => {
               const value = e.currentTarget.valueAsNumber
               if (Number.isInteger(value) && value >= 1 && value <= doc.version) setPrevious(value === doc.version ? null : value)
               else e.currentTarget.value = String(version)
             }} onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur() }} />}
-        </label>
+        </span>
         {read.data && <span>{who(read.data.author)} · {fmtStamp(read.data.created_at)}</span>}
         <button className={btn} disabled={!read.data || version !== doc.version || del.isPending} onClick={() => setDraft(read.data!)}>{tr('Изменить')}</button>
         <ConfirmButton label={tr('Удалить')} armed={tr('Удалить все версии?')} disabled={version !== doc.version || del.isPending} onConfirm={() => del.mutate()} />
