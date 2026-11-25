@@ -233,6 +233,9 @@ func (s *Store) WithTx(ctx context.Context, fn func(*Tx) error) error {
 	return tx.Commit()
 }
 
+// BackupKeep is how many automatic SQLite snapshots the server retains.
+const BackupKeep = 14
+
 // Backup writes a VACUUM INTO copy named docket-YYYYMMDD-HHMM.db and keeps the newest `keep` copies.
 func (s *Store) Backup(dir string, keep int, now time.Time) (string, error) {
 	if s.db.Postgres {

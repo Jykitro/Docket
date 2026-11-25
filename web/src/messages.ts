@@ -2,6 +2,23 @@
 // {name} placeholders must stay as they are. "a|b|c" keys are plural forms (see plural() in i18n.ts): Russian and
 // Ukrainian take three forms (1, 2-4, 5+), English two (1, other). Add a key here whenever a new tr('…') appears.
 export const MESSAGES: Record<string, [en: string, uk: string]> = {
+  "Бэкапы": ["Backups", "Резервні копії"],
+  "Копии базы данных сервера: создайте новую или скачайте готовую.": ["Copies of the server database: make a new one or download an existing one.", "Копії бази даних сервера: створіть нову або завантажте готову."],
+  "Копии базы данных": ["Database copies", "Копії бази даних"],
+  "PostgreSQL": ["PostgreSQL", "PostgreSQL"],
+  "Сервер хранит данные в PostgreSQL. Копии делает оператор базы: pg_dump или резервные копии провайдера.": ["This server stores data in PostgreSQL. The database operator makes the copies: pg_dump or your provider’s backups.", "Сервер зберігає дані в PostgreSQL. Копії робить оператор бази: pg_dump або резервні копії провайдера."],
+  "Как настроить копии": ["How to set up backups", "Як налаштувати копії"],
+  "Сервер сохраняет копию при запуске и раз в день и хранит последние {n}. В копии все аккаунты и пространства сервера, поэтому храните её в надёжном месте.": ["The server saves a copy at startup and once a day and keeps the last {n}. A copy holds every account and workspace on the server, so keep it somewhere safe.", "Сервер зберігає копію під час запуску й раз на день і тримає останні {n}. У копії всі облікові записи й простори сервера, тому зберігайте її в надійному місці."],
+  "Последняя копия: {when}": ["Latest copy: {when}", "Остання копія: {when}"],
+  "Копий пока нет": ["No copies yet", "Копій поки немає"],
+  "Создаём копию…": ["Making a copy…", "Створюємо копію…"],
+  "Создать копию сейчас": ["Make a copy now", "Створити копію зараз"],
+  "Восстановление": ["Restore", "Відновлення"],
+  "Как вернуть копию": ["How to restore a copy", "Як повернути копію"],
+  "Восстанавливается весь сервер целиком: все аккаунты и пространства.": ["Restoring brings back the whole server: every account and workspace.", "Відновлюється весь сервер цілком: усі облікові записи й простори."],
+  "Остановите Plandillo.": ["Stop Plandillo.", "Зупиніть Plandillo."],
+  "Замените файл базы (DOCKET_DB) скачанной копией.": ["Replace the database file (DOCKET_DB) with the downloaded copy.", "Замініть файл бази (DOCKET_DB) завантаженою копією."],
+  "Запустите Plandillo снова.": ["Start Plandillo again.", "Запустіть Plandillo знову."],
   "Введите значение переменной PLANDILLO_SETUP_CODE из настроек сервера.": ["Enter the value of PLANDILLO_SETUP_CODE from the server settings.", "Введіть значення змінної PLANDILLO_SETUP_CODE з налаштувань сервера."],
   "Создайте аккаунт администратора. Он управляет сервером и приглашает других пользователей.": ["Create the administrator account. It manages the server and invites other people.", "Створіть обліковий запис адміністратора. Він керує сервером і запрошує інших користувачів."],
   "Возможно, это удалили или переместили. Проверьте адрес или вернитесь на главную.": ["It may have been deleted or moved. Check the address or go back home.", "Можливо, це видалили або перемістили. Перевірте адресу або поверніться на головну."],

@@ -210,8 +210,19 @@ func runSelfHost(ctx context.Context, cfg config.Config, remote *vercelrun.App) 
 	if cfg.PostgresDSN != "" {
 		slog.Info("PostgreSQL storage enabled; configure external database backups (pg_dump or PITR)")
 	}
+	var backup func(time.Time) (string, error) // on-demand snapshots for the admin Backups page; SQLite only
+	if cluster == nil && cfg.PostgresDSN == "" {
+		backup = func(now time.Time) (string, error) {
+			path, err := shared.Backup(cfg.BackupDir, store.BackupKeep, now)
+			if err == nil {
+				err = shared.RecordBackup(now)
+			}
+			return path, err
+		}
+	}
 	handler := selfhost.Handler(selfhost.Options{LocalID: localID, Cluster: cluster, VercelIngress: cluster != nil && os.Getenv("VERCEL") == "1" && (os.Getenv("VERCEL_ENV") == "production" || os.Getenv("VERCEL_ENV") == "preview"),
 		TrustedProxies: proxies, Passkeys: sites, Auth: ad, WS: ws, Web: webHandler, AllowedHosts: cfg.AllowedHosts, SetupCode: code, RunnerReady: ready,
+		BackupDir: cfg.BackupDir, Backup: backup,
 	})
 	if remote != nil && os.Getenv("VERCEL_ENV") == "development" {
 		handler = developmentOrigin(handler, cfg.PasskeyOrigin)
@@ -248,7 +259,7 @@ func serve(ctx context.Context, addr string, h http.Handler) error {
 func maintenanceShared(ctx context.Context, base *store.Store, dir string) {
 	for {
 		now := time.Now()
-		if path, err := base.Backup(dir, 14, now); err != nil {
+		if path, err := base.Backup(dir, store.BackupKeep, now); err != nil {
 			slog.Error("database backup failed", "err", err)
 		} else if path != "" {
 			if err := base.RecordBackup(now); err != nil {

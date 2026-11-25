@@ -79,6 +79,8 @@ export type AuthUser = { name: string; role: string; is_active: boolean; photo: 
 export type Registration = 'open' | 'invite' | 'closed'
 type Recovery = { recovery_code: string }
 export type Me = { mode: 'local' | 'selfhost'; setup?: boolean; setup_source?: 'environment'; user?: AuthUser }
+type BackupFile = { name: string; size: number; created_at: string }
+type Backups = { available: boolean; keep?: number; backups: BackupFile[] }
 export type AdminInvite = { id: number; created_at: string; expires_at: string }
 export type NewInvite = { url: string; expires_at: string }
 
@@ -334,6 +336,8 @@ export const api = {
     req<AuthUser & Recovery>('POST', `/api/auth/invite/${encodeURIComponent(token)}`, { username, password }),
   changePassword: (old: string, next: string) => req<void>('PUT', '/api/auth/password', { old, new: next }),
   adminUsers: () => req<AuthUser[]>('GET', '/api/admin/users'),
+  adminBackups: () => req<Backups>('GET', '/api/admin/backups'),
+  createBackup: () => req<BackupFile>('POST', '/api/admin/backups'),
   adminInvites: () => req<AdminInvite[]>('GET', '/api/admin/invites'),
   createInvite: () => req<NewInvite>('POST', '/api/admin/invites'),
   revokeInvite: (id: number) => req<void>('DELETE', `/api/admin/invites/${id}`),

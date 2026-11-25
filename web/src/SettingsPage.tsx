@@ -2,18 +2,18 @@
 // workspace, and the app on this device. The sidebar swaps to SettingsNav while a settings page is open.
 // Per-project settings stay in Settings.tsx (/p/<slug>/settings).
 import { useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { type Me, api, errText, useMe, useProfile } from './api'
 import { AccountSecurity, ProfilePhoto } from './AccountSecurity'
 import { Icon } from './icons'
-import { LANGS, setLang, tr, useLang } from './i18n'
+import { LANGS, locale, setLang, tr, useLang } from './i18n'
 import { NAME_MAX } from './Onboarding'
 import { InstallPlandillo } from './Pwa'
 import { Link } from './router'
 import { type ThemePref } from './theme'
 import { AccountSection, Users } from './Users'
 import { WorkspaceGeneral, WorkspaceList } from './Workspaces'
-import { Avatar, MENUITEM, MENUSEP, Menu, SettingsRow, SettingsSection, btn, btnPri, cap, textInput } from './ui'
+import { Avatar, ErrorState, MENUITEM, MENUSEP, Menu, SettingsRow, SettingsSection, SkeletonRows, btn, btnPri, cap, textInput } from './ui'
 
 export const THEMES: { id: ThemePref; icon: string; label: string }[] = [
   { id: 'light', icon: 'sun', label: 'Светлая' },
@@ -30,6 +30,7 @@ const SECTIONS: Section[] = [
   { id: 'workspaces', group: 'Пространство', label: 'Все пространства', icon: 'stack', hint: 'Создавайте, открывайте и архивируйте пространства.' },
   { id: 'appearance', group: 'Система', label: 'Оформление', icon: 'sun', hint: 'Тема и язык интерфейса на этом устройстве.' },
   { id: 'app', group: 'Система', label: 'Приложение', icon: 'monitor', hint: 'Установка, адрес сервера и ссылки на проект.' },
+  { id: 'backups', group: 'Система', label: 'Бэкапы', icon: 'clock', hint: 'Копии базы данных сервера: создайте новую или скачайте готовую.', when: (me) => !!me?.user?.is_admin },
   { id: 'users', group: 'Система', label: 'Пользователи', icon: 'list', hint: 'Регистрация, приглашения и учётные записи сервера.', when: (me) => !!me?.user?.is_admin },
 ]
 const GROUPS = ['Аккаунт', 'Пространство', 'Система']
@@ -133,6 +134,7 @@ export function SettingsPage({ section, theme, onTheme }: { section: string; the
       {s.id === 'workspaces' && <WorkspaceList />}
       {s.id === 'appearance' && <Appearance theme={theme} onTheme={onTheme} />}
       {s.id === 'app' && <AppInfo />}
+      {s.id === 'backups' && <Backups />}
       {s.id === 'users' && me?.user && <SettingsSection title={tr('Сервер')}><div className="flex flex-col gap-4 p-5"><Users me={me.user} /></div></SettingsSection>}
     </div>
   )
@@ -253,6 +255,61 @@ function AppInfo() {
         </SettingsRow>
         <SettingsRow label={tr('Нашли ошибку?')} hint={tr('Опишите, что произошло, и мы разберёмся.')}>
           <div><a className={btn} href="https://github.com/huntly-digital/plandillo/issues/new" target="_blank" rel="noopener noreferrer"><Icon name="flag" size={15} />{tr('Сообщить о проблеме')}</a></div>
+        </SettingsRow>
+      </SettingsSection>
+    </>
+  )
+}
+
+const HOSTING = 'https://github.com/huntly-digital/plandillo/blob/main/docs/hosting.md'
+const megabytes = (bytes: number) => new Intl.NumberFormat(locale(), { style: 'unit', unit: 'megabyte', maximumFractionDigits: 1 }).format(bytes / 1e6)
+const when = (iso: string) => new Date(iso).toLocaleString(locale(), { dateStyle: 'medium', timeStyle: 'short' })
+
+function Backups() {
+  const qc = useQueryClient()
+  const q = useQuery({ queryKey: ['admin', 'backups'], queryFn: api.adminBackups })
+  const create = useMutation({ mutationFn: api.createBackup, onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'backups'] }) })
+  if (q.isPending) return <SettingsSection title={tr('Копии базы данных')}><SkeletonRows n={3} /></SettingsSection>
+  if (q.isError) return <SettingsSection title={tr('Копии базы данных')}><ErrorState error={q.error} onRetry={() => q.refetch()} /></SettingsSection>
+  if (!q.data.available)
+    return (
+      <SettingsSection title={tr('Копии базы данных')}>
+        <SettingsRow label={tr('PostgreSQL')} hint={tr('Сервер хранит данные в PostgreSQL. Копии делает оператор базы: pg_dump или резервные копии провайдера.')}>
+          <div><a className={btn} href={HOSTING + '#postgresql-storage'} target="_blank" rel="noopener noreferrer">{tr('Как настроить копии')}</a></div>
+        </SettingsRow>
+      </SettingsSection>
+    )
+  const list = q.data.backups
+  const row = 'flex flex-wrap items-center gap-3 border-t border-ln px-5 py-3 first:border-t-0'
+  return (
+    <>
+      <SettingsSection title={tr('Копии базы данных')}
+        hint={tr('Сервер сохраняет копию при запуске и раз в день и хранит последние {n}. В копии все аккаунты и пространства сервера, поэтому храните её в надёжном месте.', { n: q.data.keep ?? 14 })}>
+        <div className={row + ' bg-sf2 rounded-t-xl'}>
+          <span className="grow text-sm text-t2">{list[0] ? tr('Последняя копия: {when}', { when: when(list[0].created_at) }) : tr('Копий пока нет')}</span>
+          <button type="button" className={btnPri} disabled={create.isPending} onClick={() => create.mutate()}>
+            <Icon name="plus" size={15} sw={2} />{create.isPending ? tr('Создаём копию…') : tr('Создать копию сейчас')}
+          </button>
+        </div>
+        {create.isError && <p className="border-t border-ln px-5 py-3 text-[13px] text-rd" role="alert">{errText(create.error)}</p>}
+        {list.map((b) => (
+          <div key={b.name} className={row}>
+            <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-sk text-t2"><Icon name="stack" size={15} /></span>
+            <span className="flex min-w-0 grow flex-col leading-tight">
+              <span className="text-sm font-medium">{when(b.created_at)}</span>
+              <span className="truncate font-mono text-xs text-t3">{b.name} · {megabytes(b.size)}</span>
+            </span>
+            <a className={btn} href={'/api/admin/backups/' + encodeURIComponent(b.name)} download><Icon name="down" size={15} />{tr('Скачать')}</a>
+          </div>
+        ))}
+      </SettingsSection>
+      <SettingsSection title={tr('Восстановление')}>
+        <SettingsRow label={tr('Как вернуть копию')} hint={tr('Восстанавливается весь сервер целиком: все аккаунты и пространства.')}>
+          <ol className="flex list-decimal flex-col gap-1 pl-5 text-sm text-t2">
+            <li>{tr('Остановите Plandillo.')}</li>
+            <li>{tr('Замените файл базы (DOCKET_DB) скачанной копией.')}</li>
+            <li>{tr('Запустите Plandillo снова.')}</li>
+          </ol>
         </SettingsRow>
       </SettingsSection>
     </>

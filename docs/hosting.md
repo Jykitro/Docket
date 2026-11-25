@@ -59,7 +59,8 @@ On the first run with an empty database Plandillo asks for your name and a first
 - Requests with a foreign `Host` get `403`, and write requests to `/api` with a foreign `Origin` also get `403`
   (protection against DNS rebinding and CSRF).
 - Data lives in `./data/docket.db`. A backup (`VACUUM INTO`) is written at startup and once a day to `./data/backups`;
-  the last 14 are kept.
+  the last 14 are kept. In selfhost mode an administrator can also make a copy on demand and download any copy in
+  **Settings → System → Backups**.
 - Seed data (optional): if `DOCKET_SEED` points to a JSON file and the database has no projects, it is imported at
   startup (`{"projects": […], "tasks": […]}`: projects by `slug`, tasks by `external_id`, author `claude`). Running it
   again does not create duplicates. No seed file ships with Plandillo.

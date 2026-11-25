@@ -39,6 +39,8 @@ type Options struct {
 	Passkeys       map[string]*webauthn.WebAuthn
 	SetupCode      string // optional: when set, the first administrator must enter it; empty lets the first sign-up become admin
 	RunnerReady    func(context.Context) error
+	BackupDir      string                          // where SQLite snapshots live
+	Backup         func(time.Time) (string, error) // takes a snapshot now; nil when storage is PostgreSQL
 }
 
 type handler struct {
@@ -143,6 +145,7 @@ func Handler(o Options) http.Handler {
 		r.Get("/api/admin/invites", h.admin(h.listInvites))
 		r.Post("/api/admin/invites", h.admin(h.createInvite))
 		r.Delete("/api/admin/invites/{id}", h.admin(h.deleteInvite))
+		h.backupRoutes(r)
 		adminNotFound := h.admin(func(w http.ResponseWriter, _ *http.Request, _ auth.User) {
 			writeError(w, 404, "not_found", "no such endpoint")
 		})
