@@ -104,15 +104,16 @@ export function App() {
   const current = proj ? projects.data?.find((p) => p.slug === proj[1]) : undefined
   const heading = path === '/attention' ? tr('Требует внимания') : path === '/' ? tr('Сегодня') : path === '/integrations' || path === '/mcp' ? tr('Интеграции') : path === '/trash' ? tr('Корзина') : section ? tr('Настройки') : taskPage ? taskPage[1].toUpperCase()
     : proj ? (current ? current.name + (proj[2] ? `: ${tr('настройки')}` : proj[3] ? `: ${tr('вики')}` : '') : tr('Проект')) : 'Plandillo'
+  const crumbs = proj ? [current?.name ?? tr('Проект'), proj[2] ? tr('Настройки') : proj[3] ? tr('Вики') : tr('Доска')] : [heading]
   useEffect(() => { document.title = task ? `${task.toUpperCase()} · ${heading} · Plandillo` : heading === 'Plandillo' ? 'Plandillo' : `${heading} · Plandillo` }, [heading, task])
   if (profile.isPending || projects.isPending) return <div className="min-h-screen bg-bg" data-theme={theme.resolved} /> // avoid flashing the app before onboarding
   if (setup === 'open') return <div className="min-h-screen bg-bg text-tx" data-theme={theme.resolved}><Onboarding hasProjects={!!active?.length} onDone={() => setSetup('done')} /></div>
   return (
     <div className="min-h-screen flex items-stretch bg-bg text-tx" data-theme={theme.resolved}>
       <Sidebar path={path} view={params.get('view')} overdue={path === '/' && params.get('focus') === 'overdue'} settings={section} rail={sidebar.rail} mobileOpen={sidebar.open} onClose={sidebar.close}
-        onNewProject={() => { sidebar.close(); setNewProject(true) }} />
+        onNewProject={() => { sidebar.close(); setNewProject(true) }} onSearch={() => { sidebar.close(); setSearch(true) }} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <Header onToggle={sidebar.toggle} sidebarExpanded={sidebar.expanded} onSearch={() => setSearch(true)} theme={theme.pref} resolved={theme.resolved} onTheme={theme.set} />
+        <Header onToggle={sidebar.toggle} sidebarExpanded={sidebar.expanded} onSearch={() => setSearch(true)} crumbs={crumbs} theme={theme.pref} resolved={theme.resolved} onTheme={theme.set} />
         <main className="flex min-w-0 flex-1 flex-col">{page}</main>
       </div>
       {task && <TaskPanel key={task} code={task} mode="drawer" />}

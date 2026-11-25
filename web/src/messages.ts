@@ -291,6 +291,7 @@ export const MESSAGES: Record<string, [en: string, uk: string]> = {
   'Проект': ['Project', 'Проєкт'],
   'Боковая панель': ['Sidebar', 'Бічна панель'],
   'Поиск': ['Search', 'Пошук'],
+  'Путь': ['Breadcrumb', 'Шлях'],
   'Профиль и настройки': ['Profile and settings', 'Профіль і налаштування'],
   'Общее': ['General', 'Загальне'],
   'Разделы': ['Sections', 'Розділи'],
