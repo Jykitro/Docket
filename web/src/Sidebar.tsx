@@ -123,7 +123,9 @@ export function Sidebar({ path, view, overdue, rail, mobileOpen, onClose, onNewP
               ))}
             </Group>
           )}
+        </div>
 
+        <div className="flex shrink-0 flex-col gap-1 p-2">
           <Group label={tr('Дополнительно')} rail={rail}>
             <a href="https://github.com/huntly-digital/plandillo" target="_blank" rel="noopener noreferrer" className={cls(false)} title={rail ? 'GitHub' : undefined}>
               <Icon name="github" />
@@ -134,9 +136,6 @@ export function Sidebar({ path, view, overdue, rail, mobileOpen, onClose, onNewP
               {!rail && <span className={nvName}>{tr('Сообщить о проблеме')}</span>}
             </a>
           </Group>
-        </div>
-
-        <div className="p-2">
           <button type="button" className={'flex w-full items-center gap-2 rounded-md p-2 text-left hover:bg-sk ' + (rail ? 'justify-center px-0' : '')} aria-label={tr('Настройки')} title={tr('Настройки: профиль, тема, платформа')} onClick={onSettings}>
             <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-sk text-sm font-semibold">{me?.user?.photo ? <img src={me.user.photo} className="size-8 rounded-lg" alt="" /> : name ? name.charAt(0).toUpperCase() : <Icon name="user" size={15} sw={2} />}</span>
             {!rail && (
