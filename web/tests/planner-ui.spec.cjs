@@ -1,6 +1,6 @@
 // Optional browser regressions. Build with make build, then run with a local Playwright installation:
 // NODE_PATH=/path/to/node_modules /path/to/node_modules/.bin/playwright test web/tests/planner-ui.spec.cjs
-// DOCKET_TEST_BINARY may point to another freshly built Plandillo binary.
+// PLANDILLO_TEST_BINARY may point to another freshly built Plandillo binary.
 const { test: base, expect } = require('playwright/test')
 const { spawn } = require('node:child_process')
 const { once } = require('node:events')
@@ -18,9 +18,9 @@ const test = base.extend({
     await once(socket, 'listening')
     const addr = '127.0.0.1:' + socket.address().port
     await new Promise(resolve => socket.close(resolve))
-    const binary = process.env.DOCKET_TEST_BINARY || path.resolve(__dirname, '../../bin/plandillo')
+    const binary = process.env.PLANDILLO_TEST_BINARY || path.resolve(__dirname, '../../bin/plandillo')
     const server = spawn(binary, [], {
-      env: { PATH: process.env.PATH, DOCKET_MODE: 'local', DOCKET_ADDR: addr, DOCKET_DB: path.join(dir, 'ui.db'), DOCKET_BACKUP_DIR: path.join(dir, 'backups') },
+      env: { PATH: process.env.PATH, PLANDILLO_MODE: 'local', PLANDILLO_ADDR: addr, PLANDILLO_DB: path.join(dir, 'ui.db'), PLANDILLO_BACKUP_DIR: path.join(dir, 'backups') },
       stdio: 'ignore',
     })
     const stopped = once(server, 'exit')

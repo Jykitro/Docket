@@ -27,7 +27,7 @@ The opt-in Go test reopened 50 initialized workspaces and measured 50 sequential
 | SQLite | 0.50 s | 3.7 ms | 5.9 ms | 13.0 MiB | 11.6 MiB | — |
 | PostgreSQL | 1.17 s | 48.1 ms | 94.2 ms | 17.2 MiB | 51.1 MiB | 51 |
 
-Use `DOCKET_TEST_PILOT=1 go test ./internal/selfhost -run '^TestPilot$' -count=1 -v` to repeat. Set `DOCKET_TEST_POSTGRES_DSN` to an isolated test server for PostgreSQL. Budget connections for maintenance and backups in addition to the 51 measured. These historical timings predate the in-memory MCP token index.
+Use `PLANDILLO_TEST_PILOT=1 go test ./internal/selfhost -run '^TestPilot$' -count=1 -v` to repeat. Set `PLANDILLO_TEST_POSTGRES_DSN` to an isolated test server for PostgreSQL. Budget connections for maintenance and backups in addition to the 51 measured. These historical timings predate the in-memory MCP token index.
 
 ## Pilot operation
 
@@ -64,6 +64,6 @@ Keep the restored instance disconnected from all client networks, including exis
    COMMIT;
    ```
 
-2. In **every** verified live workspace, including blocked accounts, delete the stored bearer while the service is stopped. Run `DELETE FROM settings WHERE key IN ('mcp_token','mcp_token_last_used_at')` in the individual SQLite database or PostgreSQL workspace schema. Startup provisions a fresh random bearer. In local mode an environment override takes precedence, so replace any configured `DOCKET_MCP_TOKEN` separately.
+2. In **every** verified live workspace, including blocked accounts, delete the stored bearer while the service is stopped. Run `DELETE FROM settings WHERE key IN ('mcp_token','mcp_token_last_used_at')` in the individual SQLite database or PostgreSQL workspace schema. Startup provisions a fresh random bearer. In local mode an environment override takes precedence, so replace any configured `PLANDILLO_MCP_TOKEN` separately.
 3. Reconcile account suspension, administrator access and password changes made since the snapshot with records kept outside the restored database. Keep affected accounts blocked until identity and password replacement are verified through a private channel. Clear any reverse-proxy caches and revoke upstream credentials that were part of the incident.
 4. Start on the isolated network, check that a previously valid session and bearer are refused, and confirm the counts of restored passkeys, recovery hashes and outstanding invites are zero before reenrollment. Verify a sample project for each affected owner, distribute new credentials through verified private channels, then reopen the proxy. Keep registration closed until the operator chooses a mode.

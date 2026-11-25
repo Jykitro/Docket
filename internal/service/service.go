@@ -53,7 +53,7 @@ type Service struct {
 	loc          *time.Location
 	tokenMu      sync.Mutex
 	tokenChanged func(string)
-	envToken     string // DOCKET_MCP_TOKEN: wins over the stored token
+	envToken     string // PLANDILLO_MCP_TOKEN: wins over the stored token
 }
 
 func New(st *store.Store, bus *events.Bus, loc *time.Location) *Service {

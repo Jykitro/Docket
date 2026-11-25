@@ -131,7 +131,7 @@ func OpenPostgres(dsn, schema string) (*DB, error) {
 	}
 	cfg, err := pgx.ParseConfig(dsn)
 	if err != nil {
-		return nil, errors.New("invalid DOCKET_POSTGRES_DSN")
+		return nil, errors.New("invalid PLANDILLO_POSTGRES_DSN")
 	} // parser errors can contain credentials
 	cfg.ConnectTimeout = 10 * time.Second
 	// Some managed endpoints ignore startup search_path. Set it in SQL on every
@@ -156,7 +156,7 @@ func OpenPostgres(dsn, schema string) (*DB, error) {
 		if errors.Is(err, errSchemaLayout) {
 			return nil, errSchemaLayout
 		}
-		return nil, errors.New("cannot connect to PostgreSQL; check DOCKET_POSTGRES_DSN and server availability")
+		return nil, errors.New("cannot connect to PostgreSQL; check PLANDILLO_POSTGRES_DSN and server availability")
 	}
 	return &DB{DB: raw, Postgres: true, schema: physical}, nil
 }

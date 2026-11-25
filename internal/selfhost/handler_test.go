@@ -53,7 +53,7 @@ func newServerWith(t *testing.T, build func(context.Context, *service.Service, *
 	var db *auth.DB
 	var err error
 	var dsn string
-	if os.Getenv("DOCKET_TEST_POSTGRES_DSN") != "" {
+	if os.Getenv("PLANDILLO_TEST_POSTGRES_DSN") != "" {
 		dsn = testutil.PostgresDSN(t)
 		db, err = auth.OpenPostgres(dsn)
 	} else {

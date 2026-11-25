@@ -18,7 +18,7 @@ func ParseTrustedProxies(raw string) ([]netip.Prefix, error) {
 		if err != nil {
 			ip, err := netip.ParseAddr(item)
 			if err != nil || ip.Zone() != "" {
-				return nil, fmt.Errorf("DOCKET_TRUSTED_PROXIES: invalid IP or CIDR %q", item)
+				return nil, fmt.Errorf("PLANDILLO_TRUSTED_PROXIES: invalid IP or CIDR %q", item)
 			}
 			ip = ip.Unmap()
 			prefix = netip.PrefixFrom(ip, ip.BitLen())

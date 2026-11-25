@@ -37,9 +37,9 @@ When moving the existing hosted installation, keep what its accounts depend on:
 
 | Variable | Value |
 | --- | --- |
-| `DOCKET_POSTGRES_DSN` | The production connection to the existing Neon database **`plandillo`**, with its TLS options. Check the database name in the connection string. |
-| `DOCKET_ALLOWED_HOSTS` | `app.plandillo.dev` |
-| `DOCKET_PASSKEY_ORIGIN` | `https://app.plandillo.dev`. Changing it invalidates registered passkeys. |
+| `PLANDILLO_POSTGRES_DSN` | The production connection to the existing Neon database **`plandillo`**, with its TLS options. Check the database name in the connection string. |
+| `PLANDILLO_ALLOWED_HOSTS` | `app.plandillo.dev` |
+| `PLANDILLO_PASSKEY_ORIGIN` | `https://app.plandillo.dev`. Changing it invalidates registered passkeys. |
 | `PLANDILLO_TOTP_KEY` | The existing key, if authenticator sign-in was enabled. Keep it with the database recovery material. |
 
 Run only one backend against the live database. Back up PostgreSQL through Neon or `pg_dump`: Plandillo makes no PostgreSQL backups itself.

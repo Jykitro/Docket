@@ -14,7 +14,7 @@ func openTest(t *testing.T) *DB {
 	t.Helper()
 	var d *DB
 	var err error
-	if os.Getenv("DOCKET_TEST_POSTGRES_DSN") != "" {
+	if os.Getenv("PLANDILLO_TEST_POSTGRES_DSN") != "" {
 		d, err = OpenPostgres(testutil.PostgresDSN(t))
 	} else {
 		d, err = Open(filepath.Join(t.TempDir(), "auth.db"))

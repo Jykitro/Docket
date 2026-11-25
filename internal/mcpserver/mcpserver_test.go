@@ -23,7 +23,7 @@ import (
 
 func openTestStore(t *testing.T) (*store.Store, error) {
 	t.Helper()
-	if os.Getenv("DOCKET_TEST_POSTGRES_DSN") != "" {
+	if os.Getenv("PLANDILLO_TEST_POSTGRES_DSN") != "" {
 		return store.OpenPostgres(testutil.PostgresDSN(t), 1)
 	}
 	return store.Open(filepath.Join(t.TempDir(), "t.db"))

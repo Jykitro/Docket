@@ -16,9 +16,9 @@ import (
 // Every call creates a fresh database; cleanup never touches the supplied database.
 func PostgresDSN(t testing.TB) string {
 	t.Helper()
-	dsn := os.Getenv("DOCKET_TEST_POSTGRES_DSN")
+	dsn := os.Getenv("PLANDILLO_TEST_POSTGRES_DSN")
 	if dsn == "" {
-		t.Skip("set DOCKET_TEST_POSTGRES_DSN to run PostgreSQL integration tests")
+		t.Skip("set PLANDILLO_TEST_POSTGRES_DSN to run PostgreSQL integration tests")
 	}
 	ctx := context.Background()
 	cfg, err := pgx.ParseConfig(dsn)
@@ -43,7 +43,7 @@ func PostgresDSN(t testing.TB) string {
 	// pgx.Config.ConnString returns the original input, even after Config.Database changes.
 	u, err := url.Parse(dsn)
 	if err != nil || (u.Scheme != "postgres" && u.Scheme != "postgresql") {
-		t.Fatal("DOCKET_TEST_POSTGRES_DSN must be a postgres:// or postgresql:// URL")
+		t.Fatal("PLANDILLO_TEST_POSTGRES_DSN must be a postgres:// or postgresql:// URL")
 	}
 	u.Path = "/" + name
 	q := u.Query()

@@ -307,7 +307,7 @@ function Backups() {
         <SettingsRow label={tr('Как вернуть копию')} hint={tr('Восстанавливается весь сервер целиком: все аккаунты и пространства.')}>
           <ol className="flex list-decimal flex-col gap-1 pl-5 text-sm text-t2">
             <li>{tr('Остановите Plandillo.')}</li>
-            <li>{tr('Замените файл базы (DOCKET_DB) скачанной копией.')}</li>
+            <li>{tr('Замените файл базы (PLANDILLO_DB) скачанной копией.')}</li>
             <li>{tr('Запустите Plandillo снова.')}</li>
           </ol>
         </SettingsRow>

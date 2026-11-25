@@ -16,30 +16,30 @@ Go tests open a port on localhost. Run `make help` for every target:
 | `make web` | Frontend build: `tsc --noEmit` and `vite build` into `internal/web/dist` |
 | `make build` | Builds `bin/plandillo` with the UI embedded |
 | `make test` | Backend tests (`go test ./...`) |
-| `make test-postgres` | Same domain, auth, REST and MCP tests against PostgreSQL; requires `DOCKET_TEST_POSTGRES_DSN` |
+| `make test-postgres` | Same domain, auth, REST and MCP tests against PostgreSQL; requires `PLANDILLO_TEST_POSTGRES_DSN` |
 | `make typecheck`, `make knip` | Frontend checks |
 | `make dev-api` | Backend on `:7777` with a separate `./data/dev.db` |
 | `make dev-web` | Vite with hot reload (proxies `/api` to `:7777`) |
 | `make image`, `make rebuild`, `make stop`, `make logs` | Docker image and container |
 | `make clean` | Removes `bin/` and the built frontend |
 
-To run the PostgreSQL integration tests locally, point `DOCKET_TEST_POSTGRES_DSN` at a disposable PostgreSQL server,
+To run the PostgreSQL integration tests locally, point `PLANDILLO_TEST_POSTGRES_DSN` at a disposable PostgreSQL server,
 using a `postgres://` URL and a test role with `CREATEDB`. Each test creates and drops a randomly named database;
 the database in the URL is used only as the administrative connection. Do not use a production server. For example:
 
 ```bash
-docker run -d --name docket-pg-tests -e POSTGRES_USER=docket -e POSTGRES_PASSWORD=docket_test_only \
-  -e POSTGRES_DB=docket_test -p 127.0.0.1:55483:5432 postgres:19.0-alpine
-# Wait until: docker exec docket-pg-tests pg_isready -U docket -d docket_test
-DOCKET_TEST_POSTGRES_DSN='postgres://docket:docket_test_only@localhost:55483/docket_test?sslmode=disable' make test-postgres
-docker rm -f docket-pg-tests
+docker run -d --name plandillo-pg-tests -e POSTGRES_USER=plandillo -e POSTGRES_PASSWORD=plandillo_test_only \
+  -e POSTGRES_DB=plandillo_test -p 127.0.0.1:55483:5432 postgres:19.0-alpine
+# Wait until: docker exec plandillo-pg-tests pg_isready -U plandillo -d plandillo_test
+PLANDILLO_TEST_POSTGRES_DSN='postgres://plandillo:plandillo_test_only@localhost:55483/plandillo_test?sslmode=disable' make test-postgres
+docker rm -f plandillo-pg-tests
 ```
 
 CI runs both the default SQLite checks and the PostgreSQL suite.
 
 ### Board query benchmark
 
-Run `go test ./internal/store -run '^$' -bench BenchmarkBoardCards -benchmem` to measure the first and 51st pages of a 6,000-task project with subtasks. Each page contains 100 summary cards. The default run uses a temporary SQLite file. Set `DOCKET_TEST_POSTGRES_DSN` to repeat it in a disposable PostgreSQL database. This benchmark times the store transaction. Measure the REST endpoint separately to include authentication, routing and JSON encoding.
+Run `go test ./internal/store -run '^$' -bench BenchmarkBoardCards -benchmem` to measure the first and 51st pages of a 6,000-task project with subtasks. Each page contains 100 summary cards. The default run uses a temporary SQLite file. Set `PLANDILLO_TEST_POSTGRES_DSN` to repeat it in a disposable PostgreSQL database. This benchmark times the store transaction. Measure the REST endpoint separately to include authentication, routing and JSON encoding.
 
 For frontend work with hot reload, run `make dev-api` in one terminal and `make dev-web` in another.
 

@@ -13,7 +13,7 @@ import (
 func BenchmarkBoardCards(b *testing.B) {
 	var st *Store
 	var err error
-	if os.Getenv("DOCKET_TEST_POSTGRES_DSN") != "" {
+	if os.Getenv("PLANDILLO_TEST_POSTGRES_DSN") != "" {
 		st, err = OpenPostgres(testutil.PostgresDSN(b), 1)
 	} else {
 		st, err = Open(filepath.Join(b.TempDir(), "board.db"))

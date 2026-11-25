@@ -37,18 +37,18 @@ jobs:
       postgres:
         image: postgres:19.0-alpine
         env:
-          POSTGRES_USER: docket
-          POSTGRES_PASSWORD: docket_test_only
-          POSTGRES_DB: docket_test
+          POSTGRES_USER: plandillo
+          POSTGRES_PASSWORD: plandillo_test_only
+          POSTGRES_DB: plandillo_test
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U docket -d docket_test"
+          --health-cmd "pg_isready -U plandillo -d plandillo_test"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
     env:
-      DOCKET_TEST_POSTGRES_DSN: postgres://docket:docket_test_only@localhost:5432/docket_test?sslmode=disable
+      PLANDILLO_TEST_POSTGRES_DSN: postgres://plandillo:plandillo_test_only@localhost:5432/plandillo_test?sslmode=disable
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: actions/setup-go@v7.1.0

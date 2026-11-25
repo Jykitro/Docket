@@ -23,7 +23,7 @@ func newSvc(t *testing.T) *Service {
 	t.Helper()
 	var st *store.Store
 	var err error
-	if os.Getenv("DOCKET_TEST_POSTGRES_DSN") != "" {
+	if os.Getenv("PLANDILLO_TEST_POSTGRES_DSN") != "" {
 		st, err = store.OpenPostgres(testutil.PostgresDSN(t), 1)
 	} else {
 		st, err = store.Open(filepath.Join(t.TempDir(), "test.db"))
@@ -567,7 +567,7 @@ func TestMCPSettingsAndCallLog(t *testing.T) {
 		t.Fatal("unknown tool accepted")
 	}
 
-	// Rotation replaces the token, but not while DOCKET_MCP_TOKEN pins it.
+	// Rotation replaces the token, but not while PLANDILLO_MCP_TOKEN pins it.
 	rot, err := s.RotateMCPToken(ctx)
 	if got, _ := s.MCPToken(ctx); err != nil || got != rot.Token || got == tok {
 		t.Fatalf("rotate: %v token=%q old=%q", err, got, tok)

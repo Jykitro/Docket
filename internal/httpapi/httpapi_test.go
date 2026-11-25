@@ -23,7 +23,7 @@ import (
 
 func openTestStore(t *testing.T) (*store.Store, error) {
 	t.Helper()
-	if os.Getenv("DOCKET_TEST_POSTGRES_DSN") != "" {
+	if os.Getenv("PLANDILLO_TEST_POSTGRES_DSN") != "" {
 		return store.OpenPostgres(testutil.PostgresDSN(t), 1)
 	}
 	return store.Open(filepath.Join(t.TempDir(), "t.db"))
@@ -51,7 +51,7 @@ func newEnv(t *testing.T) *env {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel) // runs before the store is closed
 	srv := httptest.NewUnstartedServer(nil)
-	srv.Config.Handler = Router(Deps{Svc: svc, Bus: bus, AllowedHosts: []string{"localhost", "127.0.0.1", "docket.localhost"},
+	srv.Config.Handler = Router(Deps{Svc: svc, Bus: bus, AllowedHosts: []string{"localhost", "127.0.0.1", "plandillo.localhost"},
 		MCP: mcpserver.Handler(svc, time.UTC), Web: http.NotFoundHandler(), SelfAddr: srv.Listener.Addr().String(), Ctx: ctx})
 	srv.Start()
 	t.Cleanup(srv.Close)
@@ -114,8 +114,8 @@ func TestForeignHostAndOrigin(t *testing.T) {
 		{"GET", "/api/projects", map[string]string{"Host": "evil.com:7777"}, 403},
 		{"POST", "/mcp", map[string]string{"Host": "attacker.example", "Authorization": "Bearer " + e.token}, 403},
 		{"POST", "/api/projects", map[string]string{"Origin": "https://evil.com"}, 403},
-		{"GET", "/api/projects", map[string]string{"Host": "docket.localhost:7777"}, 200},
-		{"POST", "/api/projects", map[string]string{"Origin": "http://docket.localhost:7777"}, 403},
+		{"GET", "/api/projects", map[string]string{"Host": "plandillo.localhost:7777"}, 200},
+		{"POST", "/api/projects", map[string]string{"Origin": "http://plandillo.localhost:7777"}, 403},
 		{"POST", "/api/projects", map[string]string{"Origin": e.srv.URL}, 201},
 		{"POST", "/api/projects", map[string]string{"Sec-Fetch-Site": "cross-site"}, 403},
 	}
@@ -439,8 +439,8 @@ func TestSelfCheckHints(t *testing.T) {
 	local := map[string]string{
 		"server":   "Проверьте, что контейнер запущен: docker ps",
 		"protocol": "Посмотрите лог контейнера: docker logs docket",
-		"token":    "Задайте DOCKET_MCP_TOKEN в .env или перевыпустите токен на этой странице",
-		"hosts":    "Добавьте хост в DOCKET_ALLOWED_HOSTS и перезапустите контейнер",
+		"token":    "Задайте PLANDILLO_MCP_TOKEN в .env или перевыпустите токен на этой странице",
+		"hosts":    "Добавьте хост в PLANDILLO_ALLOWED_HOSTS и перезапустите контейнер",
 		"db":       "Проверьте место на диске и том ./data; бэкапы лежат в data/backups",
 	}
 	got := hints(false)
@@ -450,7 +450,7 @@ func TestSelfCheckHints(t *testing.T) {
 		}
 	}
 	for k, h := range hints(true) {
-		if h == "" || h == local[k] || strings.Contains(h, "DOCKET_") || strings.Contains(h, "docker") || strings.Contains(h, ".env") {
+		if h == "" || h == local[k] || strings.Contains(h, "PLANDILLO_") || strings.Contains(h, "docker") || strings.Contains(h, ".env") {
 			t.Errorf("selfhost %s hint = %q", k, h)
 		}
 	}

@@ -15,7 +15,7 @@ func TestSharedInstallRejectsPreviousLayoutAndPreservesHistory(t *testing.T) {
 	var db *database.DB
 	var err error
 	dir := "migrations"
-	if os.Getenv("DOCKET_TEST_POSTGRES_DSN") != "" {
+	if os.Getenv("PLANDILLO_TEST_POSTGRES_DSN") != "" {
 		dir += "/postgres"
 		db, err = database.OpenPostgres(testutil.PostgresDSN(t), database.UserSchema(1))
 	} else {

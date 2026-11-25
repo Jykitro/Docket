@@ -56,11 +56,11 @@ func run() error {
 
 // Both modes share the catalog. Selfhost resolves owners from authenticated sessions.
 func runSelfHost(ctx context.Context, cfg config.Config) error {
-	if cfg.SelfHost && cfg.MCPToken != "" { // DOCKET_SEED is ignored silently: .env.example sets it, and the README says so
-		slog.Warn("DOCKET_MCP_TOKEN is ignored in selfhost mode: every workspace has its own token")
+	if cfg.SelfHost && cfg.MCPToken != "" { // PLANDILLO_SEED is ignored silently: .env.example sets it, and the README says so
+		slog.Warn("PLANDILLO_MCP_TOKEN is ignored in selfhost mode: every workspace has its own token")
 	}
 	var ad *auth.DB
-	proxies, err := config.ParseTrustedProxies(os.Getenv("DOCKET_TRUSTED_PROXIES"))
+	proxies, err := config.ParseTrustedProxies(cfg.TrustedProxies)
 	if err != nil {
 		return err
 	}

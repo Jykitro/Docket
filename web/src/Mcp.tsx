@@ -146,7 +146,7 @@ export function Mcp() {
                   <button type="button" className={BTN_SM_SQ} aria-label={token ? tr('Скрыть токен') : tr('Показать токен')} onClick={() => (token ? setToken(null) : reveal.mutate())}><Icon name={token ? 'x' : 'search'} size={15} /></button>
                   <button type="button" className={BTN_SM_SQ} aria-label={tr('Копировать токен')} onClick={async () => { await copyText(await fullToken()); flash('token') }}><Icon name={copied === 'token' ? 'check' : 'link'} size={15} /></button>
                 </div>
-                <span className={HINT}>{s?.token_from_env ? tr('Задан в .env как DOCKET_MCP_TOKEN: перевыпуск отключён.') : tr('Для входа через браузер достаточно адреса сервера.')}</span>
+                <span className={HINT}>{s?.token_from_env ? tr('Задан в .env как PLANDILLO_MCP_TOKEN: перевыпуск отключён.') : tr('Для входа через браузер достаточно адреса сервера.')}</span>
               </div>
               <ConfirmButton className={BTN_SM + ' self-start [&.warn]:border-rd [&.warn]:text-rd'} label={tr('Перевыпустить токен')} armed={tr('Перевыпуск отключит токен и приложения этого пространства. Продолжить?')} disabled={!s || s.token_from_env || rotate.isPending}
                 icon={<Icon name="clock" size={14} />} onConfirm={() => rotate.mutate()} />

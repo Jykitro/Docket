@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 IMAGE := plandillo:local
-NAME  := docket
+NAME  := plandillo
 
 .PHONY: help install web build test test-postgres typecheck knip check dev-api dev-web image rebuild stop logs clean
 
@@ -20,8 +20,8 @@ build: web ## бинарь bin/plandillo с вшитым UI
 test: ## тесты бэкенда (HTTP-тесты открывают порт на localhost)
 	go test ./...
 
-test-postgres: ## тесты с PostgreSQL (нужен DOCKET_TEST_POSTGRES_DSN, отдельный тестовый сервер)
-	@test -n "$$DOCKET_TEST_POSTGRES_DSN" || (echo "Set DOCKET_TEST_POSTGRES_DSN to a disposable PostgreSQL server (role needs CREATEDB)"; exit 1)
+test-postgres: ## тесты с PostgreSQL (нужен PLANDILLO_TEST_POSTGRES_DSN, отдельный тестовый сервер)
+	@test -n "$$PLANDILLO_TEST_POSTGRES_DSN" || (echo "Set PLANDILLO_TEST_POSTGRES_DSN to a disposable PostgreSQL server (role needs CREATEDB)"; exit 1)
 	go test ./...
 
 typecheck: ## tsc --noEmit
@@ -33,7 +33,7 @@ knip: ## неиспользуемый код и зависимости фрон�
 check: typecheck knip test ## все проверки
 
 dev-api: ## бэкенд на :7777 с отдельной dev-базой
-	DOCKET_DB=./data/dev.db DOCKET_BACKUP_DIR=./data/backups go run ./cmd/docket
+	PLANDILLO_DB=./data/dev.db PLANDILLO_BACKUP_DIR=./data/backups go run ./cmd/docket
 
 dev-web: ## Vite с hot reload (проксирует /api на :7777)
 	cd web && bun run dev
@@ -42,11 +42,11 @@ dev-web: ## Vite с hot reload (проксирует /api на :7777)
 	umask 077 && cp .env.example .env
 
 image: ## собрать docker-образ plandillo:local
-	docker build -t $(IMAGE) $(if $(filter plandillo:local,$(IMAGE)),-t docket:local) .
+	docker build -t $(IMAGE) .
 
 # Сначала собирается образ, и только потом удаляется старый контейнер: если сборка упала, старый продолжает работать.
 rebuild: .env image ## пересобрать образ и пересоздать контейнер (данные в ./data остаются)
-	-docker rm -f $(NAME)
+	-docker rm -f $(NAME) docket # docket: the container name before the rename
 	mkdir -p -m 700 data
 	docker run -d --name $(NAME) --user "$$(id -u):$$(id -g)" --env-file .env -p 127.0.0.1:7777:7777 -v $(CURDIR)/data:/data --restart unless-stopped $(IMAGE)
 

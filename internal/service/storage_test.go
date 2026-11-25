@@ -32,7 +32,7 @@ func TestStorageMaintenance(t *testing.T) {
 	if err != nil || h.QuickCheck != "ok" {
 		t.Fatalf("health=%v err=%v", h, err)
 	}
-	if os.Getenv("DOCKET_TEST_POSTGRES_DSN") != "" {
+	if os.Getenv("PLANDILLO_TEST_POSTGRES_DSN") != "" {
 		if path != "" || h.LastBackupAt != "" || h.Journal != "postgresql" {
 			t.Fatalf("PostgreSQL reports fictitious backup: path=%q health=%v", path, h)
 		}

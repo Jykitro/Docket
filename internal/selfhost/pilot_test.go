@@ -18,8 +18,8 @@ import (
 
 // TestPilot measures reopening all 50 initialized workspaces and an authenticated request for each.
 func TestPilot(t *testing.T) {
-	if os.Getenv("DOCKET_TEST_PILOT") != "1" {
-		t.Skip("set DOCKET_TEST_PILOT=1 for capacity measurements")
+	if os.Getenv("PLANDILLO_TEST_PILOT") != "1" {
+		t.Skip("set PLANDILLO_TEST_PILOT=1 for capacity measurements")
 	}
 	ctx := context.Background()
 	s := newServer(t)

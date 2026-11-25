@@ -3,20 +3,21 @@ services:
     build:
       context: ./deploy/postgres
       args:
-        POSTGRES_BASE: ${DOCKET_POSTGRES_IMAGE:-postgres:18.7-alpine}
+        POSTGRES_BASE: ${PLANDILLO_POSTGRES_IMAGE:-${DOCKET_POSTGRES_IMAGE:-postgres:18.7-alpine}}
     restart: unless-stopped
     environment:
-      POSTGRES_USER: docket_bootstrap
+      POSTGRES_USER: plandillo_bootstrap
       POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?Set a distinct bootstrap password in .env}
-      DOCKET_APP_PASSWORD: ${POSTGRES_PASSWORD:?Set a hex POSTGRES_PASSWORD in .env}
-      POSTGRES_DB: docket
+      PLANDILLO_APP_PASSWORD: ${POSTGRES_PASSWORD:?Set a hex POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${PLANDILLO_POSTGRES_ROLE:-plandillo}
+      PLANDILLO_POSTGRES_ROLE: ${PLANDILLO_POSTGRES_ROLE:-plandillo}
     volumes:
       - postgres_data:/var/lib/postgresql
     healthcheck:
       test:
         - CMD-SHELL
         - >-
-          PGPASSWORD="$$DOCKET_APP_PASSWORD" psql -h 127.0.0.1 -qAt -U docket -d docket
+          PGPASSWORD="$$PLANDILLO_APP_PASSWORD" psql -h 127.0.0.1 -qAt -U "$$PLANDILLO_POSTGRES_ROLE" -d "$$PLANDILLO_POSTGRES_ROLE"
           -c 'SELECT NOT (rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls) FROM pg_roles WHERE rolname = current_user' | grep -qx t
       interval: 5s
       timeout: 5s
@@ -27,24 +28,24 @@ services:
       file: compose.selfhost.yml
       service: code-runner
 
-  docket:
+  plandillo:
     build: .
     restart: unless-stopped
     volumes:
-      - code_socket:/run/docket-code:ro
+      - code_socket:/run/plandillo-code:ro
     depends_on:
       postgres:
         condition: service_healthy
     ports:
       - "127.0.0.1:7777:7777"
     environment:
-      DOCKET_MODE: selfhost
-      DOCKET_POSTGRES_DSN: postgres://docket:${POSTGRES_PASSWORD:?Set a hex POSTGRES_PASSWORD in .env}@postgres:5432/docket?sslmode=disable
-      DOCKET_TRUSTED_PROXIES: ${DOCKET_TRUSTED_PROXIES:-}
+      PLANDILLO_MODE: selfhost
+      PLANDILLO_POSTGRES_DSN: postgres://${PLANDILLO_POSTGRES_ROLE:-plandillo}:${POSTGRES_PASSWORD:?Set a hex POSTGRES_PASSWORD in .env}@postgres:5432/${PLANDILLO_POSTGRES_ROLE:-plandillo}?sslmode=disable
+      PLANDILLO_TRUSTED_PROXIES: ${PLANDILLO_TRUSTED_PROXIES:-${DOCKET_TRUSTED_PROXIES:-}}
       PLANDILLO_TOTP_KEY: ${PLANDILLO_TOTP_KEY:-}
-      DOCKET_PASSKEY_ORIGIN: ${DOCKET_PASSKEY_ORIGIN:-}
-      DOCKET_ALLOWED_HOSTS: ${DOCKET_ALLOWED_HOSTS:-localhost,127.0.0.1,docket.localhost}
-      TZ: ${TZ:-Asia/Ho_Chi_Minh}
+      PLANDILLO_PASSKEY_ORIGIN: ${PLANDILLO_PASSKEY_ORIGIN:-${DOCKET_PASSKEY_ORIGIN:-}}
+      PLANDILLO_ALLOWED_HOSTS: ${PLANDILLO_ALLOWED_HOSTS:-${DOCKET_ALLOWED_HOSTS:-localhost,127.0.0.1,plandillo.localhost}}
+      TZ: ${TZ:-UTC}
 
 volumes:
   postgres_data:

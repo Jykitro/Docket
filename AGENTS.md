@@ -11,7 +11,7 @@ Requirements: Go (version in `go.mod`), [Bun](https://bun.sh), `make`, Docker fo
 | `make install` | Frontend dependencies (`bun install --frozen-lockfile`) |
 | `make check` | Typecheck + Knip (unused code and dependencies) + Go tests. Run it before saying a change is done |
 | `make test` | `go test ./...` |
-| `make test-postgres` | Same tests with `DOCKET_TEST_POSTGRES_DSN` pointing to a disposable PostgreSQL server; test role needs `CREATEDB` |
+| `make test-postgres` | Same tests with `PLANDILLO_TEST_POSTGRES_DSN` pointing to a disposable PostgreSQL server; test role needs `CREATEDB` |
 | `make typecheck`, `make knip` | Frontend checks alone |
 | `make dev-api` | Backend on `:7777` with a separate `./data/dev.db` |
 | `make dev-web` | Vite with hot reload; proxies `/api` to `:7777` |
@@ -52,9 +52,9 @@ web/                React + TypeScript + Vite + Tailwind CSS v4; the design toke
 
 **Web.** The UI is Russian, English and Ukrainian. The Russian source text is the key: `tr('Настройки')`, `tr('Онлайн · {v}', { v })`. English and Ukrainian go into `web/src/messages.ts`; a missing entry falls back to Russian, so add all three together. Use `locale()` for dates and numbers, never a hard-coded locale. Styling is Tailwind utilities on the tokens in `web/src/styles.css`; the existing look is shadcn-admin. The UI must not contact any outside host (fonts are bundled): no CDNs, analytics or remote images. Knip fails the build on unused exports and dependencies, so delete code you stop using.
 
-**Data safety.** Never commit `.env`, `data/` or any database. No bundled personal data: Plandillo ships without a seed (`DOCKET_SEED` is optional and empty by default). The `/mcp` endpoint is behind a bearer token and the Host/Origin guard; don't weaken either.
+**Data safety.** Never commit `.env`, `data/` or any database. No bundled personal data: Plandillo ships without a seed (`PLANDILLO_SEED` is optional and empty by default). The `/mcp` endpoint is behind a bearer token and the Host/Origin guard; don't weaken either.
 
-PostgreSQL is opt-in via `DOCKET_POSTGRES_DSN` and requires `DOCKET_MODE=selfhost`. Use a dedicated database:
+PostgreSQL is opt-in via `PLANDILLO_POSTGRES_DSN` and requires `PLANDILLO_MODE=selfhost`. Use a dedicated database:
 The shared `plandillo_auth` schema stores accounts and workspace-scoped domain tables. SQLite uses one shared file. Fresh-install baselines are `internal/store/shared_sqlite.sql` and `shared_postgres.sql`, with the account catalog in `internal/database/catalog.go`. Preserve the old storage for rollback when switching to a new installation. Test both backends. PostgreSQL backups are external (`pg_dump`/PITR). Never claim a file backup ran. Docker and native installations run one instance per database. Vercel hosts only the landing; the hosted planner is an ordinary selfhost installation ([the Vercel guide](docs/vercel.md)). There is no automatic SQLite import. See the [hosting guide](docs/hosting.md#postgresql-storage) and `compose.postgres.yml`.
 
 ## MCP tools

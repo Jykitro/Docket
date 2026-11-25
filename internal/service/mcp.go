@@ -65,7 +65,7 @@ func maskToken(t string) string {
 	return "dkt_••••" + t[len(t)-4:]
 }
 
-// SetEnvToken makes DOCKET_MCP_TOKEN win over the stored token (and disables rotation in the UI).
+// SetEnvToken makes PLANDILLO_MCP_TOKEN win over the stored token (and disables rotation in the UI).
 func (s *Service) SetEnvToken(t string) {
 	s.tokenMu.Lock()
 	defer s.tokenMu.Unlock()
@@ -150,12 +150,12 @@ func (s *Service) RevealMCPToken(ctx context.Context) (TokenInfo, error) {
 	return TokenInfo{Token: tok, Masked: maskToken(tok), FromEnv: s.envToken != ""}, err
 }
 
-// RotateMCPToken replaces the stored token; refused while DOCKET_MCP_TOKEN is set.
+// RotateMCPToken replaces the stored token; refused while PLANDILLO_MCP_TOKEN is set.
 func (s *Service) RotateMCPToken(ctx context.Context) (TokenInfo, error) {
 	s.tokenMu.Lock()
 	defer s.tokenMu.Unlock()
 	if s.envToken != "" {
-		return TokenInfo{}, invalid("the token is set by DOCKET_MCP_TOKEN: change it in .env and restart")
+		return TokenInfo{}, invalid("the token is set by PLANDILLO_MCP_TOKEN: change it in .env and restart")
 	}
 	tok := randomToken()
 	err := s.write(ctx, ActorDenis, func(o *op) error {

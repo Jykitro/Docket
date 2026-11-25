@@ -58,7 +58,7 @@ func callActor(ctx context.Context, req mcp.Request) string {
 // Handler returns the handler for /mcp (one MCP tool per Plandillo tool) and /mcp/code (Code Mode: one `code`
 // tool that runs JavaScript calling the same tools). Host checks and auth are done by the caller's middleware.
 func Handler(svc *service.Service, loc *time.Location) http.Handler {
-	return IsolatedHandler(svc, loc, NewRunner("/run/docket-code/runner.sock"))
+	return IsolatedHandler(svc, loc, NewRunner("/run/plandillo-code/runner.sock"))
 }
 
 // IsolatedHandler sends every Code Mode invocation for this workspace to the resource-limited runner.
@@ -99,7 +99,7 @@ func WithEvaluator(svc *service.Service, loc *time.Location, execute evaluator) 
 	opts := &mcp.StreamableHTTPOptions{
 		Stateless:    true,
 		JSONResponse: true,
-		// Our own middleware checks Host against DOCKET_ALLOWED_HOSTS (incl. docket.localhost).
+		// Our own middleware checks Host against PLANDILLO_ALLOWED_HOSTS (incl. plandillo.localhost).
 		DisableLocalhostProtection: true,
 	}
 	classic := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return s }, opts)

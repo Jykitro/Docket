@@ -53,11 +53,11 @@ func PasskeySites(hosts []string, addr, override string) (map[string]*webauthn.W
 	for _, origin := range origins {
 		u, err := url.Parse(origin)
 		if err != nil {
-			return nil, errors.New("invalid DOCKET_PASSKEY_ORIGIN")
+			return nil, errors.New("invalid PLANDILLO_PASSKEY_ORIGIN")
 		}
 		secure := u.Scheme == "https" || u.Scheme == "http" && loopbackDomain(u.Hostname())
 		if !secure || !slices.Contains(allowed, u.Hostname()) || u.Scheme+"://"+u.Host != origin {
-			return nil, errors.New("DOCKET_PASSKEY_ORIGIN must be an exact HTTPS origin on an allowed hostname (HTTP is supported on localhost)")
+			return nil, errors.New("PLANDILLO_PASSKEY_ORIGIN must be an exact HTTPS origin on an allowed hostname (HTTP is supported on localhost)")
 		}
 		if u.Scheme == "https" && u.Port() == "443" || u.Scheme == "http" && u.Port() == "80" {
 			u.Host = u.Hostname()

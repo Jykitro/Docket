@@ -16,9 +16,9 @@ test('signup, private data, recovery and worker availability', async ({ page, br
   const addr = '127.0.0.1:' + socket.address().port
   await new Promise(resolve => socket.close(resolve))
   const url = 'http://' + addr
-  const bin = process.env.DOCKET_TEST_BINARY || path.resolve(__dirname,'../../bin/plandillo')
-  const env = { PATH: process.env.PATH, DOCKET_CODE_SOCKET: path.join(dir,'code.sock'), DOCKET_MODE: 'selfhost',
-    DOCKET_ADDR: addr, DOCKET_DB: path.join(dir,'planner.db'), DOCKET_BACKUP_DIR: path.join(dir,'backups') }
+  const bin = process.env.PLANDILLO_TEST_BINARY || path.resolve(__dirname,'../../bin/plandillo')
+  const env = { PATH: process.env.PATH, PLANDILLO_CODE_SOCKET: path.join(dir,'code.sock'), PLANDILLO_MODE: 'selfhost',
+    PLANDILLO_ADDR: addr, PLANDILLO_DB: path.join(dir,'planner.db'), PLANDILLO_BACKUP_DIR: path.join(dir,'backups') }
   const worker = spawn(bin,['code-runner'],{env,stdio:'ignore'})
   const stoppedWorker = once(worker,'exit')
   const app = spawn(bin,[],{env,stdio:['ignore','ignore','pipe']})

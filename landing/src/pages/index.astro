@@ -365,11 +365,11 @@ The Plandillo CLI is in the works.
     ghcr.io/huntly-digital/plandillo:main
 <span class="text-code-dim"># open localhost:7777, data is stored in SQLite</span></pre>
         </div>
-        <div class:list={[panel, 'min-h-[180px]']} role="tabpanel" id="p-pg" aria-labelledby="t-pg" hidden data-command="docker run -d --name plandillo --pull=always -p 127.0.0.1:7777:7777 -e DOCKET_MODE=selfhost -e DOCKET_POSTGRES_DSN='postgres://plandillo:pass@db/plandillo' --restart unless-stopped ghcr.io/huntly-digital/plandillo:main">
+        <div class:list={[panel, 'min-h-[180px]']} role="tabpanel" id="p-pg" aria-labelledby="t-pg" hidden data-command="docker run -d --name plandillo --pull=always -p 127.0.0.1:7777:7777 -e PLANDILLO_MODE=selfhost -e PLANDILLO_POSTGRES_DSN='postgres://plandillo:pass@db/plandillo' --restart unless-stopped ghcr.io/huntly-digital/plandillo:main">
 <pre>$ docker run -d --name plandillo --pull=always \
     -p 127.0.0.1:7777:7777 \
-    -e DOCKET_MODE=selfhost \
-    -e DOCKET_POSTGRES_DSN='postgres://plandillo:pass@db/plandillo' \
+    -e PLANDILLO_MODE=selfhost \
+    -e PLANDILLO_POSTGRES_DSN='postgres://plandillo:pass@db/plandillo' \
     --restart unless-stopped \
     ghcr.io/huntly-digital/plandillo:main
 <span class="text-code-dim"># use a dedicated database, see the hosting guide</span></pre>

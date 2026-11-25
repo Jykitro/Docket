@@ -173,7 +173,7 @@ func (a *api) checkProtocol(ctx context.Context) Check {
 }
 
 func (a *api) checkToken(ctx context.Context) Check {
-	c := Check{Key: "token", Label: "Токен", Hint: "Задайте DOCKET_MCP_TOKEN в .env или перевыпустите токен на этой странице"}
+	c := Check{Key: "token", Label: "Токен", Hint: "Задайте PLANDILLO_MCP_TOKEN в .env или перевыпустите токен на этой странице"}
 	tok, err := a.svc.RevealMCPToken(ctx)
 	if err != nil || tok.Token == "" {
 		c.Detail = "токен не задан"
@@ -202,7 +202,7 @@ func localStamp(iso string) string {
 }
 
 func (a *api) checkHosts() Check {
-	c := Check{Key: "hosts", Label: "Host и Origin", Hint: "Добавьте хост в DOCKET_ALLOWED_HOSTS и перезапустите контейнер"}
+	c := Check{Key: "hosts", Label: "Host и Origin", Hint: "Добавьте хост в PLANDILLO_ALLOWED_HOSTS и перезапустите контейнер"}
 	list := strings.Join(a.hosts, ", ")
 	c.OK = len(a.hosts) > 0
 	c.Detail = "разрешённые хосты: " + list
