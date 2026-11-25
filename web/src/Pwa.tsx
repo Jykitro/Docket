@@ -1,6 +1,6 @@
 import { type ReactNode, useEffect, useState, useSyncExternalStore } from 'react'
-import { tr, useLang } from './i18n'
-import { btn, btnPri } from './ui'
+import { locale, tr, useLang } from './i18n'
+import { ErrorPage, btn, btnPri } from './ui'
 
 type InstallEvent = Event & { prompt(): Promise<unknown> }
 let installEvent: InstallEvent | null = null
@@ -38,13 +38,20 @@ export function InstallPlandillo({ fallback = null }: { fallback?: ReactNode }) 
 export function ConnectionGate({ children }: { children: ReactNode }) {
   useLang()
   const [offline, setOffline] = useState(!navigator.onLine)
+  const [network, setNetwork] = useState(navigator.onLine)
+  const [checking, setChecking] = useState(false)
+  const [lastTry, setLastTry] = useState<Date>()
   const retry = async () => {
+    setChecking(true)
     try {
-      if ((await fetch('/healthz', { cache: 'no-store' })).ok) location.reload()
+      if ((await fetch('/healthz', { cache: 'no-store' })).ok) return location.reload()
     } catch { /* keep the retry button available */ }
+    setChecking(false)
+    setLastTry(new Date())
+    setNetwork(navigator.onLine)
   }
   useEffect(() => {
-    const lost = () => setOffline(true)
+    const lost = () => { setOffline(true); setNetwork(navigator.onLine) }
     window.addEventListener('offline', lost)
     window.addEventListener('docket:disconnected', lost)
     return () => {
@@ -59,8 +66,18 @@ export function ConnectionGate({ children }: { children: ReactNode }) {
     return () => { window.removeEventListener('online', retry); window.clearInterval(timer) }
   }, [offline])
   if (!offline) return children
-  return <main className="grid min-h-dvh place-content-center gap-4 text-center">
-    <h1 className="text-2xl font-semibold">{tr('Нет связи')}</h1>
-    <button className={btnPri} type="button" onClick={retry}>{tr('Повторить')}</button>
-  </main>
+  // Without a network the device is at fault; with one, the Plandillo server is down or unreachable.
+  return (
+    <ErrorPage full kind="offline"
+      title={network ? tr('Сервер Plandillo не отвечает') : tr('Нет интернета')}
+      hint={network
+        ? tr('Интернет есть, но сервер не отвечает. Если Plandillo запущен у вас, проверьте, что процесс или контейнер работает.')
+        : tr('Устройство не подключено к сети. Plandillo откроется сам, как только связь появится.')}
+      actions={<button type="button" className={btnPri} disabled={checking} onClick={retry}>{checking ? tr('Проверяем…') : tr('Проверить сейчас')}</button>}>
+      <p className="mt-6 flex items-center gap-2 text-[13px] text-t3" role="status">
+        <span className="relative flex size-2"><span className="absolute inset-0 rounded-full bg-dg opacity-60 motion-safe:animate-ping" /><span className="relative size-2 rounded-full bg-dg" /></span>
+        {lastTry ? tr('Проверяем каждые 5 секунд. Последняя попытка: {time}', { time: lastTry.toLocaleTimeString(locale()) }) : tr('Проверяем соединение каждые 5 секунд')}
+      </p>
+    </ErrorPage>
+  )
 }

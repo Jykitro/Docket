@@ -43,8 +43,8 @@ export function Trash() {
         <div className="flex flex-[999_1_520px] flex-col gap-[18px] min-w-0">
           <section className="overflow-hidden bg-sf border border-ln rounded-xl">
             {(q.isPending || pq.isPending) && <SkeletonRows n={4} />}
-            {pq.isError && <ErrorState message={pq.error.message} onRetry={() => pq.refetch()} />}
-            {q.isError && <ErrorState message={q.error.message} onRetry={() => q.refetch()} />}
+            {pq.isError && <ErrorState error={pq.error} onRetry={() => pq.refetch()} />}
+            {q.isError && <ErrorState error={q.error} onRetry={() => q.refetch()} />}
             {q.isSuccess && pq.isSuccess && total === 0 && <EmptyState icon="trash" title={tr('Корзина пуста')} hint={tr('Сюда попадают удалённые задачи: из панели задачи или через MCP.')} />}
             {gone.map((p, i) => (
               <div className={ROW + (i === 0 ? ' border-t-0' : ' border-t')} key={'p' + p.id}>

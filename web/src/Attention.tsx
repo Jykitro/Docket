@@ -55,7 +55,7 @@ export function Attention() {
   return <div className="mx-auto w-full max-w-6xl space-y-5 p-4 sm:p-8">
     <h1 className="text-2xl font-bold tracking-tight">{tr('Требует внимания')}</h1>
     {issues.isPending && <SkeletonRows />}
-    {issues.isError && <ErrorState message={issues.error.message} onRetry={() => issues.refetch()} />}
+    {issues.isError && <ErrorState error={issues.error} onRetry={() => issues.refetch()} />}
     {issues.data?.length === 0 && <EmptyState icon="check" title={tr('В очереди нет открытых проблем')} />}
     {groups.map(([kind, label]) => {
       const rows = issues.data?.filter(t => (t.issue_kind || 'problem') === kind)

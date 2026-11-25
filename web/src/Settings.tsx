@@ -77,7 +77,7 @@ function Panel({ id, title, hint, children, flush }: { id: string; title: string
 export function Settings({ slug }: { slug: string }) {
   const projects = useProjects()
   const project = projects.data?.find((p) => p.slug === slug)
-  if (projects.isError) return <div className={CONTENT}><div className={COL_PANEL}><ErrorState message={projects.error.message} onRetry={() => projects.refetch()} /></div></div>
+  if (projects.isError) return <div className={CONTENT}><div className={COL_PANEL}><ErrorState error={projects.error} onRetry={() => projects.refetch()} /></div></div>
   if (!project) {
     return projects.isPending
       ? <div className={CONTENT}><Skeleton w="40%" h={28} /></div>
@@ -255,7 +255,7 @@ function StatusesSection({ project, run }: { project: Project; run: Run }) {
   return (
     <Panel id="statuses" title={tr('Статусы')} hint={tr('Колонки доски. Категория определяет поведение: «Готово» закрывает задачу и ставит дату закрытия.')} flush>
       {q.isPending && <div className={TR}><Skeleton w="60%" /></div>}
-      {q.isError && <ErrorState message={q.error.message} onRetry={() => q.refetch()} />}
+      {q.isError && <ErrorState error={q.error} onRetry={() => q.refetch()} />}
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
         <SortableContext items={list.map((s) => s.id)} strategy={verticalListSortingStrategy}>
           {list.map((s) => <StatusRow key={s.id} s={s} run={run} onDelete={del} />)}
@@ -345,7 +345,7 @@ function LabelsSection({ project, run }: { project: Project; run: Run }) {
           )}
         </div>
         {q.isSuccess && q.data.length === 0 && !adding && <span className={HINT}>{tr('Меток пока нет. Они появятся, когда у задач будут области.')}</span>}
-        {q.isError && <ErrorState message={q.error.message} onRetry={() => q.refetch()} />}
+        {q.isError && <ErrorState error={q.error} onRetry={() => q.refetch()} />}
       </div>
     </Panel>
   )
@@ -408,7 +408,7 @@ function FieldsSection({ project, run }: { project: Project; run: Run }) {
       ) : (
         <button type="button" className={ADDLINE} onClick={() => setAdding(true)}><Icon name="plus" size={14} sw={2} />{tr('Добавить поле')}</button>
       )}
-      {q.isError && <ErrorState message={q.error.message} onRetry={() => q.refetch()} />}
+      {q.isError && <ErrorState error={q.error} onRetry={() => q.refetch()} />}
     </Panel>
   )
 }
@@ -457,7 +457,7 @@ function ViewsSection({ project, run }: { project: Project; run: Run }) {
     <Panel id="views" title={tr('Сохранённые виды')} hint={tr('Набор фильтров, группировки и сортировки. Закреплённые виды попадают в боковую панель.')} flush>
       {mine.map((v) => <ViewRow key={v.id} v={v} run={run} />)}
       {q.isSuccess && mine.length === 0 && <div className={TR + ' text-[13px] text-t3'}>{tr('Видов пока нет. Настройте фильтры на доске и нажмите «Сохранить как вид».')}</div>}
-      {q.isError && <ErrorState message={q.error.message} onRetry={() => q.refetch()} />}
+      {q.isError && <ErrorState error={q.error} onRetry={() => q.refetch()} />}
     </Panel>
   )
 }

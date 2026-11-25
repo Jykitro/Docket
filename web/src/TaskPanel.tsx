@@ -159,7 +159,7 @@ function PanelBody({ code, mode, onClose }: { code: string; mode: 'drawer' | 'pa
   if (q.isError) {
     return <>{head}{q.error.message.includes('not found') || q.error.message.includes('не найд')
       ? <EmptyState icon="doc" title={tr('Задача не найдена')} hint={tr('Нет задачи {code}. Её могли очистить из корзины.', { code })} />
-      : <ErrorState message={q.error.message} onRetry={() => q.refetch()} />}</>
+      : <ErrorState error={q.error} onRetry={() => q.refetch()} />}</>
   }
   const readOnly = !!d!.deleted_at
   return (

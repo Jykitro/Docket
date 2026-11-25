@@ -175,7 +175,7 @@ function PageArea({ id, c, dirty }: { id: number; c: Ctx; dirty: RefObject<boole
   const notFound = <EmptyState icon="doc" title={tr('Страница не найдена')} action={<Link to={base} className={btn}>{tr('Вики')}</Link>} />
   if (dq.isPending) return <SkeletonRows n={5} />
   if (dq.isError) {
-    return dq.error instanceof ApiError && dq.error.code === 'not_found' ? notFound : <ErrorState message={dq.error.message} onRetry={() => dq.refetch()} />
+    return dq.error instanceof ApiError && dq.error.code === 'not_found' ? notFound : <ErrorState error={dq.error} onRetry={() => dq.refetch()} />
   }
   const d = dq.data
   if (d.project_id !== c.project.id) return notFound // an id from another project
@@ -237,7 +237,7 @@ export function Wiki({ project, pageId }: { project: Project; pageId?: number })
       <aside className="flex w-full flex-col gap-3 lg:w-[260px] lg:shrink-0">
         <span className="flex items-center justify-between gap-2"><span className={cap}>{tr('Страницы')}</span>{newBtn}</span>
         {pq.isPending && <div className="flex flex-col gap-2.5"><Skeleton h={28} /><Skeleton h={28} w="80%" /><Skeleton h={28} w="65%" /></div>}
-        {pq.isError && <ErrorState message={pq.error.message} onRetry={() => pq.refetch()} />}
+        {pq.isError && <ErrorState error={pq.error} onRetry={() => pq.refetch()} />}
         {pq.isSuccess && pages.length > 0 && (
           <WikiTree key={project.id} pages={pages} current={pageId} project={project} leave={leave} />
         )}

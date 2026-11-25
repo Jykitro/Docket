@@ -11,24 +11,16 @@ import { NewProjectDialog, NewTaskDialog } from './Dialogs'
 import { useLive } from './live'
 import { tr, useLang } from './i18n'
 import { Header } from './Header'
-import { Link, useRoute } from './router'
+import { useRoute } from './router'
 import { SearchDialog } from './Search'
 import { Sidebar } from './Sidebar'
 import { TaskPanel } from './TaskPanel'
 import { useTheme } from './theme'
 import { Today } from './Today'
 import { Trash } from './Trash'
-import { EmptyState, btn } from './ui'
+import { ErrorPage } from './ui'
 
 type NewTaskOpts = { project?: Project; date?: string; status?: string; title?: string }
-
-function Soon({ title, hint }: { title: string; hint: string }) {
-  return (
-    <div className="px-8 pt-6 pb-8 flex gap-6 flex-wrap items-start max-[640px]:px-4">
-      <div className="flex-[999_1_520px] min-w-0 flex flex-col gap-[18px] bg-sf border border-ln rounded-xl"><EmptyState icon="spark" title={title} hint={hint} action={<Link to="/" className={btn}>{tr('На главную')}</Link>} /></div>
-    </div>
-  )
-}
 
 const WIDE = '(min-width: 900px)'
 
@@ -106,7 +98,7 @@ export function App() {
   else if (path === '/integrations' || path === '/mcp') page = <Mcp /> // /mcp: old bookmarks
   else if (path === '/trash') page = <Trash />
   else if (section) page = <SettingsPage section={section} theme={theme.pref} onTheme={theme.set} />
-  else page = <Soon title={tr('Страница не найдена')} hint={path} />
+  else page = <ErrorPage kind="not_found" title={tr('Страница не найдена')} hint={tr('По адресу {path} ничего нет. Возможно, ссылка устарела или страницу удалили.', { path })} />
 
   const task = params.get('task')
   const current = proj ? projects.data?.find((p) => p.slug === proj[1]) : undefined

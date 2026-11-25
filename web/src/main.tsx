@@ -23,9 +23,10 @@ import { WorkspaceGate } from './Workspaces'
 import { workspaceId } from './workspacePath'
 import { hashKey } from '@tanstack/react-query'
 import { OAuthConsent } from './OAuth'
+import { errorKind } from './api'
 import { Gate } from './Auth'
 
-const client = new QueryClient({ defaultOptions: { queries: { queryKeyHashFn: key => hashKey([workspaceId, ...key]), retry: (failures, error) => failures < 1 && !(error instanceof CollectionLimit), staleTime: 5_000 } } })
+const client = new QueryClient({ defaultOptions: { queries: { queryKeyHashFn: key => hashKey([workspaceId, ...key]), retry: (failures, error) => failures < 1 && !(error instanceof CollectionLimit) && ['offline', 'server'].includes(errorKind(error)), staleTime: 5_000 } } })
 
 if (import.meta.env.PROD && window.isSecureContext && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {

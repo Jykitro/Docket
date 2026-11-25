@@ -163,7 +163,7 @@ export function Today({ onNewTask }: { onNewTask: (o: { project?: Project; date:
       <div className={content}>
         <div className="flex-[999_1_520px] min-w-0 flex flex-col gap-[18px]">
           {q.isPending && <section className={panel}><SkeletonRows n={5} /></section>}
-          {q.isError && <section className={panel}><ErrorState message={q.error.message} onRetry={() => q.refetch()} /></section>}
+          {q.isError && <section className={panel}><ErrorState error={q.error} onRetry={() => q.refetch()} /></section>}
           {data && (
             <>
               {total > 0 && (

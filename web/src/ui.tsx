@@ -1,8 +1,9 @@
 // Small shared pieces: popover menu, dialog, states, task badges.
 import { type ReactNode, useEffect, useRef, useState } from 'react'
-import { agentName, type Label } from './api'
+import { ApiError, type ErrorKind, agentName, errText, errorKind, type Label } from './api'
 import { Icon } from './icons'
 import { LANGS, setLang, tr, useLang } from './i18n'
+import { workspacePath } from './workspacePath'
 
 // Shared utility strings (legacy .btn, .btn.pri, .btn.sq, .btn.warn, .kbd, .cap, .mc, .dot).
 const btnBase = 'inline-flex items-center gap-2 h-9 rounded-md border text-sm font-medium no-underline whitespace-nowrap disabled:opacity-50 disabled:cursor-default'
@@ -155,14 +156,68 @@ export function EmptyState({ icon, title, hint, action }: { icon: string; title:
   )
 }
 
-export function ErrorState({ message, onRetry }: { message?: string; onRetry: () => void }) {
+const ISSUES = 'https://github.com/huntly-digital/plandillo/issues/new'
+
+/** Plain-language title, explanation and icon for each kind of failure. */
+const KINDS: Record<ErrorKind, { icon: string; title: string; hint: string; tone: string }> = {
+  offline: { icon: 'offline', title: 'Нет связи с сервером', hint: 'Проверьте интернет. Если Plandillo запущен у вас, убедитесь, что сервер работает.', tone: 'bg-sk text-t2' },
+  auth: { icon: 'user', title: 'Сессия закончилась', hint: 'Войдите снова, чтобы продолжить с того же места.', tone: 'bg-acs text-act' },
+  forbidden: { icon: 'lock', title: 'Нет доступа', hint: 'У вашей учётной записи нет прав на это. Попросите доступ у владельца пространства.', tone: 'bg-acs text-act' },
+  not_found: { icon: 'search', title: 'Ничего не нашлось', hint: 'Возможно, это удалили или переместили. Проверьте адрес или вернитесь на главную.', tone: 'bg-sk text-t2' },
+  rate: { icon: 'clock', title: 'Слишком много запросов', hint: 'Сервер просит немного подождать. Повторите через минуту.', tone: 'bg-dgs text-dgt' },
+  server: { icon: 'alert', title: 'Сбой на сервере', hint: 'Дело не в вас. Повторите через минуту, а если не поможет, сообщите о проблеме.', tone: 'bg-rds text-rd' },
+  other: { icon: 'alert', title: 'Не удалось загрузить', hint: '', tone: 'bg-rds text-rd' },
+}
+
+/** What a reader can quote when reporting it: the HTTP status and the server's error code. */
+const errorCode = (e: unknown) => e instanceof ApiError && e.status ? `HTTP ${e.status}${e.code && e.code !== 'internal' ? ' · ' + e.code : ''}` : ''
+
+/** Shared body of ErrorState and ErrorPage: icon tile, title, explanation, actions, and the code to quote. */
+function ErrorBody({ kind, title, hint, code, actions, large }: { kind: ErrorKind; title?: string; hint?: string; code?: string; actions: ReactNode; large?: boolean }) {
+  const k = KINDS[kind]
   return (
-    <div className={emptyBox} role="alert">
-      <span className={emptyIc + 'bg-rds text-rd'}><Icon name="x" size={20} /></span>
-      <b className="text-tx text-[15px]">{tr('Не удалось загрузить')}</b>
-      <span>{message ?? tr('Сервер не ответил')}</span>
-      <button type="button" className={btn} onClick={onRetry}>{tr('Повторить')}</button>
+    <div className={'flex flex-col items-center gap-3 text-center ' + (large ? 'max-w-md' : 'max-w-sm px-5 py-10')}>
+      <span className={'grid place-items-center ' + k.tone + (large ? ' mb-2 size-14 rounded-2xl' : ' size-10 rounded-xl')}><Icon name={k.icon} size={large ? 26 : 20} sw={1.9} /></span>
+      {large ? <h1 className="text-2xl font-semibold tracking-[-.02em]">{title ?? tr(k.title)}</h1> : <b className="text-[15px] text-tx">{title ?? tr(k.title)}</b>}
+      <p className={'text-t2 ' + (large ? 'text-[15px]' : 'text-sm')}>{hint ?? tr(k.hint)}</p>
+      <div className="mt-1 flex flex-wrap justify-center gap-2">{actions}</div>
+      {code && <span className="font-mono text-[11px] text-t3">{code}</span>}
     </div>
+  )
+}
+
+function errorActions(kind: ErrorKind, onRetry?: () => void) {
+  if (kind === 'auth') return <button type="button" className={btnPri} onClick={() => location.reload()}>{tr('Войти снова')}</button>
+  return (
+    <>
+      {onRetry && kind !== 'not_found' && <button type="button" className={btn} onClick={onRetry}>{tr('Повторить')}</button>}
+      {kind === 'not_found' && <a className={btn} href={workspacePath('/')}>{tr('На главную')}</a>}
+      {kind === 'server' && <a className={btn} href={ISSUES} target="_blank" rel="noopener noreferrer">{tr('Сообщить о проблеме')}</a>}
+    </>
+  )
+}
+
+/** A failed load inside a page: says what went wrong in plain words and offers the next step. */
+export function ErrorState({ error, onRetry }: { error: unknown; onRetry: () => void }) {
+  const kind = errorKind(error)
+  return (
+    <div className="flex justify-center" role="alert">
+      <ErrorBody kind={kind} hint={kind === 'other' ? errText(error) : undefined} code={errorCode(error)} actions={errorActions(kind, onRetry)} />
+    </div>
+  )
+}
+
+/** A whole screen for a failure: an unknown address, an unreachable server, a workspace that failed to load. */
+export function ErrorPage({ kind, error, title, hint, actions, full, children }: {
+  kind?: ErrorKind; error?: unknown; title?: string; hint?: string; actions?: ReactNode; full?: boolean; children?: ReactNode
+}) {
+  const k = kind ?? errorKind(error)
+  return (
+    <main className={'flex flex-col items-center justify-center px-6 py-16 ' + (full ? 'min-h-dvh bg-bg text-tx' : 'grow')} role="alert">
+      <ErrorBody large kind={k} title={title} hint={hint ?? (k === 'other' && error ? errText(error) : undefined)} code={errorCode(error)}
+        actions={actions ?? errorActions(k, error ? () => location.reload() : undefined)} />
+      {children}
+    </main>
   )
 }
 

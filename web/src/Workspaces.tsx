@@ -7,7 +7,7 @@ import { locale, tr } from './i18n'
 import { Icon } from './icons'
 import { ProjectIconPicker } from './ProjectIconPicker'
 import { Link } from './router'
-import { Dialog, MENUITEM, MENUSEP, Menu, SettingsRow, SettingsSection, btn, btnPri, cap, textInput } from './ui'
+import { Dialog, ErrorPage, MENUITEM, MENUSEP, Menu, SettingsRow, SettingsSection, btn, btnPri, cap, textInput } from './ui'
 import { workspaceApi, workspaceId } from './workspacePath'
 
 export const useSpaces = () => useQuery({ queryKey: ['workspaces'], queryFn: api.spaces })
@@ -21,17 +21,12 @@ export function WorkspaceGate({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!workspaceId && first) location.replace('/w/' + first.id + location.pathname + location.search + location.hash)
   }, [first])
-  if (spaces.isError) return <p role="alert" className="p-8 text-rd">{errText(spaces.error)}</p>
+  if (spaces.isError) return <ErrorPage full error={spaces.error} />
   if (!workspaceId || !spaces.data) return null
   if (!current)
     return (
-      <main className="grid min-h-screen place-items-center bg-bg p-6 text-tx">
-        <div className="flex max-w-sm flex-col items-center gap-3 text-center">
-          <h1 className="text-lg font-semibold">{tr('Пространство недоступно')}</h1>
-          <p className="text-sm text-t2">{tr('Его архивировали или у вас нет к нему доступа.')}</p>
-          {first && <a className={btnPri} href={'/w/' + first.id + '/'}>{tr('Открыть своё пространство')}</a>}
-        </div>
-      </main>
+      <ErrorPage full kind="forbidden" title={tr('Пространство недоступно')} hint={tr('Его архивировали или у вас нет к нему доступа.')}
+        actions={first && <a className={btnPri} href={'/w/' + first.id + '/'}>{tr('Открыть своё пространство')}</a>} />
     )
   return <>{children}</>
 }

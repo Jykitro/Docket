@@ -335,7 +335,7 @@ function ListTable({ tasks, meta }: { tasks: Task[]; meta: Meta }) {
 export function Board({ slug, onNewTask, wiki }: { slug: string; onNewTask: (o: { project?: Project; status?: string }) => void; wiki?: { id?: number } }) {
   const projects = useProjects()
   const project = projects.data?.find((p) => p.slug === slug)
-  if (projects.isError) return <div className={CONTENT}><div className={COL_MAIN}><ErrorState message={projects.error.message} onRetry={() => projects.refetch()} /></div></div>
+  if (projects.isError) return <div className={CONTENT}><div className={COL_MAIN}><ErrorState error={projects.error} onRetry={() => projects.refetch()} /></div></div>
   if (!project) {
     return projects.isPending
       ? <div className={CONTENT}><Skeleton w="40%" h={28} /></div>
@@ -467,7 +467,7 @@ function ProjectBoard({ project, onNewTask, wiki }: { project: Project; onNewTas
       <FilterBar filter={filter} setFilter={setFilter} group={group} setGroup={setGroup} sort={sort} setSort={setSort}
         meta={meta} tasks={tasks} project={project} layout={layout} />
 
-      {tq.isError && <div className={CONTENT}><div className={COL_MAIN}><ErrorState message={tq.error.message} onRetry={() => tq.refetch()} /></div></div>}
+      {tq.isError && <div className={CONTENT}><div className={COL_MAIN}><ErrorState error={tq.error} onRetry={() => tq.refetch()} /></div></div>}
       {tq.isPending && (
         <div className="grow overflow-x-auto px-4 pt-3 pb-7 sm:px-7 sm:pt-[18px]"><div className="flex items-start gap-4">{[0, 1, 2, 3].map((i) => (
           <div key={i} className={COLBOX} aria-hidden="true"><Skeleton w="50%" h={18} /><Skeleton h={92} /><Skeleton h={92} /></div>

@@ -83,7 +83,20 @@ export type AdminInvite = { id: number; created_at: string; expires_at: string }
 export type NewInvite = { url: string; expires_at: string }
 
 export class ApiError extends Error {
-  constructor(public code: string, message: string) { super(message) }
+  constructor(public code: string, message: string, public status = 0) { super(message) }
+}
+
+/** What kind of failure an error is, so the UI can explain it in plain words instead of showing a raw server text. */
+export type ErrorKind = 'offline' | 'auth' | 'forbidden' | 'not_found' | 'rate' | 'server' | 'other'
+export function errorKind(e: unknown): ErrorKind {
+  if (e instanceof TypeError) return 'offline' // fetch rejects with a TypeError when the server cannot be reached
+  if (!(e instanceof ApiError)) return 'other'
+  if (e.status === 401 || e.code === 'unauthorized') return 'auth'
+  if (e.status === 403 || e.code === 'forbidden') return 'forbidden'
+  if (e.status === 404 || e.code === 'not_found') return 'not_found'
+  if (e.status === 429) return 'rate'
+  if (e.status >= 500) return 'server'
+  return 'other'
 }
 
 // Server texts are English. Each known one maps to [ru, uk]; English and unknown ones show the server's own message.
@@ -121,10 +134,13 @@ const SERVER: Record<string, [string, string]> = {
   'admin only': ['Только для администратора', 'Лише для адміністратора'],
   'trash changed; reload and review before purging': ['Состав корзины изменился. Проверьте список и подтвердите очистку ещё раз.', 'Вміст кошика змінився. Перегляньте список і підтвердьте очищення ще раз.'],
   'demo storage is full; delete content and empty the trash to free space': ['Хранилище демо заполнено. Удалите данные и очистите корзину.', 'Сховище демо заповнено. Видаліть дані й очистьте кошик.'],
-  'internal error': ['Внутренняя ошибка сервера, попробуйте позже', 'Внутрішня помилка сервера, спробуйте пізніше'],
 }
 export const errText = (e: unknown): string => {
   if (!(e instanceof Error)) return String(e)
+  const kind = errorKind(e)
+  if (kind === 'offline') return tr('Нет связи с сервером. Проверьте подключение и повторите.')
+  // A known server text (e.g. the Code Mode runner) says more than a generic line; proxies' "Bad Gateway" does not.
+  if (kind === 'server' && !(e.message in SERVER)) return tr('Сбой на сервере. Повторите через минуту.')
   const lang = getLang()
   return (lang !== 'en' && SERVER[e.message]?.[lang === 'ru' ? 0 : 1]) || e.message
 }
@@ -192,7 +208,7 @@ async function req<T>(method: string, url: string, body?: unknown, budget?: Coll
   }
   if (data?.error?.code === 'session_changed' || (res.status === 401 && typeof owner === 'number' && (data?.error?.code === 'unauthorized' || !url.startsWith('/api/auth/')))) leaveWorkspace()
   sessionRequests.signal.throwIfAborted()
-  if (!res.ok) throw new ApiError(data?.error?.code ?? 'internal', data?.error?.message ?? data?.error_description ?? res.statusText)
+  if (!res.ok) throw new ApiError(data?.error?.code ?? 'internal', data?.error?.message ?? data?.error_description ?? res.statusText, res.status)
   if (!data?.challenge && (['/api/auth/login/totp','/api/auth/login', '/api/auth/passkeys/login/finish', '/api/auth/logout', '/api/auth/setup', '/api/auth/register', '/api/auth/account', '/api/auth/recover'].includes(url) || url.startsWith('/api/auth/invite/'))) {
     sessionGeneration++
     try {

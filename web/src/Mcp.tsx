@@ -117,7 +117,7 @@ export function Mcp() {
                 <Icon name="clock" size={15} />{check.isPending ? tr('Проверяю…') : tr('Проверить соединение')}
               </button>
             </div>
-            {status.isError && <ErrorState message={status.error.message} onRetry={() => status.refetch()} />}
+            {status.isError && <ErrorState error={status.error} onRetry={() => status.refetch()} />}
             {status.isPending && <div className={CK}><Skeleton w="70%" /></div>}
             {result?.checks.map((c) => (
               <div className={CK} key={c.key}>
@@ -159,7 +159,7 @@ export function Mcp() {
 
           <section className={PANEL}>
             <div className={PH_ROW + ' pb-3'}><h2 className={PH_H2}>{tr('Инструменты')}</h2><span className="text-[13px] text-t3">{tr('{n} из {total} включено', { n: enabled, total: s?.tools.length ?? 0 })}</span></div>
-            {settings.isError && <ErrorState message={settings.error.message} onRetry={() => settings.refetch()} />}
+            {settings.isError && <ErrorState error={settings.error} onRetry={() => settings.refetch()} />}
             {settings.isPending && <div className={TL}><Skeleton w="70%" /></div>}
             {groups.map(([name, tools]) => (
               <div key={name}>
@@ -195,7 +195,7 @@ export function Mcp() {
               <span className="grow" />
               {st && <span className={MONO}>{tr('{calls} сегодня · медиана {ms} мс', { calls: st.calls_today, ms: st.median_ms })}</span>}
             </div>
-            {calls.isError && <ErrorState message={calls.error.message} onRetry={() => calls.refetch()} />}
+            {calls.isError && <ErrorState error={calls.error} onRetry={() => calls.refetch()} />}
             {calls.isPending && <div className={'grid grid-cols-[62px_20px_minmax(0,1fr)_auto] ' + LG}><Skeleton w={40} /><span /><Skeleton /><span /></div>}
             {calls.isSuccess && calls.data.length === 0 && <div className={'block text-t3 ' + LG}>{filter === 'all' ? tr('В журнале пока нет вызовов') : tr('Вызовов по этому фильтру нет')}</div>}
             {calls.data?.map((c) => (

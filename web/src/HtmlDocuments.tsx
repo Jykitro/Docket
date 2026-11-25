@@ -69,7 +69,7 @@ function InlineDocument({ doc, owner }: { doc: HTMLDocumentInfo; owner: Owner })
   })
   if (draft) return <DocumentEditor owner={owner} initial={draft} close={() => setDraft(null)} />
   return <article aria-label={doc.title} className="min-w-0 space-y-2">
-    {read.isPending ? <SkeletonRows /> : read.isError ? <ErrorState message={read.error.message} onRetry={() => read.refetch()} />
+    {read.isPending ? <SkeletonRows /> : read.isError ? <ErrorState error={read.error} onRetry={() => read.refetch()} />
       : <HtmlPreview key={version} title={doc.title} html={read.data.html} />}
     <details className="text-xs text-t3">
       <summary className="w-fit max-w-full cursor-pointer wrap-anywhere hover:text-tx">{doc.title} · {tr('Версия')} {version}</summary>
