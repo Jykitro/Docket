@@ -153,6 +153,19 @@ function sessionStamp() {
 let stamp = sessionStamp()
 let sessionGeneration = 0
 
+// The last workspace list, tagged with the sign-in stamp: switching workspaces reloads the page, and this lets the
+// switcher draw the right name and icon at once instead of a placeholder until /api/workspaces answers.
+const spacesKey = 'plandillo-spaces'
+export function cachedSpaces(): Space[] | undefined {
+  try {
+    const c = JSON.parse(localStorage.getItem(spacesKey) ?? 'null') as { stamp: string | null; rows: Space[] } | null
+    return c && c.stamp === sessionStamp() ? c.rows : undefined
+  } catch { return undefined }
+}
+export function cacheSpaces(rows: Space[]) {
+  try { localStorage.setItem(spacesKey, JSON.stringify({ stamp: sessionStamp(), rows })) } catch { /* storage can be blocked: no warm start */ }
+}
+
 // A document owns exactly one private workspace. Reloading discards React state, queued
 // mutations, credentials and the query cache together, even if two profiles reuse row IDs.
 function leaveWorkspace() {
@@ -212,6 +225,7 @@ async function req<T>(method: string, url: string, body?: unknown, budget?: Coll
     sessionGeneration++
     try {
       localStorage.setItem(changeKey, crypto.getRandomValues(new Uint32Array(4)).join('-'))
+      localStorage.removeItem(spacesKey) // another account must not see these names, even for a moment
       stamp = sessionStamp()
     } catch { /* /me also checks the identity directly when storage is unavailable */ }
     if (url === '/api/auth/logout' || url === '/api/auth/account') leaveWorkspace()

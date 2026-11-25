@@ -297,7 +297,12 @@ func (a *api) h(fn func(*http.Request) (any, error)) http.HandlerFunc {
 		case created:
 			writeJSON(w, 201, c.v)
 		case projectPNG:
-			w.Header().Set("Cache-Control", "private, no-store")
+			// icon_url carries ?v=<content hash>: that URL never changes meaning, so the browser may keep it.
+			if r.URL.Query().Has("v") {
+				w.Header().Set("Cache-Control", "private, max-age=31536000, immutable")
+			} else {
+				w.Header().Set("Cache-Control", "private, no-store")
+			}
 			w.Header().Set("X-Content-Type-Options", "nosniff")
 			w.Header().Set("Content-Type", "image/png")
 			w.Write(c)

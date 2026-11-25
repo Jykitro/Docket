@@ -92,7 +92,8 @@ func (h *handler) catalogRoutes(r *chi.Mux) {
 			spaceError(w, err)
 			return
 		}
-		sendPNG(w, data)
+		// The UI asks for /icon?v=<updated_at>, so a changed icon gets a new URL and the old one may stay cached.
+		sendPNG(w, data, r.URL.Query().Has("v"))
 	}))
 	r.Handle("/api/workspaces/{wid}/*", http.HandlerFunc(h.workspaceAPI))
 	r.Put("/api/auth/profile", h.authed(h.updateProfile))
@@ -108,12 +109,19 @@ func (h *handler) catalogRoutes(r *chi.Mux) {
 			credentialError(w, err)
 			return
 		}
-		sendPNG(w, data)
+		sendPNG(w, data, false)
 	}))
 }
-func sendPNG(w http.ResponseWriter, data []byte) {
+
+// sendPNG answers with an image. A versioned URL may be kept by the browser (not by shared caches), so switching
+// workspaces reloads the page without fetching the icon again; anything else is not stored.
+func sendPNG(w http.ResponseWriter, data []byte, versioned bool) {
 	w.Header().Set("Content-Type", "image/png")
-	w.Header().Set("Cache-Control", "private, no-store")
+	cache := "private, no-store"
+	if versioned {
+		cache = "private, max-age=31536000, immutable"
+	}
+	w.Header().Set("Cache-Control", cache)
 	w.Write(data)
 }
 func (h *handler) updateProfile(w http.ResponseWriter, r *http.Request, u auth.User) {

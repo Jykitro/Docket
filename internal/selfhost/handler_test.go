@@ -394,8 +394,11 @@ func TestProjectIconIsolation(t *testing.T) {
 		t.Fatalf("project responses %d / %d", aliceProject.Code, bobProject.Code)
 	}
 	got := s.do("GET", p.URL, "", alice, nil)
-	if got.Code != 200 || got.Header().Get("Content-Type") != "image/png" || got.Header().Get("Cache-Control") != "private, no-store" || !bytes.Equal(got.Body.Bytes(), b.Bytes()) {
-		t.Fatalf("image response %d", got.Code)
+	if got.Code != 200 || got.Header().Get("Content-Type") != "image/png" || got.Header().Get("Cache-Control") != "private, max-age=31536000, immutable" || !bytes.Equal(got.Body.Bytes(), b.Bytes()) {
+		t.Fatalf("versioned image response %d %q", got.Code, got.Header().Get("Cache-Control"))
+	}
+	if got := s.do("GET", strings.SplitN(p.URL, "?", 2)[0], "", alice, nil); got.Code != 200 || got.Header().Get("Cache-Control") != "private, no-store" {
+		t.Fatalf("unversioned image response %d %q", got.Code, got.Header().Get("Cache-Control"))
 	}
 	if got := s.do("GET", p.URL, "", bob, nil); got.Code != 404 {
 		t.Fatalf("other workspace: %d", got.Code)

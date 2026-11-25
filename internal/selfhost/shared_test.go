@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"image"
+	"image/png"
 	"net/http"
 	"strings"
 	"testing"
@@ -39,6 +41,30 @@ func sharedServer(t *testing.T) *server {
 	s.ws.UseShared(base, "", 0)
 	s.h = Handler(Options{Auth: s.db, WS: s.ws, Web: http.NotFoundHandler(), AllowedHosts: hosts})
 	return s
+}
+
+// The switcher loads /icon?v=<updated_at> on every workspace switch (a full reload), so that URL must be cacheable.
+func TestWorkspaceIconCaching(t *testing.T) {
+	s := sharedServer(t)
+	alice, space := s.addUser("alice")
+	bob, _ := s.addUser("bob")
+	var b bytes.Buffer
+	if err := png.Encode(&b, image.NewNRGBA(image.Rect(0, 0, 128, 128))); err != nil {
+		t.Fatal(err)
+	}
+	payload, _ := json.Marshal(map[string]any{"icon_png": b.Bytes()})
+	path := fmt.Sprintf("/api/workspaces/%d", space.ID)
+	if res := s.do("PATCH", path, string(payload), alice, nil); res.Code != 200 {
+		t.Fatalf("set icon: %d %s", res.Code, res.Body)
+	}
+	for url, want := range map[string]string{path + "/icon?v=1": "private, max-age=31536000, immutable", path + "/icon": "private, no-store"} {
+		if res := s.do("GET", url, "", alice, nil); res.Code != 200 || res.Header().Get("Cache-Control") != want {
+			t.Fatalf("%s: %d %q, want %q", url, res.Code, res.Header().Get("Cache-Control"), want)
+		}
+	}
+	if res := s.do("GET", path+"/icon?v=1", "", bob, nil); res.Code != 404 {
+		t.Fatalf("other user: %d", res.Code)
+	}
 }
 func TestSharedWorkspaceLifecycleAndIsolation(t *testing.T) {
 	s := sharedServer(t)

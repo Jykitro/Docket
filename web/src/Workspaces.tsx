@@ -2,7 +2,7 @@
 // Each browser document belongs to one workspace (see workspacePath.ts), so switching loads a new document.
 import { type ReactNode, useEffect, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { api, errText, type Space, useMe, useProfile } from './api'
+import { api, cacheSpaces, cachedSpaces, errText, type Space, useMe, useProfile } from './api'
 import { tr } from './i18n'
 import { Icon } from './icons'
 import { ProjectIconPicker } from './ProjectIconPicker'
@@ -10,7 +10,12 @@ import { Link } from './router'
 import { Dialog, ErrorPage, MENUITEM, MENUSEP, Menu, SettingsRow, SettingsSection, btn, btnPri, cap, textInput } from './ui'
 import { workspaceApi, workspaceId } from './workspacePath'
 
-export const useSpaces = () => useQuery({ queryKey: ['workspaces'], queryFn: api.spaces })
+// Starts from the list saved by the last load (switching reloads the page), then replaces it with the server's answer.
+export const useSpaces = () => useQuery({
+  queryKey: ['workspaces'],
+  queryFn: async () => { const rows = await api.spaces(); cacheSpaces(rows); return rows },
+  placeholderData: () => cachedSpaces(),
+})
 const open = (id: number) => location.assign('/w/' + id + '/')
 export const SPACE_NAME_MAX = 80
 
@@ -18,11 +23,13 @@ export function WorkspaceGate({ children }: { children: ReactNode }) {
   const spaces = useSpaces()
   const first = spaces.data?.find((s) => !s.archived_at)
   const current = spaces.data?.find((s) => s.id === workspaceId && !s.archived_at)
+  const fresh = !spaces.isPlaceholderData // the saved list may be stale: redirect and refuse only on the server's answer
   useEffect(() => {
-    if (!workspaceId && first) location.replace('/w/' + first.id + location.pathname + location.search + location.hash)
-  }, [first])
+    if (!workspaceId && first && fresh) location.replace('/w/' + first.id + location.pathname + location.search + location.hash)
+  }, [first, fresh])
   if (spaces.isError) return <ErrorPage full error={spaces.error} />
   if (!workspaceId || !spaces.data) return null
+  if (!current && !fresh) return null
   if (!current)
     return (
       <ErrorPage full kind="forbidden" title={tr('Пространство недоступно')} hint={tr('Его архивировали или у вас нет к нему доступа.')}
