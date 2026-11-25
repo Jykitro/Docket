@@ -26,43 +26,41 @@ func TestDevelopmentOriginRequiresConfiguredPublicAuthority(t *testing.T) {
 	}
 }
 
-// The production deployer rejects cycles even when vercel dev accepts the configuration.
-func TestVercelServiceBindings(t *testing.T) {
+func TestVercelFrontendRoutes(t *testing.T) {
 	var config struct {
 		Services map[string]struct {
-			Bindings []struct{ Type, Service, Format, Env string }
+			Root, BuildCommand, OutputDirectory string
+			Runtime, Entrypoint                 string
+			Rewrites                            []json.RawMessage
 		}
-		Rewrites []struct{ Destination struct{ Service string } }
+		Rewrites []struct {
+			Source       string
+			Has, Missing []json.RawMessage
+			Destination  struct{ Service string }
+		}
 	}
 	data, err := os.ReadFile("../../vercel.json")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = json.Unmarshal(data, &config); err != nil {
+	if err := json.Unmarshal(data, &config); err != nil {
 		t.Fatal(err)
 	}
-	expected := map[string]string{"landing": "", "web": "", "app": "worker", "worker": "replies", "replies": ""}
-	if len(config.Services) != len(expected) {
-		t.Fatal("unexpected service graph")
+	landing, ok := config.Services["landing"]
+	if !ok || len(config.Services) != 1 {
+		t.Fatalf("expected only the landing service, got %v", config.Services)
 	}
-	for name, target := range expected {
-		svc, ok := config.Services[name]
-		if !ok {
-			t.Fatalf("missing service %s", name)
-		}
-		if target == "" {
-			if len(svc.Bindings) != 0 {
-				t.Fatalf("%s must not declare an outgoing binding", name)
-			}
-			continue
-		}
-		if len(svc.Bindings) != 1 || svc.Bindings[0].Service != target || svc.Bindings[0].Type != "service" || svc.Bindings[0].Format != "url" {
-			t.Fatalf("expected %s -> %s URL binding", name, target)
-		}
+	if landing.Root != "landing" || landing.BuildCommand != "make build" || landing.OutputDirectory != "dist" {
+		t.Fatalf("unexpected landing build settings: %+v", landing)
 	}
-	for _, route := range config.Rewrites {
-		if svc := route.Destination.Service; svc != "web" && svc != "app" && svc != "landing" {
-			t.Fatalf("unexpected public route to %s", svc)
-		}
+	if landing.Runtime != "" || landing.Entrypoint != "" || len(landing.Rewrites) != 0 {
+		t.Fatalf("expected a static landing without backend routes: %+v", landing)
+	}
+	if len(config.Rewrites) != 1 {
+		t.Fatalf("expected one landing route, got %d", len(config.Rewrites))
+	}
+	route := config.Rewrites[0]
+	if route.Source != "/(.*)" || route.Destination.Service != "landing" || len(route.Has) != 0 || len(route.Missing) != 0 {
+		t.Fatalf("expected every request to route to the landing: %+v", route)
 	}
 }

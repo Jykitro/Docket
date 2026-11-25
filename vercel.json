@@ -5,48 +5,14 @@
       "root": "landing",
       "buildCommand": "make build",
       "outputDirectory": "dist"
-    },
-    "web": {
-      "root": "web",
-      "framework": "vite",
-      "buildCommand": "bun run build:vercel",
-      "outputDirectory": "dist",
-      "rewrites": [{ "source": "/((?!@|.*\\.).*)", "destination": "/index.html" }],
-      "headers": [{ "source": "/(.*)", "headers": [
-        { "key": "Referrer-Policy", "value": "no-referrer" },
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "X-Frame-Options", "value": "DENY" },
-        { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self' data:; frame-src 'self' about:; object-src 'none'; base-uri 'none'; form-action 'self'" }
-      ] }]
-    },
-    "app": {
-      "root": ".",
-      "runtime": "container",
-      "entrypoint": "Dockerfile.vercel",
-      "bindings": [{ "type": "service", "service": "worker", "format": "url", "env": "PLANDILLO_RUNNER_URL" }]
-    },
-    "worker": {
-      "root": ".",
-      "runtime": "container",
-      "entrypoint": "Containerfile",
-      "bindings": [{ "type": "service", "service": "replies", "format": "url", "env": "PLANDILLO_REPLIES_URL" }]
-    },
-    "replies": {
-      "root": ".",
-      "runtime": "container",
-      "entrypoint": "Containerfile.vercel"
     }
   },
   "rewrites": [
-    { "source": "/(.*)", "has": [{ "type": "host", "value": "plandillo.dev" }], "destination": { "service": "landing" } },
-    { "source": "/(.*)", "has": [{ "type": "host", "value": "www.plandillo.dev" }], "destination": { "service": "landing" } },
-    { "source": "/.well-known/oauth-authorization-server", "destination": { "service": "app" } },
-    { "source": "/.well-known/oauth-protected-resource/:path*", "destination": { "service": "app" } },
-    { "source": "/oauth/register", "destination": { "service": "app" } },
-    { "source": "/oauth/token", "destination": { "service": "app" } },
-    { "source": "/api/:path*", "destination": { "service": "app" } },
-    { "source": "/mcp/:path*", "destination": { "service": "app" } },
-    { "source": "/healthz", "destination": { "service": "app" } },
-    { "source": "/(.*)", "destination": { "service": "web" } }
+    {
+      "source": "/(.*)",
+      "destination": {
+        "service": "landing"
+      }
+    }
   ]
 }
