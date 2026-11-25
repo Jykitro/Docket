@@ -66,7 +66,7 @@ export function App() {
   const [newTask, setNewTask] = useState<NewTaskOpts | null>(null)
   const [newProject, setNewProject] = useState(false)
   const [search, setSearch] = useState(false)
-  const [settings, setSettings] = useState(false)
+  const [settings, setSettings] = useState<'Профиль' | 'Пространство' | null>(null)
   // Onboarding starts when the profile has no name and stays up (latched) until it finishes, even though
   // saving the name in step 1 makes the profile non-empty.
   const profile = useProfile()
@@ -116,9 +116,9 @@ export function App() {
   return (
     <div className="min-h-screen flex items-stretch bg-bg text-tx" data-theme={theme.resolved}>
       <Sidebar path={path} view={params.get('view')} overdue={path === '/' && params.get('focus') === 'overdue'} rail={sidebar.rail} mobileOpen={sidebar.open} onClose={sidebar.close}
-        onNewProject={() => { sidebar.close(); setNewProject(true) }} onSettings={() => { sidebar.close(); setSettings(true) }} />
+        onWorkspaceSettings={() => {sidebar.close();setSettings('Пространство')}} onNewProject={() => { sidebar.close(); setNewProject(true) }} onSettings={() => { sidebar.close(); setSettings('Профиль') }} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <Header onToggle={sidebar.toggle} sidebarExpanded={sidebar.expanded} onSearch={() => setSearch(true)} theme={theme.pref} resolved={theme.resolved} onTheme={theme.set} onSettings={() => setSettings(true)} />
+        <Header onToggle={sidebar.toggle} sidebarExpanded={sidebar.expanded} onSearch={() => setSearch(true)} theme={theme.pref} resolved={theme.resolved} onTheme={theme.set} onSettings={() => setSettings('Профиль')} />
         <main className="flex min-w-0 flex-1 flex-col">{page}</main>
       </div>
       {task && <TaskPanel key={task} code={task} mode="drawer" />}
@@ -127,7 +127,7 @@ export function App() {
       )}
       {newTask && active && <NewTaskDialog projects={active} {...newTask} onClose={() => setNewTask(null)} />}
       {newProject && <NewProjectDialog onClose={() => setNewProject(false)} />}
-      {settings && <AppSettings theme={theme.pref} onTheme={theme.set} onClose={() => setSettings(false)} />}
+      {settings && <AppSettings initial={settings} theme={theme.pref} onTheme={theme.set} onClose={() => setSettings(null)} />}
     </div>
   )
 }

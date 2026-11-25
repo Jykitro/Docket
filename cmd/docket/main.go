@@ -12,7 +12,6 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -20,6 +19,7 @@ import (
 
 	"docket/internal/auth"
 	"docket/internal/config"
+	"docket/internal/database"
 	"docket/internal/events"
 	"docket/internal/httpapi"
 	"docket/internal/mcpserver"
@@ -59,47 +59,13 @@ func run() error {
 			return fmt.Errorf("unknown command %q", os.Args[1])
 		}
 	}
-	if cfg.SelfHost {
-		return runSelfHost(ctx, cfg, nil)
-	}
-
-	st, err := store.Open(cfg.DB)
-	if err != nil {
-		return err
-	}
-	defer st.Close()
-	bus := events.NewBus()
-	svc := service.New(st, bus, cfg.Loc)
-	svc.SetEnvToken(cfg.MCPToken)
-	if tok, err := svc.EnsureMCPSettings(ctx); err != nil {
-		return err
-	} else if tok != "" {
-		slog.Info("MCP token generated; view it in the Integrations tab")
-	}
-
-	if cfg.Seed != "" {
-		if _, err := os.Stat(cfg.Seed); err != nil {
-			slog.Warn("seed file not found, skipping", "path", cfg.Seed)
-		} else if imported, err := svc.Seed(ctx, cfg.Seed); err != nil {
-			return err
-		} else if imported {
-			slog.Info("seed imported", "path", cfg.Seed)
-		}
-	}
-
-	go maintenance(ctx, svc, cfg.BackupDir)
-
-	return serve(ctx, cfg.Addr, httpapi.Router(httpapi.Deps{
-		Svc: svc, Bus: bus, AllowedHosts: cfg.AllowedHosts, SelfAddr: cfg.Addr, Ctx: ctx,
-		MCP: mcpserver.IsolatedHandler(svc, cfg.Loc, mcpserver.NewRunner(cfg.RunnerSocket)), Web: web.Handler(),
-	}))
+	return runSelfHost(ctx, cfg, nil)
 }
 
-// runSelfHost serves many users, each with their own database, behind a login. The shared env token and
-// the seed are not used here: a token shared by all users would make MCP routing ambiguous.
+// Both modes share the catalog. Selfhost resolves owners from authenticated sessions.
 func runSelfHost(ctx context.Context, cfg config.Config, remote *vercelrun.App) error {
-	if cfg.MCPToken != "" { // DOCKET_SEED is ignored silently: .env.example sets it, and the README says so
-		slog.Warn("DOCKET_MCP_TOKEN is ignored in selfhost mode: every profile has its own token")
+	if cfg.SelfHost && cfg.MCPToken != "" { // DOCKET_SEED is ignored silently: .env.example sets it, and the README says so
+		slog.Warn("DOCKET_MCP_TOKEN is ignored in selfhost mode: every workspace has its own token")
 	}
 	var ad *auth.DB
 	proxies, err := config.ParseTrustedProxies(os.Getenv("DOCKET_TRUSTED_PROXIES"))
@@ -109,12 +75,59 @@ func runSelfHost(ctx context.Context, cfg config.Config, remote *vercelrun.App) 
 	if cfg.PostgresDSN != "" {
 		ad, err = auth.OpenPostgres(cfg.PostgresDSN)
 	} else {
-		ad, err = auth.Open(filepath.Join(cfg.DataDir, "auth.db"))
+		for _, name := range []string{"auth.db", "users"} {
+			legacy := filepath.Join(cfg.DataDir, name)
+			if filepath.Clean(legacy) == filepath.Clean(cfg.DB) {
+				continue
+			}
+			_, statErr := os.Stat(legacy)
+			if statErr == nil {
+				return fmt.Errorf("previous selfhost layout detected in %s; choose an empty data directory", cfg.DataDir)
+			}
+			if !os.IsNotExist(statErr) {
+				return statErr
+			}
+		}
+		if err = database.CheckSQLiteLayout(cfg.DB); err != nil {
+			return err
+		}
+		ad, err = auth.Open(cfg.DB)
 	}
 	if err != nil {
 		return fmt.Errorf("open auth database: %w", err)
 	}
 	defer ad.Close()
+	mode := "selfhost"
+	if !cfg.SelfHost {
+		mode = "local"
+	}
+	if err = ad.PinMode(mode); err != nil {
+		return err
+	}
+	if cfg.SelfHost {
+		key, err := totpKey(cfg.DataDir, cfg.PostgresDSN != "")
+		if err != nil {
+			return err
+		}
+		if err = ad.ConfigureTOTP(key); err != nil {
+			return err
+		}
+	}
+	if cfg.PostgresDSN != "" {
+		ad.Connection().SetMaxOpenConns(8)
+	}
+	shared, err := store.Shared(ad.Connection(), cfg.DB)
+	if err != nil {
+		return err
+	}
+	var localID, firstID int64
+	if !cfg.SelfHost {
+		localID, err = store.EnsureLocalUser(ad.Connection())
+		if err != nil {
+			return err
+		}
+		firstID = 1 // immutable first workspace of a clean local installation
+	}
 
 	sites, err := selfhost.PasskeySites(cfg.AllowedHosts, cfg.Addr, cfg.PasskeyOrigin)
 	if err != nil {
@@ -124,7 +137,7 @@ func runSelfHost(ctx context.Context, cfg config.Config, remote *vercelrun.App) 
 	webHandler := web.Handler()
 	buildRouter := func(wctx context.Context, svc *service.Service, bus *events.Bus) http.Handler {
 		return httpapi.Router(httpapi.Deps{
-			Svc: svc, Bus: bus, AllowedHosts: cfg.AllowedHosts, SelfAddr: cfg.Addr, Ctx: wctx, SelfHost: cfg.SelfHost,
+			Svc: svc, Bus: bus, AllowedHosts: cfg.AllowedHosts, SelfAddr: cfg.Addr, Ctx: wctx, SelfHost: cfg.SelfHost, OnDemandCheck: true,
 			MCP: mcpserver.IsolatedHandler(svc, cfg.Loc, runner), Web: web.Handler(),
 		})
 	}
@@ -153,6 +166,11 @@ func runSelfHost(ctx context.Context, cfg config.Config, remote *vercelrun.App) 
 	}
 	ws := selfhost.NewWorkspaces(ctx, cfg.DataDir, cfg.Loc, buildRouter)
 	ws.UsePostgres(cfg.PostgresDSN)
+	envToken := ""
+	if localID != 0 {
+		envToken = cfg.MCPToken
+	}
+	ws.UseShared(shared, envToken, firstID)
 	ws.DemoStorageBytes = cfg.DemoStorageBytes
 	defer ws.Close()
 
@@ -171,26 +189,34 @@ func runSelfHost(ctx context.Context, cfg config.Config, remote *vercelrun.App) 
 			return errors.New("first setup requires PLANDILLO_SETUP_CODE with at least 32 characters")
 		}
 	} else {
-		users, err := ad.ListUsers()
+		userCount, err := ad.UserCount()
 		if err != nil {
 			return err
 		}
-		if err = ws.VerifyOwners(ctx, users, ad); err != nil {
-			return err
-		}
-		for _, u := range users {
-			if _, err := ws.Open(ctx, u); err != nil {
-				return fmt.Errorf("open workspace for user %d: %w", u.ID, err)
+
+		if localID != 0 && cfg.Seed != "" {
+			u, err := ad.ByID(localID)
+			if err != nil {
+				return err
+			}
+			ws, err := ws.Open(ctx, u)
+			if err != nil {
+				return err
+			}
+			if _, statErr := os.Stat(cfg.Seed); statErr == nil {
+				if _, err = ws.Svc.Seed(ctx, cfg.Seed); err != nil {
+					return err
+				}
 			}
 		}
-		go maintainAll(ctx, ws, cfg.BackupDir)
+		go maintenanceShared(ctx, shared, cfg.BackupDir)
 		setupPath := filepath.Join(cfg.DataDir, "setup-code")
 		clearSetup = func() {
 			if err := os.Remove(setupPath); err != nil && !os.IsNotExist(err) {
 				slog.Error("remove consumed setup code", "err", err)
 			}
 		}
-		if len(users) == 0 {
+		if userCount == 0 && localID == 0 {
 			code, err = createSetupCode(cfg.DataDir)
 			if err != nil {
 				return err
@@ -203,7 +229,7 @@ func runSelfHost(ctx context.Context, cfg config.Config, remote *vercelrun.App) 
 	if cfg.PostgresDSN != "" {
 		slog.Info("PostgreSQL storage enabled; configure external database backups (pg_dump or PITR)")
 	}
-	handler := selfhost.Handler(selfhost.Options{Cluster: cluster, VercelIngress: cluster != nil && os.Getenv("VERCEL") == "1" && (os.Getenv("VERCEL_ENV") == "production" || os.Getenv("VERCEL_ENV") == "preview"),
+	handler := selfhost.Handler(selfhost.Options{LocalID: localID, Cluster: cluster, VercelIngress: cluster != nil && os.Getenv("VERCEL") == "1" && (os.Getenv("VERCEL_ENV") == "production" || os.Getenv("VERCEL_ENV") == "preview"),
 		SetupComplete: clearSetup, TrustedProxies: proxies, Passkeys: sites, Auth: ad, WS: ws, Web: webHandler, AllowedHosts: cfg.AllowedHosts, SetupCode: code, RunnerReady: ready,
 	})
 	if remote != nil && os.Getenv("VERCEL_ENV") == "development" {
@@ -271,48 +297,23 @@ func serve(ctx context.Context, addr string, h http.Handler) error {
 	return nil
 }
 
-// maintenance writes a backup (keeping 14) and trims the MCP call log at start and then every 24h.
-func maintenance(ctx context.Context, svc *service.Service, dir string) {
+func maintenanceShared(ctx context.Context, base *store.Store, dir string) {
 	for {
-		if path, err := svc.Maintenance(ctx, dir); err != nil {
-			slog.Error("maintenance failed", "err", err)
-		} else {
-			slog.Info("backup written", "path", path)
+		now := time.Now()
+		if path, err := base.Backup(dir, 14, now); err != nil {
+			slog.Error("database backup failed", "err", err)
+		} else if path != "" {
+			if err := base.RecordBackup(now); err != nil {
+				slog.Error("record database backup", "err", err)
+			}
+		}
+		if err := base.PurgeExpiredCalls(ctx, now); err != nil {
+			slog.Error("clean MCP log", "err", err)
 		}
 		select {
 		case <-ctx.Done():
 			return
 		case <-time.After(24 * time.Hour):
-		}
-	}
-}
-
-// maintainAll runs maintenance for every open selfhost profile: at start and then hourly it backs up each profile
-// not done in the last 24h, so profiles created at runtime are picked up and deleted ones dropped.
-func maintainAll(ctx context.Context, ws *selfhost.Workspaces, backupDir string) {
-	last := map[int64]time.Time{}
-	for {
-		maintainPass(ws.All(), last, time.Now(), func(w *selfhost.Workspace) {
-			if path, err := w.Svc.Maintenance(ctx, filepath.Join(backupDir, strconv.FormatInt(w.ID, 10))); err != nil {
-				slog.Error("maintenance failed", "err", err)
-			} else if path != "" {
-				slog.Info("backup written", "path", path)
-			}
-		})
-		select {
-		case <-ctx.Done():
-			return
-		case <-time.After(time.Hour):
-		}
-	}
-}
-
-// maintainPass calls backup for each workspace never processed or processed 24h or more before now.
-func maintainPass(all []*selfhost.Workspace, last map[int64]time.Time, now time.Time, backup func(*selfhost.Workspace)) {
-	for _, w := range all {
-		if t, ok := last[w.ID]; !ok || now.Sub(t) >= 24*time.Hour {
-			backup(w)
-			last[w.ID] = now
 		}
 	}
 }

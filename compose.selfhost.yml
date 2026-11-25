@@ -10,6 +10,7 @@ services:
     environment:
       DOCKET_MODE: selfhost
       DOCKET_TRUSTED_PROXIES: ${DOCKET_TRUSTED_PROXIES:-}
+      PLANDILLO_TOTP_KEY: ${PLANDILLO_TOTP_KEY:-}
       DOCKET_PASSKEY_ORIGIN: ${DOCKET_PASSKEY_ORIGIN:-}
       DOCKET_ALLOWED_HOSTS: ${DOCKET_ALLOWED_HOSTS:-localhost,127.0.0.1,docket.localhost}
       TZ: ${TZ:-UTC}

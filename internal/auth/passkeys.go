@@ -24,7 +24,7 @@ type PasskeyUser struct {
 
 func (u PasskeyUser) WebAuthnID() []byte                         { return []byte(u.handle) }
 func (u PasskeyUser) WebAuthnName() string                       { return u.Username }
-func (u PasskeyUser) WebAuthnDisplayName() string                { return u.Username }
+func (u PasskeyUser) WebAuthnDisplayName() string                { return u.Name }
 func (u PasskeyUser) WebAuthnCredentials() []webauthn.Credential { return u.keys }
 
 // PasskeyInfo is the public metadata for an owner's settings screen.
@@ -100,17 +100,18 @@ func (d *DB) PasskeyOwner(ctx context.Context, rp string, id, handle []byte) (Pa
 		return u, ErrBadCredentials
 	}
 	var raw string
-	var created int64
-	q := d.db.SQL(`SELECT u.id,u.username,u.is_admin,u.created_at,coalesce(b.generation,''),o.handle,k.credential FROM passkeys k
+	var updated, created int64
+	q := d.db.SQL(`SELECT u.id,u.username,u.name,u.role,u.is_active,u.updated_at,CASE WHEN u.photo IS NOT NULL THEN '/api/users/' || CAST(u.id AS TEXT) || '/photo' END,u.is_admin,u.created_at,coalesce(b.generation,''),o.handle,k.credential FROM passkeys k
 	JOIN passkey_owners o ON o.user_id=k.user_id JOIN users u ON u.id=o.user_id LEFT JOIN workspace_bindings b ON b.user_id=u.id AND b.pending=0
-	WHERE k.credential_id=? AND k.rp=? AND o.handle=? AND u.id NOT IN (SELECT user_id FROM account_access WHERE blocked=1)`)
-	err := d.db.QueryRowContext(ctx, q, base64.RawURLEncoding.EncodeToString(id), rp, string(handle)).Scan(&u.ID, &u.Username, &u.IsAdmin, &created, &u.WorkspaceKey, &u.handle, &raw)
+	WHERE k.credential_id=? AND k.rp=? AND o.handle=? AND u.is_active=1`)
+	err := d.db.QueryRowContext(ctx, q, base64.RawURLEncoding.EncodeToString(id), rp, string(handle)).Scan(&u.ID, &u.Username, &u.Name, &u.Role, &u.IsActive, &updated, &u.Photo, &u.IsAdmin, &created, &u.WorkspaceKey, &u.handle, &raw)
 	if errors.Is(err, sql.ErrNoRows) {
 		return u, ErrBadCredentials
 	}
 	if err != nil {
 		return u, err
 	}
+	u.UpdatedAt = time.Unix(updated, 0).UTC().Format(time.RFC3339)
 	u.CreatedAt = time.Unix(created, 0).UTC().Format(time.RFC3339)
 	var key webauthn.Credential
 	if err = json.Unmarshal([]byte(raw), &key); err != nil {
@@ -126,9 +127,9 @@ func (d *DB) AddPasskey(ctx context.Context, owner int64, rp, name string, key *
 	if err != nil {
 		return err
 	}
-	const insert = `INSERT INTO passkeys(credential_id,user_id,rp,name,credential)
-	SELECT ?,?,?,?,? WHERE (SELECT count(*) FROM passkeys WHERE user_id=?) < 32`
-	res, err := d.db.ExecContext(ctx, d.db.SQL(insert), base64.RawURLEncoding.EncodeToString(key.ID), owner, rp, name, string(raw), owner)
+	const insert = `INSERT INTO passkeys(credential_id,user_id,rp,name,credential,created_at)
+	SELECT ?,?,?,?,?,? WHERE (SELECT count(*) FROM passkeys WHERE user_id=?) < 32`
+	res, err := d.db.ExecContext(ctx, d.db.SQL(insert), base64.RawURLEncoding.EncodeToString(key.ID), owner, rp, name, string(raw), d.now().Unix(), owner)
 	if database.IsUniqueViolation(err) {
 		return ValidationError("passkey already registered")
 	}

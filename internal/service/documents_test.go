@@ -119,3 +119,36 @@ func TestHTMLQuotaIsAtomicAcrossOwners(t *testing.T) {
 		t.Fatal("delete did not release quota", err)
 	}
 }
+
+func TestLargeHTMLRevisionReadExportAndQuota(t *testing.T) {
+	s := newSvc(t)
+	p := mustProject(t, s, "reports")
+	task := mustTasks(t, s, ActorDenis, NewTask{ProjectID: p.ID, Title: "Report"})[0]
+	large := strings.Repeat("<section>Отчёт — data</section>\r\n", 1024)
+	in := PublishHTMLInput{Task: task.Code, Title: "Report", HTML: large}
+	maxBytes := int64(len(large) + len("<b>2</b>"))
+	doc, err := s.publishHTML(ctx, "codex", in, maxBytes, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	in.ExpectedVersion = 1
+	in.HTML = "<b>2</b>"
+	if _, err = s.publishHTML(ctx, "codex", in, maxBytes, 10); err != nil {
+		t.Fatal(err)
+	}
+	in.ExpectedVersion = 2
+	in.HTML = "x"
+	if _, err = s.publishHTML(ctx, "codex", in, maxBytes, 10); ErrorCode(err) != "quota_exceeded" {
+		t.Fatalf("unexpected quota result: %v", err)
+	}
+	earlier, err := s.ReadHTML(ctx, doc.ID, 1)
+	if err != nil || earlier.HTML != large {
+		t.Fatal("historical revision", err)
+	}
+	for _, scope := range []int64{0, p.ID} {
+		e, err := s.Export(ctx, scope)
+		if err != nil || len(e.Documents) != 2 || e.Documents[0].HTML != large || e.Documents[1].HTML != "<b>2</b>" {
+			t.Fatal("exported content", err)
+		}
+	}
+}

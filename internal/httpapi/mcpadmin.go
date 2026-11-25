@@ -217,7 +217,9 @@ func (a *api) checkDB(ctx context.Context) Check {
 		return c
 	}
 	c.OK = h.QuickCheck == "ok" && strings.EqualFold(h.Journal, "wal")
-	c.Value = fmt.Sprintf("%.1f МБ", float64(h.SizeBytes)/(1<<20))
+	if h.SizeBytes > 0 {
+		c.Value = fmt.Sprintf("%.1f МБ", float64(h.SizeBytes)/(1<<20))
+	}
 	if h.Journal == "postgresql" {
 		c.OK = h.QuickCheck == "ok"
 		c.Detail = "PostgreSQL · SELECT 1 " + h.QuickCheck

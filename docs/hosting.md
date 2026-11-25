@@ -94,25 +94,28 @@ and every profile has its own isolated storage and MCP token. SQLite is the defa
    `planner.example.com`).
 2. Put an HTTPS reverse proxy in front of the container and do not publish port `7777` without it. The session cookie
    is marked `Secure` only over HTTPS (or with `X-Forwarded-Proto: https`), so logging in without a proxy is not safe.
-3. For SQLite, create the private `./data` directory and export the numeric `DOCKET_UID` and `DOCKET_GID` of its non-root owner as described under [Code Mode worker](#code-mode-worker). For SQLite with Code Mode, run `docker compose -f compose.selfhost.yml up -d --build` with the existing selfhost data mounted at `./data`. The PostgreSQL Compose file also includes the worker. Existing selfhost installations using a standalone binary or container must connect the isolated worker to use Code Mode after upgrading. Ordinary MCP runs in the main server.
+3. For SQLite, create the private `./data` directory and export the numeric `DOCKET_UID` and `DOCKET_GID` of its non-root owner as described under [Code Mode worker](#code-mode-worker). For SQLite with Code Mode, run `docker compose -f compose.selfhost.yml up -d --build` with a fresh private data directory mounted at `./data`. The PostgreSQL Compose file also includes the worker. Existing selfhost installations using a standalone binary or container must connect the isolated worker to use Code Mode after upgrading. Ordinary MCP runs in the main server.
 4. On the server, retrieve the first administrator's setup code with `docker compose -f compose.selfhost.yml exec docket /app/plandillo setup-code` (use `compose.postgres.yml` for PostgreSQL). For a native installation run `plandillo setup-code` with the server's `DOCKET_DB` setting. Enter it on the first-run screen. Restarting before setup replaces the code. Completing setup removes the private file from the data directory.
-5. Save the one-time recovery code. In **Settings → Registration**, choose **Invitation only** (the default on installation and upgrade), **Open** or **Closed**. Open signup uses `/register` and requires an available worker when enabling it. Closing signup pauses unused invitations until reopening or their original expiry. Existing owners can continue signing in. The pilot supports 50 accounts including the administrator and blocked accounts. The [pilot verification report](selfhost-security.md) records the security checks, capacity sample and rollout procedure.
+5. Save the one-time recovery code. In **Settings → Registration**, choose **Invitation only** (the default on installation and upgrade), **Open** or **Closed**. Open signup uses `/register` and requires an available worker when enabling it. Closing signup pauses unused invitations until reopening or their original expiry. Existing owners can continue signing in. The pilot supports 50 accounts including the administrator and blocked accounts. The [historical pilot report](selfhost-security.md) describes the previous storage layout.
 6. Administrators manage signup, invitations and account suspension. Blocking ends sessions and active requests. Unblocking requires a new login and a new MCP token. Owners manage their own data and can delete their own account after confirming their password. The last administrator must remain active. The operator of the host or database has physical access to stored data.
 
 **Passkey sign-in.** In **Settings → Passkeys**, choose **Add a passkey**, name the key and confirm your current password. Follow your device’s prompt. On your next visit, select **Sign in with a passkey** to open the same workspace without typing your username. You can register up to 32 keys per account and revoke a lost key in Settings. Password sign-in remains available. Recovering your account with a recovery code revokes all enrolled passkeys.
 
 Open Plandillo on an HTTPS hostname in `DOCKET_ALLOWED_HOSTS`. For local testing use `http://localhost:<port>`. An IP address cannot serve as the passkey domain. For a custom public port or to select one canonical address, set `DOCKET_PASSKEY_ORIGIN` to the exact browser origin, for example `https://planner.example.com:8443`. Behind a proxy, preserve the Host (including a nonstandard port) and overwrite `X-Forwarded-Proto` with the actual external scheme. After moving to a new hostname, sign in with your password and enroll a key on that hostname.
 
-With SQLite, `auth.db` (users and sessions) and `users/<id>.db` (one database per profile) sit next to `DOCKET_DB`; SQLite profile
-backups are written to `DOCKET_BACKUP_DIR/<id>`, and a profile created later gets its first backup within an hour.
-Every profile has its own MCP token, shown on the **Integrations** tab. Each agent connects to the same `/mcp` address and the
-profile is picked by the token. `DOCKET_SEED` and `DOCKET_MCP_TOKEN` are ignored in this mode (a warning is logged if
-`DOCKET_MCP_TOKEN` is set).
+**Accounts and workspaces.** An account can own several private workspaces. Use the sidebar selector to switch and the workspace settings to create, rename, archive or restore one. Archiving revokes its generated MCP token. Permanent deletion requires an archived workspace, its exact name and, in selfhost mode, the account password. The last active workspace must stay available. Each workspace has a separate Integrations page, bearer and tool policy. The local environment token, when supplied, applies to the original workspace only. Selfhost ignores `DOCKET_MCP_TOKEN` and `DOCKET_SEED`.
 
-Switching an existing install to `selfhost` does not import `DOCKET_DB` (`docket.db`): the file stays untouched and
-selfhost profiles start empty. Switching back to `local` brings the old data back.
+**Account security.** Settings → Security lists signed-in devices and lets the owner revoke individual sessions, add passkeys or enable an authenticator. Password sign-in then requires a six-digit TOTP code. Passkeys can sign in independently. Recovery invalidates previous sessions, passkeys, TOTP enrollment and generated workspace tokens.
 
-Back up the auth catalog and workspace data together. For a consistent SQLite snapshot, stop Plandillo and copy the entire data directory, including any WAL files, before restarting. Automatic per-profile SQLite backups alone cannot restore logins. For PostgreSQL, back up the entire dedicated database with `pg_dump` or PITR. Startup verifies each workspace against its account's stable owner identifier. For the first upgrade of a legacy installation, verify the snapshot's provenance and follow the offline binding procedure in [the selfhost runbook](selfhost-security.md). A mismatched or unbound workspace stops startup.
+**Storage and restore.** For a fresh installation, use a new data directory or a dedicated empty PostgreSQL database. An installation with the earlier per-profile layout needs its original binary and storage. The server checks the layout before opening it for application writes and pins each new installation to its chosen mode.
+
+An existing shared SQLite database at format version 2 upgrades to version 3 on first start. The upgrade adds columns for compressed HTML revisions and preserves existing revisions as plain text. Before upgrading, keep a verified SQLite snapshot for use with the previous binary. A rollback to that snapshot restores the data as of the snapshot time. PostgreSQL retains the shared format version 2.
+
+SQLite stores new HTML document revisions of at least 4 KiB as gzip when this saves at least one eighth of the original size. Reading a revision or exporting it returns the original HTML. The workspace publication quota counts the original UTF-8 bytes. Wiki Markdown and inline HTML page bodies remain text. PostgreSQL stores all these fields as `text` and manages large values using [TOAST](https://www.postgresql.org/docs/18/storage-toast.html).
+
+SQLite stores accounts, credentials and every workspace in `DOCKET_DB`. Automatic snapshots in `DOCKET_BACKUP_DIR` contain the entire database. For SQLite selfhost, back up the private `totp.key` beside the database separately, or preserve the environment key if supplied. To test a restore, copy a snapshot to a new private directory as `DOCKET_DB`, supply the original key, start in the original mode on loopback and check sign-in and projects in two workspaces. Keep restored installations private because snapshots contain credentials valid at the time of the backup.
+
+On PostgreSQL, provide all replicas with the same `PLANDILLO_TOTP_KEY` to enable enrollment. Generate it once with `openssl rand -base64 32` and store it in your secret manager alongside the database recovery procedure. Losing this key prevents decryption of enrolled factors.
 
 Limits:
 
@@ -153,13 +156,7 @@ The database must exist and the Plandillo role must own it (or have `CONNECT` an
 `CREATEDB` permissions are not needed by the application. Use a private network or verified TLS for remote connections,
 and URL-encode special characters in credentials. The connection string is not exposed by the API or logged.
 
-Existing Docket installations keep their `docket_auth` and `docket_user_<id>` schemas. Fresh installations use the Plandillo prefix.
-
-Plandillo creates `plandillo_auth` for accounts, sessions and invitations, and `plandillo_user_<id>` for each profile's projects,
-tasks, wiki, history, settings and MCP call log. Migrations run automatically at startup/profile creation in a transaction.
-Every connection uses only its assigned schema; the public schema is not a fallback. Profile deletion drops only that
-profile's schema. These are application isolation boundaries, not separate database roles: the server's database
-credential can access every profile and must stay private.
+Plandillo creates the shared schema `plandillo_auth` for accounts, sessions, workspaces and planner content. Each workspace belongs to one account. Queries select the workspace and composite foreign keys keep related content together. Account deletion cascades to its workspaces. Restrict the application's database credential to its dedicated database.
 
 For a new installation with Docker Compose:
 
@@ -180,7 +177,7 @@ volume; PostgreSQL has no published host port. Plandillo binds to `127.0.0.1:777
 allowed-host setup described above for remote access. `sslmode=disable` in this example applies only to the private
 Compose network. The password in this example must be hex/alphanumeric so it is valid in the connection URL.
 
-The bootstrap account initializes the cluster. The application receives a separate login (`docket`) with permission to create schemas in its dedicated database. Before upgrading a volume originally initialized with `POSTGRES_USER=docket`, stop writers, take and verify a complete backup, then initialize a **separate empty volume** with the new configuration. Restore the application schemas into it as `docket` using `pg_restore --no-owner --no-privileges --exit-on-error`, verify data and sign-in, then switch traffic. The Compose health check refuses the old elevated login. Keep the original volume for rollback.
+The bootstrap account initializes the cluster. The application receives a separate login (`docket`) with permission to create schemas in its dedicated database. For a fresh installation, use an empty dedicated volume. Restore only snapshots created with the same application storage layout. Keep the previous volume and its matching binary available for rollback.
 
 Operational details:
 
@@ -216,12 +213,9 @@ Operational details:
 - Existing SQLite accounts and tasks are **not imported**. Selecting PostgreSQL starts a separate installation.
   To return to the previous SQLite installation, remove `DOCKET_POSTGRES_DSN` and restart with the original data volume.
   Changes made in PostgreSQL do not appear in SQLite. There is no automatic conversion in either direction.
-- Never reset the auth schema while retaining profile schemas: reused user IDs could attach new accounts to old data.
-  Back up and restore the whole database together.
-- For Docker, Compose or a standalone binary, run **one Plandillo instance per database**: live events, login rate limiting and MCP routing are still kept in process.
-  PostgreSQL does not enable horizontal scaling. Each loaded profile and the auth store use at most one connection;
-  allow for that in PostgreSQL's connection budget (idle connections close after five minutes). The [Vercel deployment](vercel.md) adds coordination for multiple app replicas.
-- The database self-check checks connectivity and reports the profile's table/index size; it does not perform a full
+- Back up and restore the entire database and its TOTP key together.
+- Native and Compose installations use one Plandillo instance per database. Account and workspace operations share a pool of up to eight PostgreSQL connections. The [Vercel deployment](vercel.md) coordinates multiple replicas.
+- The database self-check verifies connectivity and reports storage size. It does not perform a full
   PostgreSQL integrity check or verify external backups. Full-text search uses PostgreSQL's `simple` dictionary with
   prefix matching for Russian, Ukrainian and English; ranking/snippets can differ from SQLite FTS5.
 

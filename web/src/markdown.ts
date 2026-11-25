@@ -1,3 +1,4 @@
+import { workspacePath } from './workspacePath'
 // Markdown for descriptions and notes. Everything goes through DOMPurify; links open in a new tab and
 // task-list checkboxes are live (data-idx = their order in the source), see toggleMarkdownCheckbox().
 import DOMPurify, { type Config } from 'dompurify'
@@ -74,7 +75,7 @@ const mdWiki = new Marked({
         const title = String(t.title)
         const page = wiki.pages.find((p) => titleKey(p.title) === titleKey(title))
         return page
-          ? `<a href="/p/${esc(wiki.slug)}/wiki/${page.id}" data-wiki="${page.id}">${esc(title)}</a>`
+          ? `<a href="${workspacePath('/p/'+esc(wiki.slug)+'/wiki/'+page.id)}" data-wiki="${page.id}">${esc(title)}</a>`
           : `<a href="#" data-wiki-new="${esc(title)}" class="border-b border-dashed">${esc(title)}</a>`
       },
     },

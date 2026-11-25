@@ -16,6 +16,7 @@ import (
 	"docket/internal/httpapi"
 	"docket/internal/mcpserver"
 	"docket/internal/service"
+	"docket/internal/store"
 	"docket/internal/testutil"
 	"github.com/go-webauthn/webauthn/webauthn"
 )
@@ -37,6 +38,11 @@ func clusterReplica(t *testing.T, dsn string) (*server, *Cluster) {
 		return httpapi.Router(httpapi.Deps{Svc: svc, Bus: bus, AllowedHosts: hosts, SelfHost: true, MCP: mcpserver.Handler(svc, time.UTC), Web: http.NotFoundHandler()})
 	})
 	ws.UsePostgres(dsn)
+	base, err := store.Shared(db.Connection(), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ws.UseShared(base, "", 0)
 	if err = cluster.Initialize(ctx, ws, db); err != nil {
 		t.Fatal(err)
 	}
@@ -79,7 +85,7 @@ func TestClusterReplicas(t *testing.T) {
 	defer srv.Close()
 	ctx, cancel := context.WithTimeout(t.Context(), 8*time.Second)
 	defer cancel()
-	r, _ := http.NewRequestWithContext(ctx, "GET", srv.URL+"/api/events", nil)
+	r, _ := http.NewRequestWithContext(ctx, "GET", srv.URL+"/api/workspaces/1/events", nil)
 	r.AddCookie(cookie)
 	response, err := http.DefaultClient.Do(r)
 	if err != nil {
@@ -186,6 +192,10 @@ func TestClusterAccountChangesReachOtherReplica(t *testing.T) {
 	if got := b.do("PUT", "/api/admin/users/2/blocked", `{"blocked":false}`, admin, nil).Code; got != 204 {
 		t.Fatal("unblock failed", got)
 	}
+	if res := b.do("GET", "/api/projects", "", sessionCookie(b.login("bob", testPassword, nil)), nil); res.Code != 200 {
+		t.Fatal("open after unblock", res.Code)
+	}
+	member, _ = b.ws.Get(2)
 	fresh := bearerFor(t, member)
 	if fresh == original || mcpStatus(a, original) != 401 || mcpStatus(a, fresh) != 200 {
 		t.Fatal("unblock failed to rotate member credentials")

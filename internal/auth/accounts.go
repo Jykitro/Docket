@@ -115,7 +115,7 @@ func (d *DB) Register(ctx context.Context, token, username, password string) (Us
 // Active checks the current access status of an MCP token's owner.
 func (d *DB) Active(ctx context.Context, id int64) (bool, error) {
 	var active bool
-	q := d.db.SQL("SELECT EXISTS (SELECT 1 FROM users WHERE id=? AND id NOT IN (SELECT user_id FROM account_access WHERE blocked=1))")
+	q := d.db.SQL("SELECT EXISTS (SELECT 1 FROM users WHERE id=? AND is_active=1)")
 	err := d.db.QueryRowContext(ctx, q, id).Scan(&active)
 	return active, err
 }
@@ -123,7 +123,7 @@ func (d *DB) Active(ctx context.Context, id int64) (bool, error) {
 // ProtectAdministrator prevents disabling the last active administrator.
 func (d *DB) ProtectAdministrator(ctx context.Context, id int64) error {
 	var last bool
-	q := d.db.SQL("SELECT EXISTS(SELECT 1 FROM users WHERE id=? AND is_admin=1) AND NOT EXISTS(SELECT 1 FROM users WHERE id!=? AND is_admin=1 AND id NOT IN (SELECT user_id FROM account_access WHERE blocked=1))")
+	q := d.db.SQL("SELECT EXISTS(SELECT 1 FROM users WHERE id=? AND is_admin=1) AND NOT EXISTS(SELECT 1 FROM users WHERE id!=? AND is_admin=1 AND is_active=1)")
 	if err := d.db.QueryRowContext(ctx, q, id, id).Scan(&last); err != nil {
 		return err
 	}
@@ -147,10 +147,16 @@ func (d *DB) SetBlocked(ctx context.Context, id int64, blocked bool) error {
 	if !exists {
 		return ErrNotFound
 	}
-	if _, err = tx.Exec("INSERT INTO account_access(user_id,blocked) VALUES (?,?) ON CONFLICT(user_id) DO UPDATE SET blocked=excluded.blocked", id, blocked); err != nil {
+	if _, err = tx.Exec("UPDATE users SET is_active=?,updated_at=? WHERE id=?", !blocked, d.now().Unix(), id); err != nil {
 		return err
 	}
 	if blocked {
+		if _, err = tx.Exec("DELETE FROM totp_challenges WHERE user_id=?", id); err != nil {
+			return err
+		}
+		if _, err = tx.Exec("UPDATE workspaces SET mcp_token=NULL,token_digest=NULL WHERE owner_user_id=?", id); err != nil {
+			return err
+		}
 		if _, err = tx.Exec("DELETE FROM sessions WHERE user_id=?", id); err != nil {
 			return err
 		}
@@ -190,7 +196,7 @@ func (d *DB) Recover(ctx context.Context, username, code, password string, revok
 	return d.CompleteRecovery(ctx, username, code, digest, revokeMCP)
 }
 
-const recoveryOwner = `SELECT u.id,u.username,coalesce(b.generation,'') FROM users u JOIN account_access a ON a.user_id=u.id LEFT JOIN workspace_bindings b ON b.user_id=u.id AND b.pending=0 WHERE u.username=? AND recovery_hash=? AND blocked=0`
+const recoveryOwner = `SELECT u.id,u.username,coalesce(b.generation,'') FROM users u JOIN account_access a ON a.user_id=u.id LEFT JOIN workspace_bindings b ON b.user_id=u.id AND b.pending=0 WHERE u.username=? AND recovery_hash=? AND u.is_active=1`
 
 func readRecoveryOwner(row *sql.Row) (User, error) {
 	var u User
@@ -219,7 +225,7 @@ func (d *DB) CompleteRecovery(ctx context.Context, username, code string, digest
 	if err != nil {
 		return "", err
 	}
-	if _, err = tx.Exec("UPDATE users SET password_hash=? WHERE id=?", digest.hash, u.ID); err != nil {
+	if _, err = tx.Exec("UPDATE password_credentials SET password_hash=? WHERE user_id=?", digest.hash, u.ID); err != nil {
 		return "", err
 	}
 	if _, err = tx.Exec("DELETE FROM sessions WHERE user_id=?", u.ID); err != nil {
@@ -232,8 +238,15 @@ func (d *DB) CompleteRecovery(ctx context.Context, username, code string, digest
 	if err != nil {
 		return "", err
 	}
-	if err = revokeMCP(u); err != nil {
-		return "", err
+	for _, q := range []string{"DELETE FROM user_totp WHERE user_id=?", "DELETE FROM totp_challenges WHERE user_id=?", "UPDATE workspaces SET mcp_token=NULL,token_digest=NULL WHERE owner_user_id=?"} {
+		if _, err = tx.Exec(q, u.ID); err != nil {
+			return "", err
+		}
+	}
+	if revokeMCP != nil {
+		if err = revokeMCP(u); err != nil {
+			return "", err
+		}
 	}
 	return next, tx.Commit()
 }
@@ -272,6 +285,22 @@ func (d *DB) FinishDeletion(ctx context.Context, id int64) error {
 		return err
 	}
 	if _, err = tx.Exec("DELETE FROM workspace_bindings WHERE user_id=? AND pending=1", id); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// RemoveAccount deletes a shared-layout account and its workspaces in one transaction.
+func (d *DB) RemoveAccount(id int64) error {
+	tx, err := d.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer rollback(tx)
+	if _, err = tx.Exec("DELETE FROM workspace_bindings WHERE user_id=?", id); err != nil {
+		return err
+	}
+	if _, err = tx.Exec("DELETE FROM users WHERE id=?", id); err != nil {
 		return err
 	}
 	return tx.Commit()

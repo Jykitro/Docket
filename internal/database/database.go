@@ -29,7 +29,8 @@ type DB struct {
 
 type Tx struct {
 	*sql.Tx
-	db *DB
+	db          *DB
+	workspaceID int64
 }
 
 func OpenSQLite(path string) (*DB, error) {
@@ -181,17 +182,29 @@ func (d *DB) WorkspaceSchemas(ctx context.Context) ([]int64, error) {
 	return ids, rows.Err()
 }
 
-// Begin serializes a schema's operations across connections/processes, including schema creation.
-// Auth depends on this for atomic first-admin setup and single-use invites; task numbering and
-// service read/check/write operations keep the same semantics as SQLite's single connection.
+// Catalog transitions exclude workspace transactions. Normal planner operations take
+// a shared catalog lock and serialize only with other operations for the same owner.
 func (d *DB) Begin() (*Tx, error) { return d.BeginTx(context.Background(), nil) }
 func (d *DB) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) {
+	return d.begin(ctx, opts, 0)
+}
+func (d *DB) BeginOwnerTx(ctx context.Context, owner int64) (*Tx, error) {
+	return d.begin(ctx, nil, owner)
+}
+func (d *DB) begin(ctx context.Context, opts *sql.TxOptions, owner int64) (*Tx, error) {
 	tx, err := d.DB.BeginTx(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
 	if d.Postgres {
-		if _, err := tx.ExecContext(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, d.schema); err != nil {
+		lock := "SELECT pg_advisory_xact_lock(hashtextextended($1,0))"
+		if owner > 0 {
+			lock = "SELECT pg_advisory_xact_lock_shared(hashtextextended($1,0))"
+		}
+		if _, err = tx.ExecContext(ctx, lock, d.schema); err == nil && owner > 0 {
+			_, err = tx.ExecContext(ctx, "SELECT pg_advisory_xact_lock(hashtextextended($1,1))", d.schema+"/"+strconv.FormatInt(owner, 10))
+		}
+		if err != nil {
 			tx.Rollback()
 			return nil, err
 		}
@@ -238,6 +251,10 @@ func (d *DB) SQL(q string) string {
 	for _, col := range []string{"t.number", "pt.number"} {
 		q = strings.ReplaceAll(q, "printf('%02d', "+col+")", "lpad("+col+"::text, greatest(2, length("+col+"::text)), '0')")
 	}
+	return numberedParameters(q, '$')
+}
+
+func numberedParameters(q string, prefix byte) string {
 	var b strings.Builder
 	quote := byte(0)
 	n := 0
@@ -258,7 +275,8 @@ func (d *DB) SQL(q string) string {
 			b.WriteByte(c)
 		} else if c == '?' {
 			n++
-			fmt.Fprintf(&b, "$%d", n)
+			b.WriteByte(prefix)
+			b.WriteString(strconv.Itoa(n))
 		} else {
 			b.WriteByte(c)
 		}
@@ -292,14 +310,40 @@ func (d *DB) Query(q string, args ...any) (*sql.Rows, error) {
 func (d *DB) QueryRow(q string, args ...any) *sql.Row {
 	return d.DB.QueryRow(d.SQL(q), argsForSQL(args)...)
 }
+
+func (t *Tx) WorkspaceID() int64 { return t.workspaceID }
+
+// BindWorkspace pins domain statements to the workspace selected by the router.
+func (t *Tx) BindWorkspace(id int64) { t.workspaceID = id }
+func (t *Tx) statement(q string, args []any) (string, []any) {
+	q = t.db.SQL(q)
+	args = argsForSQL(args)
+	if strings.Contains(q, ":workspace") {
+		if t.workspaceID <= 0 {
+			panic("workspace query outside scoped transaction")
+		}
+		if t.db.Postgres {
+			q = strings.ReplaceAll(q, ":workspace", "$"+strconv.Itoa(len(args)+1))
+			args = append(args, t.workspaceID)
+		} else {
+			q = numberedParameters(q, '?')
+			q = strings.ReplaceAll(q, ":workspace", "?"+strconv.Itoa(len(args)+1))
+			args = append(args, t.workspaceID)
+		}
+	}
+	return q, args
+}
 func (t *Tx) Exec(q string, args ...any) (sql.Result, error) {
-	return t.Tx.Exec(t.db.SQL(q), argsForSQL(args)...)
+	q, args = t.statement(q, args)
+	return t.Tx.Exec(q, args...)
 }
 func (t *Tx) Query(q string, args ...any) (*sql.Rows, error) {
-	return t.Tx.Query(t.db.SQL(q), argsForSQL(args)...)
+	q, args = t.statement(q, args)
+	return t.Tx.Query(q, args...)
 }
 func (t *Tx) QueryRow(q string, args ...any) *sql.Row {
-	return t.Tx.QueryRow(t.db.SQL(q), argsForSQL(args)...)
+	q, args = t.statement(q, args)
+	return t.Tx.QueryRow(q, args...)
 }
 func (t *Tx) Postgres() bool { return t.db.Postgres }
 

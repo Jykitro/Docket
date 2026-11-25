@@ -1,10 +1,13 @@
 package store
 
 import (
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 )
 
 // Project configuration: statuses, labels, custom fields, saved views; plus settings and the MCP call log.
@@ -71,14 +74,14 @@ func notFoundIf(err error) error {
 
 func (t *Tx) nextPos(table string, where string, args ...any) (float64, error) {
 	var max float64
-	err := t.tx.QueryRow(`SELECT coalesce(max(position), 0) FROM `+table+` WHERE `+where, args...).Scan(&max)
+	err := t.tx.QueryRow(`SELECT coalesce(max(position), 0) FROM `+table+` WHERE workspace_id=:workspace AND `+where, args...).Scan(&max)
 	return max + 1024, err
 }
 
 // ---- statuses ----
 
 const statusCols = `s.id, s.project_id, s.key, s.name, s.color, s.category, s.show_on_board, s.position,
-	(SELECT count(*) FROM tasks t WHERE t.status_id = s.id AND t.deleted_at IS NULL)`
+	(SELECT count(*) FROM tasks t WHERE t.workspace_id=:workspace AND t.status_id = s.id AND t.deleted_at IS NULL)`
 
 func scanStatus(r interface{ Scan(...any) error }) (Status, error) {
 	var s Status
@@ -87,7 +90,7 @@ func scanStatus(r interface{ Scan(...any) error }) (Status, error) {
 }
 
 func (t *Tx) ListStatuses(projectID int64) ([]Status, error) {
-	rows, err := t.tx.Query(`SELECT `+statusCols+` FROM statuses s WHERE s.project_id = ? ORDER BY s.position, s.id`, projectID)
+	rows, err := t.tx.Query(`SELECT `+statusCols+` FROM statuses s WHERE s.workspace_id=:workspace AND s.project_id = ? ORDER BY s.position, s.id`, projectID)
 	if err != nil {
 		return nil, err
 	}
@@ -104,11 +107,11 @@ func (t *Tx) ListStatuses(projectID int64) ([]Status, error) {
 }
 
 func (t *Tx) GetStatus(id int64) (Status, error) {
-	return scanStatus(t.tx.QueryRow(`SELECT `+statusCols+` FROM statuses s WHERE s.id = ?`, id))
+	return scanStatus(t.tx.QueryRow(`SELECT `+statusCols+` FROM statuses s WHERE s.workspace_id=:workspace AND s.id = ?`, id))
 }
 
 func (t *Tx) GetStatusByKey(projectID int64, key string) (Status, error) {
-	return scanStatus(t.tx.QueryRow(`SELECT `+statusCols+` FROM statuses s WHERE s.project_id = ? AND s.key = ?`, projectID, key))
+	return scanStatus(t.tx.QueryRow(`SELECT `+statusCols+` FROM statuses s WHERE s.workspace_id=:workspace AND s.project_id = ? AND s.key = ?`, projectID, key))
 }
 
 func (t *Tx) InsertStatus(s Status) (Status, error) {
@@ -119,7 +122,7 @@ func (t *Tx) InsertStatus(s Status) (Status, error) {
 		}
 	}
 	var id int64
-	err := t.tx.QueryRow(`INSERT INTO statuses(project_id, key, name, color, category, show_on_board, position) VALUES (?,?,?,?,?,?,?) RETURNING id`,
+	err := t.tx.QueryRow(`INSERT INTO statuses(workspace_id, project_id, key, name, color, category, show_on_board, position) VALUES (:workspace, ?,?,?,?,?,?,?) RETURNING id`,
 		s.ProjectID, s.Key, s.Name, s.Color, s.Category, s.ShowOnBoard, s.Position).Scan(&id)
 	if err != nil {
 		return s, err
@@ -128,30 +131,30 @@ func (t *Tx) InsertStatus(s Status) (Status, error) {
 }
 
 func (t *Tx) UpdateStatus(s Status) error {
-	_, err := t.tx.Exec(`UPDATE statuses SET name = ?, color = ?, category = ?, show_on_board = ?, position = ? WHERE id = ?`,
+	_, err := t.tx.Exec(`UPDATE statuses SET name = ?, color = ?, category = ?, show_on_board = ?, position = ? WHERE workspace_id=:workspace AND id = ?`,
 		s.Name, s.Color, s.Category, s.ShowOnBoard, s.Position, s.ID)
 	return err
 }
 
 // SetDoneForStatus stamps or clears done_at of every task in a status after its category changed.
 func (t *Tx) SetDoneForStatus(statusID int64, done bool) error {
-	q := `UPDATE tasks SET done_at = NULL WHERE status_id = ?`
+	q := `UPDATE tasks SET done_at = NULL WHERE workspace_id=:workspace AND status_id = ?`
 	if done {
-		q = `UPDATE tasks SET done_at = coalesce(done_at, strftime('%Y-%m-%dT%H:%M:%fZ','now')) WHERE status_id = ?`
+		q = `UPDATE tasks SET done_at = coalesce(done_at, strftime('%Y-%m-%dT%H:%M:%fZ','now')) WHERE workspace_id=:workspace AND status_id = ?`
 	}
 	_, err := t.tx.Exec(q, statusID)
 	return err
 }
 
 func (t *Tx) DeleteStatus(id int64) error {
-	_, err := t.tx.Exec(`DELETE FROM statuses WHERE id = ?`, id)
+	_, err := t.tx.Exec(`DELETE FROM statuses WHERE workspace_id=:workspace AND id = ?`, id)
 	return err
 }
 
 // ---- labels ----
 
 const labelCols = `l.id, l.project_id, l.name, l.color,
-	(SELECT count(*) FROM tasks t WHERE t.project_id = l.project_id AND t.area = l.name AND t.deleted_at IS NULL)`
+	(SELECT count(*) FROM tasks t WHERE t.workspace_id=:workspace AND t.project_id = l.project_id AND t.area = l.name AND t.deleted_at IS NULL)`
 
 func scanLabel(r interface{ Scan(...any) error }) (Label, error) {
 	var l Label
@@ -160,7 +163,7 @@ func scanLabel(r interface{ Scan(...any) error }) (Label, error) {
 }
 
 func (t *Tx) ListLabels(projectID int64) ([]Label, error) {
-	rows, err := t.tx.Query(`SELECT `+labelCols+` FROM labels l WHERE l.project_id = ? ORDER BY l.id`, projectID)
+	rows, err := t.tx.Query(`SELECT `+labelCols+` FROM labels l WHERE l.workspace_id=:workspace AND l.project_id = ? ORDER BY l.id`, projectID)
 	if err != nil {
 		return nil, err
 	}
@@ -177,21 +180,21 @@ func (t *Tx) ListLabels(projectID int64) ([]Label, error) {
 }
 
 func (t *Tx) GetLabel(id int64) (Label, error) {
-	return scanLabel(t.tx.QueryRow(`SELECT `+labelCols+` FROM labels l WHERE l.id = ?`, id))
+	return scanLabel(t.tx.QueryRow(`SELECT `+labelCols+` FROM labels l WHERE l.workspace_id=:workspace AND l.id = ?`, id))
 }
 
 func (t *Tx) GetLabelByName(projectID int64, name string) (Label, error) {
-	return scanLabel(t.tx.QueryRow(`SELECT `+labelCols+` FROM labels l WHERE l.project_id = ? AND l.name = ?`, projectID, name))
+	return scanLabel(t.tx.QueryRow(`SELECT `+labelCols+` FROM labels l WHERE l.workspace_id=:workspace AND l.project_id = ? AND l.name = ?`, projectID, name))
 }
 
 func (t *Tx) CountLabels(projectID int64) (n int, err error) {
-	err = t.tx.QueryRow(`SELECT count(*) FROM labels WHERE project_id = ?`, projectID).Scan(&n)
+	err = t.tx.QueryRow(`SELECT count(*) FROM labels WHERE workspace_id=:workspace AND project_id = ?`, projectID).Scan(&n)
 	return
 }
 
 func (t *Tx) InsertLabel(l Label) (Label, error) {
 	var id int64
-	err := t.tx.QueryRow(`INSERT INTO labels(project_id, name, color) VALUES (?,?,?) RETURNING id`, l.ProjectID, l.Name, l.Color).Scan(&id)
+	err := t.tx.QueryRow(`INSERT INTO labels(workspace_id, project_id, name, color) VALUES (:workspace, ?,?,?) RETURNING id`, l.ProjectID, l.Name, l.Color).Scan(&id)
 	if err != nil {
 		return l, err
 	}
@@ -200,11 +203,11 @@ func (t *Tx) InsertLabel(l Label) (Label, error) {
 
 // UpdateLabel renames/recolors a label; tasks follow a rename because task.area is the label name.
 func (t *Tx) UpdateLabel(old, l Label) error {
-	if _, err := t.tx.Exec(`UPDATE labels SET name = ?, color = ? WHERE id = ?`, l.Name, l.Color, l.ID); err != nil {
+	if _, err := t.tx.Exec(`UPDATE labels SET name = ?, color = ? WHERE workspace_id=:workspace AND id = ?`, l.Name, l.Color, l.ID); err != nil {
 		return err
 	}
 	if old.Name != l.Name {
-		_, err := t.tx.Exec(`UPDATE tasks SET area = ? WHERE project_id = ? AND area = ?`, l.Name, l.ProjectID, old.Name)
+		_, err := t.tx.Exec(`UPDATE tasks SET area = ? WHERE workspace_id=:workspace AND project_id = ? AND area = ?`, l.Name, l.ProjectID, old.Name)
 		return err
 	}
 	return nil
@@ -212,10 +215,10 @@ func (t *Tx) UpdateLabel(old, l Label) error {
 
 // DeleteLabel removes the label and clears the area of its tasks.
 func (t *Tx) DeleteLabel(l Label) error {
-	if _, err := t.tx.Exec(`UPDATE tasks SET area = '' WHERE project_id = ? AND area = ?`, l.ProjectID, l.Name); err != nil {
+	if _, err := t.tx.Exec(`UPDATE tasks SET area = '' WHERE workspace_id=:workspace AND project_id = ? AND area = ?`, l.ProjectID, l.Name); err != nil {
 		return err
 	}
-	_, err := t.tx.Exec(`DELETE FROM labels WHERE id = ?`, l.ID)
+	_, err := t.tx.Exec(`DELETE FROM labels WHERE workspace_id=:workspace AND id = ?`, l.ID)
 	return err
 }
 
@@ -245,7 +248,7 @@ func optsJSON(o []string) string {
 }
 
 func (t *Tx) ListFields(projectID int64) ([]Field, error) {
-	rows, err := t.tx.Query(`SELECT `+fieldCols+` FROM custom_fields WHERE project_id = ? ORDER BY position, id`, projectID)
+	rows, err := t.tx.Query(`SELECT `+fieldCols+` FROM custom_fields WHERE workspace_id=:workspace AND project_id = ? ORDER BY position, id`, projectID)
 	if err != nil {
 		return nil, err
 	}
@@ -262,7 +265,7 @@ func (t *Tx) ListFields(projectID int64) ([]Field, error) {
 }
 
 func (t *Tx) GetField(id int64) (Field, error) {
-	return scanField(t.tx.QueryRow(`SELECT `+fieldCols+` FROM custom_fields WHERE id = ?`, id))
+	return scanField(t.tx.QueryRow(`SELECT `+fieldCols+` FROM custom_fields WHERE workspace_id=:workspace AND id = ?`, id))
 }
 
 func (t *Tx) InsertField(f Field) (Field, error) {
@@ -271,7 +274,7 @@ func (t *Tx) InsertField(f Field) (Field, error) {
 		return f, err
 	}
 	var id int64
-	err = t.tx.QueryRow(`INSERT INTO custom_fields(project_id, name, type, options, show_on_card, position) VALUES (?,?,?,?,?,?) RETURNING id`,
+	err = t.tx.QueryRow(`INSERT INTO custom_fields(workspace_id, project_id, name, type, options, show_on_card, position) VALUES (:workspace, ?,?,?,?,?,?) RETURNING id`,
 		f.ProjectID, f.Name, f.Type, optsJSON(f.Options), f.ShowOnCard, pos).Scan(&id)
 	if err != nil {
 		return f, err
@@ -280,22 +283,22 @@ func (t *Tx) InsertField(f Field) (Field, error) {
 }
 
 func (t *Tx) UpdateField(f Field) error {
-	_, err := t.tx.Exec(`UPDATE custom_fields SET name = ?, options = ?, show_on_card = ?, position = ? WHERE id = ?`,
+	_, err := t.tx.Exec(`UPDATE custom_fields SET name = ?, options = ?, show_on_card = ?, position = ? WHERE workspace_id=:workspace AND id = ?`,
 		f.Name, optsJSON(f.Options), f.ShowOnCard, f.Position, f.ID)
 	return err
 }
 
 // DeleteField removes the field and its values from every task of the project.
 func (t *Tx) DeleteField(f Field) error {
-	q, key := `UPDATE tasks SET custom = json_remove(custom, ?) WHERE project_id = ?`, fmt.Sprintf(`$."%d"`, f.ID)
+	q, key := `UPDATE tasks SET custom = json_remove(custom, ?) WHERE workspace_id=:workspace AND project_id = ?`, fmt.Sprintf(`$."%d"`, f.ID)
 	if t.tx.Postgres() {
-		q = `UPDATE tasks SET custom = (custom::jsonb - ?::text)::text WHERE project_id = ?`
+		q = `UPDATE tasks SET custom = (custom::jsonb - ?::text)::text WHERE workspace_id=:workspace AND project_id = ?`
 		key = fmt.Sprint(f.ID)
 	}
 	if _, err := t.tx.Exec(q, key, f.ProjectID); err != nil {
 		return err
 	}
-	_, err := t.tx.Exec(`DELETE FROM custom_fields WHERE id = ?`, f.ID)
+	_, err := t.tx.Exec(`DELETE FROM custom_fields WHERE workspace_id=:workspace AND id = ?`, f.ID)
 	return err
 }
 
@@ -313,7 +316,7 @@ func scanView(r interface{ Scan(...any) error }) (View, error) {
 
 // ListViews returns the views of one project plus the global ones; projectID 0 returns only global views.
 func (t *Tx) ListViews(projectID int64) ([]View, error) {
-	rows, err := t.tx.Query(`SELECT `+viewCols+` FROM saved_views WHERE project_id IS NULL OR project_id = ? ORDER BY position, id`, projectID)
+	rows, err := t.tx.Query(`SELECT `+viewCols+` FROM saved_views WHERE workspace_id=:workspace AND (project_id IS NULL OR project_id = ?) ORDER BY position, id`, projectID)
 	if err != nil {
 		return nil, err
 	}
@@ -330,7 +333,7 @@ func (t *Tx) ListViews(projectID int64) ([]View, error) {
 }
 
 func (t *Tx) GetView(id int64) (View, error) {
-	return scanView(t.tx.QueryRow(`SELECT `+viewCols+` FROM saved_views WHERE id = ?`, id))
+	return scanView(t.tx.QueryRow(`SELECT `+viewCols+` FROM saved_views WHERE workspace_id=:workspace AND id = ?`, id))
 }
 
 func (t *Tx) InsertView(v View) (View, error) {
@@ -339,7 +342,7 @@ func (t *Tx) InsertView(v View) (View, error) {
 		return v, err
 	}
 	var id int64
-	err = t.tx.QueryRow(`INSERT INTO saved_views(project_id, name, layout, filter_json, group_by, sort, pinned, position) VALUES (?,?,?,?,?,?,?,?) RETURNING id`,
+	err = t.tx.QueryRow(`INSERT INTO saved_views(workspace_id, project_id, name, layout, filter_json, group_by, sort, pinned, position) VALUES (:workspace, ?,?,?,?,?,?,?,?) RETURNING id`,
 		v.ProjectID, v.Name, v.Layout, string(v.FilterJSON), v.GroupBy, v.Sort, v.Pinned, pos).Scan(&id)
 	if err != nil {
 		return v, err
@@ -348,13 +351,13 @@ func (t *Tx) InsertView(v View) (View, error) {
 }
 
 func (t *Tx) UpdateView(v View) error {
-	_, err := t.tx.Exec(`UPDATE saved_views SET name = ?, layout = ?, filter_json = ?, group_by = ?, sort = ?, pinned = ?, position = ? WHERE id = ?`,
+	_, err := t.tx.Exec(`UPDATE saved_views SET name = ?, layout = ?, filter_json = ?, group_by = ?, sort = ?, pinned = ?, position = ? WHERE workspace_id=:workspace AND id = ?`,
 		v.Name, v.Layout, string(v.FilterJSON), v.GroupBy, v.Sort, v.Pinned, v.Position, v.ID)
 	return err
 }
 
 func (t *Tx) DeleteView(id int64) error {
-	_, err := t.tx.Exec(`DELETE FROM saved_views WHERE id = ?`, id)
+	_, err := t.tx.Exec(`DELETE FROM saved_views WHERE workspace_id=:workspace AND id = ?`, id)
 	return err
 }
 
@@ -362,15 +365,54 @@ func (t *Tx) DeleteView(id int64) error {
 
 func (t *Tx) Setting(key string) (string, bool, error) {
 	var v string
-	err := t.tx.QueryRow(`SELECT value FROM settings WHERE key = ?`, key).Scan(&v)
+	if key == "last_backup_at" {
+		var at sql.NullString
+		err := t.tx.QueryRow("SELECT last_backup_at FROM plandillo_installation").Scan(&at)
+		return at.String, at.Valid, err
+	}
+	if key == "profile_name" {
+		var name string
+		err := t.tx.QueryRow("SELECT u.name FROM users u JOIN workspaces w ON w.owner_user_id=u.id WHERE w.id=:workspace").Scan(&name)
+		return name, err == nil, err
+	}
+	if col := workspaceSetting(key); col != "" {
+		var value sql.NullString
+		err := t.tx.QueryRow("SELECT " + col + " FROM workspaces WHERE id=:workspace").Scan(&value)
+		return value.String, value.Valid, err
+	}
+	err := t.tx.QueryRow(`SELECT value FROM settings WHERE workspace_id=:workspace AND key = ?`, key).Scan(&v)
 	if errors.Is(err, sql.ErrNoRows) {
 		return "", false, nil
 	}
 	return v, err == nil, err
 }
 
+func workspaceSetting(key string) string {
+	switch key {
+	case "mcp_token", "mcp_access_mode", "mcp_disabled_tools":
+		return key
+	}
+	return ""
+}
 func (t *Tx) SetSetting(key, value string) error {
-	_, err := t.tx.Exec(`INSERT INTO settings(key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`, key, value)
+	if key == "last_backup_at" {
+		_, err := t.tx.Exec("UPDATE plandillo_installation SET last_backup_at=?", value)
+		return err
+	}
+	if key == "profile_name" {
+		_, err := t.tx.Exec("UPDATE users SET name=?,updated_at=? WHERE id=(SELECT owner_user_id FROM workspaces WHERE id=:workspace)", value, time.Now().Unix())
+		return err
+	}
+	if key == "mcp_token" {
+		digest := sha256.Sum256([]byte(value))
+		_, err := t.tx.Exec("UPDATE workspaces SET mcp_token=?,token_digest=? WHERE id=:workspace", value, hex.EncodeToString(digest[:]))
+		return err
+	}
+	if col := workspaceSetting(key); col != "" {
+		_, err := t.tx.Exec("UPDATE workspaces SET "+col+"=? WHERE id=:workspace", value)
+		return err
+	}
+	_, err := t.tx.Exec(`INSERT INTO settings(workspace_id, key, value) VALUES (:workspace, ?, ?) ON CONFLICT(workspace_id,key) DO UPDATE SET value = excluded.value`, key, value)
 	return err
 }
 
@@ -380,25 +422,25 @@ const maxCallRows = 10000
 
 func (t *Tx) InsertCall(c MCPCall) error {
 	var id int64
-	err := t.tx.QueryRow(`INSERT INTO mcp_calls(at, tool, args_summary, duration_ms, status, error_code, actor) VALUES (?,?,?,?,?,?,?) RETURNING id`,
+	err := t.tx.QueryRow(`INSERT INTO mcp_calls(workspace_id, at, tool, args_summary, duration_ms, status, error_code, actor) VALUES (:workspace, ?,?,?,?,?,?,?) RETURNING id`,
 		c.At, c.Tool, c.ArgsSummary, c.DurationMS, c.Status, c.ErrorCode, c.Actor).Scan(&id)
 	if err == nil && id > maxCallRows {
-		_, err = t.tx.Exec(`DELETE FROM mcp_calls WHERE id <= ?`, id-maxCallRows)
+		_, err = t.tx.Exec(`DELETE FROM mcp_calls WHERE workspace_id=:workspace AND id < (SELECT id FROM mcp_calls WHERE workspace_id=:workspace AND id<=? ORDER BY id DESC LIMIT 1 OFFSET ?)`, id, maxCallRows-1)
 	}
 	return err
 }
 
 // ListCalls returns the newest calls; filter is "all", "write" (tools listed in writeTools) or "error".
 func (t *Tx) ListCalls(filter string, writeTools []string, limit int) ([]MCPCall, error) {
-	q, args := `SELECT id, at, substr(tool,1,64), substr(args_summary,1,120), duration_ms, status, substr(error_code,1,48), actor FROM mcp_calls`, []any{}
+	q, args := `SELECT id, at, substr(tool,1,64), substr(args_summary,1,120), duration_ms, status, substr(error_code,1,48), actor FROM mcp_calls WHERE workspace_id=:workspace`, []any{}
 	switch filter {
 	case "error":
-		q += ` WHERE status = 'error'`
+		q += ` AND status = 'error'`
 	case "write":
 		if t.tx.Postgres() {
-			q += ` WHERE tool IN (SELECT jsonb_array_elements_text(?::jsonb))`
+			q += ` AND tool IN (SELECT jsonb_array_elements_text(?::jsonb))`
 		} else {
-			q += ` WHERE tool IN (SELECT value FROM json_each(?))`
+			q += ` AND tool IN (SELECT value FROM json_each(?))`
 		}
 		b, _ := json.Marshal(writeTools)
 		args = append(args, string(b))
@@ -422,13 +464,13 @@ func (t *Tx) ListCalls(filter string, writeTools []string, limit int) ([]MCPCall
 }
 
 func (t *Tx) DeleteCalls() error {
-	_, err := t.tx.Exec(`DELETE FROM mcp_calls`)
+	_, err := t.tx.Exec(`DELETE FROM mcp_calls WHERE workspace_id=:workspace`)
 	return err
 }
 
 // PurgeCallsBefore drops log rows older than the cutoff timestamp.
 func (t *Tx) PurgeCallsBefore(cutoff string) (int64, error) {
-	res, err := t.tx.Exec(`DELETE FROM mcp_calls WHERE at < ?`, cutoff)
+	res, err := t.tx.Exec(`DELETE FROM mcp_calls WHERE workspace_id=:workspace AND at < ?`, cutoff)
 	if err != nil {
 		return 0, err
 	}
@@ -442,7 +484,7 @@ type CallStats struct {
 }
 
 // Bound the sample even before the first write trims a pre-upgrade log.
-const recentCalls = `WITH recent AS (SELECT at,substr(tool,1,64) AS tool,duration_ms FROM mcp_calls ORDER BY id DESC LIMIT ?) `
+const recentCalls = `WITH recent AS (SELECT at,substr(tool,1,64) AS tool,duration_ms FROM mcp_calls WHERE workspace_id=:workspace ORDER BY id DESC LIMIT ?) `
 
 func (t *Tx) CallStats(since string) (st CallStats, err error) {
 	err = t.tx.QueryRow(recentCalls+`SELECT coalesce(max(at),''), count(CASE WHEN at>=? THEN 1 END) FROM recent`, maxCallRows, since).Scan(&st.LastAt, &st.CallsSince)

@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	maxHTMLBytes            = 2 << 20
+	maxHTMLBytes            = store.MaxHTMLBytes
 	maxProfileRevisionBytes = 64 << 20
 	maxProfileRevisions     = 4096
 )

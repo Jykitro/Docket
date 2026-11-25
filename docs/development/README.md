@@ -37,6 +37,10 @@ docker rm -f docket-pg-tests
 
 CI runs both the default SQLite checks and the PostgreSQL suite.
 
+### Board query benchmark
+
+Run `go test ./internal/store -run '^$' -bench BenchmarkBoardCards -benchmem` to measure the first and 51st pages of a 6,000-task project with subtasks. Each page contains 100 summary cards. The default run uses a temporary SQLite file. Set `DOCKET_TEST_POSTGRES_DSN` to repeat it in a disposable PostgreSQL database. This benchmark times the store transaction. Measure the REST endpoint separately to include authentication, routing and JSON encoding.
+
 For frontend work with hot reload, run `make dev-api` in one terminal and `make dev-web` in another.
 
 The [repository instructions](../../AGENTS.md) describe the conventions for working on Plandillo with an AI agent.

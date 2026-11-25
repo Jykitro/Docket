@@ -178,7 +178,7 @@ func (h *handler) setBlocked(w http.ResponseWriter, r *http.Request, _ auth.User
 			return
 		}
 	}
-	if !*in.Blocked {
+	if !*in.Blocked && h.WS.shared == nil {
 		active, err := h.Auth.Active(r.Context(), id)
 		if err != nil {
 			internalError(w, err)
@@ -198,6 +198,9 @@ func (h *handler) setBlocked(w http.ResponseWriter, r *http.Request, _ auth.User
 		return
 	}
 	if *in.Blocked {
+		if h.WS.shared != nil {
+			h.WS.forgetOwner(id)
+		}
 		h.streams.end(ownerKey(id))
 	}
 	w.WriteHeader(204)
@@ -240,7 +243,7 @@ func (h *handler) recoverAccount(w http.ResponseWriter, r *http.Request) {
 	}
 	h.access.Lock()
 	defer h.access.Unlock()
-	code, err := h.Auth.CompleteRecovery(ctx, name, in.Code, digest, func(u auth.User) error {
+	callback := func(u auth.User) error {
 		ws, e := h.WS.Open(ctx, u)
 		if e != nil {
 			return e
@@ -248,10 +251,19 @@ func (h *handler) recoverAccount(w http.ResponseWriter, r *http.Request) {
 		h.streams.end(ownerKey(u.ID))
 		_, e = ws.Svc.RotateMCPToken(ctx)
 		return e
-	})
+	}
+	var owner int64
+	if h.WS.shared != nil {
+		callback = func(u auth.User) error { owner = u.ID; return nil }
+	}
+	code, err := h.Auth.CompleteRecovery(ctx, name, in.Code, digest, callback)
 	if err != nil {
 		credentialError(w, err)
 		return
+	}
+	if owner != 0 {
+		h.WS.forgetOwner(owner)
+		h.streams.end(ownerKey(owner))
 	}
 	writeJSON(w, 200, map[string]string{"recovery_code": code})
 }

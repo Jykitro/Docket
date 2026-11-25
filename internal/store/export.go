@@ -51,7 +51,7 @@ func (t *Tx) exportProjects(id int64, emit func(any) error) error {
 	// Keyset iteration leaves the transaction connection available for the icon and status counts.
 	var lastID int64
 	for {
-		p, err := scanProject(t.tx.QueryRow("SELECT "+projectCols+" FROM projects WHERE deleted_at IS NULL AND id>? AND (CAST(? AS bigint)=0 OR id=?) ORDER BY id LIMIT 1", lastID, id, id))
+		p, err := t.scanProject(t.tx.QueryRow("SELECT "+projectCols+" FROM projects WHERE workspace_id=:workspace AND deleted_at IS NULL AND id>? AND (CAST(? AS bigint)=0 OR id=?) ORDER BY id LIMIT 1", lastID, id, id))
 		if errors.Is(err, ErrNotFound) {
 			return nil
 		}
@@ -63,7 +63,7 @@ func (t *Tx) exportProjects(id int64, emit func(any) error) error {
 				return err
 			}
 		}
-		rows, err := t.tx.Query(`SELECT s.key,s.category,count(*) FROM tasks t JOIN statuses s ON s.id=t.status_id WHERE t.project_id=? AND t.deleted_at IS NULL GROUP BY s.key,s.category`, p.ID)
+		rows, err := t.tx.Query(`SELECT s.key,s.category,count(*) FROM tasks t JOIN statuses s ON s.id=t.status_id AND t.workspace_id=:workspace WHERE t.project_id=? AND t.deleted_at IS NULL GROUP BY s.key,s.category`, p.ID)
 		if err != nil {
 			return err
 		}
@@ -100,27 +100,27 @@ func (t *Tx) ExportRows(section string, id int64, emit func(any) error) error {
 		return col + "=?", []any{id}
 	}
 	live, args := scope("id")
-	liveProjects := " IN (SELECT id FROM projects WHERE deleted_at IS NULL AND " + live + ")"
+	liveProjects := " IN (SELECT id FROM projects WHERE workspace_id=:workspace AND deleted_at IS NULL AND " + live + ")"
 	switch section {
 	case "projects":
 		return t.exportProjects(id, emit)
 	case "statuses":
-		return streamRows(t, "SELECT "+statusCols+" FROM statuses s WHERE s.project_id"+liveProjects+" ORDER BY s.project_id,s.position,s.id", args, scanStatus, emit)
+		return streamRows(t, "SELECT "+statusCols+" FROM statuses s WHERE s.workspace_id=:workspace AND s.project_id"+liveProjects+" ORDER BY s.project_id,s.position,s.id", args, scanStatus, emit)
 	case "labels":
-		return streamRows(t, "SELECT "+labelCols+" FROM labels l WHERE l.project_id"+liveProjects+" ORDER BY l.project_id,l.id", args, scanLabel, emit)
+		return streamRows(t, "SELECT "+labelCols+" FROM labels l WHERE l.workspace_id=:workspace AND l.project_id"+liveProjects+" ORDER BY l.project_id,l.id", args, scanLabel, emit)
 	case "fields":
-		return streamRows(t, "SELECT "+fieldCols+" FROM custom_fields WHERE project_id"+liveProjects+" ORDER BY project_id,position,id", args, scanField, emit)
+		return streamRows(t, "SELECT "+fieldCols+" FROM custom_fields WHERE workspace_id=:workspace AND project_id"+liveProjects+" ORDER BY project_id,position,id", args, scanField, emit)
 	case "pages":
-		return streamRows(t, "SELECT "+pageCols+" FROM pages WHERE project_id"+liveProjects+" ORDER BY project_id,position,id", args, scanPage, emit)
+		return streamRows(t, "SELECT "+pageCols+" FROM pages WHERE workspace_id=:workspace AND project_id"+liveProjects+" ORDER BY project_id,position,id", args, scanPage, emit)
 	case "views":
 		where, args := scope("project_id")
-		return streamRows(t, "SELECT "+viewCols+" FROM saved_views WHERE project_id IS NULL OR "+where+" ORDER BY position,id", args, scanView, emit)
+		return streamRows(t, "SELECT "+viewCols+" FROM saved_views WHERE workspace_id=:workspace AND (project_id IS NULL OR "+where+") ORDER BY position,id", args, scanView, emit)
 	case "tasks":
 		where, args := scope("t.project_id")
 		return streamRows(t, "SELECT "+taskCols+taskFrom+" WHERE "+where+" ORDER BY t.id", args, scanTask, emit)
 	case "notes":
 		where, args := scope("t.project_id")
-		return streamRows(t, "SELECT n.id,n.task_id,n.author,n.body_md,n.created_at FROM notes n JOIN tasks t ON t.id=n.task_id WHERE "+where+" ORDER BY n.id", args, scanNote, emit)
+		return streamRows(t, "SELECT n.id,n.task_id,n.author,n.body_md,n.created_at FROM notes n JOIN tasks t ON t.id=n.task_id WHERE n.workspace_id=:workspace AND "+where+" ORDER BY n.id", args, scanNote, emit)
 	case "activity":
 		where, args := scope("a.project_id")
 		if id != 0 {
@@ -132,10 +132,10 @@ func (t *Tx) ExportRows(section string, id int64, emit func(any) error) error {
 				where += " AND json_type(a.diff_json,'$.project_id') IS NULL"
 			}
 		}
-		return streamRows(t, activitySelect+" WHERE "+where+" ORDER BY a.id DESC", args, scanActivity, emit)
+		return streamRows(t, activitySelect+" WHERE a.workspace_id=:workspace AND "+where+" ORDER BY a.id DESC", args, scanActivity, emit)
 	case "html_documents":
 		where, args := scope("p.id")
-		return streamRows(t, "SELECT "+documentCols+", r.html"+documentFrom+documentOwner+" WHERE "+where+" ORDER BY d.id,r.version", args, scanDocument, emit)
+		return streamRows(t, "SELECT "+documentCols+t.revisionContent()+documentFrom+documentOwner+" WHERE "+where+" ORDER BY d.id,r.version", args, scanDocument, emit)
 	}
 	return errors.New("unknown export section")
 }

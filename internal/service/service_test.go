@@ -875,3 +875,34 @@ func TestMCPAuditLimitsAndMedian(t *testing.T) {
 		t.Fatal(st, err)
 	}
 }
+
+func TestBoardSummaryPageMatchesTaskOrderingAndCounts(t *testing.T) {
+	s := newSvc(t)
+	p := mustProject(t, s, "cards")
+	mustTasks(t, s, ActorDenis,
+		NewTask{ProjectID: p.ID, Title: "Epic", Ref: "epic", DescriptionMD: "Описание"},
+		NewTask{ProjectID: p.ID, Title: "First", Status: "doing", ParentRef: "epic"},
+		NewTask{ProjectID: p.ID, Title: "Second", Status: "done", ParentRef: "epic"},
+		NewTask{ProjectID: p.ID, Title: "Final", Status: "doing", DescriptionMD: "More"},
+	)
+	filter := store.TaskFilter{ProjectID: p.ID, IncludeDone: true}
+	want, err := s.ListTasks(ctx, filter)
+	if err != nil || len(want) != 4 {
+		t.Fatal("fixture", err)
+	}
+	filter.Summary = true
+	filter.Limit = 2
+	for offset := 0; offset < len(want); offset += filter.Limit {
+		filter.Offset = offset
+		cards, err := s.ListTasks(ctx, filter)
+		if err != nil || len(cards) != filter.Limit {
+			t.Fatal("card page", err)
+		}
+		for i, card := range cards {
+			full := want[offset+i]
+			if card.ID != full.ID || card.ParentCode != full.ParentCode || card.SubtaskCount != full.SubtaskCount || card.SubtaskDone != full.SubtaskDone || card.DescriptionMD != "" || card.HasDescription != (full.DescriptionMD != "") {
+				t.Fatalf("page %d, card %d differs from full result", offset, i)
+			}
+		}
+	}
+}

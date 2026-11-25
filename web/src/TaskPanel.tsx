@@ -1,3 +1,4 @@
+import { workspacePath } from './workspacePath'
 // Task panel: a right-hand drawer over any screen (?task=TRK-07) or a full page (/t/TRK-07).
 import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -139,7 +140,7 @@ function PanelBody({ code, mode, onClose }: { code: string; mode: 'drawer' | 'pa
       <span className="text-t3">/</span>
       <span className="grow font-mono text-[12.5px] text-t3">{d?.code ?? code}</span>
       <button type="button" className={HEAD_BTN} aria-label={tr('Копировать ссылку')} title={copied ? tr('Скопировано') : tr('Копировать ссылку')}
-        onClick={() => navigator.clipboard?.writeText(`${location.origin}/t/${d?.code ?? code}`).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500) })}>
+        onClick={() => navigator.clipboard?.writeText(location.origin + workspacePath('/t/' + (d?.code ?? code))).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500) })}>
         <Icon name={copied ? 'check' : 'link'} size={16} sw={1.8} />
       </button>
       {mode === 'drawer' && (

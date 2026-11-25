@@ -1,26 +1,9 @@
 package store
 
-import "strings"
-
-// Measure uncompressed PostgreSQL row payloads, including attachments, history and
-// trash. Cleanup metadata and the operational MCP log do not consume demo storage.
-var workspaceUsageSQL = func() string {
-	var totals []string
-	for _, table := range []string{"projects", "statuses", "labels", "custom_fields", "tasks", "saved_views", "notes", "activity", "settings", "pages", "issue_reports", "html_documents", "html_revisions"} {
-		bytes := "octet_length(pg_catalog.record_send(r))"
-		filter := ""
-		switch table {
-		case "projects", "tasks":
-			bytes += " - coalesce(octet_length(deleted_at), 0)"
-		case "activity":
-			filter = " WHERE action NOT IN ('deleted', 'project_deleted', 'html_deleted')"
-		case "settings":
-			filter = " WHERE key <> 'mcp_token_last_used_at'"
-		}
-		totals = append(totals, "(SELECT coalesce(sum("+bytes+"),0) FROM "+table+" r"+filter+")")
-	}
-	return "SELECT " + strings.Join(totals, " + ")
-}()
+// PostgreSQL maintains content_bytes in the same transaction as each content write.
+// The owner index bounds this sum to the owner's metadata, including archived spaces.
+const workspaceUsageSQL = `SELECT coalesce(sum(content_bytes + 128 + octet_length(name) + coalesce(octet_length(icon_png),0)),0)
+ FROM workspaces WHERE owner_user_id=(SELECT owner_user_id FROM workspaces WHERE id=:workspace)`
 
 func (t *Tx) WorkspaceBytes() (int64, error) {
 	var used int64

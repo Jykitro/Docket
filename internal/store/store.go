@@ -3,6 +3,7 @@ package store
 
 import (
 	"context"
+	"crypto/rand"
 	"embed"
 	"errors"
 	"fmt"
@@ -19,8 +20,11 @@ import (
 var migrations embed.FS
 
 type Store struct {
-	db   *database.DB
-	path string
+	db          *database.DB
+	path        string
+	ownerID     int64
+	workspaceID int64
+	borrowed    bool
 }
 
 func Open(path string) (*Store, error) {
@@ -67,7 +71,12 @@ func openStore(db *database.DB, path string, verify func(*Tx, bool) error) (*Sto
 // DeletePostgres removes this profile's schema without affecting other profiles.
 func (s *Store) DeletePostgres() error { return s.db.DropSchema() }
 
-func (s *Store) Close() error { return s.db.Close() }
+func (s *Store) Close() error {
+	if s.borrowed {
+		return nil
+	}
+	return s.db.Close()
+}
 
 // Health runs PRAGMA quick_check and reports the journal mode and the database file size in bytes.
 func (s *Store) Health() (quick, journal string, size int64, err error) {
@@ -75,6 +84,10 @@ func (s *Store) Health() (quick, journal string, size int64, err error) {
 		var n int
 		if err = s.db.QueryRow(`SELECT 1`).Scan(&n); err != nil {
 			return
+		}
+		if s.ownerID != 0 {
+			err = s.db.QueryRow("SELECT content_bytes FROM workspaces WHERE id=? AND owner_user_id=?", s.workspaceID, s.ownerID).Scan(&size)
+			return "ok", "postgresql", size, err
 		}
 		err = s.db.QueryRow(`SELECT coalesce(sum(pg_total_relation_size(c.oid)),0)::bigint FROM pg_class c
    JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=current_schema() AND c.relkind='r'`).Scan(&size)
@@ -87,72 +100,133 @@ func (s *Store) Health() (quick, journal string, size int64, err error) {
 	if err = s.db.QueryRow(`PRAGMA journal_mode`).Scan(&journal); err != nil {
 		return
 	}
-	if fi, e := os.Stat(s.path); e == nil {
-		size = fi.Size()
+	if s.ownerID == 0 {
+		if fi, e := os.Stat(s.path); e == nil {
+			size = fi.Size()
+		}
 	}
 	return
 }
 
-func (s *Store) migrate(verify func(*Tx, bool) error) error {
-	dir := "migrations"
-	if s.db.Postgres {
-		dir += "/postgres"
-	}
-	files, err := migrations.ReadDir(dir)
+//go:embed shared_sqlite.sql
+var sharedSQLite string
+
+//go:embed shared_postgres.sql
+var sharedPostgres string
+
+//go:embed sqlite_html_revisions.sql
+var sqliteHTMLRevisions string
+
+//go:embed read_indexes.sql
+var readIndexes string
+
+// Shared opens the planner tables on the same database as the account catalog.
+func Shared(db *database.DB, path string) (*Store, error) {
+	s := &Store{db: db, path: path, borrowed: true}
+	return s, s.initialize(nil, false)
+}
+func (s *Store) ForOwner(id, owner int64) *Store {
+	st := s.ForWorkspace(id)
+	st.ownerID = owner
+	return st
+}
+func (s *Store) ForWorkspace(id int64) *Store {
+	return &Store{db: s.db, path: s.path, borrowed: true, workspaceID: id}
+}
+
+func (s *Store) migrate(verify func(*Tx, bool) error) error { return s.initialize(verify, true) }
+func (s *Store) initialize(verify func(*Tx, bool) error, standalone bool) error {
+	tx, err := s.db.Begin()
 	if err != nil {
 		return err
 	}
-	// The schema lock and all migrations share a transaction: concurrent starts cannot partially
-	// initialize a schema, and failed migrations roll back the schema as well.
-	return s.WithTx(context.Background(), func(tx *Tx) error {
-		if err := s.db.CreateSchema(tx.tx); err != nil {
+	defer tx.Rollback()
+	if err = s.db.CreateSchema(tx); err != nil {
+		return err
+	}
+	if err = s.db.EnsureCatalog(tx); err != nil {
+		return err
+	}
+	var exists bool
+	q := "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE name='projects')"
+	if s.db.Postgres {
+		q = "SELECT to_regclass('projects') IS NOT NULL"
+	}
+	if err = tx.QueryRow(q).Scan(&exists); err != nil {
+		return err
+	}
+	if !exists {
+		body := sharedSQLite
+		if s.db.Postgres {
+			body = sharedPostgres
+		}
+		if _, err = tx.Exec(body); err != nil {
 			return err
 		}
-		if _, err := tx.tx.Exec(`CREATE TABLE IF NOT EXISTS schema_migrations (version TEXT PRIMARY KEY, applied_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')))`); err != nil {
+	}
+	if !s.db.Postgres {
+		var version int
+		if err = tx.QueryRow("SELECT version FROM plandillo_installation").Scan(&version); err != nil {
 			return err
 		}
-		newWorkspace := false
-		for _, f := range files {
-			if f.IsDir() {
-				continue
-			}
-			var n int
-			if err := tx.tx.QueryRow(`SELECT count(*) FROM schema_migrations WHERE version = ?`, f.Name()).Scan(&n); err != nil {
-				return err
-			}
-			if n > 0 {
-				continue
-			}
-			if f.Name() == "001_init.sql" {
-				newWorkspace = true
-			}
-			body, err := migrations.ReadFile(dir + "/" + f.Name())
-			if err != nil {
-				return err
-			}
-			if _, err := tx.tx.Exec(string(body)); err != nil {
-				return fmt.Errorf("%s: %w", f.Name(), err)
-			}
-			if _, err := tx.tx.Exec(`INSERT INTO schema_migrations(version) VALUES (?)`, f.Name()); err != nil {
+		if version == 2 {
+			if _, err = tx.Exec(sqliteHTMLRevisions); err != nil {
 				return err
 			}
 		}
+	}
+	if _, err = tx.Exec(readIndexes); err != nil {
+		return err
+	}
+	if _, err = tx.Exec("CREATE INDEX IF NOT EXISTS idx_pages_wiki_candidates ON pages(workspace_id,project_id,position,id) WHERE " + wikiMarker(s.db.Postgres)); err != nil {
+		return err
+	}
+	if standalone {
+		if !exists {
+			now := time.Now().Unix()
+			var uid int64
+			if err = tx.QueryRow("INSERT INTO users(username,name,role,created_at,updated_at) VALUES ('local','','user',?,?) RETURNING id", now, now).Scan(&uid); err != nil {
+				return err
+			}
+			if err = tx.QueryRow("INSERT INTO workspaces(owner_user_id,name,generation,created_at,updated_at) VALUES (?,'Personal',?,?,?) RETURNING id", uid, rand.Text(), now, now).Scan(&s.workspaceID); err != nil {
+				return err
+			}
+		} else if err = tx.QueryRow("SELECT id FROM workspaces ORDER BY id LIMIT 1").Scan(&s.workspaceID); err != nil {
+			return err
+		}
+		tx.BindWorkspace(s.workspaceID)
 		if verify != nil {
-			return verify(tx, newWorkspace)
+			if err = verify(&Tx{tx: tx}, !exists); err != nil {
+				return err
+			}
 		}
-		return nil
-	})
+	}
+	return tx.Commit()
 }
 
 // Tx is the only way to run queries; every service operation is one transaction.
-type Tx struct{ tx *database.Tx }
+type Tx struct {
+	tx        *database.Tx
+	scopedURL bool
+}
 
 func (s *Store) WithTx(ctx context.Context, fn func(*Tx) error) error {
-	tx, err := s.db.BeginTx(ctx, nil)
+	tx, err := s.db.BeginOwnerTx(ctx, s.ownerID)
 	if err != nil {
 		return err
 	}
-	if err := fn(&Tx{tx: tx}); err != nil {
+	tx.BindWorkspace(s.workspaceID)
+	if s.ownerID != 0 {
+		var active bool
+		if err = tx.QueryRow("SELECT EXISTS(SELECT 1 FROM workspaces w JOIN users u ON u.id=w.owner_user_id WHERE w.id=:workspace AND w.owner_user_id=? AND w.archived_at IS NULL AND u.is_active=1)", s.ownerID).Scan(&active); err != nil || !active {
+			tx.Rollback()
+			if err != nil {
+				return err
+			}
+			return ErrNotFound
+		}
+	}
+	if err := fn(&Tx{tx: tx, scopedURL: s.ownerID != 0}); err != nil {
 		tx.Rollback()
 		return err
 	}
@@ -208,6 +282,18 @@ func (s *Store) Backup(dir string, keep int, now time.Time) (string, error) {
 		old = old[1:]
 	}
 	return path, nil
+}
+
+// PurgeExpiredCalls applies the retention policy to the whole installation, including unopened spaces.
+func (s *Store) PurgeExpiredCalls(ctx context.Context, now time.Time) error {
+	cutoff := now.UTC().Add(-7 * 24 * time.Hour).Format("2006-01-02T15:04:05.000Z")
+	_, err := s.db.ExecContext(ctx, s.db.SQL("DELETE FROM mcp_calls WHERE at < ?"), cutoff)
+	return err
+}
+
+func (s *Store) RecordBackup(at time.Time) error {
+	_, err := s.db.Exec("UPDATE plandillo_installation SET last_backup_at=?", at.UTC().Format("2006-01-02T15:04:05.000Z"))
+	return err
 }
 
 // ftsQuery turns free text into a safe FTS5 prefix query: "foo"* "bar"*.
