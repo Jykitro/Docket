@@ -8,7 +8,7 @@ import { PasskeyLogin } from './Passkeys'
 import { PlandilloLogo } from './PlandilloLogo'
 import { tr, useLang } from './i18n'
 import { Link, navigate, useRoute } from './router'
-import { LangSwitch, btnPri, cap } from './ui'
+import { ErrorPage, LangSwitch, btnPri, cap } from './ui'
 
 const inputCls = 'h-[38px] border border-ln rounded-md bg-sf px-3 text-[14px] text-tx focus:border-ring focus:ring-[3px] focus:ring-ring focus:outline-none'
 
@@ -154,12 +154,6 @@ export function Gate({ children }: { children: ReactNode }) {
   if (leaving) return null
   if (inApp) return <>{children}</>
   if (me.data?.setup) return wrap(<Setup saved={saved} />)
-  return wrap(
-    <main className="min-h-screen grid place-items-center px-4 text-center">
-      <div className="flex flex-col items-center gap-3">
-        <p className="text-sm text-t2" role="alert">{tr('Не удалось связаться с сервером')}{me.error ? `: ${errText(me.error)}` : ''}</p>
-        <button type="button" className={btnPri} onClick={() => me.refetch()}>{tr('Повторить')}</button>
-      </div>
-    </main>,
-  )
+  return <ErrorPage full kind={me.error ? undefined : 'offline'} error={me.error}
+    actions={<button type="button" className={btnPri} onClick={() => me.refetch()}>{tr('Повторить')}</button>} />
 }

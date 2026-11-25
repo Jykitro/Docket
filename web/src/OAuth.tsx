@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, errText } from './api'
+import { api, errText, errorKind } from './api'
 import { tr } from './i18n'
 import { PlandilloLogo } from './PlandilloLogo'
-import { Select, btn, btnPri, cap } from './ui'
+import { ErrorPage, Select, btn, btnPri, cap } from './ui'
 import { workspaceId } from './workspacePath'
 
 export function OAuthConsent() {
@@ -19,6 +19,12 @@ export function OAuthConsent() {
     gcTime: 0,
   })
   const error = request.error || spaces.error || decision.error
+  // A broken or stale link: nothing to approve, so explain it on a full page instead of a red line in an empty card.
+  if (request.error && errorKind(request.error) === 'other') return <ErrorPage full kind="other" error={request.error}
+    title={tr('Ссылка для подключения не работает')}
+    hint={tr('Она устарела или открылась не полностью. Начните подключение заново в приложении, которое просит доступ.')}
+    actions={<a className={btn} href="/">{tr('На главную')}</a>} />
+  if (request.error) return <ErrorPage full error={request.error} />
   return <main className="min-h-screen grid place-items-center bg-bg p-4 text-tx">
     <section className="grid w-full max-w-md gap-4 rounded-lg border border-ln bg-sf p-6 shadow-pop">
       <PlandilloLogo />

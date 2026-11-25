@@ -3,6 +3,7 @@ import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { ApiError, type ErrorKind, agentName, errText, errorKind, type Label } from './api'
 import { Icon } from './icons'
 import { LANGS, setLang, tr, useLang } from './i18n'
+import { Mascot } from './Mascot'
 import { workspacePath } from './workspacePath'
 
 // Shared utility strings (legacy .btn, .btn.pri, .btn.sq, .btn.warn, .kbd, .cap, .mc, .dot).
@@ -188,26 +189,26 @@ export function EmptyState({ icon, title, hint, action }: { icon: string; title:
 
 const ISSUES = 'https://github.com/huntly-digital/plandillo/issues/new'
 
-/** Plain-language title, explanation and icon for each kind of failure. */
-const KINDS: Record<ErrorKind, { icon: string; title: string; hint: string; tone: string }> = {
-  offline: { icon: 'offline', title: 'Нет связи с сервером', hint: 'Проверьте интернет. Если Plandillo запущен у вас, убедитесь, что сервер работает.', tone: 'bg-sk text-t2' },
-  auth: { icon: 'user', title: 'Сессия закончилась', hint: 'Войдите снова, чтобы продолжить с того же места.', tone: 'bg-acs text-act' },
-  forbidden: { icon: 'lock', title: 'Нет доступа', hint: 'У вашей учётной записи нет прав на это. Попросите доступ у владельца пространства.', tone: 'bg-acs text-act' },
-  not_found: { icon: 'search', title: 'Ничего не нашлось', hint: 'Возможно, это удалили или переместили. Проверьте адрес или вернитесь на главную.', tone: 'bg-sk text-t2' },
-  rate: { icon: 'clock', title: 'Слишком много запросов', hint: 'Сервер просит немного подождать. Повторите через минуту.', tone: 'bg-dgs text-dgt' },
-  server: { icon: 'alert', title: 'Сбой на сервере', hint: 'Дело не в вас. Повторите через минуту, а если не поможет, сообщите о проблеме.', tone: 'bg-rds text-rd' },
-  other: { icon: 'alert', title: 'Не удалось загрузить', hint: '', tone: 'bg-rds text-rd' },
+/** Plain-language title and explanation for each kind of failure. */
+const KINDS: Record<ErrorKind, { title: string; hint: string }> = {
+  offline: { title: 'Нет связи с сервером', hint: 'Проверьте интернет. Если Plandillo запущен у вас, убедитесь, что сервер работает.' },
+  auth: { title: 'Сессия закончилась', hint: 'Войдите снова, чтобы продолжить с того же места.' },
+  forbidden: { title: 'Нет доступа', hint: 'У вашей учётной записи нет прав на это. Попросите доступ у владельца пространства.' },
+  not_found: { title: 'Ничего не нашлось', hint: 'Возможно, это удалили или переместили. Проверьте адрес или вернитесь на главную.' },
+  rate: { title: 'Слишком много запросов', hint: 'Сервер просит немного подождать. Повторите через минуту.' },
+  server: { title: 'Сбой на сервере', hint: 'Дело не в вас. Повторите через минуту, а если не поможет, сообщите о проблеме.' },
+  other: { title: 'Не удалось загрузить', hint: '' },
 }
 
 /** What a reader can quote when reporting it: the HTTP status and the server's error code. */
 const errorCode = (e: unknown) => e instanceof ApiError && e.status ? `HTTP ${e.status}${e.code && e.code !== 'internal' ? ' · ' + e.code : ''}` : ''
 
-/** Shared body of ErrorState and ErrorPage: icon tile, title, explanation, actions, and the code to quote. */
+/** Shared body of ErrorState and ErrorPage: armadillo scene, title, explanation, actions, and the code to quote. */
 function ErrorBody({ kind, title, hint, code, actions, large }: { kind: ErrorKind; title?: string; hint?: string; code?: string; actions: ReactNode; large?: boolean }) {
   const k = KINDS[kind]
   return (
     <div className={'flex flex-col items-center gap-3 text-center ' + (large ? 'max-w-md' : 'max-w-sm px-5 py-10')}>
-      <span className={'grid place-items-center ' + k.tone + (large ? ' mb-2 size-14 rounded-2xl' : ' size-10 rounded-xl')}><Icon name={k.icon} size={large ? 26 : 20} sw={1.9} /></span>
+      <div className={large ? 'mb-2' : ''}><Mascot kind={kind} large={large} /></div>
       {large ? <h1 className="text-2xl font-semibold tracking-[-.02em]">{title ?? tr(k.title)}</h1> : <b className="text-[15px] text-tx">{title ?? tr(k.title)}</b>}
       <p className={'text-t2 ' + (large ? 'text-[15px]' : 'text-sm')}>{hint ?? tr(k.hint)}</p>
       <div className="mt-1 flex flex-wrap justify-center gap-2">{actions}</div>

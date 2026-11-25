@@ -102,3 +102,15 @@ button:not(:disabled) { cursor: pointer; }
 html[data-scale] .min-h-screen { min-height: calc(100vh / var(--zoom, 1)); }
 html[data-scale] .h-screen { height: calc(100vh / var(--zoom, 1)); }
 html[data-scale] .min-h-dvh { min-height: calc(100dvh / var(--zoom, 1)); }
+
+/* Error-screen armadillo (Mascot.tsx): idle bob, floating props, and a roll on click. */
+@media (prefers-reduced-motion: no-preference) {
+  .dillo-bob, .dillo-roll, .dillo-float, .dillo-spin { transform-box: fill-box; transform-origin: center; }
+  .dillo-bob { animation: dillo-bob 2.6s ease-in-out infinite; }
+  .dillo-float { animation: dillo-bob 3.4s ease-in-out infinite reverse; }
+  .dillo-spin { animation: dillo-spin 6s linear infinite; }
+  .dillo-roll { animation: dillo-roll .8s cubic-bezier(.3, .7, .4, 1); }
+}
+@keyframes dillo-bob { 50% { transform: translateY(-4%); } }
+@keyframes dillo-spin { to { transform: rotate(360deg); } }
+@keyframes dillo-roll { 0% { transform: none; } 45% { transform: translateY(-30%) rotate(200deg) scale(.8); } 100% { transform: rotate(360deg); } }
