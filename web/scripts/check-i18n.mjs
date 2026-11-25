@@ -5,8 +5,9 @@ import { readFileSync, readdirSync } from 'node:fs'
 const src = new URL('../src/', import.meta.url)
 const messages = readFileSync(new URL('messages.ts', src), 'utf8')
 const entries = new Map()
-// An entry starts at the beginning of a line: 'key': ['en', 'uk'] (the pair may continue on the next lines).
-for (const m of messages.matchAll(/^ {2}'((?:[^'\\]|\\.)*)':\s*\[\s*'((?:[^'\\]|\\.)*)',\s*'((?:[^'\\]|\\.)*)'/gm)) entries.set(m[1], [m[2], m[3]])
+// An entry starts at the beginning of a line: 'key': ['en', 'uk'] or "key": ["en", "uk"] (the pair may continue on the next lines).
+const str = `(?:'((?:[^'\\\\]|\\\\.)*)'|"((?:[^"\\\\]|\\\\.)*)")`
+for (const m of messages.matchAll(new RegExp(`^ {2}${str}:\\s*\\[\\s*${str},\\s*${str}`, 'gm'))) entries.set(m[1] ?? m[2], [m[3] ?? m[4], m[5] ?? m[6]])
 
 const IGNORED = new Set(['не найд']) // compared with a server message, never shown
 const used = new Set()
