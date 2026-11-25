@@ -49,6 +49,32 @@ func TestLoadPostgres(t *testing.T) {
 	}
 }
 
+func TestLoadTLSPair(t *testing.T) {
+	t.Setenv("PLANDILLO_MODE", "local")
+	t.Setenv("PLANDILLO_POSTGRES_DSN", "")
+	for _, tc := range []struct {
+		name, cert, key string
+		wantErr         bool
+	}{
+		{"neither", "", "", false},
+		{"both", "/tls/cert.pem", "/tls/key.pem", false},
+		{"cert only", "/tls/cert.pem", "", true},
+		{"key only", "", "/tls/key.pem", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("PLANDILLO_TLS_CERT", tc.cert)
+			t.Setenv("PLANDILLO_TLS_KEY", tc.key)
+			c, err := Load()
+			if (err != nil) != tc.wantErr {
+				t.Fatalf("err = %v, wantErr %v", err, tc.wantErr)
+			}
+			if !tc.wantErr && (c.TLSCert != tc.cert || c.TLSKey != tc.key) {
+				t.Fatalf("TLS = %q / %q", c.TLSCert, c.TLSKey)
+			}
+		})
+	}
+}
+
 func TestDefaultListenAddressIsLoopback(t *testing.T) {
 	t.Setenv("PLANDILLO_MODE", "local")
 	t.Setenv("PLANDILLO_POSTGRES_DSN", "")

@@ -75,6 +75,7 @@ Settings are read from `.env` (see [the example settings](../.env.example)). Ins
 |---|---|---|
 | `PLANDILLO_MODE` | `local` | `local`: one user, no login. `selfhost`: several users behind a login, see [Self-host](#self-host) |
 | `PLANDILLO_ADDR` | `127.0.0.1:7777` (native), `:7777` (image) | HTTP listen address |
+| `PLANDILLO_TLS_CERT`, `PLANDILLO_TLS_KEY` | empty | Optional certificate and key files: serve HTTPS with HTTP/2 directly, without a proxy. Set both or neither. See [HTTP/2 and HTTP/3](#http2-and-http3) |
 | `PLANDILLO_TRUSTED_PROXIES` | empty | Selfhost proxy IPs or CIDRs trusted to append the original client address to X-Forwarded-For |
 | `PLANDILLO_DB` | `/data/plandillo.db`, or `/data/docket.db` if only that exists | SQLite database file (ignored with PostgreSQL) |
 | `PLANDILLO_CODE_SOCKET` | `/run/plandillo-code/runner.sock` | Private Unix socket shared by the Plandillo server and the Code Mode worker |
@@ -84,6 +85,21 @@ Settings are read from `.env` (see [the example settings](../.env.example)). Ins
 | `PLANDILLO_ALLOWED_HOSTS` | `localhost,127.0.0.1,plandillo.localhost` | Allowed `Host` and `Origin` values |
 | `PLANDILLO_SEED` | empty | Optional initial data file |
 | `TZ` | `Asia/Ho_Chi_Minh` | Time zone used to decide what "today" is |
+
+### HTTP/2 and HTTP/3
+
+The server speaks HTTP/1.1 and HTTP/2. Browsers use HTTP/2 only over HTTPS, and with it every request and the live-update stream share one connection, so many open tabs no longer hit the six-connections-per-site limit of HTTP/1.1.
+
+- **Behind a proxy (recommended).** Let the proxy terminate TLS and serve HTTP/2 and HTTP/3 to browsers. Caddy does both by default and can reach Plandillo over cleartext HTTP/2 (h2c):
+
+  ```caddyfile
+  planner.example.com {
+  	reverse_proxy h2c://127.0.0.1:7777
+  }
+  ```
+
+  nginx serves HTTP/2 and HTTP/3 to browsers (`listen 443 ssl; listen 443 quic; http2 on; http3 on;`) and forwards to Plandillo over HTTP/1.1 with `proxy_http_version 1.1;` and `proxy_set_header Connection "";`. Live updates need no extra buffering settings: Plandillo sends `X-Accel-Buffering: no` on its event stream.
+- **Without a proxy.** Set `PLANDILLO_TLS_CERT` and `PLANDILLO_TLS_KEY` to the certificate chain and key (for example from Let's Encrypt) and publish the port as 443 (for the container, `-p 443:7777`). Browsers then get HTTP/2 straight from Plandillo. The Go server has no HTTP/3, so use a proxy if you want it. Restart Plandillo after renewing the certificate.
 
 ## Self-host
 

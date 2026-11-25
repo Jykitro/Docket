@@ -23,6 +23,8 @@ type Config struct {
 	RunnerSocket   string
 	DataDir        string // directory of DB; holds auth.db and users/<id>.db in selfhost mode
 	TrustedProxies string
+	TLSCert        string // optional certificate file: serve HTTPS (and so HTTP/2 to browsers) without a proxy
+	TLSKey         string // its private key; both or neither
 }
 
 func Load() (Config, error) {
@@ -37,7 +39,12 @@ func Load() (Config, error) {
 		AllowedHosts:   strings.Split(env("ALLOWED_HOSTS", "localhost,127.0.0.1,plandillo.localhost"), ","),
 		Seed:           env("SEED", ""),
 		TrustedProxies: env("TRUSTED_PROXIES", ""),
+		TLSCert:        env("TLS_CERT", ""),
+		TLSKey:         env("TLS_KEY", ""),
 		Loc:            time.Local,
+	}
+	if (c.TLSCert == "") != (c.TLSKey == "") {
+		return c, fmt.Errorf("PLANDILLO_TLS_CERT and PLANDILLO_TLS_KEY must be set together")
 	}
 	c.DataDir = filepath.Dir(c.DB)
 	switch m := env("MODE", ""); m {

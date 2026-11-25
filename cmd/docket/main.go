@@ -188,20 +188,38 @@ func runSelfHost(ctx context.Context, cfg config.Config) error {
 		TrustedProxies: proxies, Passkeys: sites, Auth: ad, WS: ws, Web: web.Handler(), AllowedHosts: cfg.AllowedHosts, RunnerReady: runner.Ready,
 		BackupDir: cfg.BackupDir, Backup: backup,
 	})
-	return serve(ctx, cfg.Addr, handler)
+	return serve(ctx, cfg, handler)
 }
 
-// serve runs h on addr until ctx ends, then shuts down gracefully.
-func serve(ctx context.Context, addr string, h http.Handler) error {
-	srv := &http.Server{
+// newServer configures the HTTP server. It speaks HTTP/1.1 and HTTP/2: over TLS when PLANDILLO_TLS_CERT is set
+// (browsers then multiplex every request and the live-update stream over one connection), and as cleartext h2c
+// with prior knowledge for a reverse proxy that forwards that way (Caddy: reverse_proxy h2c://...). Go's server has
+// no HTTP/3; a proxy in front provides it (docs/hosting.md).
+func newServer(ctx context.Context, addr string, h http.Handler) *http.Server {
+	var p http.Protocols
+	p.SetHTTP1(true)
+	p.SetHTTP2(true)
+	p.SetUnencryptedHTTP2(true)
+	return &http.Server{
 		Addr:              addr,
 		Handler:           h,
+		Protocols:         &p,
 		ReadHeaderTimeout: 10 * time.Second,
+		IdleTimeout:       2 * time.Minute,                                   // drop idle keep-alive connections; open streams (SSE) are not idle
 		BaseContext:       func(net.Listener) context.Context { return ctx }, // ends SSE streams on shutdown
 	}
+}
+
+// serve runs h until ctx ends, then shuts down gracefully.
+func serve(ctx context.Context, cfg config.Config, h http.Handler) error {
+	srv := newServer(ctx, cfg.Addr, h)
 	errc := make(chan error, 1)
-	go func() { errc <- srv.ListenAndServe() }()
-	slog.Info("Plandillo listening", "addr", addr)
+	if cfg.TLSCert != "" {
+		go func() { errc <- srv.ListenAndServeTLS(cfg.TLSCert, cfg.TLSKey) }()
+	} else {
+		go func() { errc <- srv.ListenAndServe() }()
+	}
+	slog.Info("Plandillo listening", "addr", cfg.Addr, "tls", cfg.TLSCert != "")
 
 	select {
 	case err := <-errc:
