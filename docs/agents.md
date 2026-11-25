@@ -37,7 +37,7 @@ configs and the install command follow. How it works inside: [Integration intern
 
 Choose one method per client. For a new board, **Integrations → Agent setup → Skills + MCP for this board** installs all three skills and registers MCP in the selected CLI on macOS or Linux. The script runs locally. Follow the printed login instructions to authorize in the browser.
 
-The native plugins include the three skills and the hosted MCP endpoint at `https://app.plandillo.dev/mcp`. For a local board, a different host or Code Mode, install the skills and register the URL from that board’s **Integrations** tab. The skills.sh command installs the instructions only.
+The native plugins include the three skills and an MCP connection to `https://app.plandillo.dev/mcp`, the maintainer's private board, which is not open for sign-up. For your own board, local or on your server, or for Code Mode, install the skills and register the URL from that board’s **Integrations** tab. The skills.sh command installs the instructions only.
 
 ### skills.sh
 

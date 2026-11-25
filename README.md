@@ -44,7 +44,7 @@ Use `PLANDILLO_CLIENT=claude-code` for Claude Code. For self-hosting or Code Mod
 
 ### Install a plugin from GitHub
 
-For the hosted board at `https://app.plandillo.dev/mcp`, the native plugin bundles the three skills and the MCP connection. The public GitHub repository serves as the marketplace for personal and team installations. Choose the commands for your client.
+The native plugin bundles the three skills and an MCP connection to `https://app.plandillo.dev/mcp`, the maintainer's private board, which is not open for sign-up. For your own board, use the board installer or skills.sh above and register its URL. The public GitHub repository serves as the marketplace for personal and team installations. Choose the commands for your client.
 
 **Codex**
 
