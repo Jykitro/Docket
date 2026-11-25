@@ -121,7 +121,7 @@ func (s *Service) write(ctx context.Context, actor string, fn func(*op) error) e
 }
 
 func (s *Service) read(ctx context.Context, fn func(*store.Tx) error) error {
-	return mapErr(s.st.WithTx(ctx, fn))
+	return mapErr(s.st.WithReadTx(ctx, fn))
 }
 
 func mapErr(err error) error {

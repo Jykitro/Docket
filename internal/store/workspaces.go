@@ -35,7 +35,8 @@ func scanSpace(row scanner) (v Space, err error) {
 	return
 }
 func (s *Store) Spaces(ctx context.Context, owner int64) ([]Space, error) {
-	rows, err := s.db.QueryContext(ctx, s.db.SQL("SELECT "+spaceColumns+" FROM workspaces WHERE owner_user_id=? ORDER BY archived_at IS NOT NULL,id"), owner)
+	// The workspace reads below run on every routed request, so they use the read pool (database.DB.BeginReadTx).
+	rows, err := s.db.ReadQueryContext(ctx, "SELECT "+spaceColumns+" FROM workspaces WHERE owner_user_id=? ORDER BY archived_at IS NOT NULL,id", owner)
 	if err != nil {
 		return nil, err
 	}
@@ -53,16 +54,16 @@ func (s *Store) Spaces(ctx context.Context, owner int64) ([]Space, error) {
 func (s *Store) Space(ctx context.Context, owner, id int64) (Space, error) {
 	q := "SELECT " + spaceColumns + " FROM workspaces WHERE owner_user_id=? AND archived_at IS NULL AND EXISTS(SELECT 1 FROM users WHERE id=owner_user_id AND is_active=1)"
 	if id == 0 {
-		return scanSpace(s.db.QueryRowContext(ctx, s.db.SQL(q+" ORDER BY id LIMIT 1"), owner))
+		return scanSpace(s.db.ReadQueryRowContext(ctx, q+" ORDER BY id LIMIT 1", owner))
 	}
-	return scanSpace(s.db.QueryRowContext(ctx, s.db.SQL(q+" AND id=?"), owner, id))
+	return scanSpace(s.db.ReadQueryRowContext(ctx, q+" AND id=?", owner, id))
 }
 func (s *Store) SpaceByToken(ctx context.Context, digest string) (Space, error) {
-	return scanSpace(s.db.QueryRowContext(ctx, s.db.SQL("SELECT "+spaceColumns+" FROM workspaces WHERE token_digest=? AND archived_at IS NULL AND EXISTS(SELECT 1 FROM users WHERE users.id=owner_user_id AND is_active=1)"), digest))
+	return scanSpace(s.db.ReadQueryRowContext(ctx, "SELECT "+spaceColumns+" FROM workspaces WHERE token_digest=? AND archived_at IS NULL AND EXISTS(SELECT 1 FROM users WHERE users.id=owner_user_id AND is_active=1)", digest))
 }
 func (s *Store) SpaceIcon(owner, id int64) ([]byte, error) {
 	var png []byte
-	err := s.db.QueryRow("SELECT icon_png FROM workspaces WHERE owner_user_id=? AND id=? AND icon_png IS NOT NULL", owner, id).Scan(&png)
+	err := s.db.ReadQueryRowContext(context.Background(), "SELECT icon_png FROM workspaces WHERE owner_user_id=? AND id=? AND icon_png IS NOT NULL", owner, id).Scan(&png)
 	return png, notFoundIf(err)
 }
 

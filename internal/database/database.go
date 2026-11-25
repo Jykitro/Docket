@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -25,6 +26,12 @@ type DB struct {
 	*sql.DB
 	Postgres bool
 	schema   string
+
+	// SQLite only: the same file opened query_only for parallel readers (see BeginReadTx).
+	readURI  string
+	readOnce sync.Once
+	reader   *sql.DB
+	readErr  error
 }
 
 type Tx struct {
@@ -55,12 +62,13 @@ func OpenSQLite(path string) (*DB, error) {
 		name = "/" + name
 	}
 	uri := url.URL{Scheme: "file", Path: name}
-	db, err := sql.Open("sqlite", uri.String()+"?_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)")
+	conn, err := openSQLiteConnector(uri.String() + "?_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)")
 	if err != nil {
 		return nil, err
 	}
-	db.SetMaxOpenConns(1)
-	return &DB{DB: db}, nil
+	db := sql.OpenDB(conn)
+	db.SetMaxOpenConns(1) // SQLite has one writer; queueing here is cheaper than SQLITE_BUSY retries
+	return &DB{DB: db, readURI: uri.String() + "?_pragma=query_only(1)&_pragma=busy_timeout(5000)"}, nil
 }
 
 // PrivateFile prepares a regular application-owned data file before SQLite opens it.
@@ -210,6 +218,85 @@ func (d *DB) begin(ctx context.Context, opts *sql.TxOptions, owner int64) (*Tx, 
 		}
 	}
 	return &Tx{Tx: tx, db: d}, nil
+}
+
+// BeginReadTx starts a read-only transaction that runs in parallel with other readers. On SQLite it uses a separate
+// query_only pool, so in WAL mode readers neither queue behind the single writer nor behind each other. On PostgreSQL
+// it is READ ONLY and takes the owner lock shared: readers of one owner overlap, and still wait for a writer that
+// holds the exclusive lock, so a read never observes the middle of that owner's write sequence.
+func (d *DB) BeginReadTx(ctx context.Context, owner int64) (*Tx, error) {
+	if !d.Postgres {
+		r, err := d.readers()
+		if err != nil {
+			return nil, err
+		}
+		tx, err := r.BeginTx(ctx, nil)
+		if err != nil {
+			return nil, err
+		}
+		return &Tx{Tx: tx, db: d}, nil
+	}
+	tx, err := d.DB.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	if err != nil {
+		return nil, err
+	}
+	_, err = tx.ExecContext(ctx, "SELECT pg_advisory_xact_lock_shared(hashtextextended($1,0))", d.schema)
+	if err == nil && owner > 0 {
+		_, err = tx.ExecContext(ctx, "SELECT pg_advisory_xact_lock_shared(hashtextextended($1,1))", d.schema+"/"+strconv.FormatInt(owner, 10))
+	}
+	if err != nil {
+		_ = tx.Rollback() // the lock query failed; its error is the one to report
+		return nil, err
+	}
+	return &Tx{Tx: tx, db: d}, nil
+}
+
+// ReadQueryRowContext runs a single read outside a transaction on the read pool (see BeginReadTx).
+func (d *DB) ReadQueryRowContext(ctx context.Context, q string, args ...any) *sql.Row {
+	r, err := d.readers()
+	if err != nil {
+		r = d.DB // the writer can always answer a read; the read pool only adds parallelism
+	}
+	return r.QueryRowContext(ctx, d.SQL(q), argsForSQL(args)...)
+}
+
+// ReadQueryContext is ReadQueryRowContext for several rows.
+func (d *DB) ReadQueryContext(ctx context.Context, q string, args ...any) (*sql.Rows, error) {
+	r, err := d.readers()
+	if err != nil {
+		r = d.DB
+	}
+	return r.QueryContext(ctx, d.SQL(q), argsForSQL(args)...)
+}
+
+// readers opens the SQLite read pool on first use, so short-lived handles (migrations, checks) never pay for it.
+// PostgreSQL reads share the main pool.
+func (d *DB) readers() (*sql.DB, error) {
+	if d.readURI == "" {
+		return d.DB, nil
+	}
+	d.readOnce.Do(func() {
+		conn, err := openSQLiteConnector(d.readURI)
+		if err != nil {
+			d.readErr = fmt.Errorf("open SQLite read pool: %w", err)
+			return
+		}
+		r := sql.OpenDB(conn)
+		n := max(4, runtime.GOMAXPROCS(0))
+		r.SetMaxOpenConns(n)
+		r.SetMaxIdleConns(n)
+		d.reader = r
+	})
+	return d.reader, d.readErr
+}
+
+// Close closes the read pool, if one was opened, and then the main connection.
+func (d *DB) Close() error {
+	d.readOnce.Do(func() {}) // waits for an opening in flight and stops later ones
+	if d.reader != nil {
+		_ = d.reader.Close() // read-only connections hold nothing to flush; the writer's error is the one that matters
+	}
+	return d.DB.Close()
 }
 
 func (d *DB) CreateSchema(tx *Tx) error {

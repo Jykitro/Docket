@@ -211,7 +211,17 @@ type Tx struct {
 }
 
 func (s *Store) WithTx(ctx context.Context, fn func(*Tx) error) error {
-	tx, err := s.db.BeginOwnerTx(ctx, s.ownerID)
+	return s.withTx(ctx, s.db.BeginOwnerTx, fn)
+}
+
+// WithReadTx is WithTx for operations that only read: it runs on the read pool in parallel with other readers
+// (database.DB.BeginReadTx), and SQLite rejects any write attempted inside it.
+func (s *Store) WithReadTx(ctx context.Context, fn func(*Tx) error) error {
+	return s.withTx(ctx, s.db.BeginReadTx, fn)
+}
+
+func (s *Store) withTx(ctx context.Context, begin func(context.Context, int64) (*database.Tx, error), fn func(*Tx) error) error {
+	tx, err := begin(ctx, s.ownerID)
 	if err != nil {
 		return err
 	}

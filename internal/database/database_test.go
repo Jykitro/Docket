@@ -1,9 +1,13 @@
 package database
 
 import (
+	"context"
 	"errors"
+	"fmt"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"docket/internal/testutil"
 	"github.com/jackc/pgx/v5"
@@ -16,6 +20,149 @@ func TestSQLParametersAndLiterals(t *testing.T) {
 	}
 	if got := (&DB{}).SQL(q); got != q {
 		t.Fatalf("SQLite SQL changed: %s", got)
+	}
+}
+
+// The SQLite read pool must reject writes, see committed data, and not wait for an open write transaction.
+func TestSQLiteReadPool(t *testing.T) {
+	db, err := OpenSQLite(filepath.Join(t.TempDir(), "read.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	ctx := context.Background()
+	if _, err = db.Exec("CREATE TABLE t(v INTEGER)"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = db.Exec("INSERT INTO t VALUES (1)"); err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		name string
+		run  func(t *testing.T)
+	}{
+		{"rejects writes", func(t *testing.T) {
+			tx, err := db.BeginReadTx(ctx, 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer func() { _ = tx.Rollback() }()
+			if _, err := tx.Exec("INSERT INTO t VALUES (2)"); err == nil {
+				t.Fatal("a write inside a read transaction succeeded")
+			}
+		}},
+		{"sees committed data", func(t *testing.T) {
+			var n int
+			if err := db.ReadQueryRowContext(ctx, "SELECT count(*) FROM t").Scan(&n); err != nil || n != 1 {
+				t.Fatalf("count = %d, %v", n, err)
+			}
+		}},
+		{"runs beside an open write", func(t *testing.T) {
+			w, err := db.BeginTx(ctx, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer func() { _ = w.Rollback() }()
+			if _, err = w.Exec("INSERT INTO t VALUES (3)"); err != nil {
+				t.Fatal(err)
+			}
+			read, cancel := context.WithTimeout(ctx, time.Second) // the single writer connection is busy
+			defer cancel()
+			var n int
+			if err := db.ReadQueryRowContext(read, "SELECT count(*) FROM t").Scan(&n); err != nil || n != 1 {
+				t.Fatalf("read beside a writer: count = %d, %v (want the committed 1, without waiting)", n, err)
+			}
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, tt.run)
+	}
+}
+
+// The statement cache must give the same answers as uncached SQL in the cases where reusing a statement could go wrong.
+func TestSQLiteStatementCache(t *testing.T) {
+	db, err := OpenSQLite(filepath.Join(t.TempDir(), "cache.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	if _, err = db.Exec("CREATE TABLE t(v INTEGER); INSERT INTO t VALUES (1),(2),(3)"); err != nil {
+		t.Fatal("a multi-statement script must still run:", err)
+	}
+	count := func(t *testing.T, q string, args ...any) int {
+		t.Helper()
+		var n int
+		if err := db.QueryRow(q, args...).Scan(&n); err != nil {
+			t.Fatal(err)
+		}
+		return n
+	}
+
+	tests := []struct {
+		name string
+		run  func(t *testing.T)
+	}{
+		{"new bindings on reuse", func(t *testing.T) {
+			for _, tc := range []struct{ min, want int }{{1, 3}, {2, 2}, {3, 1}, {4, 0}, {0, 3}} {
+				if got := count(t, "SELECT count(*) FROM t WHERE v >= ?", tc.min); got != tc.want {
+					t.Fatalf("v >= %d: %d, want %d", tc.min, got, tc.want)
+				}
+			}
+		}},
+		{"nested identical query on one connection", func(t *testing.T) {
+			tx, err := db.BeginTx(context.Background(), nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer func() { _ = tx.Rollback() }()
+			q := "SELECT v FROM t ORDER BY v"
+			outer, err := tx.Query(q)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer func() { _ = outer.Close() }()
+			seen := 0
+			for outer.Next() {
+				inner, err := tx.Query(q) // the cached statement is busy: this must fall back, not reset outer
+				if err != nil {
+					t.Fatal(err)
+				}
+				n := 0
+				for inner.Next() {
+					n++
+				}
+				_ = inner.Close()
+				if n != 3 {
+					t.Fatalf("inner saw %d rows, want 3", n)
+				}
+				seen++
+			}
+			if seen != 3 {
+				t.Fatalf("outer saw %d rows, want 3 (the inner query reset it)", seen)
+			}
+		}},
+		{"schema change after caching", func(t *testing.T) {
+			if got := count(t, "SELECT count(*) FROM pragma_table_info('t')"); got != 1 {
+				t.Fatalf("columns before: %d", got)
+			}
+			if _, err := db.Exec("ALTER TABLE t ADD COLUMN w TEXT"); err != nil {
+				t.Fatal(err)
+			}
+			if got := count(t, "SELECT count(*) FROM pragma_table_info('t')"); got != 2 {
+				t.Fatalf("columns after: %d (a stale cached plan)", got)
+			}
+		}},
+		{"more distinct queries than the cache holds", func(t *testing.T) {
+			for i := range maxCachedStmts + 20 {
+				if got := count(t, fmt.Sprintf("SELECT count(*) + %d FROM t", i)); got != 3+i {
+					t.Fatalf("query %d: %d", i, got)
+				}
+			}
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, tt.run)
 	}
 }
 

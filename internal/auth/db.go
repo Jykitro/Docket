@@ -327,7 +327,8 @@ func (d *DB) UserBySession(token string) (User, error) {
 func (d *DB) Session(token string) (User, time.Time, error) {
 	var u User
 	var updated, created, expires, seen int64
-	err := d.db.QueryRow(`SELECT u.id, u.username, u.name,u.role,u.is_active,u.updated_at,CASE WHEN u.photo IS NOT NULL THEN '/api/users/' || CAST(u.id AS TEXT) || '/photo' END,u.is_admin, u.created_at, s.expires_at,s.last_seen_at, coalesce(b.generation,'') FROM sessions s JOIN users u ON u.id = s.user_id LEFT JOIN workspace_bindings b ON b.user_id=u.id AND b.pending=0
+	// Every signed-in request starts here, so the lookup uses the read pool; the rare last_seen_at update below writes.
+	err := d.db.ReadQueryRowContext(context.Background(), `SELECT u.id, u.username, u.name,u.role,u.is_active,u.updated_at,CASE WHEN u.photo IS NOT NULL THEN '/api/users/' || CAST(u.id AS TEXT) || '/photo' END,u.is_admin, u.created_at, s.expires_at,s.last_seen_at, coalesce(b.generation,'') FROM sessions s JOIN users u ON u.id = s.user_id LEFT JOIN workspace_bindings b ON b.user_id=u.id AND b.pending=0
 		WHERE s.token_hash = ? AND s.expires_at > ? AND u.is_active=1`, TokenHash(token), d.now().Unix()).Scan(&u.ID, &u.Username, &u.Name, &u.Role, &u.IsActive, &updated, &u.Photo, &u.IsAdmin, &created, &expires, &seen, &u.WorkspaceKey)
 	if errors.Is(err, sql.ErrNoRows) {
 		return User{}, time.Time{}, ErrNotFound
