@@ -108,8 +108,8 @@ const footLink = 'py-1.5 text-sm text-muted no-underline hover:text-ink';
 
     <div class:list={[wrap, 'relative pt-16 pb-[104px] max-xs:pt-10 max-xs:pb-[72px]']} id="workflow">
       <div class="mb-[18px] flex flex-wrap justify-center gap-1.5" role="group" aria-label="Workflow stages">
-        {['Plan', 'Work', 'Verify'].map((name, i) => (
-          <button type="button" class="stage-pill group inline-flex h-10 cursor-pointer items-center gap-2 rounded-full border border-edge bg-surface px-4 text-sm font-medium text-ink-3 aria-pressed:border-ink aria-pressed:bg-ink aria-pressed:text-page max-xs:h-11 max-xs:px-3" data-stage={i} aria-pressed={i === 0 ? 'true' : 'false'}><span class="text-dim group-aria-pressed:font-semibold group-aria-pressed:text-primary">{i + 1}</span>{name}</button>
+        {['Plan', 'Work', 'Verify', 'Wiki'].map((name, i) => (
+          <button type="button" class="stage-pill group inline-flex h-10 cursor-pointer items-center gap-2 rounded-full border border-edge bg-surface px-4 text-sm font-medium text-ink-3 aria-pressed:border-primary aria-pressed:bg-primary aria-pressed:text-white max-xs:h-11 max-xs:px-3" data-stage={i} aria-pressed={i === 0 ? 'true' : 'false'}><span class="text-dim group-aria-pressed:font-semibold group-aria-pressed:text-white/70">{i + 1}</span>{name}</button>
         ))}
         <button type="button" class="play-btn group grid size-10 cursor-pointer place-items-center rounded-full border border-edge bg-transparent text-muted max-xs:size-11" aria-label="Pause the demo">
           <svg class="group-[.is-paused]:hidden" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3.5 2v8M8.5 2v8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path></svg>
@@ -132,7 +132,7 @@ const footLink = 'py-1.5 text-sm text-muted no-underline hover:text-ink';
             <span class:list={[appNav, 'bg-app-sk font-medium']}><span class:list={[appProjectIcon, 'size-4 rounded-[4px]']}><Icon name="board" size={10} sw={2.2} /></span>Website<span class="ml-auto font-mono text-[12px] text-app-t3" data-open>3</span></span>
           </div>
         </aside>
-        <div class="flex min-w-0 flex-1 flex-col">
+        <div class="group/app flex min-w-0 flex-1 flex-col" data-app-main>
           <div class="flex h-12 items-center gap-3 border-b border-app-ln px-4" aria-hidden="true">
             <span class="mr-1 flex gap-1.5 *:size-2.5 *:rounded-full *:bg-app-ln2"><i></i><i></i><i></i></span>
             <span class="flex h-8 w-[220px] items-center gap-2 rounded-md border border-app-ln bg-app-sf px-2.5 text-[13px] text-app-t3 max-xs:w-auto max-xs:flex-1"><Icon name="search" size={14} />Search<span class="ml-auto rounded-[4px] bg-app-sk px-1 font-mono text-[10px]">⌘K</span></span>
@@ -147,12 +147,14 @@ const footLink = 'py-1.5 text-sm text-muted no-underline hover:text-ink';
               </div>
             </div>
             <div class="flex gap-5 text-[13px] font-medium" aria-hidden="true">
-              <span class="flex items-center gap-1.5 border-b-2 border-app-ac pb-2.5"><Icon name="board" size={14} />Board</span>
+              <span class="flex items-center gap-1.5 border-b-2 border-app-ac pb-2.5 group-[.is-wiki]/app:border-transparent group-[.is-wiki]/app:text-app-t3"><Icon name="board" size={14} />Board</span>
               <span class="flex items-center gap-1.5 border-b-2 border-transparent pb-2.5 text-app-t3"><Icon name="list" size={14} />List</span>
-              <span class="flex items-center gap-1.5 border-b-2 border-transparent pb-2.5 text-app-t3"><Icon name="doc" size={14} />Wiki</span>
+              <span class="flex items-center gap-1.5 border-b-2 border-transparent pb-2.5 text-app-t3 group-[.is-wiki]/app:border-app-ac group-[.is-wiki]/app:text-app-tx"><Icon name="doc" size={14} />Wiki</span>
             </div>
           </div>
-          <div class="flex min-h-0 flex-1 max-board:flex-col">
+          <!-- Board and wiki views share one grid cell, so switching keeps the window height. -->
+          <div class="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] *:[grid-area:1/1]">
+          <div class="flex min-h-0 transition-[opacity,visibility] duration-300 group-[.is-wiki]/app:invisible group-[.is-wiki]/app:opacity-0 max-board:flex-col">
             <div class="min-w-0 flex-1 overflow-x-auto p-4 [scrollbar-width:none]">
               <div class="grid min-w-[560px] grid-cols-3 gap-3" data-board></div>
             </div>
@@ -178,6 +180,42 @@ const footLink = 'py-1.5 text-sm text-muted no-underline hover:text-ink';
                 <div class="rounded-[10px] border border-app-ln bg-app-sf2 px-3.5 py-2.5 text-[13.5px] text-app-t3" aria-hidden="true">Add a note</div>
               </section>
             </aside>
+          </div>
+          <div class="invisible flex min-h-0 opacity-0 transition-[opacity,visibility] duration-300 group-[.is-wiki]/app:visible group-[.is-wiki]/app:opacity-100" aria-label="Wiki page Navigation">
+            <nav class="flex w-[180px] shrink-0 flex-col gap-0.5 border-r border-app-ln bg-app-sf px-2.5 py-4 text-[13px] max-board:hidden" aria-hidden="true">
+              <span class={appGroup}>Pages</span>
+              <span class={appNav}><Icon name="doc" class="text-app-t2" />Overview</span>
+              <span class={appNav}><Icon name="doc" class="text-app-t2" />Architecture</span>
+              <span class:list={[appNav, 'ml-4 bg-app-sk font-medium']}><Icon name="doc" class="text-app-t2" />Navigation</span>
+              <span class:list={[appNav, 'ml-4']}><Icon name="doc" class="text-app-t2" />Data model</span>
+              <span class={appNav}><Icon name="doc" class="text-app-t2" />Decisions</span>
+              <span class={appNav}><Icon name="doc" class="text-app-t2" />Runbook</span>
+            </nav>
+            <article class="flex min-w-0 flex-1 flex-col gap-3 px-6 py-5 text-[14px] max-xs:px-4">
+              <span class="text-[12.5px] text-app-t3">Architecture / Navigation</span>
+              <h3 class="text-[22px] leading-tight font-bold tracking-[-0.01em]">Navigation</h3>
+              <div class="flex flex-wrap items-center gap-2 text-[12.5px] text-app-t2">
+                <span class="grid size-5 place-items-center rounded-full bg-app-acs text-app-ac"><Icon name="spark" size={11} sw={2} /></span>
+                <b class="font-semibold text-app-tx">Agent</b>updated after<span class="font-mono text-[11.5px]">APP-24</span><span class="font-mono text-[11.5px] text-app-t3">10:19</span>
+              </div>
+              <p class="leading-[1.6]">The site uses one menu component for desktop and mobile. Below 768 px it opens as a full-screen overlay.</p>
+              <p class="rounded-r-lg border-l-2 border-app-ac bg-app-acs px-3 py-2 leading-[1.6]">Following a link closes the overlay and returns focus to the menu button. Tested with touch and keyboard.</p>
+              <h4 class:list={[appSection, 'mt-2']}>How it works</h4>
+              <ul class="flex list-disc flex-col gap-1.5 pl-5 leading-[1.5] marker:text-app-t3">
+                <li>The menu button opens the overlay and keeps focus inside it.</li>
+                <li>Every link in the overlay closes it before the page changes.</li>
+                <li>Escape and a tap outside the panel close it too.</li>
+              </ul>
+              <h4 class:list={[appSection, 'mt-2']}>Checks</h4>
+              <ul class="flex list-disc flex-col gap-1.5 pl-5 leading-[1.5] marker:text-app-t3">
+                <li>Touch: iOS Safari and Android Chrome</li>
+                <li>Keyboard: Tab, Enter and Escape</li>
+              </ul>
+              <div class="mt-auto flex flex-wrap items-center gap-2 border-t border-app-ln pt-3 text-[12.5px] text-app-t3">Linked tasks
+                {['APP-24', 'APP-22'].map((id) => <span class="rounded-[5px] bg-app-sk px-1.5 py-0.5 font-mono text-[11px] font-semibold text-app-t2">{id}</span>)}
+              </div>
+            </article>
+          </div>
           </div>
         </div>
       </div>

@@ -57,13 +57,14 @@
   var CAPTIONS = [
     'You create the task in the browser and write down how to check it.',
     'The agent picks up APP-24, moves it to Doing and notes why the menu stays open.',
-    'The agent fixes the handler, tests touch and keyboard, marks it done and updates the wiki.'
+    'The agent fixes the handler, tests touch and keyboard and marks it done.',
+    'It writes what it learned to the project wiki, linked to APP-24, so the next task starts with context.'
   ];
   var NOTES = [
     { step: 1, time: '10:06', text: 'The link handler never closes the menu, so the overlay stays open after navigation.' },
     { step: 2, time: '10:19', text: 'Menu now closes on link click. Tested with touch and keyboard. Updated the wiki: Architecture / Navigation.' }
   ];
-  var DURATIONS = [2800, 3600, 4800];
+  var DURATIONS = [2800, 3600, 4200, 4600];
   var SPARK = 'M12 3v18M3 12h18M6 6l12 12M18 6L6 18';
   var CHECK = 'M5 12.5l4.5 4.5L19 7.5';
   var LANDED = ' animate-land motion-reduce:animate-none';
@@ -77,6 +78,7 @@
   var checks = document.querySelectorAll('[data-check]');
   var pills = document.querySelectorAll('.stage-pill');
   var playBtn = document.querySelector('.play-btn');
+  var appMain = document.querySelector('[data-app-main]');
 
   function el(tag, cls, text) {
     var n = document.createElement(tag);
@@ -123,6 +125,8 @@
 
   function render() {
     var step = state.step;
+    var col = Math.min(step, 2); // the Wiki step keeps the board as Verify left it
+    if (appMain) appMain.classList.toggle('is-wiki', step === 3);
     if (boardEl) {
       boardEl.textContent = '';
       COLUMNS.forEach(function (col, i) {
@@ -130,22 +134,22 @@
         var head = el('div', 'flex h-[26px] items-center gap-2 px-1');
         head.appendChild(el('span', 'inline-block size-[9px] shrink-0 rounded-full ' + col.dot));
         head.appendChild(el('b', 'text-sm font-semibold', col.name));
-        head.appendChild(el('span', 'grow font-mono text-[12px] text-app-t3 tabular-nums', String(BASE[i].length + (i === step ? 1 : 0))));
+        head.appendChild(el('span', 'grow font-mono text-[12px] text-app-t3 tabular-nums', String(BASE[i].length + (i === col ? 1 : 0))));
         colEl.appendChild(head);
-        if (i === step) colEl.appendChild(cardNode(FOCUS, i === 2, step > 0));
+        if (i === col) colEl.appendChild(cardNode(FOCUS, i === 2, step > 0));
         BASE[i].forEach(function (c) { colEl.appendChild(cardNode(c, i === 2, false)); });
         boardEl.appendChild(colEl);
       });
     }
-    var open = String(BASE[0].length + BASE[1].length + (step < 2 ? 1 : 0));
+    var open = String(BASE[0].length + BASE[1].length + (col < 2 ? 1 : 0));
     openEls.forEach(function (n) { n.textContent = open; });
     if (statusEl) {
-      statusEl.className = 'inline-flex h-[26px] w-fit items-center gap-[7px] rounded-[7px] px-2.5 text-[13px] font-medium ' + COLUMNS[step].chip;
+      statusEl.className = 'inline-flex h-[26px] w-fit items-center gap-[7px] rounded-[7px] px-2.5 text-[13px] font-medium ' + COLUMNS[col].chip;
       statusEl.textContent = '';
-      statusEl.appendChild(el('span', 'inline-block size-2 shrink-0 rounded-full ' + COLUMNS[step].dot));
-      statusEl.appendChild(document.createTextNode(COLUMNS[step].name));
+      statusEl.appendChild(el('span', 'inline-block size-2 shrink-0 rounded-full ' + COLUMNS[col].dot));
+      statusEl.appendChild(document.createTextNode(COLUMNS[col].name));
     }
-    checks.forEach(function (c) { c.classList.toggle('is-on', step === 2); });
+    checks.forEach(function (c) { c.classList.toggle('is-on', col === 2); });
     if (activityEl) {
       activityEl.textContent = '';
       var shown = NOTES.filter(function (n) { return n.step <= step; });
@@ -178,7 +182,7 @@
     clearTimeout(timer);
     if (!state.playing) return;
     timer = setTimeout(function () {
-      state.step = (state.step + 1) % 3;
+      state.step = (state.step + 1) % CAPTIONS.length;
       if (state.step === 0) state.prevStep = -1;
       render();
       schedule();
