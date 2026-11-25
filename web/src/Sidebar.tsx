@@ -1,5 +1,6 @@
 // Sidebar in the shadcn-admin layout: team block on top, labelled nav groups, user card at the bottom.
 // `rail` is the collapsed icon-only mode (desktop); on narrow screens it is an off-canvas drawer.
+import { WorkspaceSelector } from './Workspaces'
 import { type ReactNode } from 'react'
 import { useQueries, useQuery } from '@tanstack/react-query'
 import { type Project, type View, api, useAttention, useMe, useProfile, useProjects } from './api'
@@ -24,8 +25,8 @@ function Group({ label, rail, action, children }: { label: string; rail: boolean
   )
 }
 
-export function Sidebar({ path, view, overdue, rail, mobileOpen, onClose, onNewProject, onSettings }: {
-  path: string; view: string | null; overdue: boolean; rail: boolean; mobileOpen: boolean; onClose: () => void; onNewProject: () => void; onSettings: () => void
+export function Sidebar({ path, view, overdue, rail, mobileOpen, onClose, onNewProject, onSettings, onWorkspaceSettings }: {
+  path: string; view: string | null; overdue: boolean; rail: boolean; mobileOpen: boolean; onClose: () => void; onNewProject: () => void; onSettings: () => void; onWorkspaceSettings: () => void
 }) {
   const trap = useFocusTrap<HTMLElement>(mobileOpen)
   const projects = useProjects()
@@ -73,6 +74,7 @@ export function Sidebar({ path, view, overdue, rail, mobileOpen, onClose, onNewP
         </div>
 
         <div className="flex min-h-0 grow flex-col gap-3 overflow-y-auto px-2 py-1">
+          <WorkspaceSelector rail={rail} onSettings={onWorkspaceSettings}/>
           <Group label={tr('Общее')} rail={rail}>
             <nav className="flex flex-col gap-0.5" aria-label={tr('Разделы')}>
               {nav.map((n) => (
@@ -136,7 +138,7 @@ export function Sidebar({ path, view, overdue, rail, mobileOpen, onClose, onNewP
 
         <div className="p-2">
           <button type="button" className={'flex w-full items-center gap-2 rounded-md p-2 text-left hover:bg-sk ' + (rail ? 'justify-center px-0' : '')} aria-label={tr('Настройки')} title={tr('Настройки: профиль, тема, платформа')} onClick={onSettings}>
-            <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-sk text-sm font-semibold">{name ? name.charAt(0).toUpperCase() : <Icon name="user" size={15} sw={2} />}</span>
+            <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-sk text-sm font-semibold">{me?.user?.photo ? <img src={me.user.photo} className="size-8 rounded-lg" alt="" /> : name ? name.charAt(0).toUpperCase() : <Icon name="user" size={15} sw={2} />}</span>
             {!rail && (
               <>
                 <span className="flex min-w-0 grow flex-col leading-tight">

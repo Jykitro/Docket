@@ -260,7 +260,7 @@ func createProject(o *op, in ProjectInput) (store.Project, error) {
 	icon := in.Icon
 	if icon == "" {
 		icon = "board"
-	} else if err := oneOf("icon", icon, projectIcons); err != nil {
+	} else if err := ValidateIconName(icon); err != nil {
 		return store.Project{}, err
 	}
 	slug := in.Slug
@@ -399,7 +399,7 @@ func (s *Service) UpdateProject(ctx context.Context, actor string, id int64, in 
 			p.Color = *in.Color
 		}
 		if in.Icon != nil {
-			if err := oneOf("icon", *in.Icon, projectIcons); err != nil {
+			if err := ValidateIconName(*in.Icon); err != nil {
 				return err
 			}
 			p.Icon = *in.Icon

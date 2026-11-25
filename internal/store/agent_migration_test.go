@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -10,7 +11,7 @@ import (
 	"docket/internal/testutil"
 )
 
-func TestAgentMigrationPreservesExistingHistory(t *testing.T) {
+func TestSharedInstallRejectsPreviousLayoutAndPreservesHistory(t *testing.T) {
 	var db *database.DB
 	var err error
 	dir := "migrations"
@@ -52,7 +53,7 @@ func TestAgentMigrationPreservesExistingHistory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = s.migrate(nil); err != nil {
+	if err = s.migrate(nil); !errors.Is(err,database.ErrPreviousLayout) {
 		t.Fatal(err)
 	}
 	var parent, creator, author, actor string
@@ -61,18 +62,5 @@ func TestAgentMigrationPreservesExistingHistory(t *testing.T) {
 		WHERE t.id = 2 AND n.body_md = 'existing note' AND a.action = 'created'`).Scan(&parent, &creator, &author, &actor)
 	if err != nil || parent != "denis" || creator != "claude" || author != "denis" || actor != "claude" {
 		t.Fatalf("legacy data: %q %q %q %q, %v", parent, creator, author, actor, err)
-	}
-	err = s.WithTx(ctx, func(tx *Tx) error {
-		hits, err := tx.SearchTitles("Legacy", 10)
-		if err != nil {
-			return err
-		}
-		if len(hits) != 1 || hits[0].Code != "QA-02" {
-			t.Errorf("legacy search hits: %v", hits)
-		}
-		return nil
-	})
-	if err != nil {
-		t.Fatal(err)
 	}
 }

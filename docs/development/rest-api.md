@@ -4,6 +4,21 @@ All requests are performed on behalf of the human actor (stored as `denis`; the 
 `{"error": {"code", "message"}}` (`validation` 400, `not_found` 404, `status_in_use` 409, `conflict` 409, `forbidden` 403). A task in the
 path can be given by code (`TRK-07`) or by id.
 
+## Accounts and workspaces
+
+In selfhost, an authenticated account owns its workspaces. In local mode the same routes use the installation's local owner. The browser opens `/w/{id}/`. Use `GET /api/workspaces` to list active and archived entries. Create with `POST /api/workspaces`, edit with `PATCH /api/workspaces/{id}`, and send `{"action":"archive"}` or `{"action":"restore"}` to change state. To delete an archived space, send its name and selfhost password with `DELETE /api/workspaces/{id}`.
+
+Prefix planner requests with `/api/workspaces/{id}/`, including `projects`, `tasks`, `events` and `export`. The existing unscoped planner endpoints select the owner's first active workspace. Authentication, passkeys, TOTP and device sessions live under `/api/auth`. MCP selects a workspace by its bearer token.
+
+| Account endpoint | Purpose |
+|---|---|
+| `PUT /api/auth/profile`, `PUT /api/auth/photo` | Change the display name or profile thumbnail for every workspace. |
+| `GET /api/auth/sessions`, `DELETE /api/auth/sessions/{id}` | List or revoke the current owner's device sessions. |
+| `GET /api/auth/totp`, `POST /api/auth/totp/{begin,confirm,disable}` | Check availability and manage authenticator enrollment with password confirmation. |
+| `POST /api/auth/login/totp` | Complete password sign-in with the challenge from HTTP 202 and a six-digit code. |
+
+## Planner endpoints
+
 Paged project, task, trash and Today reads accept `limit` and `offset` (up to 100 rows per page). Use task summaries for lists. Large detail pages may require a smaller page size. Export streams the full snapshot.
 
 | Method and path | Purpose |

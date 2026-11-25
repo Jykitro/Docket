@@ -2,7 +2,7 @@
 // shows setup, login or invite screens. In local mode, or with a session, it renders the app untouched.
 import { type ReactNode, useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ApiError, api, errText, useMe } from './api'
+import { api, errText, useMe } from './api'
 import { Icon } from './icons'
 import { PasskeyLogin } from './Passkeys'
 import { PlandilloLogo } from './PlandilloLogo'
@@ -65,11 +65,15 @@ const username: FieldDef = { key: 'username', label: 'Имя пользоват�
 const newPassword: FieldDef = { key: 'password', label: 'Пароль', password: true, autoComplete: 'new-password', hint: 'Не короче 10 символов.' }
 
 function Login({ open, passkeys }: { open: boolean; passkeys: boolean }) {
+  const [challenge, setChallenge] = useState('')
+  if (challenge) return <AuthForm key="totp" title="Код аутентификатора" text="Введите шестизначный код из приложения." submit="Войти" fields={[{key:'code',label:'Код',autoComplete:'one-time-code'}]} onSubmit={v=>api.finishTOTP(challenge,v.code)}>
+    <button type="button" onClick={()=>setChallenge('')}>{tr('Назад')}</button>
+  </AuthForm>
   return (
     <AuthForm
       title="Вход" text="Войдите, чтобы открыть свои проекты." submit="Войти"
       fields={[username, { key: 'password', label: 'Пароль', password: true, autoComplete: 'current-password' }]}
-      onSubmit={(v) => api.login(v.username, v.password)}
+      onSubmit={async v => {const result=await api.login(v.username,v.password);if ("challenge" in result) setChallenge(result.challenge)}}
     >{passkeys && <PasskeyLogin />}<nav className="flex justify-between gap-3 text-sm text-act"><Link to="/recover">{tr('Забыли пароль?')}</Link>{open && <Link to="/register">{tr('Создать аккаунт')}</Link>}</nav></AuthForm>
   )
 }
@@ -121,7 +125,7 @@ export function Gate({ children }: { children: ReactNode }) {
     window.addEventListener('pageshow', verify)
     return () => { window.removeEventListener('focus', verify); window.removeEventListener('pageshow', verify) }
   }, [refetch])
-  const loggedOut = me.error instanceof ApiError && me.error.code === 'unauthorized'
+  const loggedOut = me.isSuccess && me.data.mode === 'selfhost' && !me.data.user && !me.data.setup
 
   // App sets page-specific titles that would go stale behind the login screen.
   const inApp = me.isSuccess && (me.data?.mode === 'local' || !!me.data?.user)
@@ -143,7 +147,7 @@ export function Gate({ children }: { children: ReactNode }) {
     <code className="select-all break-all">{issued.recovery_code}</code><button className={btnPri} onClick={() => setIssued(null)}>{tr('Код сохранён')}</button>
   </section></main>)
   if (me.isPending) return <div className="min-h-screen bg-bg" /> // no flash of the app
-  if (loggedOut) { // before the user check: v5 keeps stale data on error
+  if (loggedOut) {
     return wrap(<Guest key={path} path={path} saved={saved} />)
   }
   if (leaving) return null

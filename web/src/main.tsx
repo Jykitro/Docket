@@ -19,9 +19,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { App } from './App'
 import { CollectionLimit, PagingRequests } from './Paging'
 import { ConnectionGate } from './Pwa'
+import { WorkspaceGate } from './Workspaces'
+import { workspaceId } from './workspacePath'
+import { hashKey } from '@tanstack/react-query'
 import { Gate } from './Auth'
 
-const client = new QueryClient({ defaultOptions: { queries: { retry: (failures, error) => failures < 1 && !(error instanceof CollectionLimit), staleTime: 5_000 } } })
+const client = new QueryClient({ defaultOptions: { queries: { queryKeyHashFn: key => hashKey([workspaceId, ...key]), retry: (failures, error) => failures < 1 && !(error instanceof CollectionLimit), staleTime: 5_000 } } })
 
 if (import.meta.env.PROD && window.isSecureContext && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
@@ -32,7 +35,7 @@ if (import.meta.env.PROD && window.isSecureContext && 'serviceWorker' in navigat
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={client}>
-      <ConnectionGate><Gate><App /></Gate></ConnectionGate>
+      <ConnectionGate><Gate><WorkspaceGate><App /></WorkspaceGate></Gate></ConnectionGate>
       <PagingRequests />
     </QueryClientProvider>
   </StrictMode>,

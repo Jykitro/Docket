@@ -35,6 +35,7 @@ func WorkspaceOwner(ctx context.Context) string {
 
 // Workspace is one user's own database, service and HTTP router.
 type Workspace struct {
+	OwnerID     int64
 	generation  string
 	tokenDigest [sha256.Size]byte // credential state is protected by tokenIndex.mu
 	tokenCtx    context.Context
@@ -51,6 +52,9 @@ type Workspace struct {
 
 // Workspaces opens one SQLite file or PostgreSQL schema per user.
 type Workspaces struct {
+	shared           *store.Store
+	envToken         string
+	firstID          int64
 	DemoStorageBytes int64 // set before opening profiles
 	cluster          bool
 	parent           context.Context
@@ -81,6 +85,13 @@ func (w *Workspaces) path(id int64) string {
 // Open returns the user's workspace, creating it on first use. On creation the profile name is set to the
 // username unless one already exists, so a later rename survives restarts.
 func (w *Workspaces) Open(ctx context.Context, u auth.User) (*Workspace, error) {
+	if w.shared != nil {
+		sp, err := w.shared.Space(ctx, u.ID, 0)
+		if err != nil {
+			return nil, err
+		}
+		return w.openSpace(ctx, sp, u.IsAdmin)
+	}
 	return w.open(ctx, u, true)
 }
 

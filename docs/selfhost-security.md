@@ -1,5 +1,7 @@
 # Selfhost pilot verification
 
+Historical report for the per-profile storage layout. For installations with multiple workspaces per account, use the [current hosting and restore guide](hosting.md#self-host).
+
 The pilot allows up to 50 personal workspaces on one Plandillo process. Applications authenticate owners with a session or a workspace MCP token. The host operator and the dedicated PostgreSQL role can access stored data. Checked on 24 November 2026 with synthetic accounts and disposable storage.
 
 | Surface | Evidence |

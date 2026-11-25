@@ -1,3 +1,4 @@
+import { workspaceApi } from './workspacePath'
 // Project settings: every control saves at once (no "Save" button).
 import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -153,7 +154,7 @@ function General({ project, run }: { project: Project; run: Run }) {
           </span>
         </div>
         <div className={LB}>{tr('Иконка')}
-          <ProjectIconPicker icon={project.icon} preview={project.icon_url} onSelect={patch} />
+          <ProjectIconPicker icon={project.icon} preview={project.icon_url && workspaceApi(project.icon_url)} onSelect={patch} />
         </div>
         <div className={LB}>{tr('Цвет')}
           <div className="flex flex-wrap gap-3 px-1 py-[3px]" role="group" aria-label={tr('Цвет проекта')}>
@@ -468,7 +469,7 @@ function DataSection({ project, run }: { project: Project; run: Run }) {
   return (
     <Panel id="data" title={tr('Данные и архив')} hint={tr('Удалённый проект уходит в корзину вместе с задачами. Вернуть его можно оттуда.')} flush>
       <div className="flex flex-wrap gap-2.5 px-5 pt-1.5 pb-5">
-        <a className={BTN} href={`/api/projects/${project.id}/export`} download><Icon name="doc" size={15} />{tr('Экспорт проекта в JSON')}</a>
+        <a className={BTN} href={workspaceApi(`/api/projects/${project.id}/export`)} download><Icon name="doc" size={15} />{tr('Экспорт проекта в JSON')}</a>
         <button type="button" className={BTN} onClick={() => run(() => api.archiveProject(project.id, !archived)).then((ok) => ok && !archived && navigate('/'))}>
           <Icon name="stack" size={15} />{archived ? tr('Вернуть из архива') : tr('Архивировать')}
         </button>

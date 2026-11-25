@@ -8,14 +8,17 @@ import (
 	_ "embed"
 	"errors"
 	"fmt"
+	"github.com/go-chi/chi/v5"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"docket/internal/auth"
 	"docket/internal/database"
+	"docket/internal/store"
 )
 
 //go:embed cluster.sql
@@ -102,6 +105,9 @@ func (c *Cluster) Initialize(ctx context.Context, ws *Workspaces, ad *auth.DB) e
 	if err = c.invalidate(ctx); err != nil {
 		return err
 	}
+	if ws.shared != nil {
+		return nil
+	}
 	users, err := ad.ListUsers()
 	if err != nil {
 		return err
@@ -119,6 +125,32 @@ func (c *Cluster) sync(ctx context.Context, ws *Workspaces, ad *auth.DB) error {
 		return err
 	}
 	if epoch == c.epoch {
+		return nil
+	}
+	if ws.shared != nil {
+		for _, cached := range ws.All() {
+			sp, err := ws.shared.Space(ctx, cached.OwnerID, cached.ID)
+			if errors.Is(err, store.ErrNotFound) {
+				ws.forgetSpace(cached.ID)
+				continue
+			}
+			if err != nil {
+				return err
+			}
+			if cached.generation != sp.Generation {
+				ws.forgetSpace(cached.ID)
+				continue
+			}
+			if _, err = cached.Svc.EnsureMCPSettings(ctx); err != nil {
+				return err
+			}
+			token, err := cached.Svc.MCPToken(ctx)
+			if err != nil {
+				return err
+			}
+			ws.tokens.replace(cached, token)
+		}
+		c.epoch = epoch
 		return nil
 	}
 	users, err := ad.ListUsers()
@@ -151,23 +183,33 @@ func (c *Cluster) sync(ctx context.Context, ws *Workspaces, ad *auth.DB) error {
 	c.epoch = epoch
 	return nil
 }
+func catalogRoute(path string) bool {
+	if path == "/api/workspaces" {
+		return true
+	}
+	rest, ok := strings.CutPrefix(path, "/api/workspaces/")
+	return ok && !strings.Contains(rest, "/")
+}
 func (c *Cluster) middleware(h *handler) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			path := r.URL.Path
-			if path == "/healthz" || path == "/api/events" && r.Method == http.MethodGet {
+			if path == "/healthz" || (path == "/api/events" || strings.HasPrefix(path, "/api/workspaces/") && strings.HasSuffix(path, "/events")) && r.Method == http.MethodGet {
 				next.ServeHTTP(w, r)
 				return
 			}
 			ctx, cancel := context.WithTimeout(r.Context(), 55*time.Second)
 			defer cancel()
 			writes := r.Method != "GET" && r.Method != "HEAD" && r.Method != "OPTIONS"
-			exclusive := writes && (strings.HasPrefix(path, "/api/auth/") || strings.HasPrefix(path, "/api/admin/") || path == "/api/mcp/token/rotate")
+			exclusive := writes && (strings.HasPrefix(path, "/api/auth/") || strings.HasPrefix(path, "/api/admin/") || strings.HasSuffix(path, "/mcp/token/rotate") || catalogRoute(path))
 			// Bound body reads before taking a cluster-wide access transition lock.
 			if exclusive {
 				ctl := http.NewResponseController(w)
 				_ = ctl.SetReadDeadline(time.Now().Add(10 * time.Second))
 				limit := int64(8192)
+				if path == "/api/auth/photo" || strings.HasPrefix(path, "/api/workspaces") {
+					limit = 256 << 10
+				}
 				if strings.HasPrefix(path, "/api/auth/passkeys/") && strings.HasSuffix(path, "/finish") {
 					limit = 64 << 10
 				}
@@ -193,7 +235,7 @@ func (c *Cluster) middleware(h *handler) func(http.Handler) http.Handler {
 				internalError(w, err)
 				return
 			}
-			catalogChange := path == "/api/auth/register" || path == "/api/auth/setup" || path == "/api/auth/recover" || path == "/api/auth/account" || strings.HasPrefix(path, "/api/auth/invite/") || strings.HasPrefix(path, "/api/admin/users/") || path == "/api/mcp/token/rotate"
+			catalogChange := path == "/api/auth/register" || path == "/api/auth/setup" || path == "/api/auth/recover" || path == "/api/auth/account" || strings.HasPrefix(path, "/api/auth/invite/") || strings.HasPrefix(path, "/api/admin/users/") || strings.HasSuffix(path, "/mcp/token/rotate") || catalogRoute(path)
 			if exclusive && catalogChange {
 				if err = c.invalidate(ctx); err != nil {
 					internalError(w, err)
@@ -212,6 +254,7 @@ func (c *Cluster) stream(h *handler, w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 50*time.Second)
 	defer cancel()
 	var cursor int64
+	var generation string
 	first := true
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
@@ -231,6 +274,28 @@ func (c *Cluster) stream(h *handler, w http.ResponseWriter, r *http.Request) {
 					writeError(w, 401, "unauthorized", "not logged in")
 				}
 				return auth.ErrNotFound
+			}
+			if h.WS.shared != nil {
+				var id int64
+				if raw := chi.URLParam(r, "wid"); raw != "" {
+					id, err = strconv.ParseInt(raw, 10, 64)
+					if err != nil {
+						return err
+					}
+				}
+				sp, err := h.WS.shared.Space(ctx, user.ID, id)
+				if err != nil {
+					if first {
+						spaceError(w, err)
+					}
+					return err
+				}
+				if first {
+					generation = sp.Generation
+				} else if generation != sp.Generation {
+					return auth.ErrNotFound
+				}
+				user.WorkspaceKey = sp.Generation
 			}
 			if first {
 				if !matchesWorkspace(w, r, user) {
@@ -314,6 +379,12 @@ func (c *Cluster) maintain(ctx context.Context, ws *Workspaces) error {
 		if _, err = tx.ExecContext(ctx, query); err != nil {
 			return err
 		}
+	}
+	if ws.shared != nil {
+		if err = ws.shared.PurgeExpiredCalls(ctx, time.Now()); err != nil {
+			return err
+		}
+		return tx.Commit()
 	}
 	for _, w := range ws.All() {
 		if _, err = w.Svc.PurgeOldMCPCalls(ctx); err != nil {

@@ -41,7 +41,7 @@ Try asking *“Add a task to test the mobile menu tomorrow. Give it a checklist 
 
 ### Self-host
 
-For a shared installation, each person gets a private workspace and an MCP token. The [self-hosting guide](docs/hosting.md#self-host) covers invitations, HTTPS, SQLite or PostgreSQL, and backups. For the full planner on Vercel, see the [Vercel deployment guide](docs/vercel.md).
+For a shared installation, each account can own several private workspaces, each with its own MCP token. The [self-hosting guide](docs/hosting.md#self-host) covers invitations, HTTPS, SQLite or PostgreSQL, and backups. For the full planner on Vercel, see the [Vercel deployment guide](docs/vercel.md).
 
 ## Development
 

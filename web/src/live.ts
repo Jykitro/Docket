@@ -1,3 +1,4 @@
+import { workspaceApi } from './workspacePath'
 // Live updates: /api/events (SSE) invalidates the queries, so changes made through MCP show up at once.
 // Tasks touched by agents are highlighted for 3 seconds.
 import { useEffect, useSyncExternalStore } from 'react'
@@ -37,7 +38,7 @@ export function useFresh(id: number) {
 
 export function useLive(qc: QueryClient) {
   useEffect(() => {
-    const es = new EventSource('/api/events')
+    const es = new EventSource(workspaceApi('/api/events'))
     let timer: number | undefined
     const refresh = () => {
       if (timer !== undefined) return

@@ -18,12 +18,13 @@ Use an exact public HTTPS hostname for each environment. Give previews and devel
 
 | Variable | Value |
 | --- | --- |
-| `PLANDILLO_DEMO_STORAGE_MB` | Optional positive integer in decimal MB. Set to `5` for the hosted demo. Applies per non-administrator workspace on Vercel. |
+| `PLANDILLO_DEMO_STORAGE_MB` | Optional positive integer in decimal MB. Set to `5` for the hosted demo. Applies across all workspaces of each non-administrator account on Vercel. |
 | `PORT` | Set to `8080` for the cloud deployment so the non-root containers listen on an unprivileged port. |
 | `DOCKET_MODE` | `selfhost` |
 | `DOCKET_POSTGRES_DSN` | A dedicated PostgreSQL database URL with TLS. The role must own the database or have permission to create and manage its schemas. Use a direct or session-pooled connection that preserves the connection's `search_path`. With Vercel's Neon integration, leave this unset so Plandillo reads the integration-managed `DATABASE_URL_UNPOOLED` directly. |
 | `DOCKET_ALLOWED_HOSTS` | Comma-separated exact hostnames of the planner, without scheme or port |
 | `DOCKET_PASSKEY_ORIGIN` | Optional exact HTTPS origin for WebAuthn, such as `https://planner.example.com` |
+| `PLANDILLO_TOTP_KEY` | Shared base64-encoded 32-byte key for authenticator enrollment. Generate once with `openssl rand -base64 32` and preserve for restores. |
 | `PLANDILLO_SETUP_CODE` | Private first-admin setup code, at least 32 characters on a fresh database. Remove it from settings after setup and redeploy. |
 | `PLANDILLO_RUNNER_SECRET` | Separate random secret of at least 32 characters for app-to-worker authentication. Keep the same value across replicas in the same deployment. |
 
@@ -33,9 +34,9 @@ Choose a Vercel function region near PostgreSQL. Allow at least 60 seconds of fu
 
 ## Replicas and storage
 
-Run only the Vercel app command against this deployment's database. It coordinates account transitions, token changes, passkey challenges, login limits and short-lived Code Mode jobs in PostgreSQL. Each profile write and its live event commit in the same transaction. Browser streams recheck the session before sending each batch, reconnect periodically, and refetch the board. Plan PostgreSQL connection capacity for the auth connection, up to one connection per loaded profile and up to 16 coordination connections per app replica. Vercel shares project environment variables between services. The trusted worker supervisor uses no database client and exposes none of its environment to the guest.
+Run only the Vercel app command against this deployment's database. It coordinates account transitions, token changes, passkey challenges, login limits and short-lived Code Mode jobs in PostgreSQL. Each profile write and its live event commit in the same transaction. Browser streams recheck the session before sending each batch, reconnect periodically, and refetch the board. Plan PostgreSQL connection capacity for up to eight shared account and workspace connections and up to 16 coordination connections per app replica. Vercel shares project environment variables between services. The trusted worker supervisor uses no database client and exposes none of its environment to the guest.
 
-Back up the **whole dedicated database**, including `plandillo_auth` and every `plandillo_user_*` schema (the `docket_*` family on older installations), with your provider's backup and PITR tools. Restore a snapshot to a separate database and verify it before switching environments. The local SQLite installation and existing Compose deployment remain separate installations. [Storage and backup guide](hosting.md#postgresql-storage)
+Back up the **whole dedicated database**, including the shared `plandillo_auth` schema, with your provider's backup and PITR tools. Restore a snapshot to a separate database and verify it before switching environments. The local SQLite installation and existing Compose deployment remain separate installations. [Storage and backup guide](hosting.md#postgresql-storage)
 
 The container ingress accepts request bodies up to Vercel's function limit. Large HTML publication or MCP requests can hit that limit before reaching Plandillo. Vercel also limits buffered responses, including large exports. Code Mode tool replies and events stream back. Monitor API 5xx errors, PostgreSQL connection usage, Code Mode latency and the rate of completed tool calls after rollout. [Function limits](https://vercel.com/docs/functions/limitations) · [Service usage and billing](https://vercel.com/docs/services/pricing)
 

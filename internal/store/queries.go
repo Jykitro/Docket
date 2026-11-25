@@ -99,12 +99,16 @@ type SearchHit struct {
 
 const projectCols = `id, slug, key, name, icon, color, description, position, archived_at, deleted_at, created_at, updated_at, icon_hash`
 
-func scanProject(r interface{ Scan(...any) error }) (Project, error) {
+func (t *Tx) scanProject(r interface{ Scan(...any) error }) (Project, error) {
 	var p Project
 	var hash string
 	err := r.Scan(&p.ID, &p.Slug, &p.Key, &p.Name, &p.Icon, &p.Color, &p.Description, &p.Position, &p.ArchivedAt, &p.DeletedAt, &p.CreatedAt, &p.UpdatedAt, &hash)
 	if hash != "" {
-		p.IconURL = fmt.Sprintf("/api/projects/%d/icon?v=%s", p.ID, hash)
+		prefix := "/api"
+		if t.scopedURL {
+			prefix = fmt.Sprintf("/api/workspaces/%d", t.tx.WorkspaceID())
+		}
+		p.IconURL = fmt.Sprintf("%s/projects/%d/icon?v=%s", prefix, p.ID, hash)
 	}
 	if errors.Is(err, sql.ErrNoRows) {
 		err = ErrNotFound
@@ -113,7 +117,7 @@ func scanProject(r interface{ Scan(...any) error }) (Project, error) {
 }
 
 func (t *Tx) CountLiveProjects() (count int, err error) {
-	err = t.tx.QueryRow("SELECT count(*) FROM projects WHERE deleted_at IS NULL").Scan(&count)
+	err = t.tx.QueryRow("SELECT count(*) FROM projects WHERE workspace_id=:workspace AND deleted_at IS NULL").Scan(&count)
 	return
 }
 
@@ -128,7 +132,7 @@ func (t *Tx) ProjectPage(includeArchived, deleted, compact bool, limit, offset i
 	} else if !includeArchived {
 		where += " AND archived_at IS NULL"
 	}
-	page := " FROM projects WHERE " + where + " ORDER BY " + order + " LIMIT ? OFFSET ?"
+	page := " FROM projects WHERE workspace_id=:workspace AND " + where + " ORDER BY " + order + " LIMIT ? OFFSET ?"
 	rows, err := t.tx.Query("SELECT "+cols+page, limit, offset)
 	if err != nil {
 		return nil, err
@@ -138,7 +142,7 @@ func (t *Tx) ProjectPage(includeArchived, deleted, compact bool, limit, offset i
 	byID := map[int64]int{}
 	bytes := 0
 	for rows.Next() {
-		p, err := scanProject(rows)
+		p, err := t.scanProject(rows)
 		if err != nil {
 			return nil, err
 		}
@@ -158,7 +162,7 @@ func (t *Tx) ProjectPage(includeArchived, deleted, compact bool, limit, offset i
 	if deleted || len(out) == 0 {
 		return out, nil
 	}
-	counts, err := t.tx.Query(`SELECT t.project_id,s.key,s.category,count(*) FROM tasks t JOIN statuses s ON s.id=t.status_id WHERE t.deleted_at IS NULL AND t.project_id IN (SELECT id`+page+") GROUP BY 1,2,3", limit, offset)
+	counts, err := t.tx.Query(`SELECT t.project_id,s.key,s.category,count(*) FROM tasks t JOIN statuses s ON s.id=t.status_id AND t.workspace_id=:workspace WHERE t.deleted_at IS NULL AND t.project_id IN (SELECT id`+page+") GROUP BY 1,2,3", limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -182,26 +186,26 @@ func (t *Tx) ProjectPage(includeArchived, deleted, compact bool, limit, offset i
 // PurgeProject physically removes a project with its tasks, notes, history and configuration.
 func (t *Tx) PurgeProject(id int64) (int64, error) {
 	for _, q := range []string{
-		`UPDATE pages SET parent_id = NULL WHERE project_id = ?`,
-		`DELETE FROM pages WHERE project_id = ?`,
-		`UPDATE tasks SET parent_id = NULL WHERE project_id = ?`,
-		`DELETE FROM notes WHERE task_id IN (SELECT id FROM tasks WHERE project_id = ?)`,
-		`DELETE FROM activity WHERE task_id IN (SELECT id FROM tasks WHERE project_id = ?)`,
-		`DELETE FROM activity WHERE project_id = ?`,
+		`UPDATE pages SET parent_id = NULL WHERE workspace_id=:workspace AND project_id = ?`,
+		`DELETE FROM pages WHERE workspace_id=:workspace AND project_id = ?`,
+		`UPDATE tasks SET parent_id = NULL WHERE workspace_id=:workspace AND project_id = ?`,
+		`DELETE FROM notes WHERE workspace_id=:workspace AND task_id IN (SELECT id FROM tasks WHERE workspace_id=:workspace AND project_id = ?)`,
+		`DELETE FROM activity WHERE workspace_id=:workspace AND task_id IN (SELECT id FROM tasks WHERE workspace_id=:workspace AND project_id = ?)`,
+		`DELETE FROM activity WHERE workspace_id=:workspace AND project_id = ?`,
 	} {
 		if _, err := t.tx.Exec(q, id); err != nil {
 			return 0, err
 		}
 	}
-	res, err := t.tx.Exec(`DELETE FROM tasks WHERE project_id = ?`, id)
+	res, err := t.tx.Exec(`DELETE FROM tasks WHERE workspace_id=:workspace AND project_id = ?`, id)
 	if err != nil {
 		return 0, err
 	}
 	n, _ := res.RowsAffected()
 	for _, q := range []string{
-		`DELETE FROM statuses WHERE project_id = ?`, `DELETE FROM labels WHERE project_id = ?`,
-		`DELETE FROM custom_fields WHERE project_id = ?`, `DELETE FROM saved_views WHERE project_id = ?`,
-		`DELETE FROM projects WHERE id = ?`,
+		`DELETE FROM statuses WHERE workspace_id=:workspace AND project_id = ?`, `DELETE FROM labels WHERE workspace_id=:workspace AND project_id = ?`,
+		`DELETE FROM custom_fields WHERE workspace_id=:workspace AND project_id = ?`, `DELETE FROM saved_views WHERE workspace_id=:workspace AND project_id = ?`,
+		`DELETE FROM projects WHERE workspace_id=:workspace AND id = ?`,
 	} {
 		if _, err := t.tx.Exec(q, id); err != nil {
 			return 0, err
@@ -212,7 +216,7 @@ func (t *Tx) PurgeProject(id int64) (int64, error) {
 
 func (t *Tx) ProjectIcon(id int64) ([]byte, error) {
 	var data []byte
-	err := t.tx.QueryRow(`SELECT icon_png FROM projects WHERE id = ? AND icon_png IS NOT NULL`, id).Scan(&data)
+	err := t.tx.QueryRow(`SELECT icon_png FROM projects WHERE workspace_id=:workspace AND id = ? AND icon_png IS NOT NULL`, id).Scan(&data)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -220,29 +224,29 @@ func (t *Tx) ProjectIcon(id int64) ([]byte, error) {
 }
 
 func (t *Tx) SetProjectIcon(id int64, data []byte, hash string) error {
-	_, err := t.tx.Exec(`UPDATE projects SET icon_png = ?, icon_hash = ? WHERE id = ?`, data, hash, id)
+	_, err := t.tx.Exec(`UPDATE projects SET icon_png = ?, icon_hash = ? WHERE workspace_id=:workspace AND id = ?`, data, hash, id)
 	return err
 }
 
 func (t *Tx) GetProject(id int64) (Project, error) {
-	return scanProject(t.tx.QueryRow(`SELECT `+projectCols+` FROM projects WHERE id = ?`, id))
+	return t.scanProject(t.tx.QueryRow(`SELECT `+projectCols+` FROM projects WHERE workspace_id=:workspace AND id = ?`, id))
 }
 
 func (t *Tx) GetProjectBySlug(slug string) (Project, error) {
-	return scanProject(t.tx.QueryRow(`SELECT `+projectCols+` FROM projects WHERE slug = ?`, slug))
+	return t.scanProject(t.tx.QueryRow(`SELECT `+projectCols+` FROM projects WHERE workspace_id=:workspace AND slug = ?`, slug))
 }
 
 func (t *Tx) GetProjectByKey(key string) (Project, error) {
-	return scanProject(t.tx.QueryRow(`SELECT `+projectCols+` FROM projects WHERE key = ?`, key))
+	return t.scanProject(t.tx.QueryRow(`SELECT `+projectCols+` FROM projects WHERE workspace_id=:workspace AND key = ?`, key))
 }
 
 func (t *Tx) InsertProject(p Project) (Project, error) {
 	var max float64
-	if err := t.tx.QueryRow(`SELECT coalesce(max(position), 0) FROM projects`).Scan(&max); err != nil {
+	if err := t.tx.QueryRow(`SELECT coalesce(max(position), 0) FROM projects WHERE workspace_id=:workspace`).Scan(&max); err != nil {
 		return p, err
 	}
 	var id int64
-	err := t.tx.QueryRow(`INSERT INTO projects(slug, key, name, icon, color, description, position) VALUES (?,?,?,?,?,?,?) RETURNING id`,
+	err := t.tx.QueryRow(`INSERT INTO projects(workspace_id, slug, key, name, icon, color, description, position) VALUES (:workspace, ?,?,?,?,?,?,?) RETURNING id`,
 		p.Slug, p.Key, p.Name, p.Icon, p.Color, p.Description, max+1024).Scan(&id)
 	if err != nil {
 		return p, err
@@ -252,7 +256,7 @@ func (t *Tx) InsertProject(p Project) (Project, error) {
 
 func (t *Tx) UpdateProject(p Project) error {
 	_, err := t.tx.Exec(`UPDATE projects SET key = ?, name = ?, icon = ?, color = ?, description = ?, position = ?, archived_at = ?, deleted_at = ?,
-		updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?`,
+		updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE workspace_id=:workspace AND id = ?`,
 		p.Key, p.Name, p.Icon, p.Color, p.Description, p.Position, p.ArchivedAt, p.DeletedAt, p.ID)
 	return err
 }
@@ -260,21 +264,21 @@ func (t *Tx) UpdateProject(p Project) error {
 // NextNumber hands out the next task number of a project; numbers are never reused.
 func (t *Tx) NextNumber(projectID int64) (int, error) {
 	var n int
-	err := t.tx.QueryRow(`UPDATE projects SET task_seq = task_seq + 1 WHERE id = ? RETURNING task_seq`, projectID).Scan(&n)
+	err := t.tx.QueryRow(`UPDATE projects SET task_seq = task_seq + 1 WHERE workspace_id=:workspace AND id = ? RETURNING task_seq`, projectID).Scan(&n)
 	return n, err
 }
 
 // ---- tasks ----
 
-const taskFrom = ` FROM tasks t JOIN statuses s ON s.id = t.status_id JOIN projects p ON p.id = t.project_id`
+const taskFrom = ` FROM tasks t JOIN statuses s ON s.id = t.status_id AND t.workspace_id=:workspace JOIN projects p ON p.id = t.project_id`
 
 const taskCols = `t.id, t.project_id, t.number, p.key || '-' || printf('%02d', t.number), t.parent_id, t.title, t.description_md,
 	t.status_id, s.key, s.name, s.category, t.priority, t.area, t.planned_for, t.position, t.custom, t.external_id, t.created_by,
 	t.created_at, t.updated_at, t.done_at, t.deleted_at, t.issue_kind, t.attention_after,
- CASE WHEN t.issue_kind = '' THEN 0 ELSE (SELECT count(*) FROM issue_reports ir WHERE ir.issue_id = t.id) END,
-	(SELECT count(*) FROM tasks c WHERE c.parent_id = t.id AND c.deleted_at IS NULL),
-	(SELECT count(*) FROM tasks c JOIN statuses cs ON cs.id = c.status_id WHERE c.parent_id = t.id AND c.deleted_at IS NULL AND cs.category = 'done'),
-	coalesce((SELECT p.key || '-' || printf('%02d', pt.number) FROM tasks pt WHERE pt.id = t.parent_id), '')`
+ CASE WHEN t.issue_kind = '' THEN 0 ELSE (SELECT count(*) FROM issue_reports ir WHERE ir.workspace_id=:workspace AND ir.issue_id = t.id) END,
+	(SELECT count(*) FROM tasks c WHERE c.workspace_id=:workspace AND c.parent_id = t.id AND c.deleted_at IS NULL),
+	(SELECT count(*) FROM tasks c JOIN statuses cs ON cs.id = c.status_id WHERE c.workspace_id=:workspace AND c.parent_id = t.id AND c.deleted_at IS NULL AND cs.category = 'done'),
+	coalesce((SELECT p.key || '-' || printf('%02d', pt.number) FROM tasks pt WHERE pt.workspace_id=:workspace AND pt.id = t.parent_id), '')`
 
 func scanTask(r interface{ Scan(...any) error }) (Task, error) {
 	var x Task
@@ -380,8 +384,8 @@ func (t *Tx) ListTasks(f TaskFilter) ([]Task, error) {
 	cols := taskCols
 	scan := scanTask
 	if f.Compact {
-		cols = `t.id,t.project_id,p.slug,p.key || '-' || printf('%02d', t.number), t.title,s.key,t.priority,t.area,t.planned_for,t.description_md <> '',
-        coalesce((SELECT p.key || '-' || printf('%02d', pt.number) FROM tasks pt WHERE pt.id=t.parent_id),'')`
+		cols = `t.id,t.project_id,p.slug,p.key || '-' || printf('%02d', t.number), t.title,s.key,t.priority,t.area,t.planned_for,octet_length(t.description_md) > 0,
+        coalesce((SELECT p.key || '-' || printf('%02d', pt.number) FROM tasks pt WHERE pt.workspace_id=:workspace AND pt.id=t.parent_id),'')`
 		scan = func(r scanner) (x Task, err error) {
 			err = r.Scan(&x.ID, &x.ProjectID, &x.ProjectSlug, &x.Code, &x.Title, &x.Status, &x.Priority, &x.Area, &x.PlannedFor, &x.HasDescription, &x.ParentCode)
 			x.readBytes = len(x.Title) + len(x.Area) + len(x.Status) + len(x.ProjectSlug) + len(x.ParentCode) + len(x.Code)
@@ -391,7 +395,7 @@ func (t *Tx) ListTasks(f TaskFilter) ([]Task, error) {
 			order = "p.position,p.id,s.position,t.position"
 		}
 	} else if f.Summary {
-		cols = strings.Replace(taskCols, "t.description_md,", "CASE WHEN t.description_md <> '' THEN '1' ELSE '' END,", 1)
+		cols = strings.Replace(taskCols, "t.description_md,", "CASE WHEN octet_length(t.description_md) > 0 THEN '1' ELSE '' END,", 1)
 		scan = func(r scanner) (x Task, err error) {
 			x, err = scanTask(r)
 			x.HasDescription = x.DescriptionMD != ""
@@ -399,9 +403,19 @@ func (t *Tx) ListTasks(f TaskFilter) ([]Task, error) {
 			return
 		}
 	}
-	query := "SELECT " + cols + taskFrom + " WHERE " + strings.Join(where, " AND ") + " ORDER BY " + order + ",t.id"
+	filtered := taskFrom + " WHERE " + strings.Join(where, " AND ")
+	ordered := " ORDER BY " + order + ",t.id"
+	query := "SELECT " + cols + filtered + ordered
 	if f.Limit > 0 {
-		query += " LIMIT ? OFFSET ?"
+		window := ordered + " LIMIT ? OFFSET ?"
+		if f.Summary && !f.Compact {
+			// Select the requested IDs before reading custom fields and counting children.
+			// This also bounds the work for rows skipped on later board pages.
+			query = "WITH cards AS MATERIALIZED (SELECT t.id" + filtered + window + ") SELECT " +
+				cols + taskFrom + " JOIN cards ON cards.id=t.id" + ordered
+		} else {
+			query = "SELECT " + cols + filtered + window
+		}
 		args = append(args, f.Limit, f.Offset)
 	}
 	rows, err := t.tx.Query(query, args...)
@@ -427,8 +441,8 @@ func (t *Tx) ListTasks(f TaskFilter) ([]Task, error) {
 
 func (t *Tx) InsertTask(x Task) (Task, error) {
 	var id int64
-	err := t.tx.QueryRow(`INSERT INTO tasks(project_id, number, parent_id, title, description_md, status_id, priority, area,
-		planned_for, position, custom, external_id, created_by, done_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING id`,
+	err := t.tx.QueryRow(`INSERT INTO tasks(workspace_id, project_id, number, parent_id, title, description_md, status_id, priority, area,
+		planned_for, position, custom, external_id, created_by, done_at) VALUES (:workspace, ?,?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING id`,
 		x.ProjectID, x.Number, x.ParentID, x.Title, x.DescriptionMD, x.StatusID, x.Priority, x.Area,
 		x.PlannedFor, x.Position, customJSON(x.Custom), x.ExternalID, x.CreatedBy, x.DoneAt).Scan(&id)
 	if err != nil {
@@ -441,7 +455,7 @@ func (t *Tx) InsertTask(x Task) (Task, error) {
 func (t *Tx) UpdateTask(x Task) error {
 	_, err := t.tx.Exec(`UPDATE tasks SET project_id = ?, number = ?, parent_id = ?, title = ?, description_md = ?, status_id = ?,
 		priority = ?, area = ?, planned_for = ?, position = ?, custom = ?, done_at = ?, deleted_at = ?,
-		updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?`,
+		updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE workspace_id=:workspace AND id = ?`,
 		x.ProjectID, x.Number, x.ParentID, x.Title, x.DescriptionMD, x.StatusID, x.Priority, x.Area,
 		x.PlannedFor, x.Position, customJSON(x.Custom), x.DoneAt, x.DeletedAt, x.ID)
 	return err
@@ -454,7 +468,7 @@ type Pos struct {
 
 // Column returns live tasks of one board column in order.
 func (t *Tx) Column(projectID, statusID int64) ([]Pos, error) {
-	return t.positions(`SELECT id, position FROM tasks WHERE project_id = ? AND status_id = ? AND deleted_at IS NULL
+	return t.positions(`SELECT id, position FROM tasks WHERE workspace_id=:workspace AND project_id = ? AND status_id = ? AND deleted_at IS NULL
 		ORDER BY position, id`, projectID, statusID)
 }
 
@@ -476,26 +490,26 @@ func (t *Tx) positions(query string, args ...any) ([]Pos, error) {
 }
 
 func (t *Tx) SetPosition(id int64, pos float64) error {
-	_, err := t.tx.Exec(`UPDATE tasks SET position = ? WHERE id = ?`, pos, id)
+	_, err := t.tx.Exec(`UPDATE tasks SET position = ? WHERE workspace_id=:workspace AND id = ?`, pos, id)
 	return err
 }
 
 func (t *Tx) CountTasksInStatus(statusID int64) (n int, err error) {
-	err = t.tx.QueryRow(`SELECT count(*) FROM tasks WHERE status_id = ?`, statusID).Scan(&n)
+	err = t.tx.QueryRow(`SELECT count(*) FROM tasks WHERE workspace_id=:workspace AND status_id = ?`, statusID).Scan(&n)
 	return
 }
 
 // MoveStatusTasks re-homes every task (trash included) of one status; positions go to the end of the target column.
 func (t *Tx) MoveStatusTasks(from, to int64, toDone bool) error {
 	var max float64
-	if err := t.tx.QueryRow(`SELECT coalesce(max(position), 0) FROM tasks WHERE status_id = ?`, to).Scan(&max); err != nil {
+	if err := t.tx.QueryRow(`SELECT coalesce(max(position), 0) FROM tasks WHERE workspace_id=:workspace AND status_id = ?`, to).Scan(&max); err != nil {
 		return err
 	}
 	done := `NULL`
 	if toDone {
 		done = `coalesce(done_at, strftime('%Y-%m-%dT%H:%M:%fZ','now'))`
 	}
-	_, err := t.tx.Exec(`UPDATE tasks SET status_id = ?, position = position + ?, done_at = `+done+` WHERE status_id = ?`, to, max, from)
+	_, err := t.tx.Exec(`UPDATE tasks SET status_id = ?, position = position + ?, done_at = `+done+` WHERE workspace_id=:workspace AND status_id = ?`, to, max, from)
 	return err
 }
 
@@ -510,8 +524,8 @@ func (t *Tx) TrashMatches(tasks, projects []TrashEntry) (bool, error) {
 		query string
 		seen  []TrashEntry
 	}{
-		{`SELECT t.id,t.deleted_at FROM tasks t JOIN projects p ON p.id=t.project_id WHERE t.deleted_at IS NOT NULL AND p.deleted_at IS NULL`, tasks},
-		{`SELECT id,deleted_at FROM projects WHERE deleted_at IS NOT NULL`, projects},
+		{`SELECT t.id,t.deleted_at FROM tasks t JOIN projects p ON p.id=t.project_id WHERE t.workspace_id=:workspace AND t.deleted_at IS NOT NULL AND p.deleted_at IS NULL`, tasks},
+		{`SELECT id,deleted_at FROM projects WHERE workspace_id=:workspace AND deleted_at IS NOT NULL`, projects},
 	} {
 		remaining := make(map[TrashEntry]bool, len(set.seen))
 		for _, entry := range set.seen {
@@ -549,17 +563,17 @@ func (t *Tx) TrashMatches(tasks, projects []TrashEntry) (bool, error) {
 
 // Purge physically deletes everything in the trash and returns how many tasks were removed.
 func (t *Tx) Purge() (int64, error) {
-	const trashed = `SELECT id FROM tasks WHERE deleted_at IS NOT NULL`
+	const trashed = `SELECT id FROM tasks WHERE workspace_id=:workspace AND deleted_at IS NOT NULL`
 	for _, q := range []string{
-		`UPDATE tasks SET parent_id = NULL WHERE deleted_at IS NULL AND parent_id IN (` + trashed + `)`,
-		`DELETE FROM notes WHERE task_id IN (` + trashed + `)`,
-		`DELETE FROM activity WHERE task_id IN (` + trashed + `)`,
+		`UPDATE tasks SET parent_id = NULL WHERE workspace_id=:workspace AND deleted_at IS NULL AND parent_id IN (` + trashed + `)`,
+		`DELETE FROM notes WHERE workspace_id=:workspace AND task_id IN (` + trashed + `)`,
+		`DELETE FROM activity WHERE workspace_id=:workspace AND task_id IN (` + trashed + `)`,
 	} {
 		if _, err := t.tx.Exec(q); err != nil {
 			return 0, err
 		}
 	}
-	res, err := t.tx.Exec(`DELETE FROM tasks WHERE deleted_at IS NOT NULL`)
+	res, err := t.tx.Exec(`DELETE FROM tasks WHERE workspace_id=:workspace AND deleted_at IS NOT NULL`)
 	if err != nil {
 		return 0, err
 	}
@@ -585,7 +599,7 @@ func (t *Tx) search(q, col, snippet string, limit int) ([]SearchHit, error) {
 		return out, nil
 	}
 	query := `SELECT t.id, t.project_id, p.key || '-' || printf('%02d', t.number), t.title, s.key, s.name, s.color, ` + snippet +
-		` FROM tasks_fts JOIN tasks t ON t.id = tasks_fts.rowid JOIN statuses s ON s.id = t.status_id JOIN projects p ON p.id = t.project_id
+		` FROM tasks_fts JOIN tasks t ON t.id = tasks_fts.rowid JOIN statuses s ON s.id = t.status_id AND t.workspace_id=:workspace JOIN projects p ON p.id = t.project_id
   WHERE tasks_fts MATCH ? AND t.deleted_at IS NULL AND p.deleted_at IS NULL ORDER BY rank LIMIT ?`
 	args := []any{col + ` : (` + fq + `)`, limit}
 	if t.tx.Postgres() {
@@ -616,11 +630,11 @@ func (t *Tx) search(q, col, snippet string, limit int) ([]SearchHit, error) {
 // ---- notes & activity ----
 
 func (t *Tx) InsertNote(n Note) (Note, error) {
-	err := t.tx.QueryRow(`INSERT INTO notes(task_id, author, body_md) VALUES (?, ?, ?) RETURNING id`, n.TaskID, n.Author, n.BodyMD).Scan(&n.ID)
+	err := t.tx.QueryRow(`INSERT INTO notes(workspace_id, task_id, author, body_md) VALUES (:workspace, ?, ?, ?) RETURNING id`, n.TaskID, n.Author, n.BodyMD).Scan(&n.ID)
 	if err != nil {
 		return n, err
 	}
-	err = t.tx.QueryRow(`SELECT created_at FROM notes WHERE id = ?`, n.ID).Scan(&n.CreatedAt)
+	err = t.tx.QueryRow(`SELECT created_at FROM notes WHERE workspace_id=:workspace AND id = ?`, n.ID).Scan(&n.CreatedAt)
 	return n, err
 }
 
@@ -629,7 +643,7 @@ const maxReadBytes = 4 << 20
 var ErrPageTooLarge = errors.New("page exceeds 4 MiB; request a smaller limit")
 
 func (t *Tx) ListNotes(taskID int64, limit, offset int) ([]Note, error) {
-	rows, err := t.tx.Query(`SELECT id,task_id,author,body_md,created_at FROM notes WHERE task_id=? ORDER BY id LIMIT ? OFFSET ?`, taskID, limit, offset)
+	rows, err := t.tx.Query(`SELECT id,task_id,author,body_md,created_at FROM notes WHERE workspace_id=:workspace AND task_id=? ORDER BY id LIMIT ? OFFSET ?`, taskID, limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -651,7 +665,7 @@ func (t *Tx) ListNotes(taskID int64, limit, offset int) ([]Note, error) {
 }
 
 func (t *Tx) InsertActivity(a Activity) error {
-	_, err := t.tx.Exec(`INSERT INTO activity(task_id, project_id, actor, action, diff_json) VALUES (?, ?, ?, ?, ?)`,
+	_, err := t.tx.Exec(`INSERT INTO activity(workspace_id, task_id, project_id, actor, action, diff_json) VALUES (:workspace, ?, ?, ?, ?, ?)`,
 		a.TaskID, a.ProjectID, a.Actor, a.Action, a.DiffJSON)
 	return err
 }
@@ -662,9 +676,9 @@ func (t *Tx) ListActivity(taskID int64, limit int) ([]Activity, error) {
 	// Keep normal diffs exact. Large history entries remain in the export; the UI only needs action metadata.
 	cols := strings.Replace(activitySelect, "a.diff_json,", "CASE WHEN octet_length(a.diff_json)<=65536 THEN a.diff_json ELSE NULL END,", 1)
 	cols = strings.Replace(cols, "coalesce(t.title, '')", "substr(coalesce(t.title, ''),1,512)", 1)
-	q, args := cols, []any{}
+	q, args := cols+" WHERE a.workspace_id=:workspace", []any{}
 	if taskID != 0 {
-		q += ` WHERE a.task_id = ?`
+		q += ` AND a.task_id = ?`
 		args = append(args, taskID)
 	}
 	q += ` ORDER BY a.id DESC`

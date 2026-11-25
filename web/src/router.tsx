@@ -1,6 +1,8 @@
 // A tiny history-API router: the app has five routes and one query parameter (?task=), no library needed.
 import { type ComponentProps, type MouseEvent, useSyncExternalStore } from 'react'
 
+import { workspacePath } from './workspacePath'
+
 const EVENT = 'docket:navigate'
 
 function subscribe(cb: () => void) {
@@ -17,10 +19,11 @@ const snapshot = () => location.pathname + location.search
 export function useRoute() {
   const s = useSyncExternalStore(subscribe, snapshot)
   const [path, search = ''] = s.split('?')
-  return { path, params: new URLSearchParams(search) }
+  return { path: path.replace(/^\/w\/[1-9]\d*(?=\/|$)/, '') || '/', params: new URLSearchParams(search) }
 }
 
 export function navigate(to: string, replace = false) {
+  to = workspacePath(to)
   if (to === snapshot()) return
   history[replace ? 'replaceState' : 'pushState'](null, '', to)
   window.dispatchEvent(new Event(EVENT))
@@ -56,5 +59,5 @@ export function Link({ to, onClick, ...rest }: { to: string } & ComponentProps<'
     e.preventDefault()
     navigate(to)
   }
-  return <a href={to} onClick={click} {...rest} />
+  return <a href={workspacePath(to)} onClick={click} {...rest} />
 }

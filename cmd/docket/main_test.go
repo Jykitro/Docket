@@ -1,36 +1,51 @@
 package main
 
 import (
-	"slices"
+	"context"
+	"path/filepath"
 	"testing"
-	"time"
 
-	"docket/internal/selfhost"
+	"docket/internal/auth"
+	"docket/internal/store"
 )
 
-func TestMaintainPass(t *testing.T) {
-	last := map[int64]time.Time{}
-	t0 := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
-	pass := func(now time.Time, ws ...*selfhost.Workspace) []int64 {
-		var got []int64
-		maintainPass(ws, last, now, func(w *selfhost.Workspace) { got = append(got, w.ID) })
-		return got
+func TestSharedMaintenanceWritesOneInstallationBackup(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, "planner.db")
+	db, err := auth.Open(file)
+	if err != nil {
+		t.Fatal(err)
 	}
-	a, b := &selfhost.Workspace{ID: 1}, &selfhost.Workspace{ID: 2}
-
-	if got := pass(t0, a); !slices.Equal(got, []int64{1}) {
-		t.Fatalf("first pass: %v", got)
+	defer db.Close()
+	base, err := store.Shared(db.Connection(), file)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if got := pass(t0.Add(time.Hour), a, b); !slices.Equal(got, []int64{2}) {
-		t.Fatalf("new workspace, recent one skipped: %v", got)
+	owner, err := store.EnsureLocalUser(db.Connection())
+	if err != nil {
+		t.Fatal(err)
 	}
-	if got := pass(t0.Add(23*time.Hour), a, b); len(got) != 0 {
-		t.Fatalf("within 24h: %v", got)
+	another := "Other"
+	if _, err = base.ChangeSpace(t.Context(), owner, 0, store.SpaceChange{Name: &another}, 0); err != nil {
+		t.Fatal(err)
 	}
-	if got := pass(t0.Add(24*time.Hour), a, b); !slices.Equal(got, []int64{1}) {
-		t.Fatalf("after 24h: %v", got)
+	backups := filepath.Join(dir, "snapshots")
+	// A canceled loop still performs the startup backup before checking its timer.
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	maintenanceShared(ctx, base, backups)
+	files, err := filepath.Glob(filepath.Join(backups, "*.db"))
+	if err != nil || len(files) != 1 {
+		t.Fatal("expected one database snapshot", files, err)
 	}
-	if got := pass(t0.Add(50*time.Hour), a); !slices.Equal(got, []int64{1}) {
-		t.Fatalf("removed workspace processed: %v", got)
+	err = base.ForOwner(1, owner).WithTx(t.Context(), func(tx *store.Tx) error {
+		stamp, found, err := tx.Setting("last_backup_at")
+		if err == nil && (!found || stamp == "") {
+			t.Fatal("snapshot time missing")
+		}
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 }

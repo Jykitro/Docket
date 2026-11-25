@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"crypto/cipher"
 	"crypto/rand"
 	"database/sql"
 	"errors"
@@ -30,13 +31,19 @@ type ValidationError string
 func (e ValidationError) Error() string { return string(e) }
 
 type User struct {
-	DeletionKey  string `json:"-"`
-	WorkspaceKey string `json:"-"`
-	ID           int64  `json:"id"`
-	Username     string `json:"username"`
+	ID        int64   `json:"id"`
+	Username  string  `json:"username"`
+	Photo     *string `json:"photo"`
+	Name      string  `json:"name"`
+	IsActive  bool    `json:"is_active"`
+	Role      string  `json:"role"`
+	CreatedAt string  `json:"created_at"`
+	UpdatedAt string  `json:"updated_at"`
+	// Compatibility fields consumed by existing administration clients.
 	IsAdmin      bool   `json:"is_admin"`
 	Blocked      bool   `json:"blocked,omitempty"`
-	CreatedAt    string `json:"created_at"`
+	DeletionKey  string `json:"-"`
+	WorkspaceKey string `json:"-"`
 }
 
 const (
@@ -54,15 +61,12 @@ type Invite struct {
 }
 
 const schema = `
-CREATE TABLE IF NOT EXISTS users (
-	id INTEGER PRIMARY KEY AUTOINCREMENT,
-	username TEXT NOT NULL UNIQUE,
-	password_hash TEXT NOT NULL,
-	is_admin INTEGER NOT NULL DEFAULT 0,
-	created_at INTEGER NOT NULL
-);
 CREATE TABLE IF NOT EXISTS workspace_bindings (user_id INTEGER PRIMARY KEY, generation TEXT NOT NULL UNIQUE, pending INTEGER NOT NULL DEFAULT 0);
 CREATE TABLE IF NOT EXISTS sessions (
+ id TEXT NOT NULL UNIQUE,
+ created_at INTEGER NOT NULL,
+ last_seen_at INTEGER NOT NULL,
+ user_agent TEXT NOT NULL,
 	token_hash TEXT PRIMARY KEY,
 	user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
 	expires_at INTEGER NOT NULL
@@ -86,7 +90,6 @@ CREATE TABLE IF NOT EXISTS registration (
 INSERT INTO registration (id,mode) VALUES (1,'invite') ON CONFLICT (id) DO NOTHING;
 CREATE TABLE IF NOT EXISTS account_access (
  user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
- blocked INTEGER NOT NULL DEFAULT 0,
  recovery_hash TEXT NOT NULL DEFAULT ''
 );
 CREATE TABLE IF NOT EXISTS passkey_owners (
@@ -98,12 +101,14 @@ CREATE TABLE IF NOT EXISTS passkeys (
  user_id INTEGER NOT NULL REFERENCES passkey_owners(user_id) ON DELETE CASCADE,
  rp TEXT NOT NULL,
  name TEXT NOT NULL,
+ created_at INTEGER NOT NULL DEFAULT 0,
  credential TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS passkeys_owner ON passkeys(user_id);`
 
 // DB holds users, sessions and invites in a dedicated SQLite file or PostgreSQL schema.
 type DB struct {
+	factorKey        cipher.AEAD
 	db               *database.DB
 	now              func() time.Time
 	nextSessionSweep atomic.Int64
@@ -126,7 +131,7 @@ func OpenPostgres(dsn string) (*DB, error) {
 }
 
 func initialize(db *database.DB) (*DB, error) {
-	body := schema
+	body := schema + factorSchema
 	if db.Postgres {
 		body = strings.ReplaceAll(body, "INTEGER PRIMARY KEY AUTOINCREMENT", "BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY")
 		body = strings.ReplaceAll(body, "INTEGER", "BIGINT")
@@ -136,7 +141,10 @@ func initialize(db *database.DB) (*DB, error) {
 		defer tx.Rollback()
 		err = db.CreateSchema(tx)
 		if err == nil {
-			_, err = tx.Exec(body)
+			err = db.EnsureCatalog(tx)
+			if err == nil {
+				_, err = tx.Exec(body)
+			}
 		}
 		if err == nil {
 			err = tx.Commit()
@@ -148,6 +156,8 @@ func initialize(db *database.DB) (*DB, error) {
 	}
 	return &DB{db: db, now: time.Now}, nil
 }
+
+func (d *DB) Connection() *database.DB { return d.db }
 
 func (d *DB) Close() error { return d.db.Close() }
 
@@ -185,18 +195,28 @@ func normalizeUsername(username string) (string, error) {
 func (d *DB) createUser(tx *database.Tx, username string, digest PasswordDigest, admin bool) (User, error) {
 	created := d.now().Unix()
 	var id int64
-	err := tx.QueryRow(`INSERT INTO users (username, password_hash, is_admin, created_at) VALUES (?, ?, ?, ?) RETURNING id`, username, digest.hash, admin, created).Scan(&id)
+	role := "user"
+	if admin {
+		role = "admin"
+	}
+	err := tx.QueryRow(`INSERT INTO users (username,name,role,created_at,updated_at) VALUES (?,?,?,?,?) RETURNING id`, username, username, role, created, created).Scan(&id)
 	if err != nil {
 		if database.IsUniqueViolation(err) {
 			return User{}, ErrTaken
 		}
 		return User{}, err
 	}
+	if _, err = tx.Exec("INSERT INTO password_credentials(user_id,password_hash) VALUES (?,?)", id, digest.hash); err != nil {
+		return User{}, err
+	}
 	generation := rand.Text()
+	if _, err = tx.Exec("INSERT INTO workspaces(owner_user_id,name,generation,created_at,updated_at) VALUES (?,?,?,?,?)", id, username, generation, created, created); err != nil {
+		return User{}, err
+	}
 	if _, err = tx.Exec("INSERT INTO workspace_bindings (user_id,generation) VALUES (?,?)", id, generation); err != nil {
 		return User{}, err
 	}
-	return User{ID: id, WorkspaceKey: generation, Username: username, IsAdmin: admin, CreatedAt: time.Unix(created, 0).UTC().Format(time.RFC3339)}, nil
+	return User{Name: username, Role: role, IsActive: true, UpdatedAt: time.Unix(created, 0).UTC().Format(time.RFC3339), ID: id, WorkspaceKey: generation, Username: username, IsAdmin: admin, CreatedAt: time.Unix(created, 0).UTC().Format(time.RFC3339)}, nil
 }
 
 // dummyHash lets Authenticate spend the same time on unknown users as on wrong passwords.
@@ -213,7 +233,7 @@ type PasswordProof struct {
 
 func (d *DB) PasswordCurrent(p PasswordProof) error {
 	var current bool
-	err := d.db.QueryRow(`SELECT EXISTS (SELECT 1 FROM users WHERE id=? AND password_hash=? AND id NOT IN (SELECT user_id FROM account_access WHERE blocked=1))`, p.User.ID, p.hash).Scan(&current)
+	err := d.db.QueryRow(`SELECT EXISTS (SELECT 1 FROM users JOIN password_credentials c ON c.user_id=users.id WHERE id=? AND c.password_hash=? AND is_active=1)`, p.User.ID, p.hash).Scan(&current)
 	if err == nil && !current {
 		return ErrBadCredentials
 	}
@@ -229,9 +249,9 @@ func (d *DB) VerifyPassword(username, password string) (PasswordProof, error) {
 	username = strings.ToLower(strings.TrimSpace(username))
 	var u User
 	var hash string
-	var created int64
-	err := d.db.QueryRow(`SELECT id, username, password_hash, is_admin, created_at, coalesce(b.generation,'') FROM users LEFT JOIN workspace_bindings b ON b.user_id=users.id AND b.pending=0 WHERE username = ? AND id NOT IN (SELECT user_id FROM account_access WHERE blocked=1)`, username).
-		Scan(&u.ID, &u.Username, &hash, &u.IsAdmin, &created, &u.WorkspaceKey)
+	var updated, created int64
+	err := d.db.QueryRow(`SELECT id, username, password_hash, name,role,is_active,updated_at,CASE WHEN photo IS NOT NULL THEN '/api/users/' || CAST(id AS TEXT) || '/photo' END,is_admin, created_at, coalesce(b.generation,'') FROM users JOIN password_credentials c ON c.user_id=users.id LEFT JOIN workspace_bindings b ON b.user_id=users.id AND b.pending=0 WHERE username = ? AND is_active=1`, username).
+		Scan(&u.ID, &u.Username, &hash, &u.Name, &u.Role, &u.IsActive, &updated, &u.Photo, &u.IsAdmin, &created, &u.WorkspaceKey)
 	if errors.Is(err, sql.ErrNoRows) {
 		CheckPassword(dummyHash(), password)
 		return PasswordProof{}, ErrBadCredentials
@@ -242,6 +262,7 @@ func (d *DB) VerifyPassword(username, password string) (PasswordProof, error) {
 	if !CheckPassword(hash, password) {
 		return PasswordProof{}, ErrBadCredentials
 	}
+	u.UpdatedAt = time.Unix(updated, 0).UTC().Format(time.RFC3339)
 	u.CreatedAt = time.Unix(created, 0).UTC().Format(time.RFC3339)
 	return PasswordProof{User: u, hash: hash}, nil
 }
@@ -256,6 +277,9 @@ const maxSessionsPerUser = 32
 
 // StartSession also returns evicted session hashes so the server can end their open streams.
 func (d *DB) StartSession(userID int64) (string, []string, error) {
+	return d.StartDeviceSession(userID, "")
+}
+func (d *DB) StartDeviceSession(userID int64, agent string) (string, []string, error) {
 	token, hash, err := newToken()
 	if err != nil {
 		return "", nil, err
@@ -282,7 +306,7 @@ func (d *DB) StartSession(userID int64) (string, []string, error) {
 	if err != nil {
 		return "", nil, err
 	}
-	if _, err = tx.Exec("INSERT INTO sessions(token_hash,user_id,expires_at) VALUES (?,?,?)", hash, userID, now.Add(sessionTTL).Unix()); err != nil {
+	if _, err = tx.Exec("INSERT INTO sessions(id,token_hash,user_id,created_at,last_seen_at,expires_at,user_agent) VALUES (?,?,?,?,?,?,?)", rand.Text(), hash, userID, now.Unix(), now.Unix(), now.Add(sessionTTL).Unix(), string([]rune(agent)[:min(256, len([]rune(agent)))])); err != nil {
 		return "", nil, err
 	}
 	if err = tx.Commit(); err != nil {
@@ -302,16 +326,22 @@ func (d *DB) UserBySession(token string) (User, error) {
 // Session returns the session's user and when the session expires.
 func (d *DB) Session(token string) (User, time.Time, error) {
 	var u User
-	var created, expires int64
-	err := d.db.QueryRow(`SELECT u.id, u.username, u.is_admin, u.created_at, s.expires_at, coalesce(b.generation,'') FROM sessions s JOIN users u ON u.id = s.user_id LEFT JOIN workspace_bindings b ON b.user_id=u.id AND b.pending=0
-		WHERE s.token_hash = ? AND s.expires_at > ? AND u.id NOT IN (SELECT user_id FROM account_access WHERE blocked=1)`, TokenHash(token), d.now().Unix()).Scan(&u.ID, &u.Username, &u.IsAdmin, &created, &expires, &u.WorkspaceKey)
+	var updated, created, expires, seen int64
+	err := d.db.QueryRow(`SELECT u.id, u.username, u.name,u.role,u.is_active,u.updated_at,CASE WHEN u.photo IS NOT NULL THEN '/api/users/' || CAST(u.id AS TEXT) || '/photo' END,u.is_admin, u.created_at, s.expires_at,s.last_seen_at, coalesce(b.generation,'') FROM sessions s JOIN users u ON u.id = s.user_id LEFT JOIN workspace_bindings b ON b.user_id=u.id AND b.pending=0
+		WHERE s.token_hash = ? AND s.expires_at > ? AND u.is_active=1`, TokenHash(token), d.now().Unix()).Scan(&u.ID, &u.Username, &u.Name, &u.Role, &u.IsActive, &updated, &u.Photo, &u.IsAdmin, &created, &expires, &seen, &u.WorkspaceKey)
 	if errors.Is(err, sql.ErrNoRows) {
 		return User{}, time.Time{}, ErrNotFound
 	}
 	if err != nil {
 		return User{}, time.Time{}, err
 	}
+	u.UpdatedAt = time.Unix(updated, 0).UTC().Format(time.RFC3339)
 	u.CreatedAt = time.Unix(created, 0).UTC().Format(time.RFC3339)
+	if now := d.now().Unix(); now-seen >= 300 {
+		if _, err = d.db.Exec("UPDATE sessions SET last_seen_at=? WHERE token_hash=? AND last_seen_at=?", now, TokenHash(token), seen); err != nil {
+			return User{}, time.Time{}, err
+		}
+	}
 	return u, time.Unix(expires, 0), nil
 }
 
@@ -431,7 +461,7 @@ func (d *DB) ListInvites() ([]Invite, error) {
 }
 
 func (d *DB) ListUsers() ([]User, error) {
-	rows, err := d.db.Query(`SELECT u.id, username, is_admin, created_at, coalesce(a.blocked,0), coalesce(b.generation,'') FROM users u LEFT JOIN account_access a ON a.user_id=u.id LEFT JOIN workspace_bindings b ON b.user_id=u.id AND b.pending=0 ORDER BY u.id`)
+	rows, err := d.db.Query(`SELECT u.id, username, u.name,u.role,u.is_active,u.updated_at,CASE WHEN u.photo IS NOT NULL THEN '/api/users/' || CAST(u.id AS TEXT) || '/photo' END,is_admin, created_at, (1-u.is_active), coalesce(b.generation,'') FROM users u LEFT JOIN account_access a ON a.user_id=u.id LEFT JOIN workspace_bindings b ON b.user_id=u.id AND b.pending=0 ORDER BY u.id`)
 	if err != nil {
 		return nil, err
 	}
@@ -439,10 +469,11 @@ func (d *DB) ListUsers() ([]User, error) {
 	out := []User{}
 	for rows.Next() {
 		var u User
-		var created int64
-		if err := rows.Scan(&u.ID, &u.Username, &u.IsAdmin, &created, &u.Blocked, &u.WorkspaceKey); err != nil {
+		var updated, created int64
+		if err := rows.Scan(&u.ID, &u.Username, &u.Name, &u.Role, &u.IsActive, &updated, &u.Photo, &u.IsAdmin, &created, &u.Blocked, &u.WorkspaceKey); err != nil {
 			return nil, err
 		}
+		u.UpdatedAt = time.Unix(updated, 0).UTC().Format(time.RFC3339)
 		u.CreatedAt = time.Unix(created, 0).UTC().Format(time.RFC3339)
 		out = append(out, u)
 	}
@@ -511,7 +542,7 @@ func (d *DB) ReplacePassword(proof PasswordProof, digest PasswordDigest, keepTok
 		return nil, err
 	}
 	defer tx.Rollback()
-	result, err := tx.Exec(`UPDATE users SET password_hash = ? WHERE id = ? AND password_hash=?`, digest.hash, userID, proof.hash)
+	result, err := tx.Exec(`UPDATE password_credentials SET password_hash = ? WHERE user_id = ? AND password_hash=?`, digest.hash, userID, proof.hash)
 	if err != nil {
 		return nil, err
 	}
@@ -519,6 +550,9 @@ func (d *DB) ReplacePassword(proof PasswordProof, digest PasswordDigest, keepTok
 		return nil, err
 	} else if n != 1 {
 		return nil, ErrBadCredentials
+	}
+	if _, err = tx.Exec("DELETE FROM totp_challenges WHERE user_id=?", userID); err != nil {
+		return nil, err
 	}
 	// Every other session of the account ends; the one that made the change stays.
 	rows, err := tx.Query(`DELETE FROM sessions WHERE user_id = ? AND token_hash != ? RETURNING token_hash`, userID, TokenHash(keepToken))

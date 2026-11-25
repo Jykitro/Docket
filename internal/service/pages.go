@@ -496,10 +496,7 @@ var (
 	taskCodeRe = regexp.MustCompile(`\b[A-Z][A-Z0-9]{1,4}-\d+\b`)
 )
 
-type PageRef struct {
-	ID    int64  `json:"id"`
-	Title string `json:"title"`
-}
+type PageRef = store.PageRef
 
 type TaskRef struct {
 	Code  string `json:"code"`
@@ -553,28 +550,22 @@ func pageDetail(tx *store.Tx, pg store.Page, documentOffset int) (PageDetail, er
 		d.ParentTitle = title
 	}
 	titles, codes := parseLinks(pg.BodyMD)
-	targets := make(map[string]PageRef, len(titles))
-	for _, key := range titles {
-		targets[key] = PageRef{}
+	targets, err := tx.LinkedPageTitles(pg.ProjectID, titles)
+	if err != nil {
+		return d, err
 	}
 	self := titleKey(pg.Title)
 	offset := documentOffset
-	err := tx.WalkPageLinks(pg.ProjectID, func(id int64, title, body string) error {
-		if k := titleKey(title); len(targets) > 0 {
-			if _, needed := targets[k]; needed {
-				targets[k] = PageRef{id, title}
+	err = tx.WalkBacklinkCandidates(pg.ProjectID, pg.ID, func(id int64, title, body string) bool {
+		links, _ := parseLinks(body)
+		if contains(links, self) {
+			if offset > 0 {
+				offset--
+			} else {
+				d.Backlinks = append(d.Backlinks, PageRef{ID: id, Title: title})
 			}
 		}
-		if id != pg.ID && len(d.Backlinks) < TaskPageSize && strings.Contains(body, "[[") {
-			if links, _ := parseLinks(body); contains(links, self) {
-				if offset > 0 {
-					offset--
-				} else {
-					d.Backlinks = append(d.Backlinks, PageRef{id, title})
-				}
-			}
-		}
-		return nil
+		return len(d.Backlinks) < TaskPageSize
 	})
 	if err != nil {
 		return d, err
@@ -655,23 +646,11 @@ func (s *Service) TaskPages(ctx context.Context, taskRef string) (out []TaskPage
 		if t.DeletedAt != nil {
 			return notFound("task %s not found", t.Code)
 		}
-		cand, err := tx.PagesContaining(t.Code)
-		if err != nil {
-			return err
-		}
-		for _, pg := range cand {
-			if !contains(taskCodeRe.FindAllString(linkText(pg.BodyMD), -1), t.Code) {
-				continue
+		return tx.WalkTaskMentions(t.Code, func(id int64, title, slug, body string) {
+			if contains(taskCodeRe.FindAllString(linkText(body), -1), t.Code) {
+				out = append(out, TaskPage{id, title, slug})
 			}
-			p, err := tx.GetProject(pg.ProjectID)
-			if err != nil {
-				return err
-			}
-			if p.DeletedAt == nil {
-				out = append(out, TaskPage{pg.ID, pg.Title, p.Slug})
-			}
-		}
-		return nil
+		})
 	})
 	return out, err
 }

@@ -1,3 +1,4 @@
+import { workspaceApi } from './workspacePath'
 import type { Project } from './api'
 
 // Icon set plus the few UI glyphs the screens use. viewBox 24, stroke 1.75, round caps.
@@ -69,7 +70,7 @@ export function Icon({ name, size = 16, sw = 1.75 }: { name: string; size?: numb
 export function ProjectTile({ project, size = 20, radius = 6 }: { project: Pick<Project, 'icon' | 'color' | 'icon_url'>; size?: number; radius?: number }) {
   return (
     <span className="grid place-items-center text-white" style={{ width: size, height: size, flex: `0 0 ${size}px`, borderRadius: radius, background: project.color }}>
-      {project.icon_url ? <img src={project.icon_url} alt="" width={size} height={size} className="size-full rounded-[inherit] object-contain" />
+      {project.icon_url ? <img src={workspaceApi(project.icon_url)} alt="" width={size} height={size} className="size-full rounded-[inherit] object-contain" />
         : <Icon name={project.icon} size={Math.round(size * 0.6)} sw={size > 28 ? 1.9 : 2} />}
     </span>
   )

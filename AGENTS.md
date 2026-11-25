@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Plandillo is a personal task planner: one Go process, SQLite by default (a database per user in selfhost mode), optional PostgreSQL schemas for selfhost, a React UI embedded in the binary, and an MCP server so an assistant can read and keep the tasks. This file is for agents that work on the Plandillo code. Start with the [README](README.md) for usage and the [development guide](docs/development/README.md) for build targets and the REST API.
+Plandillo is a personal task planner: one Go process, one SQLite database by default, optional shared PostgreSQL storage for selfhost, a React UI embedded in the binary, and an MCP server so an assistant can read and keep the tasks. This file is for agents that work on the Plandillo code. Start with the [README](README.md) for usage and the [development guide](docs/development/README.md) for build targets and the REST API.
 
 ## Commands
 
@@ -33,7 +33,7 @@ internal/service    domain rules, validation, activity log, events, MCP settings
 internal/httpapi    REST, SSE /api/events, host/origin guard, bearer auth for /mcp, MCP self-check
 internal/mcpserver  MCP tools -> service, access policy and call log; Code Mode at /mcp/code (codemode.go)
 internal/auth       selfhost users, sessions, password hashing, login rate limiter
-internal/selfhost   one SQLite file or PostgreSQL schema per profile, routing by session or MCP token
+internal/selfhost   private workspace routing by account session or workspace MCP token
 internal/events     pub/sub for SSE
 internal/web        embedded SPA (dist)
 skills/             agent skills for users of Plandillo, embedded in the binary (see below)
@@ -55,10 +55,7 @@ web/                React + TypeScript + Vite + Tailwind CSS v4; the design toke
 **Data safety.** Never commit `.env`, `data/` or any database. No bundled personal data: Plandillo ships without a seed (`DOCKET_SEED` is optional and empty by default). The `/mcp` endpoint is behind a bearer token and the Host/Origin guard; don't weaken either.
 
 PostgreSQL is opt-in via `DOCKET_POSTGRES_DSN` and requires `DOCKET_MODE=selfhost`. Use a dedicated database:
-`plandillo_auth` stores accounts and `plandillo_user_<id>` stores each profile. Existing Docket databases keep their `docket_*` schemas. Both dialects must keep the same service
-contract. PostgreSQL migrations live in `internal/store/migrations/postgres`; do not change existing SQLite migrations
-to add PostgreSQL support. Test both backends. PostgreSQL backups are external (`pg_dump`/PITR); never claim a file
-backup ran. Docker and native installations run one instance per database. The Vercel entrypoint coordinates replicas in PostgreSQL as documented in [the Vercel guide](docs/vercel.md). There is no automatic SQLite import. See the [hosting guide](docs/hosting.md#postgresql-storage) and `compose.postgres.yml`.
+The shared `plandillo_auth` schema stores accounts and workspace-scoped domain tables. SQLite uses one shared file. Fresh-install baselines are `internal/store/shared_sqlite.sql` and `shared_postgres.sql`, with the account catalog in `internal/database/catalog.go`. Preserve the old storage for rollback when switching to a new installation. Test both backends. PostgreSQL backups are external (`pg_dump`/PITR). Never claim a file backup ran. Docker and native installations run one instance per database. The Vercel entrypoint coordinates replicas in PostgreSQL as documented in [the Vercel guide](docs/vercel.md). There is no automatic SQLite import. See the [hosting guide](docs/hosting.md#postgresql-storage) and `compose.postgres.yml`.
 
 ## MCP tools
 

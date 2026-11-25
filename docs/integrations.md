@@ -28,7 +28,7 @@ assistant ──HTTP──▶ Host/Origin guard ─▶ bearer token ─▶ mcpse
 
 What every integration gets for free, because it all sits in front of or under the classic server:
 
-- **Auth.** One token per profile (`service.MCPToken`), checked on every request so a rotated token works at once.
+- **Auth.** One token per workspace (`service.MCPToken`), checked on every request so a rotated token works at once.
   In selfhost mode the token also chooses the profile (`selfhost/handler.go`, `h.mcp`).
 - **Policy.** `policy()` in `mcpserver.go` hides switched-off tools from `tools/list`, refuses them with
   `tool_disabled`, and refuses write tools with `forbidden` in read-only mode. The list of tools and their group

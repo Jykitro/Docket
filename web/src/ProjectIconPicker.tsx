@@ -5,7 +5,7 @@ import { btn } from './ui'
 
 const formats = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml']
 
-async function thumbnail(file: File): Promise<string> {
+export async function thumbnail(file: File): Promise<string> {
   if (!formats.includes(file.type) || file.size > 2 * 1024 * 1024) {
     throw new Error(tr('Выберите PNG, JPEG, WebP или SVG до 2 МБ.'))
   }

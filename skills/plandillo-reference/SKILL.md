@@ -23,6 +23,8 @@ Answers are compact JSON. IDs always look like `TRK-07`; `project` arguments acc
 
 `list_projects`, `list_pages`, `get_board`, `get_today` and `get_task` accept `limit` (1–100, default 100) and `offset` (default 0). Advance by `limit` when a list is full. For the board, count tasks across status groups. For Today, check both planned and overdue tasks. Task details page subtasks, notes and attachment headers independently with the same offset. History shows the latest 20 events. Large change details (over 64 KiB) are available in the export. On wiki details, `document_offset` advances both attachment headers and backlinks in groups of 100.
 
+Each MCP connection operates within the workspace selected by its bearer token. Project keys and task codes are unique within that workspace.
+
 **Code Mode.** Connected to `/mcp/code` you see one tool, `code`, instead of these. Its argument is JavaScript: an async arrow function or its body, calling the tools below as `await codemode.<tool>(args)` with the same arguments and results. It returns `{result, logs}` (your return value and `console.log` lines). A failed call throws `Error("code: message")`; uncaught, the whole `code` call fails with it. Limits: 30 s (`timeout`), 100 calls, 50 KB result; no fetch or timers. Use it to chain steps and filter big answers, and return only what you need. Access mode, switches and the call log apply to every inner call. Selfhost accepts up to 256 KiB of code, one active run per workspace and two per instance. Busy calls return `rate_limited`; an offline isolated worker returns `unavailable`.
 
 | Tool | Use it for | Behaviour you must know |

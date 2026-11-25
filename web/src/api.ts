@@ -1,3 +1,4 @@
+import { workspaceApi } from './workspacePath'
 // REST client, types and shared data hooks. Every list is a TanStack Query; SSE (live.ts) invalidates them.
 import { useQueries, useQuery } from '@tanstack/react-query'
 import { getLang, locale, tr } from './i18n'
@@ -74,7 +75,7 @@ export type TaskRef = { code: string; title: string }
 export type TaskPage = PageRef & { project: string }
 export type PageDetail = Page & { documents?: HTMLDocumentInfo[]; backlinks: PageRef[]; links: { pages: PageRef[]; tasks: TaskRef[] } }
 
-export type AuthUser = { id: number; username: string; is_admin: boolean; blocked?: boolean; created_at: string }
+export type AuthUser = { name: string; role: string; is_active: boolean; photo: string | null; updated_at: string; id: number; username: string; is_admin: boolean; blocked?: boolean; created_at: string }
 export type Registration = 'open' | 'invite' | 'closed'
 type Recovery = { recovery_code: string }
 export type Me = { mode: 'local' | 'selfhost'; setup?: boolean; setup_source?: 'environment'; user?: AuthUser }
@@ -104,6 +105,10 @@ const SERVER: Record<string, [string, string]> = {
     'Имя пользователя: 2-32 символа, a-z, 0-9, _ . -, начинается с буквы или цифры',
     'Ім’я користувача: 2-32 символи, a-z, 0-9, _ . -, починається з літери або цифри',
   ],
+  'keep at least one active workspace': ['Оставьте хотя бы одно активное пространство.', 'Залиште хоча б один активний простір.'],
+  'invalid workspace name, icon or action': ['Проверьте название, значок и действие с пространством.', 'Перевірте назву, піктограму та дію з простором.'],
+  'workspace not found': ['Пространство недоступно.', 'Простір недоступний.'],
+  'account storage limit reached': ['Хранилище аккаунта заполнено.', 'Сховище облікового запису заповнено.'],
   'password must be 10-128 characters': ['Пароль должен быть от 10 до 128 символов', 'Пароль має бути від 10 до 128 символів'],
   'cannot delete yourself': ['Нельзя удалить самого себя', 'Не можна видалити самого себе'],
   'not logged in': ['Сессия истекла, войдите снова', 'Сесія завершилася, увійдіть знову'],
@@ -161,7 +166,7 @@ async function req<T>(method: string, url: string, body?: unknown, budget?: Coll
   const headers = new Headers()
   if (body !== undefined) headers.set('Content-Type', 'application/json')
   if (typeof owner === 'number' && url !== '/api/auth/me') headers.set('X-Docket-User', String(owner))
-  const res = await fetch(url, {
+  const res = await fetch(workspaceApi(url), {
     method, headers,
     signal: sessionRequests.signal,
     body: body === undefined ? undefined : JSON.stringify(body),
@@ -188,7 +193,7 @@ async function req<T>(method: string, url: string, body?: unknown, budget?: Coll
   if (data?.error?.code === 'session_changed' || (res.status === 401 && typeof owner === 'number' && (data?.error?.code === 'unauthorized' || !url.startsWith('/api/auth/')))) leaveWorkspace()
   sessionRequests.signal.throwIfAborted()
   if (!res.ok) throw new ApiError(data?.error?.code ?? 'internal', data?.error?.message ?? res.statusText)
-  if (['/api/auth/login', '/api/auth/passkeys/login/finish', '/api/auth/logout', '/api/auth/setup', '/api/auth/register', '/api/auth/account', '/api/auth/recover'].includes(url) || url.startsWith('/api/auth/invite/')) {
+  if (!data?.challenge && (['/api/auth/login/totp','/api/auth/login', '/api/auth/passkeys/login/finish', '/api/auth/logout', '/api/auth/setup', '/api/auth/register', '/api/auth/account', '/api/auth/recover'].includes(url) || url.startsWith('/api/auth/invite/'))) {
     sessionGeneration++
     try {
       localStorage.setItem(changeKey, crypto.getRandomValues(new Uint32Array(4)).join('-'))
@@ -272,9 +277,30 @@ async function wikiPage(id: number) {
   return page
 }
 
+export type Space = { id: number; owner_user_id: number; name: string; icon: string; has_icon: boolean; archived_at: number | null; updated_at: number }
+type SpaceChange = { name?: string; icon?: string; icon_png?: string; action?: 'archive' | 'restore' }
+type Device = { id: string; user_agent: string; current: boolean; created_at: string; last_seen_at: string; expires_at: string }
 export const api = {
-  me: () => req<Me>('GET', '/api/auth/me'),
-  login: (username: string, password: string) => req<AuthUser>('POST', '/api/auth/login', { username, password }),
+  spaces: () => req<Space[]>('GET', '/api/workspaces'),
+  createSpace: (name: string) => req<Space>('POST', '/api/workspaces', {name}),
+  changeSpace: (id: number, change: SpaceChange) => req<Space>('PATCH', `/api/workspaces/${id}`, change),
+  deleteSpace: (id: number, name: string, password: string) => req<void>('DELETE', `/api/workspaces/${id}`, {name,password}),
+  setPhoto: (photo: string | null) => req<void>('PUT','/api/auth/photo',{photo}),
+  sessions: () => req<Device[]>('GET','/api/auth/sessions'),
+  revokeSession: (id: string) => req<void>('DELETE','/api/auth/sessions/'+encodeURIComponent(id)),
+  totp: () => req<{available:boolean; enabled:boolean}>('GET','/api/auth/totp'),
+  beginTOTP: (password:string) => req<{secret:string;qr_png:string}>('POST','/api/auth/totp/begin',{password}),
+  setTOTP: (enable:boolean,password:string,code:string) => req<void>('POST','/api/auth/totp/'+(enable?'confirm':'disable'),{password,code}),
+  finishTOTP: (challenge:string,code:string) => req<AuthUser>('POST','/api/auth/login/totp',{challenge,code}),
+  async me(): Promise<Me> {
+    try {
+      return await req<Me>('GET', '/api/auth/me')
+    } catch (error) {
+      if (error instanceof ApiError && error.code === 'unauthorized') return { mode: 'selfhost' }
+      throw error
+    }
+  },
+  login: (username: string, password: string) => req<AuthUser | {challenge:string}>('POST', '/api/auth/login', { username, password }),
   passkeys: () => req<{ available: boolean; keys: { id: string; name: string }[] }>('GET', '/api/auth/passkeys'),
   beginPasskeyLogin: () => req<{ publicKey: PublicKeyCredentialRequestOptionsJSON }>('POST', '/api/auth/passkeys/login/begin', {}),
   finishPasskeyLogin: (key: ReturnType<PublicKeyCredential['toJSON']>) => req<AuthUser>('POST', '/api/auth/passkeys/login/finish', key),

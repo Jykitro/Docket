@@ -14,7 +14,7 @@ import (
 
 // PostgresDSN requires an explicit test-only server whose role can create databases.
 // Every call creates a fresh database; cleanup never touches the supplied database.
-func PostgresDSN(t *testing.T) string {
+func PostgresDSN(t testing.TB) string {
 	t.Helper()
 	dsn := os.Getenv("DOCKET_TEST_POSTGRES_DSN")
 	if dsn == "" {
