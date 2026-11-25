@@ -5,6 +5,11 @@ set -eu
 unset DOCKET_TOKEN # Older setup commands supplied this to the installer.
 endpoint=${PLANDILLO_URL:-${DOCKET_URL:-}}
 : "${endpoint:?Set PLANDILLO_URL to the MCP endpoint}"
+client=${PLANDILLO_CLIENT:-all}
+case "$client" in
+  all|codex|claude-code) ;;
+  *) echo 'PLANDILLO_CLIENT must be codex, claude-code or all.' >&2; exit 1 ;;
+esac
 # Hex encodes the full endpoint without collisions and works on both macOS and Linux.
 endpoint_key=$(printf %s "$endpoint" | od -An -v -tx1 | tr -d ' \n')
 credential=DOCKET_MCP_${endpoint_key}
@@ -29,7 +34,7 @@ agent_url() {
 }
 
 found=
-if command -v claude >/dev/null 2>&1; then
+if [ "$client" != codex ] && command -v claude >/dev/null 2>&1; then
   install_skills "$HOME/.claude/skills"
   claude mcp remove "$name" --scope user >/dev/null 2>&1 || true
   if [ -n "${PLANDILLO_URL:-}" ]; then
@@ -41,13 +46,13 @@ if command -v claude >/dev/null 2>&1; then
   echo "Claude Code: skills installed, MCP server added"
   found=1
 fi
-if command -v codex >/dev/null 2>&1; then
+if [ "$client" != claude-code ] && command -v codex >/dev/null 2>&1; then
   install_skills "$HOME/.agents/skills"
   codex mcp remove "$name" >/dev/null 2>&1 || true
   # Codex reads the token from an environment variable, so it never lands in config.toml.
   if [ -n "${PLANDILLO_URL:-}" ]; then
     codex mcp add "$name" --url "$endpoint"
-    echo "To authorize Plandillo in your browser, run: codex mcp login $name"
+    echo "If you still need to sign in, run: codex mcp login $name"
   else
     codex mcp add "$name" --url "$(agent_url codex)" --bearer-token-env-var "$credential"
   fi
@@ -55,7 +60,10 @@ if command -v codex >/dev/null 2>&1; then
   found=1
 fi
 if [ -z "$found" ]; then
-  echo "Neither claude nor codex is in PATH. Install one of them and run this again." >&2
+  case "$client" in
+    all) echo "Neither claude nor codex is in PATH. Install one of them and run this again." >&2 ;;
+    *) echo "Install $client and run its Plandillo setup again." >&2 ;;
+  esac
   exit 1
 fi
 if [ -n "${PLANDILLO_URL:-}" ]; then exit 0; fi

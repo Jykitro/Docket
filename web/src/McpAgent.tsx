@@ -1,4 +1,3 @@
-// MCP tab: the agent skill (how an assistant keeps Plandillo true) and the optional Stop hook for Claude Code.
 import { useState } from 'react'
 import { Icon } from './icons'
 import { tr } from './i18n'
@@ -6,14 +5,7 @@ import { tr } from './i18n'
 const PANEL = 'overflow-hidden rounded-xl border border-ln bg-sf'
 const BTN = 'inline-flex h-[30px] items-center gap-2 whitespace-nowrap rounded-md border border-ln bg-sf px-2.5 text-[13px] font-medium text-tx no-underline hover:bg-sk'
 const PRI = 'inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-md border border-ink bg-ink px-3 text-sm font-medium text-inkt hover:opacity-90'
-const PRE ='overflow-x-auto rounded-[10px] border border-ln bg-sf2 px-4 py-3 font-mono text-[12.5px] leading-[1.65] whitespace-pre text-t2'
-const STEPS = [
-  ['Старт', 'Находит или создаёт задачу, кладёт план чек-листом в описание и ставит «В работе».'],
-  ['Ход работы', 'Отмечает шаги и пишет заметки. Найденные проблемы заводит задачами с областью issue.'],
-  ['Финиш', 'Сверяет: шаги закрыты, итог в заметке, статус честный, ничего не зависло.'],
-] as const
-// Claude Code, Claude Desktop, Codex: where the skill file goes. Desktop has no skill folder, so it gets the text.
-const SKILL_PATH = ['~/.claude/skills/<name>/SKILL.md', '', '~/.agents/skills/<name>/SKILL.md']
+const PRE = 'overflow-x-auto rounded-[10px] border border-ln bg-sf2 px-4 py-3 font-mono text-[12.5px] leading-[1.65] whitespace-pre text-t2'
 const SKILLS = [
   ['plandillo', 'Рабочий процесс: задача, план, заметки, финиш. Его же сервер отправляет при подключении.'],
   ['plandillo-reference', 'Справочник: инструменты, поля, ошибки и ответы на частые вопросы.'],
@@ -34,16 +26,62 @@ const HOOK = `{
     }] }]
   }
 }`
-// Claude Code: the project file. Codex: its global file (hooks are on by default there).
-const HOOK_PATH = ['.claude/settings.json', '', '~/.codex/hooks.json']
 
-export const shellQuote = (value: string) => "'" + value.replaceAll("'", "'\"'\"'") + "'"
+const shellQuote = (value: string) => "'" + value.replaceAll("'", "'\"'\"'") + "'"
 
-export function McpAgent({ tab, url }: { tab: number; url: string }) {
+const CLIENTS = ['Claude Code', 'Codex', 'Claude Desktop', 'Другой клиент'] as const
+type Client = typeof CLIENTS[number]
+const METHODS = {
+  workspace: 'Навыки и MCP этой доски',
+  plugin: 'Плагин из GitHub',
+  skills: 'Только навыки',
+  mcp: 'Только MCP',
+} as const
+type Method = keyof typeof METHODS
+const repo = 'huntly-digital/plandillo'
+const hosted = 'https://app.plandillo.dev/mcp'
+const select = 'max-w-full rounded-md border border-ln bg-sf px-2 py-1.5 text-sm text-tx'
+
+function installCommand(client: Client, method: Method, address: string) {
+  if (client === 'Другой клиент') return address
+  if (client === 'Claude Desktop') return JSON.stringify({ mcpServers: { plandillo: {
+    command: 'npx', args: ['-y', 'mcp-remote', address, ...(address.startsWith('http:') ? ['--allow-http'] : [])],
+  } } }, null, 2)
+  const codex = client === 'Codex'
+  const agent = codex ? 'codex' : 'claude-code'
+  const cli = codex ? 'codex' : 'claude'
+  switch (method) {
+    case 'workspace':
+      return `curl -fsSL ${shellQuote(location.origin + '/api/mcp/install.sh')} | PLANDILLO_CLIENT=${agent} PLANDILLO_URL=${shellQuote(address)} sh`
+    case 'plugin':
+      return `${cli} plugin marketplace add ${repo}\n${cli} plugin ${codex ? 'add' : 'install'} plandillo@huntly-digital`
+    case 'skills':
+      return `npx skills add ${repo} --skill plandillo plandillo-reference plandillo-setup --agent ${agent}`
+    case 'mcp':
+      return codex ? `codex mcp add plandillo --url ${shellQuote(address)}`
+        : `claude mcp add --transport http plandillo ${shellQuote(address)}\nclaude mcp login plandillo`
+  }
+}
+
+export function McpAgent() {
+  const [client, setClient] = useState<Client>('Claude Code')
+  const [method, setMethod] = useState<Method>(location.origin + '/mcp' === hosted ? 'plugin' : 'workspace')
+  const [codeMode, setCodeMode] = useState(false)
+  const [agentName, setAgentName] = useState('')
+  const cli = client === 'Claude Code' || client === 'Codex'
+  const active = cli ? method : 'mcp'
+  const useBoard = active === 'workspace' || active === 'mcp'
+  const endpoint = location.origin + (codeMode ? '/mcp/code' : '/mcp')
+  const address = client === 'Другой клиент' && agentName.trim() ? endpoint + '?' + new URLSearchParams({ agent: agentName.trim() }) : endpoint
+  const command = installCommand(client, active, address)
+  const path = client === 'Codex' ? '~/.agents/skills/<name>/SKILL.md' : '~/.claude/skills/<name>/SKILL.md'
+  const hookPath = client === 'Codex' ? '~/.codex/hooks.json' : '.claude/settings.json'
+
   const [copied, setCopied] = useState('')
   const [error, setError] = useState('')
   const copy = async (what: string, text: () => string | Promise<string>) => {
     try {
+      if (!navigator.clipboard) throw new Error(tr('Буфер обмена недоступен. Выделите и скопируйте текст вручную.'))
       await navigator.clipboard.writeText(await text())
       setError('')
       setCopied(what)
@@ -57,33 +95,65 @@ export function McpAgent({ tab, url }: { tab: number; url: string }) {
     if (!r.ok) throw new Error(`${r.status} ${r.statusText}`)
     return r.text()
   }
-  // The server may sit in Docker and cannot reach the user's home, so the page hands over one command that does everything.
-  const install = () => `curl -fsSL ${shellQuote(location.origin + '/api/mcp/install.sh')} | PLANDILLO_URL=${shellQuote(url)} sh`
-  const path = SKILL_PATH[tab]
-
+  const instructions = {
+    workspace: 'Запустите в терминале на macOS или Linux. Установщик добавит три навыка и MCP в выбранный клиент. Подтвердите вход в браузере или воспользуйтесь командой входа из терминала.',
+    plugin: 'Плагин содержит три навыка и MCP облачного Plandillo по адресу {url}. Выполните команды, откройте новый сеанс клиента и подтвердите доступ к пространству в настройках MCP.',
+    skills: 'Запустите в папке проекта с установленным Node.js. Команда установит три навыка из GitHub. Для доступа к задачам добавьте MCP этой доски.',
+    mcp: client === 'Codex' ? 'Выполните команду и подтвердите доступ в браузере. Если вход не открылся, выполните codex mcp login plandillo.'
+      : 'Выполните команды в терминале и подтвердите доступ к пространству в браузере.',
+  } as const
+  const help = client === 'Claude Desktop' ? tr('Добавьте запись в mcpServers файла claude_desktop_config.json и перезапустите Claude Desktop. Для запуска npx нужен Node.js.')
+    : client === 'Другой клиент' ? tr('Вставьте адрес в настройки клиента, выберите Streamable HTTP и подтвердите вход через браузер.')
+    : tr(instructions[active], { url: hosted })
+  const copyLabel = active === 'mcp' ? tr('Скопировать конфиг') : tr('Скопировать команду')
   return (
-    <section className={PANEL}>
-      <div className="flex items-center gap-3 px-5 pt-4 pb-1">
-        <h2 className="grow text-[16px] font-semibold tracking-[-.01em]">{tr('Навык для агента')}</h2>
+    <section className={PANEL} aria-labelledby="agent-install-title">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-ln px-5 py-4">
+        <h2 id="agent-install-title" className="grow text-base font-semibold">{tr('Установка для агента')}</h2>
+        <label className="flex items-center gap-2 text-sm text-t2">{tr('Клиент')}
+          <select className={select} value={client} onChange={e => setClient(e.target.value as Client)}>
+            {CLIENTS.map(name => <option key={name} value={name}>{tr(name)}</option>)}
+          </select>
+        </label>
       </div>
-      <div className="flex flex-col gap-4 px-5 pb-5">
-        <p className="text-[13px] text-t3">{tr('Plandillo сам отправляет агенту эти правила при подключении. Навык нужен, чтобы они срабатывали с первого сообщения.')}</p>
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-[10px] border border-ln bg-sf2 px-4 py-3">
-          <button type="button" className={PRI} onClick={() => copy('install', install)}>
-            <Icon name={copied === 'install' ? 'check' : 'spark'} size={15} />{copied === 'install' ? tr('Команда скопирована') : tr('Установить одной командой')}
-          </button>
-          <span className="min-w-0 flex-[1_1_260px] text-[12.5px] text-t3">{tr('Установите навыки в терминале и подтвердите подключение в браузере. Для Claude Code откройте /mcp, для Codex выполните команду входа из установщика.')}</span>
-        </div>
-        <ol className="flex flex-col gap-1.5 text-[13px]">
-          {STEPS.map(([name, text], i) => (
-            <li key={name} className="flex gap-2.5">
-              <span className="grid size-5 shrink-0 place-items-center rounded-full bg-sk font-mono text-[11px] font-semibold text-t2">{i + 1}</span>
-              <span><b className="font-semibold">{tr(name)}.</b> <span className="text-t2">{tr(text)}</span></span>
-            </li>
+      <div className="grid min-w-0 gap-3 px-5 py-4">
+        {cli && <div role="group" aria-label={tr('Способ установки')} className="flex flex-wrap gap-1.5">
+          {(Object.keys(METHODS) as Method[]).map(m => (
+            <button key={m} type="button" aria-pressed={m === active} onClick={() => setMethod(m)}
+              className={BTN + ' aria-pressed:border-act aria-pressed:bg-acs aria-pressed:text-act'}>{tr(METHODS[m])}</button>
           ))}
-        </ol>
-        <div>
-          <div className="mb-2 truncate font-mono text-[12.5px] text-t3">{path || tr('Вставьте в инструкции проекта')}</div>
+        </div>}
+        {useBoard && <div className="flex flex-wrap items-center gap-2 text-[13px] text-t2">
+          <label className="flex items-center gap-2">{tr('Режим MCP')}
+            <select className={select} value={codeMode ? 'code' : 'tools'} onChange={e => setCodeMode(e.target.value === 'code')}>
+              <option value="tools">MCP</option><option value="code">Code Mode</option>
+            </select>
+          </label>
+          <code className="min-w-0 break-all text-xs">{address}</code>
+          <button type="button" className={BTN} aria-label={tr('Копировать адрес')} title={tr('Копировать адрес')} onClick={() => copy('url:' + address, () => address)}>
+            <Icon name={copied === 'url:' + address ? 'check' : 'link'} size={14} />
+          </button>
+        </div>}
+        {client === 'Другой клиент' && <label className="grid gap-1 text-sm text-t2">{tr('Имя агента')}
+          <input className={select} value={agentName} maxLength={48} placeholder={tr('Из запроса MCP')} onChange={e => setAgentName(e.target.value)} />
+        </label>}
+        <p className="break-words text-sm text-t2">{help}</p>
+        <div className="min-w-0 overflow-hidden rounded-lg border border-ln bg-sf2">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-ln px-3 py-2">
+            <span className="text-xs font-medium text-t2">{cli ? tr('Терминал') : client === 'Claude Desktop' ? 'claude_desktop_config.json' : tr('Адрес сервера')}</span>
+            <button type="button" className={PRI} onClick={() => copy(command, () => command)}>
+              <Icon name={copied === command ? 'check' : 'doc'} size={14} /><span aria-live="polite">{copied === command ? tr('Скопировано') : copyLabel}</span>
+            </button>
+          </div>
+          <pre className="whitespace-pre-wrap [overflow-wrap:anywhere] px-3 py-3 font-mono text-xs leading-relaxed" dir="ltr">{command}</pre>
+        </div>
+        {active !== 'skills' && <p className="text-xs text-t3">{tr('Для проверки попросите агента показать проекты выбранного пространства.')}</p>}
+        {error && <p role="alert" className="text-sm text-rd">{error}</p>}
+      </div>
+      <details className="border-t border-ln px-5 py-3 text-[13px]">
+        <summary className="cursor-pointer font-medium">{tr('Скачать отдельные навыки')}</summary>
+        <div className="pt-3">
+          <div className="mb-2 break-all font-mono text-xs text-t3">{cli ? path : tr('Вставьте в инструкции проекта')}</div>
           {SKILLS.map(([name, text]) => (
             <div key={name} className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-ln py-2.5">
               <span className="flex-[0_0_150px] font-mono text-[12.5px] font-medium">{name}</span>
@@ -95,22 +165,21 @@ export function McpAgent({ tab, url }: { tab: number; url: string }) {
             </div>
           ))}
         </div>
-        {error && <div className="text-[13px] text-rd" role="alert">{error}</div>}
-        {(tab === 0 || tab === 2) && (
-          <div>
-            <div className="mb-2 flex flex-wrap items-center gap-3">
-              <span className="text-[12.5px] font-medium text-t2">{tr('Строгий режим (необязательно)')}</span>
-              <span className="min-w-0 truncate font-mono text-[12px] text-t3">{HOOK_PATH[tab]}</span>
-              <span className="grow" />
-              <button type="button" className={BTN} onClick={() => copy('hook', () => HOOK)}>
-                <Icon name={copied === 'hook' ? 'check' : 'doc'} size={14} />{copied === 'hook' ? tr('Скопировано') : tr('Скопировать хук')}
-              </button>
-            </div>
-            <p className="mb-2 text-[12px] text-t3">{tr('Хуки напоминают агенту про задачу при старте и не дают закончить ход без сверки.')}</p>
-            <pre className={PRE}>{HOOK}</pre>
+      </details>
+      {cli && (
+        <details className="border-t border-ln px-5 py-3 text-[13px]">
+          <summary className="cursor-pointer font-medium">{tr('Строгий режим (необязательно)')}</summary>
+          <div className="mt-3 mb-2 flex flex-wrap items-center gap-3">
+            <span className="min-w-0 truncate font-mono text-[12px] text-t3">{hookPath}</span>
+            <span className="grow" />
+            <button type="button" className={BTN} onClick={() => copy('hook', () => HOOK)}>
+              <Icon name={copied === 'hook' ? 'check' : 'doc'} size={14} />{copied === 'hook' ? tr('Скопировано') : tr('Скопировать хук')}
+            </button>
           </div>
-        )}
-      </div>
+          <p className="mb-2 text-[12px] text-t3">{tr('Хуки напоминают агенту про задачу при старте и не дают закончить ход без сверки.')}</p>
+          <pre className={PRE}>{HOOK}</pre>
+        </details>
+      )}
     </section>
   )
 }

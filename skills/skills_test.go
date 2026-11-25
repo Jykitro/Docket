@@ -141,6 +141,41 @@ func TestInstallScriptWritesSkillsAndRegistersServer(t *testing.T) {
 	}
 }
 
+func TestInstallerOnlyUpdatesSelectedClient(t *testing.T) {
+	for _, selected := range []string{"codex", "claude-code"} {
+		t.Run(selected, func(t *testing.T) {
+			dir := t.TempDir()
+			for _, cli := range []string{"codex", "claude"} {
+				if err := os.WriteFile(filepath.Join(dir, cli), []byte("#!/bin/sh\necho "+cli+" \"$@\"\n"), 0o755); err != nil {
+					t.Fatal(err)
+				}
+			}
+			cmd := exec.Command("sh")
+			cmd.Stdin = strings.NewReader(InstallScript())
+			cmd.Env = []string{"HOME=" + dir, "PATH=" + dir + ":/usr/bin:/bin", "PLANDILLO_CLIENT=" + selected, "PLANDILLO_URL=https://board.example/mcp/code"}
+			out, err := cmd.CombinedOutput()
+			if err != nil {
+				t.Fatal(err, string(out))
+			}
+			want, other := "codex", "claude"
+			target, untouched := ".agents", ".claude"
+			if selected == "claude-code" {
+				want, other = other, want
+				target, untouched = untouched, target
+			}
+			if !strings.Contains(string(out), want+" mcp add") || !strings.Contains(string(out), "https://board.example/mcp/code") || strings.Contains(string(out), other+" mcp ") {
+				t.Fatalf("unexpected CLI calls: %s", out)
+			}
+			if _, err := os.Stat(filepath.Join(dir, target, "skills", "plandillo", "SKILL.md")); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := os.Stat(filepath.Join(dir, untouched)); !os.IsNotExist(err) {
+				t.Fatal("unselected client was modified")
+			}
+		})
+	}
+}
+
 func TestInstallerChangesCredentialWhenEndpointChanges(t *testing.T) {
 	home, bin := t.TempDir(), t.TempDir()
 	if err := os.WriteFile(filepath.Join(bin, "codex"), []byte("#!/bin/sh\nprintf '%s\\n' \"$@\"\n"), 0o755); err != nil {

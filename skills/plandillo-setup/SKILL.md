@@ -11,7 +11,7 @@ A new installation needs two things: the planner instructions and a connection t
 
 | Starting point | What to do |
 |---|---|
-| A running board, macOS or Linux | In **Integrations**, choose **Install in one command**. The script installs all three skills and registers MCP in each supported CLI on PATH. Follow the printed login instructions in the browser. Older Docket installations keep their names. |
+| A running board, macOS or Linux | In **Integrations → Agent setup**, select the CLI and **Skills + MCP for this board**. Copy the command into a terminal. It installs all three skills and registers MCP for that client. Follow the printed login instructions in the browser. Older Docket installations keep their names. |
 | A team using skills.sh | In the target project run `npx skills add huntly-digital/plandillo --skill plandillo plandillo-reference plandillo-setup --agent codex claude-code`. Select just one agent if appropriate. Add `-g` for a personal install. |
 | A team using native plugins | Add the repository marketplace and install its Plandillo plugin using the commands below. The plugin includes all three skills and the hosted endpoint at `https://app.plandillo.dev/mcp`. For another host or Code Mode, use the board installer or skills.sh and register your URL. |
 | Manual install | Download each SKILL.md from **Integrations** into its own named folder under `~/.claude/skills/` or `~/.agents/skills/` (Codex). The signed-in UI works on self-hosted workspaces. For Claude Desktop projects, copy the workflow into project instructions if needed. |
@@ -35,7 +35,7 @@ Use one distribution method per client to avoid loading duplicate instructions. 
 ## Connect the workspace
 
 1. Open the intended workspace and **Integrations**. Select **MCP** for individual tools at `/mcp`, or **Code Mode** for one JavaScript tool at `/mcp/code`. Use the URL shown there. A hosted workspace usually uses HTTPS. The local default is `http://localhost:7777`.
-2. Select your client and **Copy config**. Register the URL, then run `codex mcp login plandillo` or `claude mcp login plandillo`. For a plugin connection select its server in the client's MCP settings. Claude Code also offers authentication in `/mcp`.
+2. Select your client, choose **MCP only** and use **Copy config**. Register the URL. Codex can open sign-in automatically. If needed, run `codex mcp login plandillo`. For Claude Code use `claude mcp login plandillo`. For a plugin connection select its server in the client's MCP settings. Claude Code also offers authentication in `/mcp`.
 3. In the browser, sign in if prompted, select the workspace and approve the requested permissions. A local single-user board requires a loopback address. The client handles token exchange and renewal. For Claude Desktop, the generated config runs `mcp-remote` via `npx`; Desktop needs access to Node. An OAuth-capable remote connector can use a reachable hosted HTTPS URL directly.
 4. In a fresh session, ask for `list_projects({})`. On Code Mode send `{"code":"return await codemode.list_projects({})"}` to `code`. Confirm the expected projects and the successful read in the board's call log. An empty list is valid for a fresh workspace. Check the actor label before relying on attribution.
 

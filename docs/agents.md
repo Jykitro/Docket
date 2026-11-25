@@ -2,8 +2,8 @@
 
 Connect Codex, Claude Code or another OAuth-capable Streamable HTTP client using just the server URL.
 
-1. In **Integrations**, choose **MCP** or **Code Mode** and copy the configuration for your client. The local MCP URL is `http://localhost:7777/mcp`. On a hosted installation use its HTTPS URL.
-2. Run `codex mcp login plandillo` or `claude mcp login plandillo` after registering the server. Claude Code also offers authentication through `/mcp`. For a plugin-managed connection, select its server in the client's MCP settings.
+1. In **Integrations**, select your client under **Agent setup**. For a standalone connection choose **MCP only**, select **MCP** or **Code Mode** and copy the configuration. The local MCP URL is `http://localhost:7777/mcp`. On a hosted installation use its HTTPS URL.
+2. Codex can open the sign-in page when you add the server. Use `codex mcp login plandillo` if needed. For Claude Code run `claude mcp login plandillo`. Claude Code also offers authentication through `/mcp`. For a plugin-managed connection, select its server in the client's MCP settings.
 3. Sign in to Plandillo if prompted, select the workspace and approve the requested access. Clear the write checkbox to allow reads only. The client receives and refreshes its tokens automatically.
 4. Ask “What’s on my board today?” and check the workspace call log. To disconnect one client, open **Integrations → Connected apps** in that workspace.
 
@@ -35,7 +35,7 @@ configs and the install command follow. How it works inside: [Integration intern
 
 ## Install agent skills
 
-Choose one method per client. For a new board, **Integrations → Install in one command** sets up the skills and registers MCP in Claude Code and Codex on macOS or Linux. The script runs locally. Follow the printed login instructions to authorize in the browser.
+Choose one method per client. For a new board, **Integrations → Agent setup → Skills + MCP for this board** installs all three skills and registers MCP in the selected CLI on macOS or Linux. The script runs locally. Follow the printed login instructions to authorize in the browser.
 
 The native plugins include the three skills and the hosted MCP endpoint at `https://app.plandillo.dev/mcp`. For a local board, a different host or Code Mode, install the skills and register the URL from that board’s **Integrations** tab. The skills.sh command installs the instructions only.
 
@@ -47,7 +47,7 @@ Run this in the project where you want the skills. Select one or both agents. Ad
 npx skills add huntly-digital/plandillo --skill plandillo plandillo-reference plandillo-setup --agent codex claude-code
 ```
 
-Once the changes are available on GitHub, installations from the repository can surface the skills on the skills.sh leaderboard through its CLI telemetry. [How listing works](https://skills.sh/docs/faq)
+The CLI reads the three named skills from the public repository. You can also download their files directly under **Integrations → Download individual skills**.
 
 ### Codex plugin
 

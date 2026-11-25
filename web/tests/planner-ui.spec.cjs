@@ -225,7 +225,7 @@ test('mobile view options fit and the day menu confirms a carry before saving', 
 test('MCP reports the server check and the last logged call separately', async ({ page, planner }) => {
   const state = { online: false, calls_today: 0, median_ms: 0, last_call_at: '', token_last_used_at: '', check: null }
   const stamp = '2002-06-11T10:00:00Z'
-  await page.route('**/api/mcp/status', route => route.fulfill({ json: state }))
+  await page.route('**/api/workspaces/*/mcp/status', route => route.fulfill({ json: state }))
   for (const [check, online, last, headline] of [
     [null, false, '', 'MCP has not been checked yet'],
     [{ at: stamp, ok: false, checks: [] }, false, '', 'MCP self-check failed'],
@@ -458,26 +458,50 @@ test('a task checklist after live HTML edits only the visible item', async ({ pa
     .toBe(source.replace('- [ ] After', '- [x] After'))
 })
 
-test('copying integration commands keeps the bearer out of the clipboard and command arguments', async ({ page, planner }) => {
+test('agent setup copies the selected client, method and endpoint without reading credentials', async ({ page, planner }) => {
   const secret = 'dkt_browser_fixture'
   let reads = 0
   await page.addInitScript(() => Object.defineProperty(navigator, 'clipboard', {
     value: { writeText: async text => { window.lastCopy = text } },
   }))
-  await page.route('**/api/mcp/token', route => { reads++; return route.fulfill({ json: { token: secret } }) })
+  await page.route('**/mcp/token', route => { reads++; return route.fulfill({ json: { token: secret } }) })
   await page.goto(planner.url + '/integrations')
-  const clipboard = () => page.evaluate(() => window.lastCopy)
+  const setup = page.getByRole('region', { name: 'Agent setup' })
+  const client = setup.getByRole('combobox', { name: 'Client', exact: true })
+  const copied = async (label = 'Copy command') => {
+    await setup.getByRole('button', { name: label, exact: true }).click()
+    const value = await page.evaluate(() => window.lastCopy)
+    expect(value).not.toContain(secret)
+    return value
+  }
+  for (const [app, agent, cli, action] of [
+    ['Claude Code', 'claude-code', 'claude', 'install'], ['Codex', 'codex', 'codex', 'add'],
+  ]) {
+    await client.selectOption({ label: app })
+    await setup.getByRole('button', { name: 'Skills + MCP for this board' }).click()
+    await setup.getByLabel('MCP mode').selectOption('code')
+    expect(await copied()).toBe(`curl -fsSL '${planner.url}/api/mcp/install.sh' | PLANDILLO_CLIENT=${agent} PLANDILLO_URL='${planner.url}/mcp/code' sh`)
+    await setup.getByRole('button', { name: 'GitHub plugin' }).click()
+    await expect(setup.getByText('https://app.plandillo.dev/mcp', { exact: false })).toBeVisible()
+    expect(await copied()).toBe(`${cli} plugin marketplace add huntly-digital/plandillo\n${cli} plugin ${action} plandillo@huntly-digital`)
+    await setup.getByRole('button', { name: 'Skills only' }).click()
+    expect(await copied()).toBe(`npx skills add huntly-digital/plandillo --skill plandillo plandillo-reference plandillo-setup --agent ${agent}`)
+    await setup.getByRole('button', { name: 'MCP only' }).click()
+    const config = await copied('Copy config')
+    if (cli === 'codex') expect(config).toBe(`codex mcp add plandillo --url '${planner.url}/mcp/code'`)
+    else expect(config).toBe(`claude mcp add --transport http plandillo '${planner.url}/mcp/code'\nclaude mcp login plandillo`)
+  }
+  await client.selectOption({ label: 'Claude Desktop' })
+  expect(JSON.parse(await copied('Copy config')).mcpServers.plandillo.args).toContain(planner.url + '/mcp/code')
+  await client.selectOption({ label: 'Other client' })
+  await setup.getByLabel('MCP mode').selectOption('tools')
+  await setup.getByLabel('Agent name').fill('QA team')
+  expect(await copied('Copy config')).toBe(planner.url + '/mcp?agent=QA+team')
+  await setup.getByText('Download individual skills', { exact: true }).click()
+  await expect(setup.getByRole('link', { name: /^Download:/ })).toHaveCount(3)
+  expect(reads).toBe(0)
   await page.getByRole('button', { name: 'Show token' }).click()
   await expect(page.getByText(secret, { exact: true })).toBeVisible()
-  for (const name of ['Claude Code', 'Codex', 'Claude Desktop', 'Other client']) {
-    await page.getByRole('tab', { name, exact: true }).click()
-    await page.getByRole('button', { name: 'Copy config' }).click()
-    expect(await clipboard()).not.toContain(secret)
-    await expect(page.getByRole('button', { name: 'Copy config' })).toBeVisible()
-  }
-  await page.getByRole('button', { name: 'Install in one command' }).click()
-  expect(await clipboard()).toMatch(/PLANDILLO_URL=.* sh$/)
-  expect(await clipboard()).not.toContain(secret)
   expect(reads).toBe(1)
 })
 

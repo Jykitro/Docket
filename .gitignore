@@ -2,6 +2,7 @@
 .idea/
 .ruff_cache/
 data/
+/outputs/
 web/node_modules/
 bin/
 internal/web/dist/*
