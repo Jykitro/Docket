@@ -938,6 +938,7 @@ func (a *api) events(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("X-Accel-Buffering", "no") // nginx would otherwise hold events back until its buffer fills
 	ch, cancel := a.bus.Subscribe()
 	defer cancel()
 	fmt.Fprint(w, ": connected\n\n")

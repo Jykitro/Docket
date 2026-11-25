@@ -394,6 +394,9 @@ func TestSSE(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer res.Body.Close()
+	if res.Header.Get("X-Accel-Buffering") != "no" {
+		t.Error("the stream must ask reverse proxies not to buffer it")
+	}
 	buf := make([]byte, 256)
 	res.Body.Read(buf) // ": connected"
 	e.svc.CreateProject(context.Background(), service.ActorClaude, service.ProjectInput{Name: "P"})
