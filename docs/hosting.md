@@ -99,6 +99,36 @@ The server speaks HTTP/1.1 and HTTP/2. Browsers use HTTP/2 only over HTTPS, and 
   ```
 
   nginx serves HTTP/2 and HTTP/3 to browsers (`listen 443 ssl; listen 443 quic; http2 on; http3 on;`) and forwards to Plandillo over HTTP/1.1 with `proxy_http_version 1.1;` and `proxy_set_header Connection "";`. Live updates need no extra buffering settings: Plandillo sends `X-Accel-Buffering: no` on its event stream.
+
+  Traefik v3 enables HTTP/3 per entry point, and reaches Plandillo over h2c when the server URL uses that scheme. Publish port 443 for both TCP and UDP, since HTTP/3 runs over UDP. In the static configuration:
+
+  ```yaml
+  entryPoints:
+    websecure:
+      address: ":443"
+      http3: {}
+  ```
+
+  And in a dynamic configuration file, with `plandillo` being the container name on the network Traefik shares with it:
+
+  ```yaml
+  http:
+    routers:
+      plandillo:
+        rule: Host(`planner.example.com`)
+        entryPoints: [websecure]
+        service: plandillo
+        tls:
+          certResolver: letsencrypt
+    services:
+      plandillo:
+        loadBalancer:
+          servers:
+            - url: h2c://plandillo:7777
+          passHostHeader: true
+  ```
+
+  With Docker labels, the same service is `traefik.http.services.plandillo.loadbalancer.server.port=7777` plus `traefik.http.services.plandillo.loadbalancer.server.scheme=h2c`. Set `PLANDILLO_TRUSTED_PROXIES` to the subnet of that shared Docker network (`docker network inspect <network>`, field `Subnet`), or to the Traefik container's address. h2c applies only to this service, and HTTP/3 only changes how browsers reach Traefik, so routes to other containers keep working as before. Deploy a Plandillo build with HTTP/2 before switching the scheme to `h2c://`: an older build answers it with 502 errors. Dokploy generates this file for each application: edit it in the application's Traefik settings rather than on disk.
 - **Without a proxy.** Set `PLANDILLO_TLS_CERT` and `PLANDILLO_TLS_KEY` to the certificate chain and key (for example from Let's Encrypt) and publish the port as 443 (for the container, `-p 443:7777`). Browsers then get HTTP/2 straight from Plandillo. The Go server has no HTTP/3, so use a proxy if you want it. Restart Plandillo after renewing the certificate.
 
 ## Self-host
