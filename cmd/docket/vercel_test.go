@@ -50,4 +50,13 @@ func TestVercelDeploysOnlyTheStaticLanding(t *testing.T) {
 	if !strings.Contains(config.IgnoreCommand, "-- :/landing ") {
 		t.Fatalf("landing changes must still trigger a build: %q", config.IgnoreCommand)
 	}
+	ignore, err := os.ReadFile("../../.vercelignore")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, line := range strings.Split(string(ignore), "\n") {
+		if strings.TrimSpace(line) == ".git/" || strings.TrimSpace(line) == ".git" {
+			t.Fatal(".vercelignore must keep .git: without it the ignoreCommand cannot diff and every push builds")
+		}
+	}
 }

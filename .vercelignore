@@ -1,8 +1,8 @@
+# .git stays: the ignoreCommand in vercel.json compares commits. Only landing/dist is published.
 .env
 .env.*
 data/
 outputs/
-.git/
 .idea/
 .claude/
 .vercel/
