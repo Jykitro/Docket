@@ -270,16 +270,6 @@
     });
   });
 
-  /* ---------- Campaign attribution: forward utm_* to the planner, nothing else ---------- */
-  var campaign = new URLSearchParams(location.search);
-  document.querySelectorAll('a[data-app]').forEach(function (link) {
-    var target = new URL(link.href);
-    campaign.forEach(function (value, name) {
-      if (/^utm_[a-z0-9_]+$/i.test(name)) target.searchParams.append(name, value);
-    });
-    link.href = target.href;
-  });
-
   /* ---------- GitHub stars (public API, cached for an hour) ---------- */
   var starEl = document.querySelector('[data-github-stars]');
   if (starEl) {

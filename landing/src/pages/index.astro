@@ -2,7 +2,6 @@
 import Base from '../layouts/Base.astro';
 import Check from '../components/Check.astro';
 import Icon from '../components/Icon.astro';
-import Ticks from '../components/Ticks.astro';
 
 // Class sets used more than once on this page.
 const wrap = 'mx-auto max-w-[1200px] px-8 max-xs:px-4';
@@ -44,14 +43,6 @@ const tab = 'h-[38px] cursor-pointer rounded-lg border-0 bg-transparent px-3.5 t
 const panel = 'overflow-x-auto px-[22px] pt-5 pb-6 font-mono text-sm leading-[1.85] text-code-ink max-xs:p-4 max-xs:text-[12.5px] *:whitespace-pre-wrap *:[word-break:break-word]';
 const section = `${wrap} scroll-mt-[72px] pt-[136px] max-tab:pt-[88px]`;
 const sectionHead = 'mb-12 flex flex-col items-center gap-4 text-center';
-const price = 'flex flex-col gap-5 rounded-[18px] border p-7';
-const priceHead = 'flex flex-col gap-2';
-const priceTitle = 'text-lg font-semibold';
-const amount = 'flex items-baseline gap-2';
-const quota = 'flex items-center justify-between gap-3 rounded-xl border border-line bg-page-2 px-4 py-3';
-const quotaLabel = 'text-sm text-muted';
-const quotaValue = 'text-sm font-semibold text-ink';
-const amountValue = 'text-[44px] leading-none font-semibold tracking-[-0.04em] max-xs:text-[38px]';
 const footTitle = 'mb-1.5 text-sm font-semibold';
 const footLink = 'py-1.5 text-sm text-muted no-underline hover:text-ink';
 ---
@@ -68,11 +59,9 @@ const footLink = 'py-1.5 text-sm text-muted no-underline hover:text-ink';
       <a class={navlink} href="#agents">Agents</a>
       <a class={navlink} href="#wiki">Wiki</a>
       <a class={navlink} href="#self-host">Self-host</a>
-      <a class={navlink} href="#pricing">Pricing</a>
       <a class={navlink} href="#about">About</a>
       <a class={navlink} href="https://github.com/huntly-digital/plandillo/tree/main/docs">Docs</a>
       <a class:list={[navlink, 'hidden max-xs:block']} href="https://github.com/huntly-digital/plandillo">GitHub</a>
-      <a class:list={[navlink, 'hidden max-nav:block']} data-app href="https://app.plandillo.dev/">Sign in</a>
     </nav>
     <div class="flex items-center gap-2.5 max-xs:gap-2">
       <a class:list={[btn, secondary, 'h-10 min-w-10 rounded-[10px] px-2.5 text-sm font-medium! max-xs:hidden']} href="https://github.com/huntly-digital/plandillo" aria-label="Plandillo on GitHub" title="Plandillo on GitHub" data-cta="header-github">
@@ -83,8 +72,7 @@ const footLink = 'py-1.5 text-sm text-muted no-underline hover:text-ink';
         <svg class="group-[.is-light]:hidden" width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><circle cx="9" cy="9" r="3.4" fill="none" stroke="currentColor" stroke-width="1.6"></circle><path d="M9 1.5v1.8M9 14.7v1.8M1.5 9h1.8M14.7 9h1.8M3.7 3.7l1.3 1.3M13 13l1.3 1.3M3.7 14.3L5 13M13 5l1.3-1.3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path></svg>
         <svg class="hidden group-[.is-light]:block" width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M15.2 11.1A6.5 6.5 0 0 1 6.9 2.8a6.5 6.5 0 1 0 8.3 8.3z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"></path></svg>
       </button>
-      <a class:list={[navlink, 'px-2 py-2.5 max-nav:hidden']} data-app href="https://app.plandillo.dev/">Sign in</a>
-      <a class:list={[btn, sm, primary]} data-app href="https://app.plandillo.dev/register" data-cta="header-demo">Try the demo</a>
+      <a class:list={[btn, sm, primary]} href="#self-host" data-cta="header-install">Install</a>
       <button type="button" class="menu-btn hidden size-10 cursor-pointer place-items-center rounded-[10px] border border-edge bg-surface text-ink hover:bg-edge-2 max-nav:grid" aria-label="Open menu" aria-expanded="false" aria-controls="site-nav">
         <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M3 5h12M3 9h12M3 13h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path></svg>
       </button>
@@ -96,14 +84,14 @@ const footLink = 'py-1.5 text-sm text-muted no-underline hover:text-ink';
   <section class="relative overflow-hidden" id="top">
     <div class:list={[glow, 'top-[380px] h-[700px] w-[1100px] bg-[radial-gradient(closest-side,var(--color-glow),transparent_70%)]']} aria-hidden="true"></div>
     <div class:list={[wrap, 'relative flex flex-col items-center gap-[26px] pt-[88px] text-center max-xs:gap-5 max-xs:pt-12']}>
-      <a href="#pricing" class="inline-flex items-center gap-2.5 rounded-full border border-line-3 bg-deep py-1.5 pr-3.5 pl-1.5 text-sm text-ink-2 no-underline hover:text-link"><span class="rounded-full bg-primary px-[9px] py-[3px] text-xs font-semibold text-white">New</span>Plandillo Cloud is coming soon</a>
+      <a href="https://github.com/huntly-digital/plandillo" class="inline-flex items-center gap-2.5 rounded-full border border-line-3 bg-deep py-1.5 pr-3.5 pl-1.5 text-sm text-ink-2 no-underline hover:text-link"><span class="rounded-full bg-primary px-[9px] py-[3px] text-xs font-semibold text-white">MIT</span>Free and open source</a>
       <h1 class="max-w-[13ch] text-[clamp(44px,6.6vw,88px)] leading-[.98] font-semibold tracking-[-0.045em]">A task board for you and your AI agent.</h1>
       <p class="max-w-[50ch] text-[19px] leading-normal text-muted max-xs:text-[17px]">Plan in your browser. Your agent works the same board through MCP or Code Mode, and keeps a wiki of everything it learns about the project.</p>
       <div class:list={[ctaRow, 'mt-1']}>
-        <a class:list={[btn, lg, primary, 'shadow-[0_10px_30px_-10px_rgba(84,48,153,.8)]']} data-app href="https://app.plandillo.dev/register" data-cta="hero-demo">Try the free demo</a>
-        <a class:list={[btn, lg, secondary]} href="#self-host" data-cta="hero-docker">Run it with Docker</a>
+        <a class:list={[btn, lg, primary, 'shadow-[0_10px_30px_-10px_rgba(84,48,153,.8)]']} href="#self-host" data-cta="hero-install">Install in one command</a>
+        <a class:list={[btn, lg, secondary]} href="https://github.com/huntly-digital/plandillo" data-cta="hero-github">View on GitHub</a>
       </div>
-      <p class="text-sm text-dim">One container, free to self-host. The cloud demo is the same app with a 5 MB workspace quota.</p>
+      <p class="text-sm text-dim">Runs on your machine in one Docker container. Your data stays in a local folder.</p>
     </div>
 
     <div class:list={[wrap, 'relative pt-16 pb-[104px] max-xs:pt-10 max-xs:pb-[72px]']} id="workflow">
@@ -328,7 +316,7 @@ The Plandillo CLI is in the works.
           <li class={bullet}><span class={markSq}></span>A written result from the agent</li>
           <li class={bullet}><span class:list={[mark, 'rounded-full bg-done']}></span>One activity log for both of you</li>
         </ul>
-        <a class={textlink} data-app href="https://app.plandillo.dev/register" data-cta="done-demo">Try it in the free demo</a>
+        <a class={textlink} href="#self-host" data-cta="done-install">Install it in one command</a>
       </div>
       <div class="flex flex-col gap-[18px] rounded-2xl border border-line-2 bg-surface p-6">
         <div class="row-between"><span class="mono dim">APP-24</span><span class="pill is-done">Done</span></div>
@@ -350,12 +338,12 @@ The Plandillo CLI is in the works.
 
     <div class={feat} id="self-host">
       <div class:list={[featCopy, flipped]}>
-        <h2 class={h2}>One container. Your data.</h2>
-        <p class:list={[body, 'max-w-[46ch]']}>No need to clone the repo. Start Plandillo with a single Docker command. Use SQLite for a quick local run, or PostgreSQL when you want a full database.</p>
+        <h2 class={h2}>One command. Your data.</h2>
+        <p class:list={[body, 'max-w-[46ch]']}>No account and no clone. Paste one command, open localhost:7777 and start planning. Everything is stored in SQLite in the folder you ran it from.</p>
         <ul class={bullets}>
-          <li class={bullet}><span class={markDot}></span>A single Docker container</li>
-          <li class={bullet}><span class={markDot}></span>SQLite for local runs, PostgreSQL for production</li>
-          <li class={bullet}><span class={markDot}></span>A workspace per account on a shared server, behind HTTPS</li>
+          <li class={bullet}><span class={markDot}></span>One Docker command, nothing else to install</li>
+          <li class={bullet}><span class={markDot}></span>Your data in ./data, on your machine</li>
+          <li class={bullet}><span class={markDot}></span>PostgreSQL and a shared server when you need them</li>
         </ul>
         <a class={textlink} href="https://github.com/huntly-digital/plandillo/blob/main/docs/hosting.md#quick-start" data-cta="selfhost-guide">Read the self-hosting guide</a>
       </div>
@@ -369,9 +357,8 @@ The Plandillo CLI is in the works.
           <button type="button" class="h-9 cursor-pointer rounded-lg border border-line-3 bg-chip px-3.5 text-[13px] font-medium text-ink max-xs:h-11" data-copy data-cta="selfhost-copy" hidden>Copy</button>
         </div>
         <!-- Keep these commands in sync with docs/hosting.md (Quick start, PostgreSQL storage). -->
-        <div class:list={[panel, 'min-h-[180px]']} role="tabpanel" id="p-docker" aria-labelledby="t-docker" data-command={'mkdir -p -m 700 data\ndocker run -d --name plandillo --user "$(id -u):$(id -g)" --pull=always -p 127.0.0.1:7777:7777 -v "$PWD/data:/data" --restart unless-stopped ghcr.io/huntly-digital/plandillo:main'}>
-<pre>$ mkdir -p -m 700 data
-$ docker run -d --name plandillo \
+        <div class:list={[panel, 'min-h-[180px]']} role="tabpanel" id="p-docker" aria-labelledby="t-docker" data-command={'mkdir -p -m 700 data && docker run -d --name plandillo --user "$(id -u):$(id -g)" --pull=always -p 127.0.0.1:7777:7777 -v "$PWD/data:/data" --restart unless-stopped ghcr.io/huntly-digital/plandillo:main'}>
+<pre>$ mkdir -p -m 700 data && docker run -d --name plandillo \
     --user "$(id -u):$(id -g)" --pull=always \
     -p 127.0.0.1:7777:7777 -v "$PWD/data:/data" \
     --restart unless-stopped \
@@ -405,45 +392,15 @@ $ make rebuild</pre>
     </div>
   </section>
 
-  <section class={section} id="pricing" aria-labelledby="pr-title">
-    <div class={sectionHead}>
-      <h2 id="pr-title" class={h2}>Pricing</h2>
-      <p class:list={[body, 'max-w-[54ch]']}>One Plandillo everywhere. The cloud runs the same build as your own server; the plans differ only in how much each workspace can store.</p>
-    </div>
-    <div class="grid grid-cols-3 items-stretch gap-4 max-board:mx-auto max-board:max-w-[560px] max-board:grid-cols-1">
-      <div class:list={[price, 'border-line-2 bg-surface']}>
-        <div class={priceHead}><h3 class={priceTitle}>Self-hosted</h3><p class={muted}>Run Plandillo on your own machine or server.</p></div>
-        <div class={amount}><strong class={amountValue}>Free</strong><span class="text-sm text-dim">on your hardware</span></div>
-        <div class={quota}><span class={quotaLabel}>Workspace quota</span><strong class={quotaValue}>Your disk</strong></div>
-        <a class:list={[btn, md, secondary, 'w-full']} href="https://github.com/huntly-digital/plandillo/blob/main/docs/hosting.md#quick-start" data-cta="price-selfhost">Self-hosting guide</a>
-        <Ticks items={['Board, project wiki and activity log', 'Agents over MCP and Code Mode', 'One or many accounts, a workspace each', 'SQLite or PostgreSQL', 'MIT-licensed source']} />
-      </div>
-      <div class:list={[price, 'border-featured-line bg-[linear-gradient(180deg,var(--color-featured-top)_0%,var(--color-surface)_60%)] shadow-[0_30px_80px_-40px_rgba(84,48,153,.6)] max-board:-order-1']}>
-        <div class={priceHead}><div class="row-between"><h3 class={priceTitle}>Cloud Free</h3><span class="pill is-doing">Try it now</span></div><p class={muted}>The self-hosted Plandillo, run by us.</p></div>
-        <div class={amount}><strong class={amountValue}>Free</strong><span class="text-sm text-dim">hosted by us</span></div>
-        <div class={quota}><span class={quotaLabel}>Workspace quota</span><strong class={quotaValue}>5 MB</strong></div>
-        <a class:list={[btn, md, primary, 'w-full']} data-app href="https://app.plandillo.dev/register" data-cta="price-cloudfree">Try the free demo</a>
-        <Ticks items={['Everything in Self-hosted', 'Nothing to install or update', 'Usage shown in Settings']} />
-      </div>
-      <div class:list={[price, 'border-dashed border-line-dash bg-page-2']}>
-        <div class={priceHead}><div class="row-between"><h3 class={priceTitle}>Cloud</h3><span class="pill">Coming soon</span></div><p class={muted}>The same hosted Plandillo with room for real projects.</p></div>
-        <div class={amount}><strong class:list={[amountValue, 'text-dim']}>Soon</strong><span class="text-sm text-dim">pricing to be announced</span></div>
-        <div class={quota}><span class={quotaLabel}>Workspace quota</span><strong class:list={[quotaValue, 'text-dim']}>Larger</strong></div>
-        <a class:list={[btn, md, ghost, 'w-full']} href="https://github.com/huntly-digital/plandillo" data-cta="price-cloud-watch">Watch on GitHub for the launch</a>
-        <Ticks dim items={['Everything in Cloud Free', 'A larger workspace quota']} />
-      </div>
-    </div>
-    <p class="mx-auto mt-6 max-w-[64ch] text-center text-sm text-dim">The quota counts tasks, wiki pages, icons, activity and trash in a workspace. Emptying the trash frees space.</p>
-  </section>
 
   <section class:list={[section, 'pb-[120px]']} aria-labelledby="cta-title">
     <div class="relative flex flex-col items-center gap-[22px] overflow-hidden rounded-3xl border border-line-2 bg-surface px-8 py-20 text-center max-xs:px-5 max-xs:py-12">
       <div class:list={[glow, '-bottom-[320px] h-[500px] w-[900px] bg-[radial-gradient(closest-side,var(--color-glow),transparent_70%)]']} aria-hidden="true"></div>
       <h2 id="cta-title" class="relative max-w-[16ch] text-[clamp(32px,4.4vw,56px)] leading-[1.02] font-semibold tracking-[-0.04em]">Give your agent a board and a wiki.</h2>
-      <p class:list={[body, 'relative max-w-[44ch]']}>Try the cloud demo in a minute, or run your own copy in one container.</p>
+      <p class:list={[body, 'relative max-w-[44ch]']}>Run your own copy with one command. It is free, open source and stays on your machine.</p>
       <div class:list={[ctaRow, 'relative']}>
-        <a class:list={[btn, lg, primary]} data-app href="https://app.plandillo.dev/register" data-cta="footer-demo">Try the free demo</a>
-        <a class:list={[btn, lg, secondary]} href="#self-host" data-cta="footer-docker">Run it with Docker</a>
+        <a class:list={[btn, lg, primary]} href="#self-host" data-cta="footer-install">Install in one command</a>
+        <a class:list={[btn, lg, secondary]} href="https://github.com/huntly-digital/plandillo/blob/main/docs/agents.md" data-cta="footer-agents">Connect an agent</a>
       </div>
     </div>
   </section>
@@ -493,9 +450,7 @@ $ make rebuild</pre>
       <span class={footTitle}>Product</span>
       <a class={footLink} href="#agents">Agents</a>
       <a class={footLink} href="#wiki">Wiki</a>
-      <a class={footLink} href="#pricing">Pricing</a>
-      <a class={footLink} data-app href="https://app.plandillo.dev/register">Free demo</a>
-      <a class={footLink} data-app href="https://app.plandillo.dev/">Sign in</a>
+      <a class={footLink} href="#self-host">Install</a>
     </nav>
     <nav aria-label="Open source" class="flex flex-col gap-1">
       <span class={footTitle}>Open source</span>

@@ -46,8 +46,6 @@
   --color-dots: light-dark(#DCD8E8, #2E2A42);
   --color-featured-line: light-dark(#C4AEEA, #4E3285);
   --color-featured-top: light-dark(#f1ebfa, #1E1730);
-  --color-doing-bg: light-dark(rgb(84 48 153 / .1), rgb(206 183 255 / .14));
-  --color-doing-ink: light-dark(#543099, #ceb7ff);
   --color-done-bg: light-dark(rgb(15 143 88 / .1), rgb(61 214 140 / .14));
   --color-glow: light-dark(rgb(84 48 153 / .12), rgb(84 48 153 / .34));
   --color-window-shadow: light-dark(rgb(40 30 90 / .18), rgb(0 0 0 / .9));
@@ -111,7 +109,6 @@
   .mono { @apply font-mono text-xs; }
   .dim { @apply text-dim; }
   .pill { @apply rounded-full border border-transparent bg-sel px-2.5 py-1 text-xs font-semibold whitespace-nowrap text-ink-3; }
-  .pill.is-doing { @apply bg-doing-bg text-doing-ink; }
   .pill.is-done { @apply bg-done-bg text-done; }
   .who { @apply size-[9px] shrink-0; }
   .who.sq { @apply rounded-[2px] bg-agent; }
