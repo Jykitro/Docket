@@ -20,7 +20,7 @@ func (w *Workspaces) UseShared(s *store.Store, envToken string, firstID int64) {
 	w.envToken = envToken
 	w.firstID = firstID
 }
-func (w *Workspaces) openSpace(ctx context.Context, sp store.Space, admin bool) (*Workspace, error) {
+func (w *Workspaces) openSpace(ctx context.Context, sp store.Space) (*Workspace, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if ws := w.m[sp.ID]; ws != nil {
@@ -29,9 +29,6 @@ func (w *Workspaces) openSpace(ctx context.Context, sp store.Space, admin bool) 
 	st := w.shared.ForOwner(sp.ID, sp.OwnerID)
 	bus := events.NewBus()
 	svc := service.New(st, bus, w.loc)
-	if !admin {
-		svc.SetStorageLimit(w.DemoStorageBytes)
-	}
 	if w.cluster {
 		svc.UseClusterEvents(sp.Generation)
 	}
@@ -75,8 +72,6 @@ func spaceError(w http.ResponseWriter, err error) {
 		writeError(w, 400, "invalid_argument", err.Error())
 	case errors.Is(err, store.ErrLastSpace):
 		writeError(w, 409, "last_workspace", err.Error())
-	case errors.Is(err, store.ErrQuota):
-		writeError(w, 409, "quota_exceeded", err.Error())
 	default:
 		internalError(w, err)
 	}
@@ -191,11 +186,7 @@ func (h *handler) changeSpace(w http.ResponseWriter, r *http.Request, u auth.Use
 		return
 	}
 	apply := func() {
-		limit := h.WS.DemoStorageBytes
-		if u.IsAdmin {
-			limit = 0
-		}
-		sp, err := h.WS.shared.ChangeSpace(r.Context(), u.ID, id, in.SpaceChange, limit)
+		sp, err := h.WS.shared.ChangeSpace(r.Context(), u.ID, id, in.SpaceChange)
 		if err != nil {
 			spaceError(w, err)
 			return

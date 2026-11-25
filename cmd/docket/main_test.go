@@ -26,7 +26,7 @@ func TestSharedMaintenanceWritesOneInstallationBackup(t *testing.T) {
 		t.Fatal(err)
 	}
 	another := "Other"
-	if _, err = base.ChangeSpace(t.Context(), owner, 0, store.SpaceChange{Name: &another}, 0); err != nil {
+	if _, err = base.ChangeSpace(t.Context(), owner, 0, store.SpaceChange{Name: &another}); err != nil {
 		t.Fatal(err)
 	}
 	backups := filepath.Join(dir, "snapshots")

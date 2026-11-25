@@ -3,7 +3,7 @@
 import { type ReactNode, useEffect, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, errText, type Space, useMe, useProfile } from './api'
-import { locale, tr } from './i18n'
+import { tr } from './i18n'
 import { Icon } from './icons'
 import { ProjectIconPicker } from './ProjectIconPicker'
 import { Link } from './router'
@@ -132,11 +132,10 @@ function NameForm({ space }: { space: Space }) {
   )
 }
 
-/** Settings → Workspace → General: name, icon, storage, data, archive. */
+/** Settings → Workspace → General: name, icon, data, archive. */
 export function WorkspaceGeneral() {
   const spaces = useSpaces()
   const current = spaces.data?.find((s) => s.id === workspaceId)
-  const storage = useProfile().data?.storage
   const change = useChangeSpace()
   if (!current) return null
   const canArchive = (spaces.data ?? []).filter((s) => !s.archived_at).length > 1
@@ -153,15 +152,6 @@ export function WorkspaceGeneral() {
               onSelect={(data) => change.mutateAsync(() => api.changeSpace(current.id, data))} />
           </div>
         </SettingsRow>
-        {storage && (
-          <SettingsRow label={tr('Хранилище')} hint={tr('Лимит демо-пространства.')}>
-            <div className="h-2 overflow-hidden rounded-full bg-sk"><div className="h-full rounded-full bg-ink" style={{ width: `${Math.min(100, (storage.used / storage.limit) * 100)}%` }} /></div>
-            <span className="text-[13px] text-t2">{tr('Хранилище демо: {used} из {limit} МБ', {
-              used: (storage.used / 1_000_000).toLocaleString(locale(), { maximumFractionDigits: 2 }),
-              limit: storage.limit / 1_000_000,
-            })}</span>
-          </SettingsRow>
-        )}
       </SettingsSection>
       <SettingsSection title={tr('Данные')}>
         <SettingsRow label={tr('Экспорт')} hint={tr('Все проекты, задачи, заметки и вики этого пространства одним JSON-файлом.')}>

@@ -52,16 +52,15 @@ type Workspace struct {
 
 // Workspaces opens one SQLite file or PostgreSQL schema per user.
 type Workspaces struct {
-	shared           *store.Store
-	envToken         string
-	firstID          int64
-	DemoStorageBytes int64 // set before opening profiles
-	cluster          bool
-	parent           context.Context
-	dir              string
-	postgresDSN      string
-	loc              *time.Location
-	build            func(context.Context, *service.Service, *events.Bus) http.Handler
+	shared      *store.Store
+	envToken    string
+	firstID     int64
+	cluster     bool
+	parent      context.Context
+	dir         string
+	postgresDSN string
+	loc         *time.Location
+	build       func(context.Context, *service.Service, *events.Bus) http.Handler
 
 	tokens  tokenIndex
 	mu      sync.Mutex
@@ -90,7 +89,7 @@ func (w *Workspaces) Open(ctx context.Context, u auth.User) (*Workspace, error) 
 		if err != nil {
 			return nil, err
 		}
-		return w.openSpace(ctx, sp, u.IsAdmin)
+		return w.openSpace(ctx, sp)
 	}
 	return w.open(ctx, u, true)
 }
@@ -145,9 +144,6 @@ func (w *Workspaces) open(ctx context.Context, u auth.User, allowCreate bool) (*
 	}
 	bus := events.NewBus()
 	svc := service.New(st, bus, w.loc)
-	if !u.IsAdmin {
-		svc.SetStorageLimit(w.DemoStorageBytes)
-	}
 	if w.cluster {
 		svc.UseClusterEvents(u.WorkspaceKey)
 	}

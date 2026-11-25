@@ -166,7 +166,6 @@ func runSelfHost(ctx context.Context, cfg config.Config, remote *vercelrun.App) 
 		envToken = cfg.MCPToken
 	}
 	ws.UseShared(shared, envToken, firstID)
-	ws.DemoStorageBytes = cfg.DemoStorageBytes
 	defer ws.Close()
 
 	code := os.Getenv("PLANDILLO_SETUP_CODE") // optional; without it the first sign-up becomes the administrator

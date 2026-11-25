@@ -33,7 +33,7 @@ export type Activity = {
   diff_json: string; at: string; task_code: string; task_title: string
 }
 export type TodayData = { date: string; projects: Project[]; tasks: Task[]; overdue: Task[]; activity: Activity[] }
-export type Profile = { name: string; storage?: { used: number; limit: number } }
+export type Profile = { name: string }
 type Check = { key: string; label: string; ok: boolean; detail: string; value: string; hint?: string }
 export type CheckResult = { ok: boolean; took_ms: number; at: string; checks: Check[] }
 export type McpStatus = {
@@ -123,7 +123,6 @@ const SERVER: Record<string, [string, string]> = {
   'keep at least one active workspace': ['Оставьте хотя бы одно активное пространство.', 'Залиште хоча б один активний простір.'],
   'invalid workspace name, icon or action': ['Проверьте название, значок и действие с пространством.', 'Перевірте назву, піктограму та дію з простором.'],
   'workspace not found': ['Пространство недоступно.', 'Простір недоступний.'],
-  'account storage limit reached': ['Хранилище аккаунта заполнено.', 'Сховище облікового запису заповнено.'],
   'password must be 10-128 characters': ['Пароль должен быть от 10 до 128 символов', 'Пароль має бути від 10 до 128 символів'],
   'cannot delete yourself': ['Нельзя удалить самого себя', 'Не можна видалити самого себе'],
   'not logged in': ['Сессия истекла, войдите снова', 'Сесія завершилася, увійдіть знову'],
@@ -135,7 +134,6 @@ const SERVER: Record<string, [string, string]> = {
   'too many requests, try again later': ['Слишком много запросов, попробуйте позже', 'Забагато запитів, спробуйте пізніше'],
   'admin only': ['Только для администратора', 'Лише для адміністратора'],
   'trash changed; reload and review before purging': ['Состав корзины изменился. Проверьте список и подтвердите очистку ещё раз.', 'Вміст кошика змінився. Перегляньте список і підтвердьте очищення ще раз.'],
-  'demo storage is full; delete content and empty the trash to free space': ['Хранилище демо заполнено. Удалите данные и очистите корзину.', 'Сховище демо заповнено. Видаліть дані й очистьте кошик.'],
 }
 export const errText = (e: unknown): string => {
   if (!(e instanceof Error)) return String(e)

@@ -48,7 +48,6 @@ func conflict(format string, a ...any) error {
 }
 
 type Service struct {
-	storageLimit int64
 	clusterOwner string
 	st           *store.Store
 	bus          *events.Bus
@@ -70,10 +69,9 @@ func (s *Service) Today() string { return time.Now().In(s.loc).Format("2006-01-0
 
 // op is one write transaction; events are published only after commit.
 type op struct {
-	skipStorageCheck bool // operational call logging or removing content
-	tx               *store.Tx
-	actor            string
-	evs              []events.Event
+	tx    *store.Tx
+	actor string
+	evs   []events.Event
 }
 
 type diff map[string][2]any
@@ -114,15 +112,6 @@ func (s *Service) write(ctx context.Context, actor string, fn func(*op) error) e
 		o.tx = tx
 		if err := fn(o); err != nil {
 			return err
-		}
-		if s.storageLimit > 0 && !o.skipStorageCheck {
-			used, err := tx.WorkspaceBytes()
-			if err != nil {
-				return err
-			}
-			if used > s.storageLimit {
-				return &Error{Code: "quota_exceeded", Message: "demo storage is full; delete content and empty the trash to free space"}
-			}
 		}
 		if s.clusterOwner != "" {
 			for _, e := range o.evs {
@@ -455,7 +444,6 @@ func (s *Service) DeleteProject(ctx context.Context, actor string, id int64) (p 
 		if p.DeletedAt != nil {
 			return nil
 		}
-		o.skipStorageCheck = true
 		ts := deletionStamp()
 		p.DeletedAt = &ts
 		if err := o.tx.UpdateProject(p); err != nil {
@@ -1338,7 +1326,6 @@ func (s *Service) MoveTasks(ctx context.Context, actor string, refs []string, in
 // DeleteTasks moves tasks (and their subtasks) to the trash.
 func (s *Service) DeleteTasks(ctx context.Context, actor string, refs []string) (n int, err error) {
 	err = s.write(ctx, actor, func(o *op) error {
-		o.skipStorageCheck = true
 		ts := deletionStamp()
 		for _, ref := range refs {
 			t, err := resolveTask(o.tx, ref)
@@ -1425,7 +1412,6 @@ func (s *Service) PurgeTrash(ctx context.Context, seen TrashSnapshot) (n int64, 
 		return 0, invalid("provide the reviewed tasks and projects")
 	}
 	err = s.write(ctx, ActorDenis, func(o *op) error {
-		o.skipStorageCheck = true
 		matches, err := o.tx.TrashMatches(seen.Tasks, seen.Projects)
 		if err != nil {
 			return err

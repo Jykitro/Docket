@@ -270,7 +270,7 @@ func (h *handler) oauthDecision(w http.ResponseWriter, r *http.Request, u auth.U
 			spaceError(w, err)
 			return
 		}
-		ws, err := h.WS.openSpace(r.Context(), sp, u.IsAdmin)
+		ws, err := h.WS.openSpace(r.Context(), sp)
 		if err != nil {
 			internalError(w, err)
 			return
@@ -397,7 +397,7 @@ func (h *handler) oauthMCP(w http.ResponseWriter, r *http.Request, token string)
 		writeError(w, 401, "unauthorized", "workspace unavailable")
 		return
 	}
-	ws, err := h.WS.openSpace(ctx, sp, u.IsAdmin)
+	ws, err := h.WS.openSpace(ctx, sp)
 	if err != nil {
 		internalError(w, err)
 		return

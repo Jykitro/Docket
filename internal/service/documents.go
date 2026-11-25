@@ -136,7 +136,6 @@ func (s *Service) DeleteHTML(ctx context.Context, id int64, version int) error {
 			}
 			pid = p.ProjectID
 		}
-		o.skipStorageCheck = true
 		if err = o.tx.DeleteDocument(id); err != nil {
 			return err
 		}

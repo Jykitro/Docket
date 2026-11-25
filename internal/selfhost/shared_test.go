@@ -95,7 +95,7 @@ func TestSharedWorkspaceLifecycleAndIsolation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ws, err := s.ws.openSpace(t.Context(), sp, true)
+	ws, err := s.ws.openSpace(t.Context(), sp)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -123,57 +123,6 @@ func TestSharedWorkspaceLifecycleAndIsolation(t *testing.T) {
 	status("GET", target+"/projects", "", a, 404)
 	if !bytes.Contains(status("GET", prefix(first.ID)+"/projects", "", a, 200), []byte("First unique")) {
 		t.Fatal("sibling lost")
-	}
-}
-func TestSharedConcurrentQuota(t *testing.T) {
-	s := sharedServer(t)
-	if !s.db.Connection().Postgres {
-		t.Skip("hosted demo requires PostgreSQL")
-	}
-	_, _ = s.addUser("admin")
-	cookie, one := s.addUser("member")
-	name := "Another"
-	record, err := s.ws.shared.ChangeSpace(t.Context(), one.OwnerID, 0, store.SpaceChange{Name: &name}, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	two, err := s.ws.openSpace(t.Context(), record, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	s.ws.DemoStorageBytes = 200000
-	work := make(chan error, 2)
-	for _, ws := range []*Workspace{one, two} {
-		ws.Svc.SetStorageLimit(200000)
-		p, err := ws.Svc.CreateProject(t.Context(), "mcp", service.ProjectInput{Name: "Demo", Key: "DE"})
-		if err != nil {
-			t.Fatal(err)
-		}
-		go func() {
-			_, err := ws.Svc.CreateTasks(context.Background(), "mcp", []service.NewTask{{ProjectID: p.ID, Title: "payload", DescriptionMD: strings.Repeat("x", 130000)}})
-			work <- err
-		}()
-	}
-	var fits, capped int
-	for range 2 {
-		select {
-		case err := <-work:
-			if err == nil {
-				fits++
-			} else if service.ErrorCode(err) == "quota_exceeded" {
-				capped++
-			} else {
-				t.Fatal(err)
-			}
-		case <-time.After(10 * time.Second):
-			t.Fatal("quota lock timeout")
-		}
-	}
-	if fits != 1 || capped != 1 {
-		t.Fatalf("accepted %d capped %d", fits, capped)
-	}
-	if s.do("GET", "/api/workspaces", "", cookie, nil).Code != 200 {
-		t.Fatal("quota blocked account management")
 	}
 }
 func TestDeviceRevocationIsOwnerScoped(t *testing.T) {

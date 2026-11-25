@@ -40,7 +40,6 @@ When moving the existing hosted installation, keep what its accounts depend on:
 | `DOCKET_ALLOWED_HOSTS` | `app.plandillo.dev` |
 | `DOCKET_PASSKEY_ORIGIN` | `https://app.plandillo.dev`. Changing it invalidates registered passkeys. |
 | `PLANDILLO_TOTP_KEY` | The existing key, if authenticator sign-in was enabled. Keep it with the database recovery material. |
-| `PLANDILLO_DEMO_STORAGE_MB` | The demo quota for non-administrator accounts, for example `5`. |
 
 Run only one backend against the live database. Back up PostgreSQL through Neon or `pg_dump`: Plandillo makes no PostgreSQL backups itself.
 

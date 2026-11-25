@@ -332,7 +332,6 @@ func (s *Service) RecordMCPCall(ctx context.Context, actor, tool, args string, d
 		c.Status, c.ErrorCode = "error", &errCode
 	}
 	return s.write(ctx, actor, func(o *op) error {
-		o.skipStorageCheck = true
 		if err := o.tx.InsertCall(c); err != nil {
 			return err
 		}

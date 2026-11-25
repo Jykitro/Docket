@@ -62,18 +62,3 @@ func TestDefaultListenAddressIsLoopback(t *testing.T) {
 		t.Fatalf("explicit address %q (%v)", c.Addr, err)
 	}
 }
-
-func TestSelfhostDemoStorageLimit(t *testing.T) {
-	t.Setenv("DOCKET_MODE", "selfhost")
-	for _, tc := range []struct {
-		value   string
-		bytes   int64
-		wantErr bool
-	}{{"", 0, false}, {"5", 5_000_000, false}, {"0", 0, true}, {"invalid", 0, true}} {
-		t.Setenv("PLANDILLO_DEMO_STORAGE_MB", tc.value)
-		cfg, err := Load()
-		if (err != nil) != tc.wantErr || cfg.DemoStorageBytes != tc.bytes {
-			t.Errorf("quota %q got %d bytes, error %v", tc.value, cfg.DemoStorageBytes, err)
-		}
-	}
-}

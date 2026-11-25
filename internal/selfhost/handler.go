@@ -641,7 +641,7 @@ func (h *handler) forwardSpace(w http.ResponseWriter, r *http.Request, u auth.Us
 		var sp store.Space
 		sp, err = h.WS.shared.Space(r.Context(), u.ID, id)
 		if err == nil {
-			ws, err = h.WS.openSpace(r.Context(), sp, u.IsAdmin)
+			ws, err = h.WS.openSpace(r.Context(), sp)
 		}
 	} else {
 		ws, err = h.WS.Open(r.Context(), u)
@@ -695,12 +695,11 @@ func (h *handler) mcp(w http.ResponseWriter, r *http.Request) {
 			}
 			return
 		}
-		u, err := h.Auth.ByID(sp.OwnerID)
-		if err != nil {
+		if _, err := h.Auth.ByID(sp.OwnerID); err != nil { // the token's owner must still have an account
 			credentialError(w, err)
 			return
 		}
-		ws, err := h.WS.openSpace(r.Context(), sp, u.IsAdmin)
+		ws, err := h.WS.openSpace(r.Context(), sp)
 		if err != nil {
 			internalError(w, err)
 			return

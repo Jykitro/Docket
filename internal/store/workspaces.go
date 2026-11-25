@@ -73,7 +73,7 @@ type SpaceChange struct {
 	Action string  `json:"action"`
 }
 
-func (s *Store) ChangeSpace(ctx context.Context, owner, id int64, in SpaceChange, limit int64) (Space, error) {
+func (s *Store) ChangeSpace(ctx context.Context, owner, id int64, in SpaceChange) (Space, error) {
 	var v Space
 	tx, err := s.db.BeginOwnerTx(ctx, owner)
 	if err != nil {
@@ -154,20 +154,8 @@ func (s *Store) ChangeSpace(ctx context.Context, owner, id int64, in SpaceChange
 			return v, err
 		}
 	}
-	if limit > 0 && in.Action == "" {
-		tx.BindWorkspace(id)
-		var used int64
-		if err = tx.QueryRow(workspaceUsageSQL).Scan(&used); err != nil {
-			return v, err
-		}
-		if used > limit {
-			return v, ErrQuota
-		}
-	}
 	return v, tx.Commit()
 }
-
-var ErrQuota = errors.New("account storage limit reached")
 
 func EnsureLocalUser(db *database.DB) (int64, error) {
 	tx, err := db.Begin()
