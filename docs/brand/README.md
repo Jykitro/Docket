@@ -9,4 +9,4 @@ The armadillo's shell contains a checkmark. Use the outlined wordmark in the pla
 | App and browser icon | [Square SVG](../../web/public/plandillo-icon.svg) · [favicon](../../web/public/favicon.ico) · [PWA manifest](../../web/public/manifest.webmanifest) |
 | Print | [Vector PDF](plandillo.pdf) |
 
-The symbol is purple (`#543099`) on light backgrounds and lavender (`#CEB7FF`) on dark backgrounds. The corresponding wordmarks use `#261C36` and `#F7F3FE`. The [archive](archive/) contains the earlier Docket designs.
+The symbol is purple (`#543099`) on light backgrounds and lavender (`#CEB7FF`) on dark backgrounds. The corresponding wordmarks use `#261C36` and `#F7F3FE`.
