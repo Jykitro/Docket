@@ -48,7 +48,6 @@ func conflict(format string, a ...any) error {
 }
 
 type Service struct {
-	clusterOwner string
 	st           *store.Store
 	bus          *events.Bus
 	loc          *time.Location
@@ -60,9 +59,6 @@ type Service struct {
 func New(st *store.Store, bus *events.Bus, loc *time.Location) *Service {
 	return &Service{st: st, bus: bus, loc: loc}
 }
-
-// UseClusterEvents enables durable events for the verified account generation. Set before serving.
-func (s *Service) UseClusterEvents(owner string) { s.clusterOwner = owner }
 
 // Today returns today's date in the configured time zone.
 func (s *Service) Today() string { return time.Now().In(s.loc).Format("2006-01-02") }
@@ -112,17 +108,6 @@ func (s *Service) write(ctx context.Context, actor string, fn func(*op) error) e
 		o.tx = tx
 		if err := fn(o); err != nil {
 			return err
-		}
-		if s.clusterOwner != "" {
-			for _, e := range o.evs {
-				data, err := json.Marshal(e)
-				if err != nil {
-					return err
-				}
-				if err = tx.RecordClusterEvent(s.clusterOwner, data); err != nil {
-					return err
-				}
-			}
 		}
 		return nil
 	})

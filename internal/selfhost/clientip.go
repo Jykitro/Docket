@@ -8,11 +8,6 @@ import (
 
 // Trust each hop only when its immediate downstream peer is a configured proxy.
 func (h *handler) clientIP(r *http.Request) string {
-	if h.VercelIngress {
-		if ip, err := netip.ParseAddr(r.Header.Get("X-Vercel-Forwarded-For")); err == nil && ip.Zone() == "" {
-			return ip.Unmap().String()
-		}
-	}
 	peer, err := netip.ParseAddrPort(r.RemoteAddr)
 	ip := peer.Addr()
 	if err != nil {

@@ -1,8 +1,6 @@
 package auth
 
 import (
-	"context"
-	"database/sql"
 	"sync"
 	"time"
 )
@@ -10,8 +8,6 @@ import (
 // Limiter refuses a key once it has tried max times within window.
 // shortcut: in-memory, resets on restart; move to auth.db if the server runs several replicas.
 type Limiter struct {
-	db        *sql.DB
-	namespace string
 	mu        sync.Mutex
 	max       int
 	window    time.Duration
@@ -44,9 +40,6 @@ func (l *Limiter) recent(key string) []time.Time {
 // Attempt counts one try for key and reports whether it may proceed; check and record share one lock, so
 // concurrent attempts cannot all pass before any is counted.
 func (l *Limiter) Attempt(key string) bool {
-	if l.db != nil {
-		return l.attemptShared(key)
-	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if now := l.now(); now.Sub(l.lastSweep) >= time.Minute { // sweep so keys that never return do not accumulate
@@ -63,35 +56,7 @@ func (l *Limiter) Attempt(key string) bool {
 }
 
 func (l *Limiter) Reset(key string) {
-	if l.db != nil {
-		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-		defer cancel()
-		_, _ = l.db.ExecContext(ctx, "DELETE FROM vercel_attempts WHERE key=$1", TokenHash(l.namespace+"|"+key))
-		return
-	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	delete(l.fails, key)
-}
-
-// UsePostgres makes a limiter's sliding window shared and persistent across replicas.
-func (l *Limiter) UsePostgres(db *sql.DB, namespace string) { l.db = db; l.namespace = namespace }
-func (l *Limiter) attemptShared(key string) bool {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-	tx, err := l.db.BeginTx(ctx, nil)
-	if err != nil {
-		return false
-	}
-	defer tx.Rollback()
-	key = TokenHash(l.namespace + "|" + key)
-	if _, err = tx.ExecContext(ctx, "SELECT pg_advisory_xact_lock(hashtextextended($1, 39))", key); err != nil {
-		return false
-	}
-	var count int
-	if err = tx.QueryRowContext(ctx, "SELECT count(*) FROM vercel_attempts WHERE key=$1 AND expires>clock_timestamp()", key).Scan(&count); err != nil || count >= l.max {
-		return false
-	}
-	_, err = tx.ExecContext(ctx, "INSERT INTO vercel_attempts(key,expires) VALUES ($1,clock_timestamp()+$2 * interval '1 second')", key, int64(l.window/time.Second))
-	return err == nil && tx.Commit() == nil
 }

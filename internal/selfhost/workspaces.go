@@ -55,7 +55,6 @@ type Workspaces struct {
 	shared      *store.Store
 	envToken    string
 	firstID     int64
-	cluster     bool
 	parent      context.Context
 	dir         string
 	postgresDSN string
@@ -144,9 +143,6 @@ func (w *Workspaces) open(ctx context.Context, u auth.User, allowCreate bool) (*
 	}
 	bus := events.NewBus()
 	svc := service.New(st, bus, w.loc)
-	if w.cluster {
-		svc.UseClusterEvents(u.WorkspaceKey)
-	}
 	if err := w.init(ctx, svc, u.Username); err != nil {
 		return nil, errors.Join(err, st.Close())
 	}

@@ -23,7 +23,6 @@ import (
 	"docket/internal/selfhost"
 	"docket/internal/service"
 	"docket/internal/store"
-	"docket/internal/vercelrun"
 	"docket/internal/web"
 )
 
@@ -44,8 +43,6 @@ func run() error {
 
 	if len(os.Args) > 1 {
 		switch os.Args[1] {
-		case "vercel", "vercel-replies":
-			return runVercel(ctx, cfg, os.Args[1])
 		case "code-runner":
 			return mcpserver.ServeRunner(ctx, cfg.RunnerSocket)
 		case "code-eval":
@@ -54,11 +51,11 @@ func run() error {
 			return fmt.Errorf("unknown command %q", os.Args[1])
 		}
 	}
-	return runSelfHost(ctx, cfg, nil)
+	return runSelfHost(ctx, cfg)
 }
 
 // Both modes share the catalog. Selfhost resolves owners from authenticated sessions.
-func runSelfHost(ctx context.Context, cfg config.Config, remote *vercelrun.App) error {
+func runSelfHost(ctx context.Context, cfg config.Config) error {
 	if cfg.SelfHost && cfg.MCPToken != "" { // DOCKET_SEED is ignored silently: .env.example sets it, and the README says so
 		slog.Warn("DOCKET_MCP_TOKEN is ignored in selfhost mode: every workspace has its own token")
 	}
@@ -129,35 +126,11 @@ func runSelfHost(ctx context.Context, cfg config.Config, remote *vercelrun.App) 
 		return err
 	}
 	runner := mcpserver.NewRunner(cfg.RunnerSocket)
-	webHandler := web.Handler()
 	buildRouter := func(wctx context.Context, svc *service.Service, bus *events.Bus) http.Handler {
 		return httpapi.Router(httpapi.Deps{
 			Svc: svc, Bus: bus, AllowedHosts: cfg.AllowedHosts, SelfAddr: cfg.Addr, Ctx: wctx, SelfHost: cfg.SelfHost, OnDemandCheck: true,
 			MCP: mcpserver.IsolatedHandler(svc, cfg.Loc, runner), Web: web.Handler(),
 		})
-	}
-	var cluster *selfhost.Cluster
-	ready := runner.Ready
-	if remote != nil {
-		cluster, err = selfhost.OpenCluster(ctx, cfg.PostgresDSN)
-		if err != nil {
-			return err
-		}
-		defer cluster.Close()
-		remote.DB = cluster.DB
-		ready = remote.Ready
-		webHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.URL.Path == "/mcp" || r.URL.Path == "/mcp/code" {
-				target := "/integrations"
-				if r.URL.RawQuery != "" {
-					target += "?" + r.URL.RawQuery
-				}
-				http.Redirect(w, r, target, http.StatusTemporaryRedirect)
-				return
-			}
-			http.NotFound(w, r)
-		})
-		buildRouter = cloudRouter(cfg, remote, webHandler)
 	}
 	ws := selfhost.NewWorkspaces(ctx, cfg.DataDir, cfg.Loc, buildRouter)
 	ws.UsePostgres(cfg.PostgresDSN)
@@ -172,11 +145,7 @@ func runSelfHost(ctx context.Context, cfg config.Config, remote *vercelrun.App) 
 	if code != "" && len(code) < 32 {
 		return errors.New("PLANDILLO_SETUP_CODE must have at least 32 characters")
 	}
-	if cluster != nil {
-		if err = cluster.Initialize(ctx, ws, ad); err != nil {
-			return err
-		}
-	} else {
+	{
 		userCount, err := ad.UserCount()
 		if err != nil {
 			return err
@@ -210,7 +179,7 @@ func runSelfHost(ctx context.Context, cfg config.Config, remote *vercelrun.App) 
 		slog.Info("PostgreSQL storage enabled; configure external database backups (pg_dump or PITR)")
 	}
 	var backup func(time.Time) (string, error) // on-demand snapshots for the admin Backups page; SQLite only
-	if cluster == nil && cfg.PostgresDSN == "" {
+	if cfg.PostgresDSN == "" {
 		backup = func(now time.Time) (string, error) {
 			path, err := shared.Backup(cfg.BackupDir, store.BackupKeep, now)
 			if err == nil {
@@ -219,13 +188,10 @@ func runSelfHost(ctx context.Context, cfg config.Config, remote *vercelrun.App) 
 			return path, err
 		}
 	}
-	handler := selfhost.Handler(selfhost.Options{LocalID: localID, Cluster: cluster, VercelIngress: cluster != nil && os.Getenv("VERCEL") == "1" && (os.Getenv("VERCEL_ENV") == "production" || os.Getenv("VERCEL_ENV") == "preview"),
-		TrustedProxies: proxies, Passkeys: sites, Auth: ad, WS: ws, Web: webHandler, AllowedHosts: cfg.AllowedHosts, SetupCode: code, RunnerReady: ready,
+	handler := selfhost.Handler(selfhost.Options{LocalID: localID,
+		TrustedProxies: proxies, Passkeys: sites, Auth: ad, WS: ws, Web: web.Handler(), AllowedHosts: cfg.AllowedHosts, SetupCode: code, RunnerReady: runner.Ready,
 		BackupDir: cfg.BackupDir, Backup: backup,
 	})
-	if remote != nil && os.Getenv("VERCEL_ENV") == "development" {
-		handler = developmentOrigin(handler, cfg.PasskeyOrigin)
-	}
 	return serve(ctx, cfg.Addr, handler)
 }
 

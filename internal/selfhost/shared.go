@@ -29,9 +29,6 @@ func (w *Workspaces) openSpace(ctx context.Context, sp store.Space) (*Workspace,
 	st := w.shared.ForOwner(sp.ID, sp.OwnerID)
 	bus := events.NewBus()
 	svc := service.New(st, bus, w.loc)
-	if w.cluster {
-		svc.UseClusterEvents(sp.Generation)
-	}
 	if sp.ID == w.firstID && w.envToken != "" {
 		svc.SetEnvToken(w.envToken)
 	}
@@ -219,10 +216,6 @@ func (h *handler) workspaceAPI(w http.ResponseWriter, r *http.Request) {
 	tail := chi.URLParam(r, "*")
 	if strings.HasPrefix(tail, "auth/") || strings.HasPrefix(tail, "admin/") {
 		http.NotFound(w, r)
-		return
-	}
-	if tail == "events" && h.Cluster != nil {
-		h.Cluster.stream(h, w, r)
 		return
 	}
 	h.forwardAPI(w, r, id, "/api/"+tail)

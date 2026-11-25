@@ -308,9 +308,3 @@ func ftsQuery(q string) string {
 	}
 	return strings.Join(parts, " ")
 }
-
-// RecordClusterEvent is part of the same serialized profile transaction as the change.
-func (tx *Tx) RecordClusterEvent(owner string, event []byte) error {
-	_, err := tx.tx.Exec("INSERT INTO "+tx.tx.AuthSchema()+".vercel_events(owner,event) VALUES(?,?::json)", owner, string(event))
-	return err
-}
