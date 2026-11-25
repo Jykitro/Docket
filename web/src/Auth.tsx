@@ -81,15 +81,16 @@ function Login({ open, passkeys }: { open: boolean; passkeys: boolean }) {
 type IssuedCode = { id?: number; recovery_code: string }
 type Saved = (response: IssuedCode) => void
 
-function Setup({ saved, fromEnvironment }: { saved: Saved; fromEnvironment: boolean }) {
+function Setup({ saved, needsCode }: { saved: Saved; needsCode: boolean }) {
+  // Only an operator who set PLANDILLO_SETUP_CODE is asked for a code; otherwise the first account becomes the administrator.
   return (
     <AuthForm
-      title="Первый запуск" text="Создайте администратора. Он сможет приглашать других пользователей." submit="Создать"
+      title="Первый запуск" text="Создайте аккаунт администратора. Он управляет сервером и приглашает других пользователей." submit="Создать"
       fields={[
-        { key: 'code', label: 'Код настройки', autoComplete: 'off', hint: fromEnvironment ? 'Введите код из переменной PLANDILLO_SETUP_CODE в настройках проекта Vercel.' : 'Получите код командой plandillo setup-code на сервере. В Docker выполните docker compose -f compose.selfhost.yml exec docket /app/plandillo setup-code.' },
+        ...(needsCode ? [{ key: 'code', label: 'Код настройки', autoComplete: 'off', hint: 'Введите значение переменной PLANDILLO_SETUP_CODE из настроек сервера.' }] : []),
         username, newPassword,
       ]}
-      onSubmit={(v) => api.setup(v.code, v.username, v.password).then(saved)}
+      onSubmit={(v) => api.setup(v.code ?? '', v.username, v.password).then(saved)}
     />
   )
 }
@@ -153,7 +154,7 @@ export function Gate({ children }: { children: ReactNode }) {
   }
   if (leaving) return null
   if (inApp) return <>{children}</>
-  if (me.data?.setup) return wrap(<Setup fromEnvironment={me.data?.setup_source === 'environment'} saved={saved} />)
+  if (me.data?.setup) return wrap(<Setup needsCode={me.data?.setup_source === 'environment'} saved={saved} />)
   return wrap(
     <main className="min-h-screen grid place-items-center px-4 text-center">
       <div className="flex flex-col items-center gap-3">

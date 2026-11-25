@@ -2,6 +2,8 @@
 // {name} placeholders must stay as they are. "a|b|c" keys are plural forms (see plural() in i18n.ts): Russian and
 // Ukrainian take three forms (1, 2-4, 5+), English two (1, other). Add a key here whenever a new tr('…') appears.
 export const MESSAGES: Record<string, [en: string, uk: string]> = {
+  "Введите значение переменной PLANDILLO_SETUP_CODE из настроек сервера.": ["Enter the value of PLANDILLO_SETUP_CODE from the server settings.", "Введіть значення змінної PLANDILLO_SETUP_CODE з налаштувань сервера."],
+  "Создайте аккаунт администратора. Он управляет сервером и приглашает других пользователей.": ["Create the administrator account. It manages the server and invites other people.", "Створіть обліковий запис адміністратора. Він керує сервером і запрошує інших користувачів."],
   "Возможно, это удалили или переместили. Проверьте адрес или вернитесь на главную.": ["It may have been deleted or moved. Check the address or go back home.", "Можливо, це видалили або перемістили. Перевірте адресу або поверніться на головну."],
   "Войдите снова, чтобы продолжить с того же места.": ["Sign in again to pick up where you left off.", "Увійдіть знову, щоб продовжити з того ж місця."],
   "Войти снова": ["Sign in again", "Увійти знову"],
@@ -285,11 +287,8 @@ export const MESSAGES: Record<string, [en: string, uk: string]> = {
   'Войдите, чтобы открыть свои проекты.': ['Sign in to open your projects.', 'Увійдіть, щоб відкрити свої проєкти.'],
   'Войти': ['Sign in', 'Увійти'],
   'Первый запуск': ['First run', 'Перший запуск'],
-  'Создайте администратора. Он сможет приглашать других пользователей.': ['Create an administrator. They will be able to invite other users.', 'Створіть адміністратора. Він зможе запрошувати інших користувачів.'],
   'Создать': ['Create', 'Створити'],
   'Код настройки': ['Setup code', 'Код налаштування'],
-  'Введите код из переменной PLANDILLO_SETUP_CODE в настройках проекта Vercel.': ['Enter the code from PLANDILLO_SETUP_CODE in your Vercel project settings.', 'Введіть код зі змінної PLANDILLO_SETUP_CODE в налаштуваннях проєкту Vercel.'],
-  'Получите код командой plandillo setup-code на сервере. В Docker выполните docker compose -f compose.selfhost.yml exec docket /app/plandillo setup-code.': ['Run plandillo setup-code on the server. In Docker, run docker compose -f compose.selfhost.yml exec docket /app/plandillo setup-code.', 'Отримайте код командою plandillo setup-code на сервері. У Docker виконайте docker compose -f compose.selfhost.yml exec docket /app/plandillo setup-code.'],
   'Приглашение': ['Invitation', 'Запрошення'],
   'Вас пригласили в Plandillo. Придумайте имя пользователя и пароль.': ['You have been invited to Plandillo. Choose a username and password.', 'Вас запросили до Plandillo. Придумайте ім’я користувача та пароль.'],
   'Создать аккаунт': ['Create account', 'Створити акаунт'],

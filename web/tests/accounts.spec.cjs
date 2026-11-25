@@ -3,7 +3,7 @@ const { test, expect } = require('playwright/test')
 const { spawn } = require('node:child_process')
 const { once } = require('node:events')
 const { createServer } = require('node:net')
-const { mkdtemp, readFile, rm } = require('node:fs/promises')
+const { mkdtemp, rm } = require('node:fs/promises')
 const { tmpdir } = require('node:os')
 const path = require('node:path')
 
@@ -25,12 +25,10 @@ test('signup, private data, recovery and worker availability', async ({ page, br
   const stoppedApp = once(app,'exit')
   const ownerContext = await browser.newContext({locale:'en-GB', viewport:{width:390,height:844}})
   try {
-    const setupFile = path.join(dir, 'setup-code')
-    await expect.poll(() => readFile(setupFile, 'utf8').then(Boolean, () => false)).toBe(true)
-    const setup = (await readFile(setupFile, 'utf8')).trim()
+    await expect.poll(() => fetch(url + '/healthz').then(r => r.ok, () => false)).toBe(true)
     const post = (client,route,data) => client.post(url+route,{data,failOnStatusCode:true})
     const admin = page.request
-    await post(admin,'/api/auth/setup',{code:setup,username:'operator',password:'test-password-123'})
+    await post(admin,'/api/auth/setup',{username:'operator',password:'test-password-123'})
     await post(admin,'/api/projects',{name:'Operator private',key:'OWN'})
     await page.goto(url)
     await page.getByRole('button',{name:'Settings',exact:true}).click()

@@ -95,7 +95,7 @@ and every profile has its own isolated storage and MCP token. SQLite is the defa
 2. Put an HTTPS reverse proxy in front of the container and do not publish port `7777` without it. The session cookie
    is marked `Secure` only over HTTPS (or with `X-Forwarded-Proto: https`), so logging in without a proxy is not safe.
 3. For SQLite, create the private `./data` directory and export the numeric `DOCKET_UID` and `DOCKET_GID` of its non-root owner as described under [Code Mode worker](#code-mode-worker). For SQLite with Code Mode, run `docker compose -f compose.selfhost.yml up -d --build` with a fresh private data directory mounted at `./data`. The PostgreSQL Compose file also includes the worker. Existing selfhost installations using a standalone binary or container must connect the isolated worker to use Code Mode after upgrading. Ordinary MCP runs in the main server.
-4. On the server, retrieve the first administrator's setup code with `docker compose -f compose.selfhost.yml exec docket /app/plandillo setup-code` (use `compose.postgres.yml` for PostgreSQL). For a native installation run `plandillo setup-code` with the server's `DOCKET_DB` setting. Enter it on the first-run screen. Restarting before setup replaces the code. Completing setup removes the private file from the data directory.
+4. Open the site and create the first account: it becomes the administrator. Do this right after the first start, since until then anyone who reaches the server can claim it. To require a code instead, set `PLANDILLO_SETUP_CODE` (at least 32 characters) before the first start; the first-run screen then asks for it.
 5. Save the one-time recovery code. In **Settings → Registration**, choose **Invitation only** (the default on installation and upgrade), **Open** or **Closed**. Open signup uses `/register` and requires an available worker when enabling it. Closing signup pauses unused invitations until reopening or their original expiry. Existing owners can continue signing in. The pilot supports 50 accounts including the administrator and blocked accounts. The [historical pilot report](selfhost-security.md) describes the previous storage layout.
 6. Administrators manage signup, invitations and account suspension. Blocking ends sessions and active requests. Unblocking requires a new login and a new MCP token. Owners manage their own data and can delete their own account after confirming their password. The last administrator must remain active. The operator of the host or database has physical access to stored data.
 
@@ -169,7 +169,6 @@ chmod 600 .env
 (printf 'POSTGRES_ADMIN_PASSWORD='; openssl rand -hex 32) >> .env
 (printf 'POSTGRES_PASSWORD='; openssl rand -hex 32) >> .env
 docker compose -f compose.postgres.yml up -d --build
-docker compose -f compose.postgres.yml exec docket /app/plandillo setup-code
 ```
 
 [`compose.postgres.yml`](../compose.postgres.yml) builds the current source and starts PostgreSQL 18.7 with a persistent

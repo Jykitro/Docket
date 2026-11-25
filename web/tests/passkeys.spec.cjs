@@ -2,7 +2,7 @@
 const { test, expect } = require('playwright/test')
 const { spawn } = require('node:child_process')
 const { once } = require('node:events')
-const { mkdtemp, readFile, rm } = require('node:fs/promises')
+const { mkdtemp, rm } = require('node:fs/promises')
 const { createServer } = require('node:net')
 const { tmpdir } = require('node:os')
 const path = require('node:path')
@@ -24,12 +24,10 @@ test('enroll a passkey, sign into its workspace and revoke it', async ({ page, b
     DOCKET_BACKUP_DIR: path.join(dir, 'backups') }, stdio: ['ignore', 'ignore', 'pipe'] })
   const stopped = once(app, 'exit')
   try {
-    const setupFile = path.join(dir, 'setup-code')
-    await expect.poll(() => readFile(setupFile, 'utf8').then(Boolean, () => false)).toBe(true)
-    const setup = (await readFile(setupFile, 'utf8')).trim()
+    await expect.poll(() => fetch(url + '/healthz').then(r => r.ok, () => false)).toBe(true)
     const password = 'test-passkey-password'
     const post = (route, data) => page.request.post(url + route, { data, failOnStatusCode: true })
-    await post('/api/auth/setup', { code: setup, username: 'owner', password })
+    await post('/api/auth/setup', { username: 'owner', password })
     await post('/api/projects', { name: 'Owner workspace', key: 'OWN' })
     const cdp = await page.context().newCDPSession(page)
     await cdp.send('WebAuthn.enable')

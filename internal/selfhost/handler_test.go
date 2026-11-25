@@ -506,23 +506,32 @@ func TestSetupFlow(t *testing.T) {
 	}
 }
 
-func TestSetupEmptyCodeRefuses(t *testing.T) {
+func TestSetupWithoutCodeMakesFirstAccountAdmin(t *testing.T) {
 	s := newServer(t)
 	h := Handler(Options{Auth: s.db, WS: s.ws, Web: http.NotFoundHandler(), AllowedHosts: []string{"localhost"}})
-	for _, body := range []string{
-		jsonBody("code", "", "username", "alice", "password", testPassword),
-		jsonBody("username", "alice", "password", testPassword),
-	} {
-		req := httptest.NewRequest("POST", "/api/auth/setup", strings.NewReader(body))
+	post := func(path, body string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest("POST", path, strings.NewReader(body))
 		req.Host = "localhost"
 		rec := httptest.NewRecorder()
 		h.ServeHTTP(rec, req)
-		if rec.Code != 403 || !strings.Contains(rec.Body.String(), `"forbidden"`) || len(rec.Result().Cookies()) != 0 {
-			t.Fatalf("empty configured code: %d %s %v", rec.Code, rec.Body, rec.Result().Cookies())
-		}
+		return rec
 	}
-	if n, _ := s.db.UserCount(); n != 0 {
-		t.Fatalf("created %d users", n)
+	req := httptest.NewRequest("GET", "/api/auth/me", nil)
+	req.Host = "localhost"
+	me := httptest.NewRecorder()
+	h.ServeHTTP(me, req)
+	if !strings.Contains(me.Body.String(), `"setup":true`) || strings.Contains(me.Body.String(), "setup_source") {
+		t.Fatalf("me before setup should ask for no code: %s", me.Body)
+	}
+	rec := post("/api/auth/setup", jsonBody("username", "alice", "password", testPassword))
+	if rec.Code != 200 || !strings.Contains(rec.Body.String(), `"is_admin":true`) || len(rec.Result().Cookies()) == 0 {
+		t.Fatalf("setup without a code: %d %s", rec.Code, rec.Body)
+	}
+	if rec := post("/api/auth/setup", jsonBody("username", "mallory", "password", testPassword)); rec.Code != 404 {
+		t.Fatalf("second setup: %d %s, want 404", rec.Code, rec.Body)
+	}
+	if n, _ := s.db.UserCount(); n != 1 {
+		t.Fatalf("users: %d, want 1", n)
 	}
 }
 

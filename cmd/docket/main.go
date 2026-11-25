@@ -2,17 +2,14 @@ package main
 
 import (
 	"context"
-	"crypto/rand"
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
 	"net"
 	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
-	"strings"
 	"syscall"
 	"time"
 	_ "time/tzdata" // distroless has no zoneinfo
@@ -49,8 +46,6 @@ func run() error {
 		switch os.Args[1] {
 		case "vercel", "vercel-replies":
 			return runVercel(ctx, cfg, os.Args[1])
-		case "setup-code":
-			return printSetupCode(cfg.DataDir, os.Stdout)
 		case "code-runner":
 			return mcpserver.ServeRunner(ctx, cfg.RunnerSocket)
 		case "code-eval":
@@ -174,19 +169,13 @@ func runSelfHost(ctx context.Context, cfg config.Config, remote *vercelrun.App) 
 	ws.DemoStorageBytes = cfg.DemoStorageBytes
 	defer ws.Close()
 
-	var code string
-	var clearSetup func()
+	code := os.Getenv("PLANDILLO_SETUP_CODE") // optional; without it the first sign-up becomes the administrator
+	if code != "" && len(code) < 32 {
+		return errors.New("PLANDILLO_SETUP_CODE must have at least 32 characters")
+	}
 	if cluster != nil {
 		if err = cluster.Initialize(ctx, ws, ad); err != nil {
 			return err
-		}
-		n, err := ad.UserCount()
-		if err != nil {
-			return err
-		}
-		code = os.Getenv("PLANDILLO_SETUP_CODE")
-		if n == 0 && len(code) < 32 {
-			return errors.New("first setup requires PLANDILLO_SETUP_CODE with at least 32 characters")
 		}
 	} else {
 		userCount, err := ad.UserCount()
@@ -210,65 +199,24 @@ func runSelfHost(ctx context.Context, cfg config.Config, remote *vercelrun.App) 
 			}
 		}
 		go maintenanceShared(ctx, shared, cfg.BackupDir)
-		setupPath := filepath.Join(cfg.DataDir, "setup-code")
-		clearSetup = func() {
-			if err := os.Remove(setupPath); err != nil && !os.IsNotExist(err) {
-				slog.Error("remove consumed setup code", "err", err)
-			}
+		// Earlier versions kept a one-time setup code here; it is no longer used.
+		if err := os.Remove(filepath.Join(cfg.DataDir, "setup-code")); err != nil && !os.IsNotExist(err) {
+			slog.Error("remove old setup code", "err", err)
 		}
 		if userCount == 0 && localID == 0 {
-			code, err = createSetupCode(cfg.DataDir)
-			if err != nil {
-				return err
-			}
-			slog.Info("first run: retrieve the administrator setup code with plandillo setup-code")
-		} else {
-			clearSetup()
+			slog.Info("first run: open Plandillo in a browser; the first account you create becomes the administrator")
 		}
 	}
 	if cfg.PostgresDSN != "" {
 		slog.Info("PostgreSQL storage enabled; configure external database backups (pg_dump or PITR)")
 	}
 	handler := selfhost.Handler(selfhost.Options{LocalID: localID, Cluster: cluster, VercelIngress: cluster != nil && os.Getenv("VERCEL") == "1" && (os.Getenv("VERCEL_ENV") == "production" || os.Getenv("VERCEL_ENV") == "preview"),
-		SetupComplete: clearSetup, TrustedProxies: proxies, Passkeys: sites, Auth: ad, WS: ws, Web: webHandler, AllowedHosts: cfg.AllowedHosts, SetupCode: code, RunnerReady: ready,
+		TrustedProxies: proxies, Passkeys: sites, Auth: ad, WS: ws, Web: webHandler, AllowedHosts: cfg.AllowedHosts, SetupCode: code, RunnerReady: ready,
 	})
 	if remote != nil && os.Getenv("VERCEL_ENV") == "development" {
 		handler = developmentOrigin(handler, cfg.PasskeyOrigin)
 	}
 	return serve(ctx, cfg.Addr, handler)
-}
-
-// createSetupCode publishes each process's bootstrap credential only after the file is complete.
-func createSetupCode(dir string) (string, error) {
-	if err := os.MkdirAll(dir, 0700); err != nil {
-		return "", err
-	}
-	f, err := os.CreateTemp(dir, ".setup-code-*")
-	if err != nil {
-		return "", err
-	}
-	defer os.Remove(f.Name())
-	code := rand.Text()
-	_, err = fmt.Fprintln(f, code)
-	closeErr := f.Close()
-	if err = errors.Join(err, closeErr); err != nil {
-		return "", err
-	}
-	if err = os.Rename(f.Name(), filepath.Join(dir, "setup-code")); err != nil {
-		return "", err
-	}
-	return code, nil
-}
-func printSetupCode(dir string, w io.Writer) error {
-	data, err := os.ReadFile(filepath.Join(dir, "setup-code"))
-	if errors.Is(err, os.ErrNotExist) {
-		return errors.New("no setup code pending; start an unconfigured selfhost instance first")
-	}
-	if err != nil {
-		return err
-	}
-	_, err = fmt.Fprintln(w, strings.TrimSpace(string(data)))
-	return err
 }
 
 // serve runs h on addr until ctx ends, then shuts down gracefully.

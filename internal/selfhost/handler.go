@@ -37,8 +37,7 @@ type Options struct {
 	AllowedHosts   []string
 	TrustedProxies []netip.Prefix
 	Passkeys       map[string]*webauthn.WebAuthn
-	SetupCode      string
-	SetupComplete  func()
+	SetupCode      string // optional: when set, the first administrator must enter it; empty lets the first sign-up become admin
 	RunnerReady    func(context.Context) error
 }
 
@@ -212,7 +211,7 @@ func (h *handler) me(w http.ResponseWriter, r *http.Request) {
 	}
 	if n == 0 {
 		result := map[string]any{"mode": "selfhost", "setup": true}
-		if h.Cluster != nil {
+		if h.SetupCode != "" {
 			result["setup_source"] = "environment"
 		}
 		writeJSON(w, 200, result)
@@ -408,8 +407,8 @@ func (h *handler) setup(w http.ResponseWriter, r *http.Request) {
 	if !decode(w, r, &in) {
 		return
 	}
-	// An unset code matches nothing (ConstantTimeCompare of two empty strings is 1).
-	if h.SetupCode == "" || subtle.ConstantTimeCompare([]byte(in.Code), []byte(h.SetupCode)) != 1 {
+	// Like most self-hosted apps, the first account becomes the administrator; an operator can still require a code.
+	if h.SetupCode != "" && subtle.ConstantTimeCompare([]byte(in.Code), []byte(h.SetupCode)) != 1 {
 		writeError(w, 403, "forbidden", "invalid setup code")
 		return
 	}
@@ -425,9 +424,6 @@ func (h *handler) setup(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		credentialError(w, err)
 		return
-	}
-	if h.SetupComplete != nil {
-		h.SetupComplete()
 	}
 	h.startSession(w, r, u)
 }
