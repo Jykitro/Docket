@@ -1154,11 +1154,11 @@ func diffTasks(a, b store.Task) diff {
 }
 
 func endOf(tx *store.Tx, projectID, statusID int64) (float64, error) {
-	col, err := tx.Column(projectID, statusID)
-	if err != nil || len(col) == 0 {
+	end, ok, err := tx.ColumnEnd(projectID, statusID)
+	if err != nil || !ok {
 		return 1024, err
 	}
-	return col[len(col)-1].Position + 1024, nil
+	return end + 1024, nil
 }
 
 func liveTask(tx *store.Tx, ref string) (store.Task, error) {

@@ -466,6 +466,15 @@ type Pos struct {
 	Position float64
 }
 
+// ColumnEnd returns the highest position among live tasks of one board column, and false for an empty column.
+// It reads one entry of idx_tasks_board instead of the whole column, so adding a task stays fast in a long column.
+func (t *Tx) ColumnEnd(projectID, statusID int64) (float64, bool, error) {
+	var end sql.NullFloat64
+	err := t.tx.QueryRow(`SELECT max(position) FROM tasks WHERE workspace_id=:workspace AND project_id = ? AND status_id = ? AND deleted_at IS NULL`,
+		projectID, statusID).Scan(&end)
+	return end.Float64, end.Valid, err
+}
+
 // Column returns live tasks of one board column in order.
 func (t *Tx) Column(projectID, statusID int64) ([]Pos, error) {
 	return t.positions(`SELECT id, position FROM tasks WHERE workspace_id=:workspace AND project_id = ? AND status_id = ? AND deleted_at IS NULL
