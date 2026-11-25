@@ -1,0 +1,32 @@
+---
+import '../styles/global.css';
+---
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plandillo — a task board for you and your AI agent</title>
+<meta name="description" content="Plan in your browser and let your AI agent work the same board through MCP or Code Mode. Open source, one Docker container, SQLite or PostgreSQL.">
+<link rel="canonical" href="https://plandillo.dev/">
+<meta name="theme-color" content="#0D0C14">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://plandillo.dev/">
+<meta property="og:site_name" content="Plandillo">
+<meta property="og:title" content="Plandillo — a task board for you and your AI agent">
+<meta property="og:description" content="Plan in your browser, give your AI agent a task through MCP or Code Mode, and let it keep a project wiki. Try the cloud demo or self-host in one container.">
+<meta property="og:image" content="https://plandillo.dev/assets/share.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="900">
+<meta property="og:image:alt" content="A purple armadillo perched on a stack of checked-off task cards.">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="/assets/favicon.ico" sizes="any">
+<link rel="icon" href="/assets/plandillo-icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/assets/plandillo-icon-192.png">
+<link rel="preload" href="/assets/fonts/inter-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin>
+</head>
+<body>
+<slot />
+<script>import '../scripts/app.js';</script>
+</body>
+</html>

@@ -2,7 +2,7 @@
 
 The landing service in the root Vercel project serves this English site. The free demo button opens `https://app.plandillo.dev/register`, and Sign in opens the planner. Campaign parameters are preserved on both links.
 
-The English site for `plandillo.dev` lives in this directory. It uses static HTML, CSS, and one dependency-free script (`app.js`): the board demo, the tabs, the copy button, the mobile menu and the GitHub star count. The demo plays on its own, pauses off screen or in a hidden tab, and stays on one stage with `prefers-reduced-motion`. The star count is the only request to another host (`api.github.com`, cached for an hour in localStorage); if it fails, the counter stays hidden.
+The English site for `plandillo.dev` lives in this directory. It is built with [Astro](https://astro.build) and [Tailwind CSS](https://tailwindcss.com) v4 (the same version as `web/`) into a static page with no client framework. One dependency-free script (`src/scripts/app.js`) runs the board demo, the tabs, the copy button, the mobile menu and the GitHub star count. The demo plays on its own, pauses off screen or in a hidden tab, and stays on one stage with `prefers-reduced-motion`. The star count is the only request to another host (`api.github.com`, cached for an hour in localStorage); if it fails, the counter stays hidden.
 
 ## Preview and build
 
@@ -12,18 +12,18 @@ From the repository root, run:
 make -C landing serve
 ```
 
-Open <http://127.0.0.1:4174/>. Press Ctrl+C to stop the server. Pass `PORT=4180` to select another port. After editing, rerun `make -C landing build` and refresh the browser.
+Open <http://127.0.0.1:4174/>. The Astro dev server reloads on every edit. Press Ctrl+C to stop it. Pass `PORT=4180` to select another port.
 
 ```sh
 make -C landing build
 ```
 
-The static site is in `landing/dist/`. Serve its contents at the domain root. Building uses Make and standard file utilities. The preview also uses Python 3. No package install is required.
+The static site is in `landing/dist/`. Serve its contents at the domain root. Both targets need [Bun](https://bun.sh) and install dependencies from `bun.lock` on first run. Astro telemetry is turned off in the Makefile.
 
 ## Editing
 
-Edit `index.html` for copy, links, metadata, and the install commands. The copy button reads the `data-command` attribute of the open tab, so change it together with the `<pre>` block. The board demo data is at the top of `app.js`. Styles are in `style.css`. Links to the planner carry `data-app`, which forwards `utm_*` parameters.
+Edit `src/pages/index.astro` for copy, links and the install commands, and `src/layouts/Base.astro` for metadata. Curly braces in markup are Astro expressions, so write literal ones in code samples as `&#123;` and `&#125;`. The copy button reads the `data-command` attribute of the open tab, so change it together with the `<pre>` block. The board demo data is at the top of `src/scripts/app.js`. Styling is Tailwind utilities in the markup; class sets used more than once are constants at the top of `index.astro`. `src/styles/global.css` holds the fonts, the colour tokens and breakpoints in `@theme` (the design is desktop-first, so the page uses `max-xs`, `max-tab`, `max-nav` and `max-board`), and a few component classes for the board demo nodes that `app.js` builds. A "Done when" line is `<Check>` from `src/components/Check.astro`; `demo` lets the board demo tick it. Links to the planner carry `data-app`, which forwards `utm_*` parameters.
 
 The CLI tab is marked as coming soon. The Go metrics, the paid Cloud price, and the partner and sponsor blocks are left out until there are real numbers and names. Keep product commands and README anchors in sync with the [installation guide](../docs/hosting.md#quick-start) and [MCP setup guide](../docs/agents.md). The navigation points to the [huntly-digital/plandillo repository](https://github.com/huntly-digital/plandillo).
 
-All runtime assets are local to `assets/`. The icons come from the supplied Plandillo vector kit. The social preview `share.jpg` is generated artwork. Bundled Inter and JetBrains Mono font files include their SIL Open Font Licenses ([Inter](assets/fonts/Inter-LICENSE.txt), [JetBrains Mono](assets/fonts/JetBrainsMono-LICENSE.txt)). The project uses the [MIT license](../LICENSE).
+All runtime assets are local to `public/assets/` and are copied as they are. The icons come from the supplied Plandillo vector kit. The social preview `share.jpg` is generated artwork. Bundled Inter and JetBrains Mono font files include their SIL Open Font Licenses ([Inter](public/assets/fonts/Inter-LICENSE.txt), [JetBrains Mono](public/assets/fonts/JetBrainsMono-LICENSE.txt)). The project uses the [MIT license](../LICENSE).

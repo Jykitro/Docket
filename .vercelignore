@@ -8,6 +8,8 @@ outputs/
 .vercel/
 bin/
 landing/dist/
+landing/node_modules/
+landing/.astro/
 web/node_modules/
 web/dist/
 internal/web/dist/

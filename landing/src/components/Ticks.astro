@@ -1,0 +1,12 @@
+---
+// Pricing feature list with a check mark per line; `dim` for the plan that is not out yet.
+const { items, dim = false } = Astro.props;
+---
+<ul class:list={['flex flex-col gap-3 border-t border-line pt-[18px] text-[15px]', dim ? 'text-muted' : 'text-ink-2']}>
+  {items.map((item) => (
+    <li class="flex items-start gap-2.5">
+      <svg class:list={['mt-0.5 shrink-0', dim ? 'stroke-code-dim' : 'stroke-done']} width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.3l3 3 6-6.5" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+      {item}
+    </li>
+  ))}
+</ul>

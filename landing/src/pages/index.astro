@@ -1,0 +1,413 @@
+---
+import Base from '../layouts/Base.astro';
+import Check from '../components/Check.astro';
+import Ticks from '../components/Ticks.astro';
+
+// Class sets used more than once on this page.
+const wrap = 'mx-auto max-w-[1200px] px-8 max-xs:px-4';
+const btn = 'inline-flex items-center justify-center gap-2 border font-semibold whitespace-nowrap no-underline transition-colors';
+const sm = 'h-10 rounded-[10px] px-3.5 text-sm';
+const md = 'h-[46px] rounded-xl px-5 text-[15px]';
+const lg = 'h-[50px] rounded-xl px-[22px] text-base';
+const primary = 'border-transparent bg-primary text-white hover:bg-primary-hover';
+const secondary = 'border-edge bg-surface text-ink hover:bg-edge-2';
+const ghost = 'border-line-3 bg-transparent text-ink hover:bg-deep';
+const ctaRow = 'flex flex-wrap justify-center gap-3 max-xs:flex-col max-xs:self-stretch max-xs:*:w-full';
+const navlink = 'px-0.5 py-2 text-[15px] font-medium text-muted no-underline hover:text-ink';
+const logo = 'inline-flex items-center gap-2.5 font-semibold tracking-[-0.02em] text-ink no-underline';
+const glow = 'pointer-events-none absolute left-1/2 -translate-x-1/2';
+const sq = 'inline-block size-2 shrink-0 rounded-[2px] bg-agent';
+const label = 'text-[13px] font-semibold text-ink-3';
+const muted = 'text-[15px] leading-normal text-muted';
+const feat = 'grid scroll-mt-24 grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] items-center gap-[72px] max-tab:grid-cols-1 max-tab:gap-8';
+const featCopy = 'flex flex-col gap-[22px]';
+const flipped = 'order-2 max-tab:order-none';
+const h2 = 'text-[clamp(32px,3.8vw,48px)] leading-[1.04] font-semibold tracking-[-0.035em]';
+const body = 'text-[17px] leading-[1.55] text-muted';
+const bullets = 'flex flex-col gap-3.5 text-base leading-[1.45]';
+const bullet = 'flex items-baseline gap-3';
+const mark = 'size-2 shrink-0 -translate-y-px';
+const markSq = `${mark} rounded-[2px] bg-agent`;
+const markDot = `${mark} rounded-full bg-ink`;
+const textlink = 'self-start py-1.5 text-base font-semibold text-link no-underline hover:underline';
+const codeCard = 'overflow-hidden rounded-2xl border border-line-2 bg-code';
+const tab = 'h-[38px] cursor-pointer rounded-lg border-0 bg-transparent px-3.5 text-sm font-semibold text-muted not-aria-selected:hover:text-ink aria-selected:bg-ink aria-selected:text-page max-xs:h-11 max-xs:px-1.5 max-xs:text-[13px]';
+const panel = 'overflow-x-auto px-[22px] pt-5 pb-6 font-mono text-sm leading-[1.85] text-code-ink max-xs:p-4 max-xs:text-[12.5px] *:whitespace-pre-wrap *:[word-break:break-word]';
+const section = `${wrap} scroll-mt-[72px] pt-[136px] max-tab:pt-[88px]`;
+const sectionHead = 'mb-12 flex flex-col items-center gap-4 text-center';
+const price = 'flex flex-col gap-5 rounded-[18px] border p-7';
+const priceHead = 'flex flex-col gap-2';
+const priceTitle = 'text-lg font-semibold';
+const amount = 'flex items-baseline gap-2';
+const amountValue = 'text-[44px] leading-none font-semibold tracking-[-0.04em] max-xs:text-[38px]';
+const footTitle = 'mb-1.5 text-sm font-semibold';
+const footLink = 'py-1.5 text-sm text-muted no-underline hover:text-ink';
+---
+<Base>
+<a class="absolute -top-[60px] left-4 z-[100] rounded-lg bg-ink px-3.5 py-2.5 font-semibold text-page underline focus:top-3" href="#main">Skip to content</a>
+
+<header class="sticky top-0 z-20 border-b border-line-soft bg-[rgb(13_12_20/.82)] backdrop-blur-md backdrop-saturate-[1.4]">
+  <div class:list={[wrap, 'flex h-[68px] items-center justify-between gap-6']}>
+    <a href="#top" class:list={[logo, 'text-[19px]']} aria-label="Plandillo home">
+      <img class="rounded-[7px]" src="/assets/plandillo-icon.svg" width="28" height="28" alt="">
+      <span>plandillo</span>
+    </a>
+    <nav aria-label="Main" id="site-nav" class="flex items-center gap-7 max-nav:absolute max-nav:inset-x-0 max-nav:top-[68px] max-nav:hidden max-nav:flex-col max-nav:items-stretch max-nav:gap-0 max-nav:border-b max-nav:border-line-soft max-nav:bg-page max-nav:px-4 max-nav:pt-2 max-nav:pb-4 max-nav:[&.is-open]:flex max-nav:*:px-1 max-nav:*:py-3 max-nav:*:text-base">
+      <a class={navlink} href="#agents">Agents</a>
+      <a class={navlink} href="#wiki">Wiki</a>
+      <a class={navlink} href="#self-host">Self-host</a>
+      <a class={navlink} href="#pricing">Pricing</a>
+      <a class={navlink} href="https://github.com/huntly-digital/plandillo/tree/main/docs">Docs</a>
+      <a class:list={[navlink, 'hidden max-nav:block']} data-app href="https://app.plandillo.dev/">Sign in</a>
+    </nav>
+    <div class="flex items-center gap-2.5">
+      <a class:list={[btn, sm, secondary, 'font-medium! max-nav:hidden']} href="https://github.com/huntly-digital/plandillo" data-cta="header-github">
+        <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5l1.9 4.1 4.4.5-3.3 3 .9 4.4L8 11.3l-3.9 2.2.9-4.4-3.3-3 4.4-.5z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"></path></svg>
+        Star
+        <span class="min-w-[2ch] border-l border-edge pl-2 text-muted empty:hidden [&.is-empty]:hidden" data-github-stars></span>
+      </a>
+      <a class:list={[navlink, 'px-2 py-2.5 max-nav:hidden']} data-app href="https://app.plandillo.dev/">Sign in</a>
+      <a class:list={[btn, sm, primary]} data-app href="https://app.plandillo.dev/register" data-cta="header-demo">Try the demo</a>
+      <button type="button" class="menu-btn hidden size-11 cursor-pointer place-items-center rounded-[10px] border border-edge bg-surface text-ink max-nav:grid" aria-label="Open menu" aria-expanded="false" aria-controls="site-nav">
+        <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M3 5h12M3 9h12M3 13h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+  <section class="relative overflow-hidden" id="top">
+    <div class:list={[glow, 'top-[380px] h-[700px] w-[1100px] bg-[radial-gradient(closest-side,rgba(109,77,242,.32),rgba(109,77,242,0)_70%)]']} aria-hidden="true"></div>
+    <div class:list={[wrap, 'relative flex flex-col items-center gap-[26px] pt-[88px] text-center max-xs:gap-5 max-xs:pt-12']}>
+      <a href="#pricing" class="inline-flex items-center gap-2.5 rounded-full border border-line-3 bg-deep py-1.5 pr-3.5 pl-1.5 text-sm text-ink-2 no-underline hover:text-link"><span class="rounded-full bg-primary px-[9px] py-[3px] text-xs font-semibold text-white">New</span>Plandillo Cloud is coming soon</a>
+      <h1 class="max-w-[13ch] text-[clamp(44px,6.6vw,88px)] leading-[.98] font-semibold tracking-[-0.045em]">A task board for you and your AI agent.</h1>
+      <p class="max-w-[50ch] text-[19px] leading-normal text-muted max-xs:text-[17px]">Plan in your browser. Your agent works the same board through MCP or Code Mode, and keeps a wiki of everything it learns about the project.</p>
+      <div class:list={[ctaRow, 'mt-1']}>
+        <a class:list={[btn, lg, primary, 'shadow-[0_10px_30px_-10px_rgba(109,77,242,.8)]']} data-app href="https://app.plandillo.dev/register" data-cta="hero-demo">Try the free demo</a>
+        <a class:list={[btn, lg, secondary]} href="#self-host" data-cta="hero-docker">Run it with Docker</a>
+      </div>
+      <p class="text-sm text-dim">One container, free to self-host. The cloud demo includes 5 MB of storage.</p>
+    </div>
+
+    <div class:list={[wrap, 'relative pt-16 pb-[104px] max-xs:pt-10 max-xs:pb-[72px]']} id="workflow">
+      <div class="mb-[18px] flex flex-wrap justify-center gap-1.5" role="group" aria-label="Workflow stages">
+        {['Plan', 'Work', 'Verify'].map((name, i) => (
+          <button type="button" class="stage-pill group inline-flex h-10 cursor-pointer items-center gap-2 rounded-full border border-edge bg-surface px-4 text-sm font-medium text-ink-3 aria-pressed:border-ink aria-pressed:bg-ink aria-pressed:text-page max-xs:h-11 max-xs:px-3" data-stage={i} aria-pressed={i === 0 ? 'true' : 'false'}><span class="text-dim group-aria-pressed:font-semibold group-aria-pressed:text-primary">{i + 1}</span>{name}</button>
+        ))}
+        <button type="button" class="play-btn group grid size-10 cursor-pointer place-items-center rounded-full border border-edge bg-transparent text-muted max-xs:size-11" aria-label="Pause the demo">
+          <svg class="group-[.is-paused]:hidden" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3.5 2v8M8.5 2v8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path></svg>
+          <svg class="hidden group-[.is-paused]:block" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3.5 2l6 4-6 4z" fill="currentColor"></path></svg>
+        </button>
+      </div>
+
+      <div class="overflow-hidden rounded-[18px] border border-line-2 bg-surface shadow-[0_40px_120px_-40px_rgba(0,0,0,.9),inset_0_1px_0_rgba(255,255,255,.04)]">
+        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-line px-[18px] py-2.5">
+          <div class="flex items-center gap-2.5 text-sm">
+            <span class="mr-2 flex gap-1.5 *:size-2.5 *:rounded-full *:bg-[#2E2A42] max-xs:hidden" aria-hidden="true"><i></i><i></i><i></i></span>
+            <span class="text-dim max-xs:hidden">Projects</span><span class="text-faint max-xs:hidden" aria-hidden="true">/</span><strong class="font-bold">Website</strong>
+            <span class="ml-3.5 inline-flex rounded-[9px] border border-line bg-page-2 p-[3px] max-xs:ml-0" aria-hidden="true"><span class="rounded-md bg-sel px-3 py-1 text-[13px] font-semibold text-ink">Board</span><span class="rounded-md px-3 py-1 text-[13px] font-medium text-dim">Wiki</span></span>
+          </div>
+          <div class="inline-flex items-center gap-2 rounded-full border border-line-3 bg-chip px-3 py-[5px] text-[13px] font-medium text-ink-2"><span class={sq}></span>Agent connected</div>
+        </div>
+        <div class="grid grid-cols-[minmax(0,1fr)_340px] max-board:grid-cols-1">
+          <div class="overflow-x-auto bg-page-2 p-4">
+            <div class="grid min-w-[620px] grid-cols-[repeat(3,minmax(190px,1fr))] gap-3" data-board></div>
+          </div>
+          <aside class="flex flex-col gap-[18px] border-l border-line p-5 max-board:border-t max-board:border-l-0" aria-label="Task APP-24">
+            <div class="flex flex-col gap-2">
+              <div class="row-between">
+                <span class="mono dim">APP-24</span>
+                <span class="pill" data-status></span>
+              </div>
+              <h3 class="text-xl font-semibold tracking-[-0.01em]">Fix the mobile menu</h3>
+              <p class="text-sm leading-normal text-muted">The menu should close when a visitor follows a link.</p>
+            </div>
+            <div class="flex flex-col gap-2">
+              <span class={label}>Done when</span>
+              <Check demo>Menu closes after a link is followed</Check>
+              <Check demo>Works with touch and keyboard</Check>
+            </div>
+            <div class="flex flex-col gap-3.5 border-t border-line pt-4">
+              <span class={label}>Activity</span>
+              <div class="flex flex-col gap-3.5" data-activity aria-live="polite"></div>
+            </div>
+          </aside>
+        </div>
+      </div>
+      <p class="mt-4 min-h-[1.5em] text-center text-[15px] text-muted" data-caption></p>
+    </div>
+  </section>
+
+  <section class="border-y border-line-soft bg-page-2" aria-label="Plandillo at a glance">
+    <div class:list={[wrap, 'grid grid-cols-4 max-tab:grid-cols-2']}>
+      {[
+        ['MCP, Code Mode', 'Two ways for agents to connect, CLI coming soon'],
+        ['Project wiki', 'Kept up to date by your agent'],
+        ['1 container', 'One Docker command to run it'],
+        ['Go', 'Small footprint, low resource use'],
+      ].map(([value, text]) => (
+        <div class="flex flex-col gap-1.5 border-l border-line p-7 first:border-l-0 max-tab:nth-3:border-l-0 max-tab:nth-[n+3]:border-t max-xs:px-4 max-xs:py-5">
+          <strong class="text-[28px] leading-[1.15] font-semibold tracking-[-0.03em] max-xs:text-xl">{value}</strong>
+          <span class="text-sm leading-[1.4] text-muted">{text}</span>
+        </div>
+      ))}
+    </div>
+  </section>
+
+  <section class:list={[wrap, 'flex flex-col gap-[136px] pt-32 max-tab:gap-[88px] max-tab:pt-20']} aria-label="Features">
+
+    <div class={feat} id="agents">
+      <div class={featCopy}>
+        <h2 class={h2}>Connect your agent the way it works.</h2>
+        <p class:list={[body, 'max-w-[46ch]']}>Whichever way your agent connects, it reads the same tasks, moves the same cards and writes to the same wiki.</p>
+        <ul class={bullets}>
+          <li class={bullet}><span class={markSq}></span><span><strong class="font-semibold">MCP</strong> <span class="leading-normal text-muted">for any agent that speaks the Model Context Protocol</span></span></li>
+          <li class={bullet}><span class={markSq}></span><span><strong class="font-semibold">Code Mode</strong> <span class="leading-normal text-muted">for agents that write code against the tools</span></span></li>
+          <li class={bullet}><span class={markSq}></span><span><strong class="font-semibold">CLI</strong> <span class="leading-normal text-muted">for terminal agents, scripts and CI</span> <span class="pill ml-1 align-[1px] leading-[inherit]">Coming soon</span></span></li>
+        </ul>
+        <a class={textlink} href="https://github.com/huntly-digital/plandillo/blob/main/docs/agents.md" data-cta="agents-docs">Connect an agent</a>
+      </div>
+      <div class={codeCard} data-tabs>
+        <div class="flex gap-1 border-b border-edge-2 bg-surface p-2" role="tablist" aria-label="Agent interface">
+          <button type="button" class={tab} role="tab" id="t-mcp" aria-controls="p-mcp" aria-selected="true">MCP</button>
+          <button type="button" class={tab} role="tab" id="t-code" aria-controls="p-code" aria-selected="false" tabindex="-1">Code Mode</button>
+          <button type="button" class={tab} role="tab" id="t-cli" aria-controls="p-cli" aria-selected="false" tabindex="-1">CLI</button>
+        </div>
+        <div class:list={[panel, 'min-h-[260px]']} role="tabpanel" id="p-mcp" aria-labelledby="t-mcp">
+<pre><span class="text-code-dim">Agent session over MCP</span>
+10:05  Picked up APP-24: Fix the mobile menu
+10:06  Moved APP-24 to Doing
+<span class="text-agent">       Note: the link handler never closes the menu</span>
+10:17  Tested the fix with touch and keyboard
+10:19  Marked APP-24 Done
+<span class="text-agent">10:19  Updated wiki: Architecture / Navigation</span></pre>
+        </div>
+        <div class:list={[panel, 'min-h-[260px]']} role="tabpanel" id="p-code" aria-labelledby="t-code" hidden>
+<pre><span class="text-code-dim">// One `code` call at /mcp/code</span>
+const ids = ["APP-24"];
+await codemode.move_tasks(&#123; ids, status: "doing" &#125;);
+await codemode.add_note(&#123; task_id: ids[0],
+<span class="text-agent">  body_md: "The menu never closes" &#125;);</span>
+await codemode.move_tasks(&#123; ids, status: "done" &#125;);
+await codemode.write_page(&#123; project: "APP",
+  title: "Navigation", body_md: notes &#125;);</pre>
+        </div>
+        <div class:list={[panel, 'min-h-[260px]']} role="tabpanel" id="p-cli" aria-labelledby="t-cli" hidden>
+<pre><span class="text-code-dim"># Coming soon</span>
+The Plandillo CLI is in the works.
+<span class="text-muted">Until it ships, terminal agents connect over MCP.</span></pre>
+        </div>
+      </div>
+    </div>
+
+    <div class={feat} id="wiki">
+      <div class:list={[featCopy, flipped]}>
+        <h2 class={h2}>A project wiki your agent keeps.</h2>
+        <p class:list={[body, 'max-w-[46ch]']}>Every project has a wiki next to its board. As the agent works, it collects what it learns about the project and writes it down in detail, so the next task starts with context instead of from scratch.</p>
+        <ul class={bullets}>
+          <li class={bullet}><span class={markSq}></span>Architecture, decisions and how things work</li>
+          <li class={bullet}><span class={markSq}></span>Updated by the agent as it finishes tasks</li>
+          <li class={bullet}><span class={markDot}></span>Readable by you, right inside the project</li>
+        </ul>
+      </div>
+      <div class="grid min-h-[420px] grid-cols-[200px_minmax(0,1fr)] overflow-hidden rounded-2xl border border-line-2 bg-surface max-tab:grid-cols-1">
+        <nav class="flex flex-col gap-0.5 border-r border-line bg-page-2 px-2.5 py-4 text-sm text-muted max-tab:hidden" aria-label="Wiki pages (example)">
+          <span class:list={[label, 'px-2.5 pb-2.5']}>Website wiki</span>
+          <span class="rounded-[7px] px-2.5 py-[7px]">Overview</span>
+          <span class="rounded-[7px] px-2.5 py-[7px] text-ink-2">Architecture</span>
+          <span class="rounded-[7px] bg-sel px-2.5 py-[7px] font-medium text-ink">Navigation</span>
+          <span class="rounded-[7px] px-2.5 py-[7px]">Data model</span>
+          <span class="rounded-[7px] px-2.5 py-[7px]">Decisions</span>
+          <span class="rounded-[7px] px-2.5 py-[7px]">Runbook</span>
+          <span class="rounded-[7px] px-2.5 py-[7px]">Glossary</span>
+        </nav>
+        <article class="flex flex-col gap-3.5 px-[26px] py-6">
+          <span class="text-sm text-dim">Architecture / Navigation</span>
+          <h3 class="text-[26px] font-semibold tracking-[-0.02em]">Navigation</h3>
+          <span class="inline-flex items-center gap-2 text-[13px] text-muted"><span class={sq}></span>Updated by Agent after APP-24, 10:19</span>
+          <p class="text-[15px] leading-[1.6] text-ink-2">The site uses one menu component for desktop and mobile. Below 768 px it opens as a full-screen overlay.</p>
+          <p class="text-[15px] leading-[1.6] text-ink-2">Following a link now closes the overlay and returns focus to the menu button. Covered for touch and keyboard.</p>
+          <div class="mt-1.5 flex flex-wrap gap-2">
+            {['APP-24', 'APP-22'].map((id) => <span class="rounded-md border border-line-3 bg-chip px-2 py-1 font-mono text-xs text-ink-3">{id}</span>)}
+          </div>
+        </article>
+      </div>
+    </div>
+
+    <div class={feat}>
+      <div class={featCopy}>
+        <h2 class={h2}>Done means checked.</h2>
+        <p class:list={[body, 'max-w-[46ch]']}>Write how you will check the work when you create the task. The agent records what it tested before it marks the task done.</p>
+        <ul class={bullets}>
+          <li class={bullet}><span class={markDot}></span>Acceptance check in every task</li>
+          <li class={bullet}><span class={markSq}></span>A written result from the agent</li>
+          <li class={bullet}><span class:list={[mark, 'rounded-full bg-done']}></span>One activity log for both of you</li>
+        </ul>
+        <a class={textlink} data-app href="https://app.plandillo.dev/register" data-cta="done-demo">Try it in the free demo</a>
+      </div>
+      <div class="flex flex-col gap-[18px] rounded-2xl border border-line-2 bg-surface p-6">
+        <div class="row-between"><span class="mono dim">APP-24</span><span class="pill is-done">Done</span></div>
+        <span class="text-[22px] font-semibold tracking-[-0.01em]">Fix the mobile menu</span>
+        <div class="flex flex-col gap-2.5 rounded-xl border border-line bg-page-2 p-4">
+          <span class={label}>Done when</span>
+          <Check on>Menu closes after a link is followed</Check>
+          <Check on>Works with touch and keyboard</Check>
+        </div>
+        <div class="act">
+          <span class="who sq"></span>
+          <div class="act-body">
+            <span class="act-line"><strong>Agent</strong> marked it Done <span class="dim">10:19</span></span>
+            <span class="note">Menu now closes on link click. Tested with touch and keyboard.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class={feat} id="self-host">
+      <div class:list={[featCopy, flipped]}>
+        <h2 class={h2}>One container. Your data.</h2>
+        <p class:list={[body, 'max-w-[46ch]']}>No need to clone the repo. Start Plandillo with a single Docker command. Use SQLite for a quick local run, or PostgreSQL when you want a full database.</p>
+        <ul class={bullets}>
+          <li class={bullet}><span class={markDot}></span>A single Docker container</li>
+          <li class={bullet}><span class={markDot}></span>SQLite for local runs, PostgreSQL for production</li>
+          <li class={bullet}><span class={markDot}></span>A workspace per account on a shared server, behind HTTPS</li>
+        </ul>
+        <a class={textlink} href="https://github.com/huntly-digital/plandillo/blob/main/docs/hosting.md#quick-start" data-cta="selfhost-guide">Read the self-hosting guide</a>
+      </div>
+      <div class={codeCard} data-tabs>
+        <div class="flex items-center justify-between gap-1 border-b border-edge-2 bg-surface p-2 max-xs:flex-col max-xs:items-stretch max-xs:gap-1.5">
+          <div role="tablist" aria-label="Install method" class="flex gap-1 max-xs:grid max-xs:grid-cols-3">
+            <button type="button" class={tab} role="tab" id="t-docker" aria-controls="p-docker" aria-selected="true">Docker</button>
+            <button type="button" class={tab} role="tab" id="t-pg" aria-controls="p-pg" aria-selected="false" tabindex="-1">PostgreSQL</button>
+            <button type="button" class={tab} role="tab" id="t-src" aria-controls="p-src" aria-selected="false" tabindex="-1">From source</button>
+          </div>
+          <button type="button" class="h-9 cursor-pointer rounded-lg border border-line-3 bg-chip px-3.5 text-[13px] font-medium text-ink max-xs:h-11" data-copy data-cta="selfhost-copy" hidden>Copy</button>
+        </div>
+        <!-- Keep these commands in sync with docs/hosting.md (Quick start, PostgreSQL storage). -->
+        <div class:list={[panel, 'min-h-[180px]']} role="tabpanel" id="p-docker" aria-labelledby="t-docker" data-command={'mkdir -p -m 700 data\ndocker run -d --name plandillo --user "$(id -u):$(id -g)" --pull=always -p 127.0.0.1:7777:7777 -v "$PWD/data:/data" --restart unless-stopped ghcr.io/huntly-digital/plandillo:main'}>
+<pre>$ mkdir -p -m 700 data
+$ docker run -d --name plandillo \
+    --user "$(id -u):$(id -g)" --pull=always \
+    -p 127.0.0.1:7777:7777 -v "$PWD/data:/data" \
+    --restart unless-stopped \
+    ghcr.io/huntly-digital/plandillo:main
+<span class="text-code-dim"># open localhost:7777, data is stored in SQLite</span></pre>
+        </div>
+        <div class:list={[panel, 'min-h-[180px]']} role="tabpanel" id="p-pg" aria-labelledby="t-pg" hidden data-command="docker run -d --name plandillo --pull=always -p 127.0.0.1:7777:7777 -e DOCKET_MODE=selfhost -e DOCKET_POSTGRES_DSN='postgres://plandillo:pass@db/plandillo' --restart unless-stopped ghcr.io/huntly-digital/plandillo:main">
+<pre>$ docker run -d --name plandillo --pull=always \
+    -p 127.0.0.1:7777:7777 \
+    -e DOCKET_MODE=selfhost \
+    -e DOCKET_POSTGRES_DSN='postgres://plandillo:pass@db/plandillo' \
+    --restart unless-stopped \
+    ghcr.io/huntly-digital/plandillo:main
+<span class="text-code-dim"># use a dedicated database, see the hosting guide</span></pre>
+        </div>
+        <div class:list={[panel, 'min-h-[180px]']} role="tabpanel" id="p-src" aria-labelledby="t-src" hidden data-command={'git clone https://github.com/huntly-digital/plandillo.git\ncd plandillo\nmake rebuild'}>
+<pre>$ git clone https://github.com/huntly-digital/plandillo.git
+$ cd plandillo
+$ make rebuild</pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class={section} aria-labelledby="go-title">
+    <div class="rounded-[20px] border border-line-2 bg-page-2 p-12 max-tab:px-5 max-tab:py-7">
+      <div class="flex max-w-[560px] flex-col gap-3.5">
+        <h2 id="go-title" class="text-[clamp(28px,3.2vw,40px)] leading-[1.06] font-semibold tracking-[-0.035em]">Written in Go. Light on your server.</h2>
+        <p class={body}>Plandillo is built almost entirely in Go. It starts fast, needs little memory and CPU, and runs comfortably on a small VPS or a home server, so it costs less to run and uses less energy.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class={section} id="pricing" aria-labelledby="pr-title">
+    <div class={sectionHead}>
+      <h2 id="pr-title" class={h2}>Pricing</h2>
+      <p class:list={[body, 'max-w-[50ch]']}>Free to run on your own server. Free to try in the cloud.</p>
+    </div>
+    <div class="grid grid-cols-3 items-stretch gap-4 max-board:mx-auto max-board:max-w-[560px] max-board:grid-cols-1">
+      <div class:list={[price, 'border-line-2 bg-surface']}>
+        <div class={priceHead}><h3 class={priceTitle}>Self-hosted</h3><p class={muted}>Run Plandillo on your own machine or server.</p></div>
+        <div class={amount}><strong class={amountValue}>Free</strong><span class="text-sm text-dim">on your hardware</span></div>
+        <a class:list={[btn, md, secondary, 'w-full']} href="https://github.com/huntly-digital/plandillo/blob/main/docs/hosting.md#quick-start" data-cta="price-selfhost">Self-hosting guide</a>
+        <Ticks items={['Full source under the MIT license', 'One Docker container', 'SQLite or PostgreSQL', 'Agents over MCP and Code Mode', 'Project wiki']} />
+      </div>
+      <div class:list={[price, 'border-[#5A45C9] bg-[linear-gradient(180deg,#1F1A3A_0%,var(--color-surface)_60%)] shadow-[0_30px_80px_-40px_rgba(109,77,242,.6)] max-board:-order-1']}>
+        <div class={priceHead}><div class="row-between"><h3 class={priceTitle}>Cloud Free</h3><span class="pill is-doing">Try it now</span></div><p class={muted}>Test Plandillo in the cloud without installing anything.</p></div>
+        <div class={amount}><strong class={amountValue}>Free</strong><span class="text-sm text-dim">hosted by us</span></div>
+        <a class:list={[btn, md, primary, 'w-full']} data-app href="https://app.plandillo.dev/register" data-cta="price-cloudfree">Try the free demo</a>
+        <Ticks items={['5 MB of workspace storage', 'MCP access for your agent', 'Nothing to install']} />
+      </div>
+      <div class:list={[price, 'border-dashed border-line-dash bg-page-2']}>
+        <div class={priceHead}><div class="row-between"><h3 class={priceTitle}>Cloud</h3><span class="pill">Coming soon</span></div><p class={muted}>The hosted plan for real projects, with room to grow.</p></div>
+        <div class={amount}><strong class:list={[amountValue, 'text-dim']}>Soon</strong><span class="text-sm text-dim">pricing to be announced</span></div>
+        <a class:list={[btn, md, ghost, 'w-full']} href="https://github.com/huntly-digital/plandillo" data-cta="price-cloud-watch">Watch on GitHub for the launch</a>
+        <Ticks dim items={['Everything in Cloud Free', 'More workspace storage']} />
+      </div>
+    </div>
+  </section>
+
+  <section class:list={[section, 'pb-[120px]']} aria-labelledby="cta-title">
+    <div class="relative flex flex-col items-center gap-[22px] overflow-hidden rounded-3xl border border-line-2 bg-surface px-8 py-20 text-center max-xs:px-5 max-xs:py-12">
+      <div class:list={[glow, '-bottom-[320px] h-[500px] w-[900px] bg-[radial-gradient(closest-side,rgba(109,77,242,.35),rgba(109,77,242,0)_70%)]']} aria-hidden="true"></div>
+      <h2 id="cta-title" class="relative max-w-[16ch] text-[clamp(32px,4.4vw,56px)] leading-[1.02] font-semibold tracking-[-0.04em]">Give your agent a board and a wiki.</h2>
+      <p class:list={[body, 'relative max-w-[44ch]']}>Try the cloud demo in a minute, or run your own copy in one container.</p>
+      <div class:list={[ctaRow, 'relative']}>
+        <a class:list={[btn, lg, primary]} data-app href="https://app.plandillo.dev/register" data-cta="footer-demo">Try the free demo</a>
+        <a class:list={[btn, lg, secondary]} href="#self-host" data-cta="footer-docker">Run it with Docker</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="border-t border-line-soft">
+  <section class:list={[wrap, 'grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] items-start gap-16 border-b border-line-soft pt-16 pb-14 max-tab:grid-cols-1 max-tab:gap-8']} aria-labelledby="about-title">
+    <div class="flex flex-col gap-3.5">
+      <h2 id="about-title" class="text-[22px] font-semibold tracking-[-0.02em]">About Plandillo</h2>
+      <p class="max-w-[60ch] text-base leading-[1.65] text-muted">Plandillo is an open-source task board and project wiki for people who work with AI agents. You plan the work; your agent picks it up through MCP or Code Mode, reports back on the board and keeps the wiki current. It is written in Go, runs in a single container and stores data in SQLite or PostgreSQL.</p>
+      <p class="max-w-[60ch] text-base leading-[1.65] text-muted">The code is MIT licensed and developed in the open on GitHub. Issues and pull requests are welcome.</p>
+    </div>
+    <div class="flex flex-col gap-3.5 rounded-2xl border border-line bg-surface p-6">
+      <span class="text-sm text-dim">Developed by</span>
+      <a class="text-[22px] font-semibold tracking-[-0.02em] no-underline" href="https://github.com/huntly-digital">Huntly Digital</a>
+      <div class="mt-1 flex flex-wrap gap-2.5">
+        <a class:list={[btn, secondary, 'h-11 rounded-[10px] px-3.5 text-sm']} href="https://github.com/huntly-digital/plandillo" data-cta="about-github">Contribute on GitHub</a>
+        <a class:list={[btn, ghost, 'h-11 rounded-[10px] px-3.5 text-sm']} href="https://github.com/huntly-digital/plandillo/blob/main/LICENSE">MIT license</a>
+      </div>
+    </div>
+  </section>
+  <div class:list={[wrap, 'grid grid-cols-[minmax(0,1.6fr)_repeat(3,minmax(0,1fr))] gap-10 pt-12 pb-8 max-tab:grid-cols-2']}>
+    <div class="flex flex-col gap-3 max-tab:col-span-full">
+      <a href="#top" class:list={[logo, 'text-[17px]']} aria-label="Back to top">
+        <img class="rounded-[7px]" src="/assets/plandillo-icon.svg" width="24" height="24" alt="">
+        <span>plandillo</span>
+      </a>
+      <span class="max-w-[32ch] text-sm leading-normal text-dim">An open-source task board and wiki for you and your AI agent.</span>
+    </div>
+    <nav aria-label="Product" class="flex flex-col gap-1">
+      <span class={footTitle}>Product</span>
+      <a class={footLink} href="#agents">Agents</a>
+      <a class={footLink} href="#wiki">Wiki</a>
+      <a class={footLink} href="#pricing">Pricing</a>
+      <a class={footLink} data-app href="https://app.plandillo.dev/register">Free demo</a>
+      <a class={footLink} data-app href="https://app.plandillo.dev/">Sign in</a>
+    </nav>
+    <nav aria-label="Open source" class="flex flex-col gap-1">
+      <span class={footTitle}>Open source</span>
+      <a class={footLink} href="https://github.com/huntly-digital/plandillo">GitHub</a>
+      <a class={footLink} href="https://github.com/huntly-digital/plandillo/blob/main/docs/hosting.md#quick-start">Self-hosting guide</a>
+      <a class={footLink} href="https://github.com/huntly-digital/plandillo/blob/main/docs/agents.md">Connect an agent</a>
+      <a class={footLink} href="https://github.com/huntly-digital/plandillo/blob/main/LICENSE">MIT license</a>
+    </nav>
+    <nav aria-label="Community" class="flex flex-col gap-1">
+      <span class={footTitle}>Community</span>
+      <a class={footLink} href="https://github.com/huntly-digital/plandillo/issues">Issues</a>
+      <a class={footLink} href="https://github.com/huntly-digital">Huntly Digital</a>
+    </nav>
+  </div>
+  <div class:list={[wrap, 'flex flex-wrap justify-between gap-3 border-t border-line-soft pt-6 pb-10 text-[13px] text-dim']}>
+    <span>© 2026 Huntly Digital. Plandillo is open source under the MIT license.</span>
+    <a class="text-muted underline hover:text-link" href="https://github.com/huntly-digital/plandillo">github.com/huntly-digital/plandillo</a>
+  </div>
+</footer>
+</Base>

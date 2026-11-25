@@ -1,13 +1,16 @@
 .DEFAULT_GOAL := build
 PORT ?= 4174
+# Astro asks to send anonymous usage data; the landing opts out.
+export ASTRO_TELEMETRY_DISABLED := 1
 
 .PHONY: build serve
 
-build:
-	mkdir -p dist
-	cp index.html style.css app.js dist/
-	rm -rf dist/assets
-	cp -R assets dist/
+node_modules: package.json bun.lock
+	bun install --frozen-lockfile
+	touch node_modules
 
-serve: build
-	python3 -m http.server $(PORT) --bind 127.0.0.1 --directory dist
+build: node_modules
+	bun run build
+
+serve: node_modules
+	bun run dev --port $(PORT)

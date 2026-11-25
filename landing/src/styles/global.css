@@ -1,0 +1,98 @@
+@import "tailwindcss";
+
+/* Fonts are bundled; the page loads nothing from other hosts except the GitHub star count. */
+@font-face { font-family: 'Inter'; font-style: normal; font-weight: 400; font-display: swap; src: url('/assets/fonts/inter-latin-400-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Inter'; font-style: normal; font-weight: 500; font-display: swap; src: url('/assets/fonts/inter-latin-500-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Inter'; font-style: normal; font-weight: 600; font-display: swap; src: url('/assets/fonts/inter-latin-600-normal.woff2') format('woff2'); }
+@font-face { font-family: 'JetBrains Mono'; font-style: normal; font-weight: 400; font-display: swap; src: url('/assets/fonts/jetbrains-mono-latin-400-normal.woff2') format('woff2'); }
+
+@theme {
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --color-page: #0D0C14;
+  --color-page-2: #100E18;
+  --color-code: #0A0910;
+  --color-surface: #14121D;
+  --color-raised: #1B1928;
+  --color-chip: #1D1A2E;
+  --color-deep: #17152A;
+  --color-sel: #24213A;
+  --color-line-soft: #1E1C2C;
+  --color-line: #262338;
+  --color-line-2: #2A2740;
+  --color-line-3: #2E2A4A;
+  --color-line-dash: #34304A;
+  --color-edge: #2C2942;
+  --color-edge-2: #221F33;
+  --color-ink: #F1F0F7;
+  --color-ink-2: #D9D5F0;
+  --color-ink-3: #C9C5DD;
+  --color-muted: #A7A3BD;
+  --color-dim: #8580A0;
+  --color-faint: #4A4663;
+  --color-code-ink: #E9E7F5;
+  --color-code-dim: #6E6A88;
+  --color-agent: #8B74FF;
+  --color-primary: #6D4DF2;
+  --color-primary-hover: #7C5EFF;
+  --color-link: #B9ABFF;
+  --color-done: #3DD68C;
+  --color-note: #211C3D;
+  --color-note-line: #2F2858;
+  --color-note-ink: #DCD6FF;
+
+  /* The design keeps the body's 1.5 line height at every size; set leading-* where it differs. */
+  --text-xs--line-height: 1.5;
+  --text-sm--line-height: 1.5;
+  --text-base--line-height: 1.5;
+  --text-lg--line-height: 1.5;
+  --text-xl--line-height: 1.5;
+
+  /* The design is desktop-first, so the page uses max-* variants of these. */
+  --breakpoint-xs: 35rem;
+  --breakpoint-tab: 55rem;
+  --breakpoint-nav: 60rem;
+  --breakpoint-board: 66.25rem;
+
+  --animate-land: land .5s cubic-bezier(.2, .7, .2, 1);
+  @keyframes land { from { opacity: 0; transform: translateY(-10px); } }
+}
+
+@layer base {
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body { background: var(--color-page); color: var(--color-ink); font-family: var(--font-sans); font-size: 16px; line-height: 1.5; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; overflow-x: hidden; }
+  a { color: var(--color-ink); }
+  a:hover { color: var(--color-link); }
+  :focus-visible { outline: 2px solid var(--color-agent); outline-offset: 3px; border-radius: 6px; }
+}
+
+/* Nodes that app.js builds for the board demo, and the status pill it switches. */
+@layer components {
+  .row-between { @apply flex items-center justify-between gap-2; }
+  .mono { @apply font-mono text-xs; }
+  .dim { @apply text-dim; }
+  .pill { @apply rounded-full border border-transparent bg-sel px-2.5 py-1 text-xs font-semibold whitespace-nowrap text-ink-3; }
+  .pill.is-doing { background: rgb(139 116 255 / .16); color: #C9BEFF; }
+  .pill.is-done { background: rgb(61 214 140 / .14); color: var(--color-done); }
+  .col { @apply flex min-h-[380px] flex-col gap-2.5; }
+  .col-head { @apply flex items-center justify-between px-1 pt-0.5 pb-1.5 text-sm font-semibold; }
+  .col-head span:last-child { @apply text-[13px] font-normal text-dim; }
+  .card { @apply flex flex-col gap-2.5 rounded-xl border border-line-2 bg-raised p-3.5; }
+  .card.is-focus { @apply animate-land border-agent motion-reduce:animate-none; box-shadow: 0 0 0 4px rgb(139 116 255 / .15), 0 12px 30px -12px rgb(139 116 255 / .5); }
+  .card-title { @apply text-[15px] leading-[1.35] font-medium; }
+  .card-status { @apply text-[13px] font-medium text-agent; }
+  .card-status.is-done { @apply text-done; }
+  .owner { @apply inline-flex items-center gap-1.5 text-xs font-medium text-ink-3; }
+  .who { @apply size-[9px] shrink-0; }
+  .who.sq { @apply rounded-[2px] bg-agent; }
+  .who.human { @apply rounded-full bg-ink; }
+  .act { @apply flex items-start gap-2.5; }
+  .act .who { @apply mt-1.5; }
+  .act-new { @apply animate-land motion-reduce:animate-none; }
+  .act-body { @apply flex min-w-0 flex-col gap-1.5; }
+  .act-line { @apply text-sm leading-[1.4] text-ink-2; }
+  .act-line strong { @apply font-semibold text-ink; }
+  .note { @apply rounded-lg border border-note-line bg-note px-2.5 py-2 text-[13px] leading-normal text-note-ink; }
+}
