@@ -35,7 +35,6 @@ type Options struct {
 	AllowedHosts   []string
 	TrustedProxies []netip.Prefix
 	Passkeys       map[string]*webauthn.WebAuthn
-	SetupCode      string // optional: when set, the first administrator must enter it; empty lets the first sign-up become admin
 	RunnerReady    func(context.Context) error
 	BackupDir      string                          // where SQLite snapshots live
 	Backup         func(time.Time) (string, error) // takes a snapshot now; nil when storage is PostgreSQL
@@ -201,11 +200,7 @@ func (h *handler) me(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if n == 0 {
-		result := map[string]any{"mode": "selfhost", "setup": true}
-		if h.SetupCode != "" {
-			result["setup_source"] = "environment"
-		}
-		writeJSON(w, 200, result)
+		writeJSON(w, 200, map[string]any{"mode": "selfhost", "setup": true})
 		return
 	}
 	writeError(w, 401, "unauthorized", "not logged in")
@@ -394,15 +389,11 @@ func (h *handler) setup(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 404, "not_found", "setup already completed")
 		return
 	}
-	var in struct{ Code, Username, Password string }
+	var in struct{ Username, Password string }
 	if !decode(w, r, &in) {
 		return
 	}
-	// Like most self-hosted apps, the first account becomes the administrator; an operator can still require a code.
-	if h.SetupCode != "" && subtle.ConstantTimeCompare([]byte(in.Code), []byte(h.SetupCode)) != 1 {
-		writeError(w, 403, "forbidden", "invalid setup code")
-		return
-	}
+	// Like most self-hosted apps, the first account becomes the administrator.
 	if !h.admitCredential(w) {
 		return
 	}

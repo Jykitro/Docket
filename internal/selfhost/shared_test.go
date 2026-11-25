@@ -37,7 +37,7 @@ func sharedServer(t *testing.T) *server {
 		t.Fatal(err)
 	}
 	s.ws.UseShared(base, "", 0)
-	s.h = Handler(Options{Auth: s.db, WS: s.ws, Web: http.NotFoundHandler(), AllowedHosts: hosts, SetupCode: testSetupCode})
+	s.h = Handler(Options{Auth: s.db, WS: s.ws, Web: http.NotFoundHandler(), AllowedHosts: hosts})
 	return s
 }
 func TestSharedWorkspaceLifecycleAndIsolation(t *testing.T) {

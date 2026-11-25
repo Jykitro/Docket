@@ -26,8 +26,7 @@ import (
 )
 
 const (
-	testPassword  = "password-123"
-	testSetupCode = "setup-code-xyz"
+	testPassword = "password-123"
 )
 
 type server struct {
@@ -66,7 +65,7 @@ func newServerWith(t *testing.T, build func(context.Context, *service.Service, *
 	ws := NewWorkspaces(context.Background(), dir, time.UTC, build)
 	ws.UsePostgres(dsn)
 	t.Cleanup(ws.Close)
-	h := Handler(Options{Auth: db, WS: ws, Web: http.NotFoundHandler(), AllowedHosts: hosts, SetupCode: testSetupCode, RunnerReady: func(context.Context) error { return nil }})
+	h := Handler(Options{Auth: db, WS: ws, Web: http.NotFoundHandler(), AllowedHosts: hosts, RunnerReady: func(context.Context) error { return nil }})
 	return &server{t: t, h: h, db: db, ws: ws}
 }
 
@@ -479,14 +478,7 @@ func jsonBody(kv ...string) string {
 
 func TestSetupFlow(t *testing.T) {
 	s := newServer(t)
-	rec := s.do("POST", "/api/auth/setup", jsonBody("code", "wrong", "username", "alice", "password", testPassword), nil, nil)
-	if rec.Code != 403 || !strings.Contains(rec.Body.String(), `"forbidden"`) || sessionCookie(rec) != nil {
-		t.Fatalf("wrong code: %d %s", rec.Code, rec.Body)
-	}
-	if n, _ := s.db.UserCount(); n != 0 {
-		t.Fatalf("wrong code created %d users", n)
-	}
-	rec = s.do("POST", "/api/auth/setup", jsonBody("code", testSetupCode, "username", "alice", "password", testPassword), nil, nil)
+	rec := s.do("POST", "/api/auth/setup", jsonBody("username", "alice", "password", testPassword), nil, nil)
 	c := sessionCookie(rec)
 	if rec.Code != 200 || c == nil || !strings.Contains(rec.Body.String(), `"is_admin":true`) {
 		t.Fatalf("setup: %d %s", rec.Code, rec.Body)
@@ -497,7 +489,7 @@ func TestSetupFlow(t *testing.T) {
 	if _, ok := s.ws.Get(1); !ok {
 		t.Error("workspace not opened")
 	}
-	rec = s.do("POST", "/api/auth/setup", jsonBody("code", testSetupCode, "username", "mallory", "password", testPassword), nil, nil)
+	rec = s.do("POST", "/api/auth/setup", jsonBody("username", "mallory", "password", testPassword), nil, nil)
 	if rec.Code != 404 || sessionCookie(rec) != nil {
 		t.Fatalf("second setup: %d %s", rec.Code, rec.Body)
 	}
@@ -520,8 +512,8 @@ func TestSetupWithoutCodeMakesFirstAccountAdmin(t *testing.T) {
 	req.Host = "localhost"
 	me := httptest.NewRecorder()
 	h.ServeHTTP(me, req)
-	if !strings.Contains(me.Body.String(), `"setup":true`) || strings.Contains(me.Body.String(), "setup_source") {
-		t.Fatalf("me before setup should ask for no code: %s", me.Body)
+	if !strings.Contains(me.Body.String(), `"setup":true`) || strings.Contains(me.Body.String(), "code") {
+		t.Fatalf("me before setup must report setup and nothing else: %s", me.Body)
 	}
 	rec := post("/api/auth/setup", jsonBody("username", "alice", "password", testPassword))
 	if rec.Code != 200 || !strings.Contains(rec.Body.String(), `"is_admin":true`) || len(rec.Result().Cookies()) == 0 {

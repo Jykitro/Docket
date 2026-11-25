@@ -78,7 +78,7 @@ export type PageDetail = Page & { documents?: HTMLDocumentInfo[]; backlinks: Pag
 export type AuthUser = { name: string; role: string; is_active: boolean; photo: string | null; updated_at: string; id: number; username: string; is_admin: boolean; blocked?: boolean; created_at: string }
 export type Registration = 'open' | 'invite' | 'closed'
 type Recovery = { recovery_code: string }
-export type Me = { mode: 'local' | 'selfhost'; setup?: boolean; setup_source?: 'environment'; user?: AuthUser }
+export type Me = { mode: 'local' | 'selfhost'; setup?: boolean; user?: AuthUser }
 type BackupFile = { name: string; size: number; created_at: string }
 type Backups = { available: boolean; keep?: number; backups: BackupFile[] }
 export type AdminInvite = { id: number; created_at: string; expires_at: string }
@@ -113,7 +113,6 @@ const SERVER: Record<string, [string, string]> = {
   'invalid username or password': ['Неверное имя пользователя или пароль', 'Неправильне ім’я користувача або пароль'],
   'current password is wrong': ['Неверный текущий пароль', 'Неправильний поточний пароль'],
   'too many failed attempts, try again later': ['Слишком много попыток, подождите несколько минут.', 'Забагато спроб, зачекайте кілька хвилин.'],
-  'invalid setup code': ['Неверный код настройки', 'Неправильний код налаштування'],
   'username is taken': ['Имя пользователя уже занято', 'Ім’я користувача вже зайняте'],
   'invalid or expired invite': ['Приглашение недействительно или истекло', 'Запрошення недійсне або втратило чинність'],
   'username must be 2-32 characters: a-z, 0-9, _ . -, starting with a letter or digit': [
@@ -329,7 +328,7 @@ export const api = {
   revokePasskey: (id: string, password: string) => req<void>('DELETE', `/api/auth/passkeys/${encodeURIComponent(id)}`, { password }),
   // The server answers 204 to logout whether or not a session still exists.
   logout: () => req<void>('POST', '/api/auth/logout'),
-  setup: (code: string, username: string, password: string) => req<AuthUser & Recovery>('POST', '/api/auth/setup', { code, username, password }),
+  setup: (username: string, password: string) => req<AuthUser & Recovery>('POST', '/api/auth/setup', { username, password }),
   acceptInvite: (token: string, username: string, password: string) =>
     req<AuthUser & Recovery>('POST', `/api/auth/invite/${encodeURIComponent(token)}`, { username, password }),
   changePassword: (old: string, next: string) => req<void>('PUT', '/api/auth/password', { old, new: next }),

@@ -141,10 +141,6 @@ func runSelfHost(ctx context.Context, cfg config.Config) error {
 	ws.UseShared(shared, envToken, firstID)
 	defer ws.Close()
 
-	code := os.Getenv("PLANDILLO_SETUP_CODE") // optional; without it the first sign-up becomes the administrator
-	if code != "" && len(code) < 32 {
-		return errors.New("PLANDILLO_SETUP_CODE must have at least 32 characters")
-	}
 	{
 		userCount, err := ad.UserCount()
 		if err != nil {
@@ -189,7 +185,7 @@ func runSelfHost(ctx context.Context, cfg config.Config) error {
 		}
 	}
 	handler := selfhost.Handler(selfhost.Options{LocalID: localID,
-		TrustedProxies: proxies, Passkeys: sites, Auth: ad, WS: ws, Web: web.Handler(), AllowedHosts: cfg.AllowedHosts, SetupCode: code, RunnerReady: runner.Ready,
+		TrustedProxies: proxies, Passkeys: sites, Auth: ad, WS: ws, Web: web.Handler(), AllowedHosts: cfg.AllowedHosts, RunnerReady: runner.Ready,
 		BackupDir: cfg.BackupDir, Backup: backup,
 	})
 	return serve(ctx, cfg.Addr, handler)
