@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -20,6 +21,7 @@ type Config struct {
 	Loc            *time.Location
 	SelfHost       bool   // PLANDILLO_MODE=selfhost: many users, each with their own database
 	PostgresDSN    string // optional selfhost PostgreSQL database; empty keeps SQLite
+	PostgresConns  int    // PostgreSQL connections kept open and reused between transactions
 	RunnerSocket   string
 	DataDir        string // directory of DB; holds auth.db and users/<id>.db in selfhost mode
 	TrustedProxies string
@@ -43,6 +45,11 @@ func Load() (Config, error) {
 		TLSKey:         env("TLS_KEY", ""),
 		Loc:            time.Local,
 	}
+	conns, err := strconv.Atoi(env("POSTGRES_MAX_CONNS", "10"))
+	if err != nil || conns < 1 || conns > 500 {
+		return c, fmt.Errorf("PLANDILLO_POSTGRES_MAX_CONNS: want a whole number from 1 to 500")
+	}
+	c.PostgresConns = conns
 	if (c.TLSCert == "") != (c.TLSKey == "") {
 		return c, fmt.Errorf("PLANDILLO_TLS_CERT and PLANDILLO_TLS_KEY must be set together")
 	}

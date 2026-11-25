@@ -49,6 +49,34 @@ func TestLoadPostgres(t *testing.T) {
 	}
 }
 
+func TestLoadPostgresPoolSize(t *testing.T) {
+	t.Setenv("PLANDILLO_MODE", "local")
+	t.Setenv("PLANDILLO_POSTGRES_DSN", "")
+	for _, tc := range []struct {
+		value   string
+		want    int
+		wantErr bool
+	}{
+		{"", 10, false},
+		{"20", 20, false},
+		{"1", 1, false},
+		{"0", 0, true},
+		{"501", 0, true},
+		{"twenty", 0, true},
+	} {
+		t.Run(tc.value, func(t *testing.T) {
+			t.Setenv("PLANDILLO_POSTGRES_MAX_CONNS", tc.value)
+			c, err := Load()
+			if (err != nil) != tc.wantErr {
+				t.Fatalf("err = %v, wantErr %v", err, tc.wantErr)
+			}
+			if !tc.wantErr && c.PostgresConns != tc.want {
+				t.Fatalf("PostgresConns = %d, want %d", c.PostgresConns, tc.want)
+			}
+		})
+	}
+}
+
 func TestLoadTLSPair(t *testing.T) {
 	t.Setenv("PLANDILLO_MODE", "local")
 	t.Setenv("PLANDILLO_POSTGRES_DSN", "")

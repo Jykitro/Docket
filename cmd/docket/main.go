@@ -106,7 +106,7 @@ func runSelfHost(ctx context.Context, cfg config.Config) error {
 		}
 	}
 	if cfg.PostgresDSN != "" {
-		ad.Connection().SetMaxOpenConns(8)
+		ad.Connection().SetPool(cfg.PostgresConns)
 	}
 	shared, err := store.Shared(ad.Connection(), cfg.DB)
 	if err != nil {

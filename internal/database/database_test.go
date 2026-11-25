@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -77,6 +78,29 @@ func TestSQLiteReadPool(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, tt.run)
+	}
+}
+
+// SetPool must keep every connection it allows open: the reuse is the point.
+func TestSetPoolKeepsConnectionsWarm(t *testing.T) {
+	db, err := OpenSQLite(filepath.Join(t.TempDir(), "pool.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	db.SetPool(6)
+	ctx := context.Background()
+	conns := make([]*sql.Conn, 6)
+	for i := range conns { // hold six at once, then hand them all back
+		if conns[i], err = db.Conn(ctx); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, c := range conns {
+		_ = c.Close()
+	}
+	if s := db.Stats(); s.MaxOpenConnections != 6 || s.Idle != 6 || s.MaxIdleClosed != 0 {
+		t.Fatalf("max open %d, idle %d, closed for idle limit %d; want 6, 6, 0", s.MaxOpenConnections, s.Idle, s.MaxIdleClosed)
 	}
 }
 

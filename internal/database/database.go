@@ -251,6 +251,17 @@ func (d *DB) BeginReadTx(ctx context.Context, owner int64) (*Tx, error) {
 	return &Tx{Tx: tx, db: d}, nil
 }
 
+// SetPool sizes a pool shared by many requests. All n connections stay open between transactions, so the next
+// request reuses a connected, authenticated session with warm statement caches instead of opening a new one (the
+// default keeps only two idle and reconnects the rest after every burst). Connections idle for 5 minutes still
+// close, and each is replaced after 30 minutes so a database restart or failover is picked up gradually.
+func (d *DB) SetPool(n int) {
+	d.SetMaxOpenConns(n)
+	d.SetMaxIdleConns(n) // after SetMaxOpenConns, which caps it
+	d.SetConnMaxIdleTime(5 * time.Minute)
+	d.SetConnMaxLifetime(30 * time.Minute)
+}
+
 // ReadQueryRowContext runs a single read outside a transaction on the read pool (see BeginReadTx).
 func (d *DB) ReadQueryRowContext(ctx context.Context, q string, args ...any) *sql.Row {
 	r, err := d.readers()

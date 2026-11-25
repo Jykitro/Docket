@@ -80,6 +80,7 @@ Settings are read from `.env` (see [the example settings](../.env.example)). Ins
 | `PLANDILLO_DB` | `/data/plandillo.db`, or `/data/docket.db` if only that exists | SQLite database file (ignored with PostgreSQL) |
 | `PLANDILLO_CODE_SOCKET` | `/run/plandillo-code/runner.sock` | Private Unix socket shared by the Plandillo server and the Code Mode worker |
 | `PLANDILLO_POSTGRES_DSN` | empty | Optional PostgreSQL connection string, requires `PLANDILLO_MODE=selfhost`; empty keeps SQLite |
+| `PLANDILLO_POSTGRES_MAX_CONNS` | `10` | PostgreSQL connections each instance keeps open and reuses between requests (1–500). See [PostgreSQL storage](#postgresql-storage) |
 | `PLANDILLO_BACKUP_DIR` | `/data/backups` | Where backups are written |
 | `PLANDILLO_MCP_TOKEN` | empty | Optional. If set, it takes precedence over the token stored in the database and rotating it in the UI is disabled |
 | `PLANDILLO_ALLOWED_HOSTS` | `localhost,127.0.0.1,plandillo.localhost` | Allowed `Host` and `Origin` values |
@@ -228,6 +229,7 @@ The bootstrap account initializes the cluster. The application receives a separa
 Operational details:
 
 - `PLANDILLO_DB` and `PLANDILLO_BACKUP_DIR` are ignored by PostgreSQL storage; no local SQLite files are created.
+- Each instance keeps up to `PLANDILLO_POSTGRES_MAX_CONNS` connections (default 10) open and hands them from one request to the next, so requests do not reconnect. An idle connection closes after 5 minutes and every connection is replaced after 30 minutes. Keep the sum over all instances below the server's `max_connections` (100 by default), leaving room for other clients. Do not put PgBouncer in transaction mode in front: Plandillo sets `search_path` per session.
 - The bundled Alpine image applies the security updates for libxml2 and OpenSSL and uses Alpine’s su-exec to start PostgreSQL as its service user.
 - On a **fresh volume**, set `PLANDILLO_POSTGRES_IMAGE=postgres:19.0-alpine` to use the major version exercised in CI.
   Existing Compose volumes default to 18.7. To upgrade from 18 to 19, stop the Plandillo writer, take a final
