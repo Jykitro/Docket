@@ -1,9 +1,18 @@
 name: CI
 
+# Landing-only changes deploy on Vercel and never touch the app, so they skip tests and the image build.
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "landing/**"
+      - vercel.json
+      - .vercelignore
   pull_request:
+    paths-ignore:
+      - "landing/**"
+      - vercel.json
+      - .vercelignore
 
 permissions:
   contents: read
