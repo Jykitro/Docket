@@ -213,9 +213,21 @@ func call(ctx context.Context, svc *service.Service, method string, req mcp.Requ
 		res, err = next(ctx, method, req)
 		code = resultCode(res, err)
 	}
-	if rerr := svc.RecordMCPCall(context.WithoutCancel(ctx), actor(ctx), name, args, time.Since(start), code); rerr != nil {
-		slog.Error("mcp call log failed", "tool", name, "err", rerr)
+	took := time.Since(start)
+	if rerr := svc.RecordMCPCall(context.WithoutCancel(ctx), actor(ctx), name, args, took, code); rerr != nil {
+		slog.ErrorContext(ctx, "mcp call log failed", "tool", name, "err", rerr)
 	}
+	// The server log gets the outcome only; arguments stay in the workspace's own call log.
+	level := slog.LevelInfo
+	switch code {
+	case "":
+	case "internal":
+		level = slog.LevelError
+	default:
+		level = slog.LevelWarn
+	}
+	slog.LogAttrs(ctx, level, "mcp call", slog.String("tool", name), slog.String("actor", actor(ctx)),
+		slog.Float64("ms", float64(took.Microseconds())/1000), slog.String("code", code))
 	return res, err
 }
 

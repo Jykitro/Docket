@@ -1,6 +1,7 @@
 package config
 
 import (
+	"log/slog"
 	"os"
 	"path/filepath"
 	"testing"
@@ -72,6 +73,34 @@ func TestLoadPostgresPoolSize(t *testing.T) {
 			}
 			if !tc.wantErr && c.PostgresConns != tc.want {
 				t.Fatalf("PostgresConns = %d, want %d", c.PostgresConns, tc.want)
+			}
+		})
+	}
+}
+
+func TestLoadLogging(t *testing.T) {
+	t.Setenv("PLANDILLO_MODE", "local")
+	t.Setenv("PLANDILLO_POSTGRES_DSN", "")
+	for _, tc := range []struct {
+		name, level, format string
+		want                slog.Level
+		json, wantErr       bool
+	}{
+		{"defaults", "", "", slog.LevelInfo, false, false},
+		{"debug json", "debug", "json", slog.LevelDebug, true, false},
+		{"upper case", "WARN", "text", slog.LevelWarn, false, false},
+		{"bad level", "loud", "", 0, false, true},
+		{"bad format", "", "xml", 0, false, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("PLANDILLO_LOG_LEVEL", tc.level)
+			t.Setenv("PLANDILLO_LOG_FORMAT", tc.format)
+			c, err := Load()
+			if (err != nil) != tc.wantErr {
+				t.Fatalf("err = %v, wantErr %v", err, tc.wantErr)
+			}
+			if !tc.wantErr && (c.LogLevel != tc.want || c.LogJSON != tc.json) {
+				t.Fatalf("level %v json %v, want %v %v", c.LogLevel, c.LogJSON, tc.want, tc.json)
 			}
 		})
 	}

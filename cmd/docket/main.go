@@ -38,6 +38,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	slog.SetDefault(newLogger(os.Stderr, cfg.LogLevel, cfg.LogJSON))
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
@@ -188,7 +189,7 @@ func runSelfHost(ctx context.Context, cfg config.Config) error {
 		TrustedProxies: proxies, Passkeys: sites, Auth: ad, WS: ws, Web: web.Handler(), AllowedHosts: cfg.AllowedHosts, RunnerReady: runner.Ready,
 		BackupDir: cfg.BackupDir, Backup: backup,
 	})
-	return serve(ctx, cfg, handler)
+	return serve(ctx, cfg, accessLog(handler))
 }
 
 // newServer configures the HTTP server. It speaks HTTP/1.1 and HTTP/2: over TLS when PLANDILLO_TLS_CERT is set
@@ -219,7 +220,14 @@ func serve(ctx context.Context, cfg config.Config, h http.Handler) error {
 	} else {
 		go func() { errc <- srv.ListenAndServe() }()
 	}
-	slog.Info("Plandillo listening", "addr", cfg.Addr, "tls", cfg.TLSCert != "")
+	mode, storage := "local", "sqlite"
+	if cfg.SelfHost {
+		mode = "selfhost"
+	}
+	if cfg.PostgresDSN != "" {
+		storage = "postgres"
+	}
+	slog.Info("Plandillo listening", "addr", cfg.Addr, "tls", cfg.TLSCert != "", "mode", mode, "storage", storage, "log_level", cfg.LogLevel.String())
 
 	select {
 	case err := <-errc:

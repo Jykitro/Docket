@@ -288,7 +288,7 @@ func (a *api) h(fn func(*http.Request) (any, error)) http.HandlerFunc {
 			case errors.As(err, &se):
 				writeError(w, statusFor(se.Code), se.Code, se.Message)
 			default:
-				slog.Error("request failed", "method", r.Method, "path", r.URL.Path, "err", err)
+				slog.ErrorContext(r.Context(), "request failed", "method", r.Method, "path", r.URL.Path, "err", err)
 				writeError(w, 500, "internal", "internal error")
 			}
 			return
@@ -905,7 +905,7 @@ func (a *api) sendExport(w http.ResponseWriter, r *http.Request, projectID int64
 	})
 	if err != nil {
 		if started {
-			slog.Error("export interrupted", "err", err)
+			slog.ErrorContext(r.Context(), "export interrupted", "err", err)
 			panic(http.ErrAbortHandler)
 		}
 		var se *service.Error
@@ -913,7 +913,7 @@ func (a *api) sendExport(w http.ResponseWriter, r *http.Request, projectID int64
 			writeError(w, statusFor(se.Code), se.Code, se.Message)
 			return
 		}
-		slog.Error("export failed", "err", err)
+		slog.ErrorContext(r.Context(), "export failed", "err", err)
 		writeError(w, 500, "internal", "internal error")
 		return
 	}

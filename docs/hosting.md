@@ -75,6 +75,8 @@ Settings are read from `.env` (see [the example settings](../.env.example)). Ins
 |---|---|---|
 | `PLANDILLO_MODE` | `local` | `local`: one user, no login. `selfhost`: several users behind a login, see [Self-host](#self-host) |
 | `PLANDILLO_ADDR` | `127.0.0.1:7777` (native), `:7777` (image) | HTTP listen address |
+| `PLANDILLO_LOG_LEVEL` | `info` | `debug`, `info`, `warn` or `error`. See [Logs](#logs) |
+| `PLANDILLO_LOG_FORMAT` | `text` | `text` for reading in `docker logs`, `json` for log collectors such as Loki or ELK |
 | `PLANDILLO_TLS_CERT`, `PLANDILLO_TLS_KEY` | empty | Optional certificate and key files: serve HTTPS with HTTP/2 directly, without a proxy. Set both or neither. See [HTTP/2 and HTTP/3](#http2-and-http3) |
 | `PLANDILLO_TRUSTED_PROXIES` | empty | Selfhost proxy IPs or CIDRs trusted to append the original client address to X-Forwarded-For |
 | `PLANDILLO_DB` | `/data/plandillo.db`, or `/data/docket.db` if only that exists | SQLite database file (ignored with PostgreSQL) |
@@ -86,6 +88,17 @@ Settings are read from `.env` (see [the example settings](../.env.example)). Ins
 | `PLANDILLO_ALLOWED_HOSTS` | `localhost,127.0.0.1,plandillo.localhost` | Allowed `Host` and `Origin` values |
 | `PLANDILLO_SEED` | empty | Optional initial data file |
 | `TZ` | `Asia/Ho_Chi_Minh` | Time zone used to decide what "today" is |
+
+### Logs
+
+Plandillo writes structured logs to stderr: read them with `docker logs plandillo` (or `make logs`, or your platform's log view). At the default `info` level you get:
+
+- one `Plandillo listening` line at start with the address, mode, storage and log level;
+- one `http request` line per API call (`/api/*`, `/mcp`, `/oauth/*`, `/.well-known/*`) with method, path, status, response size, duration in `ms`, protocol, peer address, `forwarded_for` from the proxy and the user agent. Server errors (5xx) log at `error`. The web app's own files and `/healthz` log at `debug`. The live-update stream logs once, when it closes, with how long it stayed open;
+- one `mcp call` line per MCP tool call with the tool, agent, duration and error code (`info` on success, `warn` for a refused or invalid call, `error` for an internal failure);
+- the errors the server meets while handling a request.
+
+Every line logged while serving a request carries the same `request_id`, which is also returned to the client in the `X-Request-ID` header (an id set by your proxy in that header is reused when it is plain text up to 64 characters). To trace a failing request, find its `request_id` in the browser's network panel and search the log for it. Request and response bodies, query strings, cookies, `Authorization` headers and invitation tokens are never logged; MCP call arguments stay in the workspace's own call log on the Integrations page.
 
 ### HTTP/2 and HTTP/3
 

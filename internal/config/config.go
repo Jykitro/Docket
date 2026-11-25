@@ -3,6 +3,7 @@ package config
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -25,8 +26,10 @@ type Config struct {
 	RunnerSocket   string
 	DataDir        string // directory of DB; holds auth.db and users/<id>.db in selfhost mode
 	TrustedProxies string
-	TLSCert        string // optional certificate file: serve HTTPS (and so HTTP/2 to browsers) without a proxy
-	TLSKey         string // its private key; both or neither
+	LogLevel       slog.Level // PLANDILLO_LOG_LEVEL: debug, info (default), warn or error
+	LogJSON        bool       // PLANDILLO_LOG_FORMAT=json: one JSON object per line, for log collectors
+	TLSCert        string     // optional certificate file: serve HTTPS (and so HTTP/2 to browsers) without a proxy
+	TLSKey         string     // its private key; both or neither
 }
 
 func Load() (Config, error) {
@@ -50,6 +53,16 @@ func Load() (Config, error) {
 		return c, fmt.Errorf("PLANDILLO_POSTGRES_MAX_CONNS: want a whole number from 1 to 500")
 	}
 	c.PostgresConns = conns
+	if err := c.LogLevel.UnmarshalText([]byte(env("LOG_LEVEL", "info"))); err != nil {
+		return c, fmt.Errorf("PLANDILLO_LOG_LEVEL: want debug, info, warn or error")
+	}
+	switch f := env("LOG_FORMAT", "text"); f {
+	case "text":
+	case "json":
+		c.LogJSON = true
+	default:
+		return c, fmt.Errorf("PLANDILLO_LOG_FORMAT: unknown format %q (want text or json)", f)
+	}
 	if (c.TLSCert == "") != (c.TLSKey == "") {
 		return c, fmt.Errorf("PLANDILLO_TLS_CERT and PLANDILLO_TLS_KEY must be set together")
 	}
