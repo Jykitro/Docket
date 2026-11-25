@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"strconv"
 
 	"docket/internal/config"
 	"docket/internal/database"
@@ -46,13 +45,6 @@ func runVercel(ctx context.Context, cfg config.Config, command string) error {
 	remote := &vercelrun.App{URL: os.Getenv("PLANDILLO_RUNNER_URL"), Secret: os.Getenv("PLANDILLO_RUNNER_SECRET")}
 	if err = remote.Validate(); err != nil {
 		return err
-	}
-	if value := os.Getenv("PLANDILLO_DEMO_STORAGE_MB"); value != "" {
-		mb, err := strconv.ParseInt(value, 10, 32)
-		if err != nil || mb < 1 {
-			return errors.New("PLANDILLO_DEMO_STORAGE_MB must be a positive integer")
-		}
-		cfg.DemoStorageBytes = mb * 1_000_000
 	}
 	return runSelfHost(ctx, cfg, remote)
 }

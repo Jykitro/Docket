@@ -1,4 +1,4 @@
-# SQLite selfhost with an isolated Code Mode worker. Use behind an HTTPS reverse proxy.
+# Single-server selfhost with an isolated Code Mode worker. Use behind an HTTPS reverse proxy.
 services:
   docket:
     build: .
@@ -9,6 +9,8 @@ services:
       - "127.0.0.1:7777:7777"
     environment:
       DOCKET_MODE: selfhost
+      DOCKET_POSTGRES_DSN: ${DOCKET_POSTGRES_DSN:-}
+      PLANDILLO_DEMO_STORAGE_MB: ${PLANDILLO_DEMO_STORAGE_MB:-}
       DOCKET_TRUSTED_PROXIES: ${DOCKET_TRUSTED_PROXIES:-}
       PLANDILLO_TOTP_KEY: ${PLANDILLO_TOTP_KEY:-}
       DOCKET_PASSKEY_ORIGIN: ${DOCKET_PASSKEY_ORIGIN:-}

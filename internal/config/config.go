@@ -5,12 +5,13 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
 
 type Config struct {
-	DemoStorageBytes int64 // configured by the Vercel entrypoint for non-administrator profiles
+	DemoStorageBytes int64 // optional selfhost storage limit for non-administrator profiles
 	Addr             string
 	DB               string
 	BackupDir        string
@@ -48,6 +49,13 @@ func Load() (Config, error) {
 	}
 	if c.PostgresDSN != "" && !c.SelfHost {
 		return c, fmt.Errorf("DOCKET_POSTGRES_DSN requires DOCKET_MODE=selfhost")
+	}
+	if value := os.Getenv("PLANDILLO_DEMO_STORAGE_MB"); c.SelfHost && value != "" {
+		mb, err := strconv.ParseInt(value, 10, 32)
+		if err != nil || mb < 1 {
+			return c, fmt.Errorf("PLANDILLO_DEMO_STORAGE_MB must be a positive integer")
+		}
+		c.DemoStorageBytes = mb * 1_000_000
 	}
 	if tz := os.Getenv("TZ"); tz != "" {
 		loc, err := time.LoadLocation(tz)
