@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { tanstackRouter } from '@tanstack/router-plugin/vite'
 import { createHash } from 'node:crypto'
-import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { routes } from './src/routes.ts'
 
@@ -24,7 +24,9 @@ const precacheList = {
     const dir = options.dir as string
     const assets = readdirSync(join(dir, 'assets')).sort()
     const build = createHash('sha256').update(assets.join('\n')).digest('hex').slice(0, 10)
-    const list = ['/index.html', ...assets.map((f: string) => `/assets/${f}`)]
+    // Root static files (icons, logos, manifest) too, or the logo is a broken image offline. Not in the build id: they rarely change without an asset changing.
+    const root = readdirSync(dir).filter((f: string) => !f.startsWith('.') && f !== 'sw.js' && f !== 'index.html' && statSync(join(dir, f)).isFile()).sort()
+    const list = ['/index.html', ...root.map((f: string) => `/${f}`), ...assets.map((f: string) => `/assets/${f}`)]
     const file = join(dir, 'sw.js')
     let sw = readFileSync(file, 'utf8')
     for (const p of ['__PLANDILLO_BUILD__', '__PLANDILLO_PRECACHE__']) if (!sw.includes(p)) throw new Error(`sw.js lacks ${p}`)

@@ -22,7 +22,7 @@ self.addEventListener('fetch', event => {
   const url = new URL(request.url)
   if (request.method !== 'GET' || url.origin !== self.location.origin) return
   if (/^\/(api|mcp|healthz)(\/|$)/.test(url.pathname)) return
-  if (url.pathname.startsWith('/assets/')) {
+  if (url.pathname.startsWith('/assets/') || PRECACHE.includes(url.pathname)) {
     event.respondWith(caches.match(request).then(hit => hit || fetch(request)))
   } else if (request.mode === 'navigate') {
     event.respondWith((async () => {
