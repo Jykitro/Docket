@@ -361,6 +361,7 @@ export const MESSAGES: Record<string, [en: string, uk: string]> = {
   'Транспорт — Streamable HTTP': ['Transport — Streamable HTTP', 'Транспорт — Streamable HTTP'],
   // shared UI
   'Загрузка': ['Loading', 'Завантаження'],
+  "Нет связи": ["Offline", "Немає зв’язку"],
   'Загрузка…': ['Loading…', 'Завантаження…'],
   'Не удалось загрузить': ['Could not load', 'Не вдалося завантажити'],
   'Автор: {name}': ['Author: {name}', 'Автор: {name}'],

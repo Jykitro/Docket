@@ -5,6 +5,7 @@ import { OAuthConnections } from './OAuth'
 import { Fragment, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { type McpTool, agentName, api, dayHead, fmtStamp, isoDay, mcpHealthLabel } from './api'
+import { useOnline } from './connection'
 import { Icon } from './icons'
 import { locale, tr } from './i18n'
 import { McpAgent } from './McpAgent'
@@ -41,6 +42,7 @@ function copyText(text: string) {
 export function Mcp() {
   const qc = useQueryClient()
   const status = useQuery({ queryKey: ['mcp-status'], queryFn: api.mcpStatus })
+  const offline = !useOnline()
   const settings = useQuery({ queryKey: ['mcp-settings'], queryFn: api.mcpSettings })
   const [filter, setFilter] = useState<'all' | 'write' | 'error'>('all')
   const calls = useQuery({ queryKey: ['mcp-calls', filter], queryFn: () => api.mcpCalls(filter) })
@@ -118,7 +120,7 @@ export function Mcp() {
           </button>
         </div>
         {status.isError && <ErrorState error={status.error} onRetry={() => status.refetch()} />}
-        {status.isPending && <div className={ROW}><Skeleton w="70%" /></div>}
+        {status.isPending && <div className={ROW}>{offline ? <span className="text-t3">{tr('Нет связи')}</span> : <Skeleton w="70%" />}</div>}
         {result && (
           <details className="group border-t border-ln" open={failed > 0}>
             <summary className={SUMMARY + ' py-2 text-[12.5px] text-t2'}>

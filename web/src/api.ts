@@ -1,6 +1,6 @@
 import { workspaceApi } from './workspacePath'
 // REST client, types and shared data hooks. Every list is a TanStack Query; SSE (live.ts) invalidates them.
-import { useQueries, useQuery } from '@tanstack/react-query'
+import { onlineManager, useQueries, useQuery } from '@tanstack/react-query'
 import { getLang, locale, tr } from './i18n'
 import { CollectionBudget } from './Paging'
 import { wipeOfflineCache } from './offlineCache'
@@ -487,7 +487,7 @@ export function useProjectsMeta(ids: number[]): Record<number, Meta> {
 
 export function mcpHealthLabel(status: McpStatus | undefined, failed: boolean) {
   if (failed) return tr('Не удалось получить статус MCP')
-  if (!status) return tr('Загрузка…')
+  if (!status) return onlineManager.isOnline() ? tr('Загрузка…') : tr('Нет связи')
   if (!status.check) return tr('MCP ещё не проверен')
   if (!status.online) return tr('Самопроверка MCP не пройдена')
   return status.last_call_at || status.token_last_used_at ? tr('Сервер MCP доступен') : tr('MCP готов к подключению')

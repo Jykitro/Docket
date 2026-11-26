@@ -1,6 +1,6 @@
 // Small shared pieces: popover menu, dialog, states, task badges.
-import { onlineManager } from '@tanstack/react-query'
-import { type ReactNode, useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { type ReactNode, useEffect, useRef, useState } from 'react'
+import { useOnline } from './connection'
 import { ApiError, type ErrorKind, agentName, errText, errorKind, type Label } from './api'
 import { Icon } from './icons'
 import { LANGS, setLang, tr, useLang } from './i18n'
@@ -168,7 +168,7 @@ export function Skeleton({ w = '100%', h = 14 }: { w?: number | string; h?: numb
 }
 
 export function SkeletonRows({ n = 4 }: { n?: number }) {
-  const online = useSyncExternalStore(onlineManager.subscribe, () => onlineManager.isOnline())
+  const online = useOnline()
   if (!online) return <p role="status" className="p-4 text-sm text-t3">{tr('Недоступно офлайн: откройте эту страницу, когда будет связь')}</p>
   return (
     <div role="status" aria-label={tr('Загрузка')} className="flex flex-col gap-3.5 p-4">

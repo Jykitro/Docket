@@ -42,6 +42,8 @@ export function startConnectionWatch() {
   if (!state.online) setOnline(false)
 }
 
+export const useOnline = () => useSyncExternalStore(onlineManager.subscribe, () => onlineManager.isOnline())
+
 export function useConnection() {
   const s = useSyncExternalStore(cb => { listeners.add(cb); return () => listeners.delete(cb) }, () => state)
   return { ...s, retry: () => void probe() }
