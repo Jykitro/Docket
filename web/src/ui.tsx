@@ -144,7 +144,8 @@ export function useFocusTrap<T extends HTMLElement>(enabled = true) {
   return ref
 }
 
-export function Dialog({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+/** A modal: centred, or a panel on the right edge with `side`. Esc and a click on the backdrop close it. */
+export function Dialog({ title, onClose, side, children }: { title: string; onClose: () => void; side?: boolean; children: ReactNode }) {
   useEffect(() => {
     const key = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     document.addEventListener('keydown', key)
@@ -152,8 +153,8 @@ export function Dialog({ title, onClose, children }: { title: string; onClose: (
   }, [onClose])
   const trap = useFocusTrap<HTMLDivElement>()
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-start justify-center pt-[12vh] px-4 pb-4 overflow-y-auto" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="w-full max-w-[560px] bg-sf border border-ln rounded-lg shadow-pop p-6 flex flex-col gap-4" role="dialog" aria-modal="true" aria-label={title} ref={trap} tabIndex={-1}>
+    <div className={'fixed inset-0 z-50 bg-black/50 flex ' + (side ? 'justify-end' : 'items-start justify-center pt-[12vh] px-4 pb-4 overflow-y-auto')} onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div className={side ? 'h-full w-full max-w-[420px] overflow-y-auto bg-sf border-l border-ln shadow-pop p-6 flex flex-col gap-4' : 'w-full max-w-[560px] bg-sf border border-ln rounded-lg shadow-pop p-6 flex flex-col gap-4'} role="dialog" aria-modal="true" aria-label={title} ref={trap} tabIndex={-1}>
         <h2 className="text-lg font-semibold leading-none tracking-tight">{title}</h2>
         {children}
       </div>

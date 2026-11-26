@@ -3,7 +3,7 @@
 // Per-project settings stay in Settings.tsx (/<slug>/settings).
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { type Me, api, errText, useMe, useProfile } from './api'
+import { type Me, api, errText, fmtTime, useMe, useProfile } from './api'
 import { AccountSecurity, ProfilePhoto } from './AccountSecurity'
 import { Icon } from './icons'
 import { LANGS, locale, setLang, tr, useLang } from './i18n'
@@ -23,17 +23,19 @@ export const THEMES: { id: ThemePref; icon: string; label: string }[] = [
 
 type Section = { id: string; label: string; icon: string; group: string; hint: string; when?: (me?: Me) => boolean }
 const selfhost = (me?: Me) => me?.mode === 'selfhost'
+const admin = (me?: Me) => !!me?.user?.is_admin
+const ADMIN = 'Администрирование'
 const SECTIONS: Section[] = [
   { id: 'profile', group: 'Аккаунт', label: 'Профиль', icon: 'user', hint: 'Как вас видят в задачах, заметках и истории.' },
   { id: 'security', group: 'Аккаунт', label: 'Безопасность', icon: 'key', hint: 'Вход, пароль, ключи доступа и активные сессии.', when: selfhost },
   { id: 'workspace', group: 'Пространство', label: 'Общие', icon: 'sliders', hint: 'Название, иконка и данные текущего пространства.' },
   { id: 'workspaces', group: 'Пространство', label: 'Все пространства', icon: 'stack', hint: 'Создавайте, открывайте и архивируйте пространства.' },
-  { id: 'appearance', group: 'Система', label: 'Оформление', icon: 'sun', hint: 'Тема, цвета, шрифт и язык интерфейса на этом устройстве.' },
-  { id: 'app', group: 'Система', label: 'Приложение', icon: 'monitor', hint: 'Установка, адрес сервера и ссылки на проект.' },
-  { id: 'backups', group: 'Система', label: 'Бэкапы', icon: 'clock', hint: 'Копии базы данных сервера: создайте новую или скачайте готовую.', when: (me) => !!me?.user?.is_admin },
-  { id: 'users', group: 'Система', label: 'Пользователи', icon: 'list', hint: 'Регистрация, приглашения и учётные записи сервера.', when: (me) => !!me?.user?.is_admin },
+  { id: 'appearance', group: 'Это устройство', label: 'Оформление', icon: 'sun', hint: 'Тема, цвета, шрифт и язык. Сохраняется только на этом устройстве.' },
+  { id: 'app', group: 'Это устройство', label: 'Приложение', icon: 'monitor', hint: 'Установка на этом устройстве, адрес сервера и ссылки на проект.' },
+  { id: 'users', group: ADMIN, label: 'Пользователи', icon: 'list', hint: 'Регистрация, приглашения и учётные записи сервера.', when: admin },
+  { id: 'backups', group: ADMIN, label: 'Бэкапы', icon: 'clock', hint: 'Копии базы данных сервера: создайте новую или скачайте готовую.', when: admin },
 ]
-const GROUPS = ['Аккаунт', 'Пространство', 'Система']
+const GROUPS = ['Аккаунт', 'Пространство', 'Это устройство', ADMIN]
 
 const nv = 'flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-sm text-tx no-underline hover:bg-sk '
 
@@ -47,14 +49,15 @@ export function SettingsNav({ section, rail }: { section: string; rail: boolean 
       <Link to="/" className={cls(false) + ' text-t2'} title={rail ? tr('Назад к задачам') : undefined}>
         <Icon name="chevL" />{!rail && <span>{tr('Назад к задачам')}</span>}
       </Link>
-      {GROUPS.map((g) => (
+      {GROUPS.filter((g) => visible.some((s) => s.group === g)).map((g) => (
         <div key={g} className="flex flex-col gap-0.5">
-          {!rail && <div className={cap + ' flex h-8 items-center px-2'}>{tr(g)}</div>}
+          {!rail && <div className={cap + ' flex h-8 items-center gap-1.5 px-2'}>{g === ADMIN && <Icon name="lock" size={13} />}{tr(g)}</div>}
           {visible.filter((s) => s.group === g).map((s) => (
             <Link key={s.id} to={'/settings/' + s.id} className={cls(s.id === section)} aria-current={s.id === section ? 'page' : undefined} title={rail ? tr(s.label) : undefined}>
               <Icon name={s.icon} />{!rail && <span className="truncate">{tr(s.label)}</span>}
             </Link>
           ))}
+          {g === ADMIN && !rail && <p className="px-2 pt-1 text-xs text-t3">{tr('Видят только администраторы сервера.')}</p>}
         </div>
       ))}
     </nav>
@@ -114,15 +117,31 @@ export function UserMenu({ variant, rail }: { variant: 'sidebar' | 'header'; rai
 }
 
 export function SettingsPage({ section, theme, onTheme }: { section: string; theme: ThemePref; onTheme: (t: ThemePref) => void }) {
-  const me = useMe().data
-  const s = SECTIONS.find((x) => x.id === section && (!x.when || x.when(me))) ?? SECTIONS[0]
+  const meq = useMe()
+  const me = meq.data
+  const [inviting, setInviting] = useState(false)
+  const asked = SECTIONS.find((x) => x.id === section)
+  // An admin page opened by a non-admin (a typed or shared link) says so instead of quietly showing the profile.
+  const denied = !!me && asked?.group === ADMIN && !admin(me)
+  const s = (denied && asked) || (SECTIONS.find((x) => x.id === section && (!x.when || x.when(me))) ?? SECTIONS[0])
+  if (meq.isPending) return <div className="mx-auto w-full max-w-3xl px-8 pt-8"><SkeletonRows n={4} /></div>
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-8 pt-8 pb-16 max-[640px]:px-4">
-      <header className="flex flex-col gap-1">
-        <span className="text-[13px] text-t3">{tr('Настройки')} / {tr(s.group)}</span>
-        <h1 className="text-2xl font-semibold tracking-[-.02em]">{tr(s.label)}</h1>
-        <p className="text-sm text-t2">{tr(s.hint)}</p>
+      <header className="flex flex-wrap items-end gap-x-4 gap-y-3">
+        <div className="flex min-w-0 grow flex-col gap-1">
+          <span className="text-[13px] text-t3">{tr('Настройки')} / {tr(s.group)}</span>
+          <h1 className="text-2xl font-semibold tracking-[-.02em]">{tr(s.label)}</h1>
+          <p className="text-sm text-t2">{tr(s.hint)}</p>
+        </div>
+        {s.id === 'users' && !denied && <button type="button" className={btnPri} onClick={() => setInviting(true)}><Icon name="plus" size={15} sw={2} />{tr('Пригласить')}</button>}
       </header>
+      {denied && (
+        <div role="alert" className="flex flex-col items-start gap-3 rounded-xl border border-ln bg-sf p-5">
+          <span className="flex items-center gap-2 font-medium"><Icon name="lock" size={16} />{tr('Нет доступа')}</span>
+          <p className="text-sm text-t2">{tr('Этот раздел видят только администраторы сервера. Если он вам нужен, попросите администратора.')}</p>
+          <Link to="/settings/profile" className={btn}>{tr('К профилю')}</Link>
+        </div>
+      )}
       {s.id === 'profile' && <Profile />}
       {s.id === 'security' && me?.user && (
         <>
@@ -134,8 +153,8 @@ export function SettingsPage({ section, theme, onTheme }: { section: string; the
       {s.id === 'workspaces' && <WorkspaceList />}
       {s.id === 'appearance' && <Appearance theme={theme} onTheme={onTheme} />}
       {s.id === 'app' && <AppInfo />}
-      {s.id === 'backups' && <Backups />}
-      {s.id === 'users' && me?.user && <SettingsSection title={tr('Сервер')}><div className="flex flex-col gap-4 p-5"><Users me={me.user} /></div></SettingsSection>}
+      {s.id === 'backups' && !denied && <Backups />}
+      {s.id === 'users' && !denied && me?.user && <Users me={me.user} inviting={inviting} onInvited={() => setInviting(false)} />}
     </div>
   )
 }
@@ -150,8 +169,11 @@ function Profile() {
     onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: ['profile'] }), qc.invalidateQueries({ queryKey: ['me'] })]),
   })
   const dirty = name.trim() !== '' && name.trim() !== profile.data?.name
+  const shown = name.trim() || profile.data?.name || tr('Вы')
+  const photo = me?.user?.photo ? me.user.photo + '?v=' + me.user.updated_at : null
   return (
     <SettingsSection title={tr('Личные данные')}>
+      {me?.mode === 'selfhost' && <SettingsRow label={tr('Фото')} hint={tr('PNG, JPEG, WebP или SVG до 2 МБ')}><ProfilePhoto name={name} /></SettingsRow>}
       <SettingsRow label={tr('Имя')} hint={tr('Видно рядом с вашими задачами и действиями в этом пространстве.')}>
         <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); if (dirty && !save.isPending) save.mutate() }}>
           <input className={textInput} maxLength={NAME_MAX} value={name} onChange={(e) => setName(e.target.value)} aria-label={tr('Имя')} />
@@ -162,12 +184,24 @@ function Profile() {
       </SettingsRow>
       {me?.mode === 'selfhost' && (
         <>
-          <SettingsRow label={tr('Фото')} hint={tr('PNG, JPEG, WebP или SVG до 2 МБ')}><ProfilePhoto name={name} /></SettingsRow>
-          <SettingsRow label={tr('Логин')} hint={tr('Сменить пароль и выйти можно в разделе «Безопасность».')}>
-            <span className="font-mono text-sm">{me.user?.username}</span>
+          <SettingsRow label={tr('Логин')} hint={tr('Используется для входа.')}>
+            <span className="flex flex-wrap items-center gap-x-3 gap-y-1"><span className="font-mono text-sm">{me.user?.username}</span>
+              <Link to="/settings/security" className="text-[13px] text-act">{tr('Сменить пароль или выйти')}</Link></span>
+          </SettingsRow>
+          <SettingsRow label={tr('Роль')} hint={tr('Права на этом сервере.')}>
+            <span className="text-sm">{me.user?.is_admin ? tr('Администратор сервера') : tr('Пользователь')}</span>
           </SettingsRow>
         </>
       )}
+      <SettingsRow label={tr('Как это выглядит в истории')} hint={tr('Так ваши действия видны в истории задач и на странице «Сегодня».')}>
+        <div className="flex items-center gap-2.5 rounded-lg border border-ln bg-sf2 px-3 py-2.5" aria-hidden="true">
+          <Avatar name={shown} photo={photo} size={26} />
+          <span className="flex min-w-0 flex-col leading-tight">
+            <span className="truncate text-sm">{tr('Создана задача {code}', { code: 'ABC-12' })}</span>
+            <span className="truncate text-xs text-t3">{shown} · {fmtTime(new Date().toISOString())}</span>
+          </span>
+        </div>
+      </SettingsRow>
     </SettingsSection>
   )
 }
@@ -253,17 +287,29 @@ function Appearance({ theme, onTheme }: { theme: ThemePref; onTheme: (t: ThemePr
         </SettingsRow>
       </SettingsSection>
       <SettingsSection title={tr('Текст')} hint={tr('Шрифт, насыщенность и масштаб всего интерфейса.')}>
-        <SettingsRow label={tr('Шрифт')}>
-          <Segmented label={tr('Шрифт')} value={font} options={FONTS} onChange={setFont} />
-        </SettingsRow>
+        <div className="flex flex-col gap-3 px-5 py-4">
+          <span className="flex flex-col gap-0.5"><span className="text-sm font-medium">{tr('Шрифт')}</span>
+            <span className="text-[13px] text-t3">{tr('Для всего интерфейса. Ключи задач, код и время остаются моноширинными.')}</span></span>
+          <div className="grid grid-cols-4 gap-3 max-[640px]:grid-cols-2" role="group" aria-label={tr('Шрифт')}>
+            {FONTS.map((f) => (
+              <button key={f.id} type="button" className={tile + ' px-3 py-3'} aria-pressed={font === f.id} onClick={() => setFont(f.id)}>
+                <span className="text-xl leading-none" style={{ fontFamily: f.family }} aria-hidden="true">Аа Bb 12</span>
+                <span className="flex items-center gap-1.5 font-medium">{tr(f.label)}{font === f.id && <span className="ml-auto text-act"><Icon name="check" size={14} sw={2.4} /></span>}</span>
+              </button>
+            ))}
+          </div>
+        </div>
         <SettingsRow label={tr('Насыщенность')} hint={tr('Толщина букв во всём интерфейсе.')}>
           <Segmented label={tr('Насыщенность')} value={weight} options={WEIGHTS} onChange={setWeight} />
         </SettingsRow>
         <SettingsRow label={tr('Масштаб')} hint={tr('Как масштаб в браузере, но только для Plandillo. На небольших экранах удобно 90%.')}>
-          <span className="inline-flex w-fit items-center gap-0.5 rounded-md border border-ln p-0.5 text-[13px]" role="group" aria-label={tr('Масштаб')}>
+          <span className="flex flex-wrap items-center gap-2 text-[13px]" role="group" aria-label={tr('Масштаб')}>
             <button type="button" className={STEP} aria-label={tr('Уменьшить')} title={tr('Уменьшить')} disabled={step === 0} onClick={() => setScale(SCALES[step - 1].id)}><Icon name="minus" size={14} sw={2.2} /></button>
-            <button type="button" className="h-7 min-w-14 rounded-sm px-2 font-semibold tabular-nums hover:bg-sk" title={tr('Сбросить до 100%')} aria-live="polite" onClick={() => setScale('100')}>{scale}%</button>
+            <input type="range" className="min-w-28 flex-1 accent-ac" min={SCALES[0].id} max={SCALES[SCALES.length - 1].id} step={5} value={scale}
+              aria-label={tr('Масштаб')} aria-valuetext={scale + '%'} onChange={(e) => setScale(e.target.value as typeof scale)} />
             <button type="button" className={STEP} aria-label={tr('Увеличить')} title={tr('Увеличить')} disabled={step === SCALES.length - 1} onClick={() => setScale(SCALES[step + 1].id)}><Icon name="plus" size={14} sw={2.2} /></button>
+            <span className="min-w-11 text-right font-semibold tabular-nums" aria-live="polite">{scale}%</span>
+            <button type="button" className={btn + ' h-7 px-2.5 text-[13px]'} disabled={scale === '100'} onClick={() => setScale('100')}>{tr('Сбросить')}</button>
           </span>
         </SettingsRow>
       </SettingsSection>
@@ -289,6 +335,9 @@ function AppInfo() {
       <SettingsSection title={tr('Это устройство')}>
         <SettingsRow label={tr('Установка')} hint={tr('Plandillo работает как отдельное приложение, без вкладки браузера.')}>
           <div><InstallPlandillo fallback={<span className="text-sm text-t2">{tr('Установка недоступна в этом браузере или уже выполнена.')}</span>} /></div>
+        </SettingsRow>
+        <SettingsRow label={tr('На iPhone и iPad')}>
+          <p className="text-sm text-t2">{tr('Откройте Plandillo в Safari, нажмите «Поделиться» и выберите «На экран Домой».')}</p>
         </SettingsRow>
       </SettingsSection>
       <SettingsSection title={tr('Сервер')}>
