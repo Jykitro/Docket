@@ -25,6 +25,15 @@ self.addEventListener('fetch', event => {
   if (url.pathname.startsWith('/assets/')) {
     event.respondWith(caches.match(request).then(hit => hit || fetch(request)))
   } else if (request.mode === 'navigate') {
-    event.respondWith(fetch(request).catch(async () => (await caches.match(index)) || Response.error()))
+    event.respondWith((async () => {
+      let proxied
+      try {
+        const response = await fetch(request)
+        // A reverse proxy answers 502-504 when the app is down; treat it like no connection.
+        if (response.status < 502 || response.status > 504) return response
+        proxied = response
+      } catch {}
+      return (await caches.match(index)) || proxied || Response.error()
+    })())
   }
 })
