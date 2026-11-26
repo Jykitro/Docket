@@ -2,7 +2,7 @@
 // shows setup, login or invite screens. In local mode, or with a session, it renders the app untouched.
 import { type ReactNode, useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, errText, useMe } from './api'
+import { api, errText, errorKind, useMe } from './api'
 import { Icon } from './icons'
 import { PasskeyLogin } from './Passkeys'
 import { PlandilloLogo } from './PlandilloLogo'
@@ -126,10 +126,12 @@ export function Gate({ children }: { children: ReactNode }) {
     window.addEventListener('pageshow', verify)
     return () => { window.removeEventListener('focus', verify); window.removeEventListener('pageshow', verify) }
   }, [refetch])
-  const loggedOut = me.isSuccess && me.data.mode === 'selfhost' && !me.data.user && !me.data.setup
+  // Offline at start the refetch fails but the restored data is still good: treat it as loaded.
+  const loaded = me.isSuccess || (!!me.data && errorKind(me.error) === 'offline')
+  const loggedOut = loaded && me.data?.mode === 'selfhost' && !me.data.user && !me.data.setup
 
   // App sets page-specific titles that would go stale behind the login screen.
-  const inApp = me.isSuccess && (me.data?.mode === 'local' || !!me.data?.user)
+  const inApp = loaded && (me.data?.mode === 'local' || !!me.data?.user)
   useEffect(() => {
     if (!inApp) document.title = 'Plandillo'
   }, [inApp])
@@ -143,7 +145,7 @@ export function Gate({ children }: { children: ReactNode }) {
   const wrap = (el: ReactNode) => <div className="min-h-screen bg-bg text-tx">{el}</div>
   const saved: Saved = ({ recovery_code, id }) => { setIssued({ recovery_code, id }); navigate(returnPath, true) }
   // Registration signs in the new owner, while recovery issues a code on the guest screen.
-  if (issued && (issued.id === undefined ? loggedOut : me.isSuccess && me.data.user?.id === issued.id)) return wrap(<main className="min-h-screen grid place-items-center p-4"><section className="w-full max-w-md bg-sf border border-ln rounded-lg p-6 grid gap-4">
+  if (issued && (issued.id === undefined ? loggedOut : me.data?.user?.id === issued.id)) return wrap(<main className="min-h-screen grid place-items-center p-4"><section className="w-full max-w-md bg-sf border border-ln rounded-lg p-6 grid gap-4">
     <h1 className="font-semibold">{tr('Сохраните резервный код')}</h1><p>{tr('Этот одноразовый код позволит задать новый пароль. Сохраните его в менеджере паролей.')}</p>
     <code className="select-all break-all">{issued.recovery_code}</code><button className={btnPri} onClick={() => setIssued(null)}>{tr('Код сохранён')}</button>
   </section></main>)
