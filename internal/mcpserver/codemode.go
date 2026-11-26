@@ -16,9 +16,9 @@ import (
 	"strings"
 	"time"
 
-	"docket/internal/codeeval"
-	"docket/internal/service"
-	"docket/skills"
+	"plandillo/internal/codeeval"
+	"plandillo/internal/service"
+	"plandillo/skills"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )

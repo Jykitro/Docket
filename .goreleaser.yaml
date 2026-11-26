@@ -5,7 +5,7 @@ project_name: plandillo
 builds:
   - &native
     id: plandillo
-    main: ./cmd/docket
+    main: ./cmd/plandillo
     binary: plandillo
     env: [CGO_ENABLED=0] # modernc SQLite is pure Go
     flags: [-trimpath]

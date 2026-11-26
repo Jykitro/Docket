@@ -20,7 +20,7 @@ ARG TARGETARCH
 RUN mkdir /out-socket /out-data && chmod 0700 /out-data
 # The compiler cache survives code changes, so sqlite, goja and pgx are not rebuilt every time; CI keeps it via buildkit-cache-dance.
 RUN --mount=type=cache,target=/root/.cache/go-build \
-    CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags="-s -w" -o /out/plandillo ./cmd/docket
+    CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags="-s -w" -o /out/plandillo ./cmd/plandillo
 
 # 3. runtime
 FROM gcr.io/distroless/static-debian13:nonroot@sha256:8ce6dd87e9823c5b48dcfb2c8604714ccb351ce59607327bcc4957448da279b5

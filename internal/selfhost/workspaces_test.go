@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"docket/internal/auth"
-	"docket/internal/events"
-	"docket/internal/service"
+	"plandillo/internal/auth"
+	"plandillo/internal/events"
+	"plandillo/internal/service"
 )
 
 func newWS(t *testing.T) (*Workspaces, string) {

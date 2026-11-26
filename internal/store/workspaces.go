@@ -10,7 +10,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"docket/internal/database"
+	"plandillo/internal/database"
 )
 
 // Space is the catalog record. Service handles are created on demand for active spaces.

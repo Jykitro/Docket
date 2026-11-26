@@ -8,8 +8,8 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"docket/internal/slug"
-	"docket/internal/store"
+	"plandillo/internal/slug"
+	"plandillo/internal/store"
 )
 
 // Project configuration: statuses, labels, custom fields, saved views.

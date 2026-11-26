@@ -18,9 +18,9 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"docket/internal/events"
-	"docket/internal/slug"
-	"docket/internal/store"
+	"plandillo/internal/events"
+	"plandillo/internal/slug"
+	"plandillo/internal/store"
 )
 
 const (

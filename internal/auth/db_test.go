@@ -1,10 +1,10 @@
 package auth
 
 import (
-	"docket/internal/testutil"
 	"errors"
 	"os"
 	"path/filepath"
+	"plandillo/internal/testutil"
 	"strings"
 	"testing"
 	"time"

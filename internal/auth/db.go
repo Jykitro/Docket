@@ -14,7 +14,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"docket/internal/database"
+	"plandillo/internal/database"
 )
 
 var (

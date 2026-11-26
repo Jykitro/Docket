@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"docket/internal/database"
+	"plandillo/internal/database"
 )
 
 //go:embed migrations/*.sql migrations/postgres/*.sql

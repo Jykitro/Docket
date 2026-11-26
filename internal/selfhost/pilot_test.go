@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"docket/internal/auth"
+	"plandillo/internal/auth"
 )
 
 // TestPilot measures reopening all 50 initialized workspaces and an authenticated request for each.

@@ -12,7 +12,7 @@ const measure = `<script>(() => {
     const root = document.documentElement
     const bottom = body.getBoundingClientRect().bottom + scrollY + (parseFloat(getComputedStyle(body).marginBottom) || 0)
     const overflow = root.scrollHeight > root.clientHeight ? root.scrollHeight : 0
-    parent.postMessage({ docketContentHeight: Math.ceil(Math.max(bottom, overflow)) }, '*')
+    parent.postMessage({ plandilloContentHeight: Math.ceil(Math.max(bottom, overflow)) }, '*')
   }
   const observer = new ResizeObserver(report)
   observer.observe(body)
@@ -26,9 +26,9 @@ function previewHTML(html: string) {
   const attr = (html + measure).replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
   return `<!doctype html><html><head><meta http-equiv="Content-Security-Policy" content="${policy}"><meta name="referrer" content="no-referrer"><style>html,body,iframe{width:100%;height:100%;margin:0;border:0;display:block;background:white}</style></head><body><script>
     addEventListener('message', e => {
-      const height = e.data?.docketContentHeight
+      const height = e.data?.plandilloContentHeight
       if (e.source === document.querySelector('iframe')?.contentWindow && Number.isFinite(height)) {
-        parent.postMessage({ docketContentHeight: height }, '*')
+        parent.postMessage({ plandilloContentHeight: height }, '*')
       }
     })
   </script><iframe title="HTML" sandbox="allow-scripts" referrerpolicy="no-referrer" srcdoc="${attr}"></iframe></body></html>`
@@ -65,7 +65,7 @@ export function HtmlPreview({ title, html }: { title: string; html: string }) {
     function resize(event: MessageEvent) {
       const el = frame.current
       if (!el || event.source !== el.contentWindow) return
-      const height = event.data?.docketContentHeight
+      const height = event.data?.plandilloContentHeight
       if (Number.isFinite(height) && height >= 0) {
         // Very tall documents can still scroll inside the frame.
         el.style.height = Math.max(32, Math.min(8192, Math.ceil(height))) + 'px'

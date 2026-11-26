@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"docket/internal/auth"
-	"docket/internal/store"
+	"plandillo/internal/auth"
+	"plandillo/internal/store"
 )
 
 // The server must answer each protocol it offers: HTTP/1.1, h2c with prior knowledge (from a proxy) and HTTP/2 over TLS.

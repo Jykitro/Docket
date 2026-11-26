@@ -13,12 +13,12 @@ import (
 	"testing"
 	"time"
 
-	"docket/internal/auth"
-	"docket/internal/events"
-	"docket/internal/httpapi"
-	"docket/internal/mcpserver"
-	"docket/internal/service"
-	"docket/internal/store"
+	"plandillo/internal/auth"
+	"plandillo/internal/events"
+	"plandillo/internal/httpapi"
+	"plandillo/internal/mcpserver"
+	"plandillo/internal/service"
+	"plandillo/internal/store"
 )
 
 // Use the production shared catalog with the ordinary HTTP and MCP entrypoints.

@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"docket/internal/toolcatalog"
+	"plandillo/internal/toolcatalog"
 )
 
 func TestReferenceCoversToolCatalogue(t *testing.T) {

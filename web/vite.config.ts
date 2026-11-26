@@ -47,6 +47,6 @@ export default defineConfig({
   // The router plugin goes first: it writes src/routeTree.gen.ts and splits every page into its own chunk.
   plugins: [tanstackRouter({ target: 'react', routesDirectory: './src/pages', generatedRouteTree: './src/routeTree.gen.ts', virtualRouteConfig: routes, autoCodeSplitting: true }), woff2Only, react(), tailwindcss(), precacheList],
   build: { outDir: '../internal/web/dist', emptyOutDir: true },
-  // `bun run dev` talks to a backend started with `go run ./cmd/docket` (or the container) on :7777.
+  // `bun run dev` talks to a backend started with `go run ./cmd/plandillo` (or the container) on :7777.
   server: { proxy: { '^/(?:api/|mcp(?:[/?]|$)|\\.well-known/oauth-|oauth/(?:token|register)$)': { target: 'http://127.0.0.1:7777', changeOrigin: false } } },
 })

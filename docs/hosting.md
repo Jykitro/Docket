@@ -213,7 +213,7 @@ Set both variables to use an existing, **dedicated** PostgreSQL database:
 
 ```dotenv
 PLANDILLO_MODE=selfhost
-PLANDILLO_POSTGRES_DSN=postgres://docket:password@db.example.com:5432/docket?sslmode=verify-full
+PLANDILLO_POSTGRES_DSN=postgres://plandillo:password@db.example.com:5432/plandillo?sslmode=verify-full
 ```
 
 The database must exist and the Plandillo role must own it (or have `CONNECT` and `CREATE` on it). Superuser and
@@ -261,9 +261,9 @@ Operational details:
   (
     set -eu
     umask 077
-    mkdir -p -m 700 "$HOME/docket-backups"
-    chmod 700 "$HOME/docket-backups"
-    dump=$(mktemp "$HOME/docket-backups/docket.XXXXXXXX")
+    mkdir -p -m 700 "$HOME/plandillo-backups"
+    chmod 700 "$HOME/plandillo-backups"
+    dump=$(mktemp "$HOME/plandillo-backups/plandillo.XXXXXXXX")
     if docker compose -f compose.postgres.yml exec -T postgres pg_dump -U "${PLANDILLO_POSTGRES_ROLE:-plandillo}" -d "${PLANDILLO_POSTGRES_ROLE:-plandillo}" -Fc > "$dump"; then
       mv "$dump" "$dump.dump"
     else

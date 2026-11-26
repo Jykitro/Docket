@@ -11,8 +11,8 @@ import (
 	"sync"
 	"time"
 
-	"docket/internal/events"
-	"docket/internal/service"
+	"plandillo/internal/events"
+	"plandillo/internal/service"
 )
 
 // MCP screen: status, self-check, settings, token and call log.
@@ -127,7 +127,7 @@ func (a *api) checkServer(ctx context.Context) Check {
 
 // checkProtocol runs initialize and tools/list on the MCP handler inside the process.
 func (a *api) checkProtocol(ctx context.Context) Check {
-	c := Check{Key: "protocol", Label: "Протокол MCP", Hint: "Посмотрите лог контейнера: docker logs docket"}
+	c := Check{Key: "protocol", Label: "Протокол MCP", Hint: "Посмотрите лог контейнера: docker logs plandillo"}
 	call := func(body string) (json.RawMessage, error) {
 		req := httptest.NewRequest(http.MethodPost, "/mcp", strings.NewReader(body)).WithContext(ctx)
 		req.Header.Set("Content-Type", "application/json")

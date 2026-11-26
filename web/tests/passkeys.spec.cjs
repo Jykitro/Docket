@@ -11,7 +11,7 @@ test.use({ locale: 'en-GB', viewport: { width: 1280, height: 900 }, serviceWorke
 
 test('enroll a passkey, sign into its workspace and revoke it', async ({ page, browserName }) => {
   test.skip(browserName !== 'chromium', 'This test uses the Chromium virtual authenticator')
-  const dir = await mkdtemp(path.join(tmpdir(), 'docket-passkeys-'))
+  const dir = await mkdtemp(path.join(tmpdir(), 'plandillo-passkeys-'))
   const socket = createServer()
   socket.listen(0, '127.0.0.1')
   await once(socket, 'listening')

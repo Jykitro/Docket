@@ -7,7 +7,7 @@ import (
 	"log/slog"
 	"strings"
 
-	"docket/internal/database"
+	"plandillo/internal/database"
 )
 
 // PilotCapacity includes the administrator and blocked profiles, which still occupy storage.

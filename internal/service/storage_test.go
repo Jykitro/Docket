@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"docket/internal/store"
+	"plandillo/internal/store"
 )
 
 func TestStorageMaintenance(t *testing.T) {

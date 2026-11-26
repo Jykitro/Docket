@@ -12,9 +12,9 @@ import (
 	"image/png"
 	"time"
 
-	"docket/internal/database"
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
+	"plandillo/internal/database"
 )
 
 const factorSchema = `

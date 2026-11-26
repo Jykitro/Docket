@@ -21,10 +21,10 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
-	"docket/internal/events"
-	"docket/internal/service"
-	"docket/internal/store"
-	"docket/skills"
+	"plandillo/internal/events"
+	"plandillo/internal/service"
+	"plandillo/internal/store"
+	"plandillo/skills"
 )
 
 type Deps struct {

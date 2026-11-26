@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"docket/internal/auth"
+	"plandillo/internal/auth"
 )
 
 func TestRegisteredRedirect(t *testing.T) {

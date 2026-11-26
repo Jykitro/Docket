@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"docket/internal/service"
+	"plandillo/internal/service"
 )
 
 // JSON escaping can use six bytes per byte of HTML.

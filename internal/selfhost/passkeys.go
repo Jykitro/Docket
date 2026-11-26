@@ -12,10 +12,10 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"docket/internal/auth"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-webauthn/webauthn/protocol"
 	"github.com/go-webauthn/webauthn/webauthn"
+	"plandillo/internal/auth"
 )
 
 const passkeyTTL = 5 * time.Minute

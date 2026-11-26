@@ -3,8 +3,8 @@ package selfhost
 import (
 	"net/http"
 
-	"docket/internal/auth"
 	"github.com/go-chi/chi/v5"
+	"plandillo/internal/auth"
 )
 
 func (h *handler) securityRoutes(r *chi.Mux) {

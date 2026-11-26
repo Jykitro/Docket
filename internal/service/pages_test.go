@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"docket/internal/store"
+	"plandillo/internal/store"
 )
 
 func wantCode(t *testing.T, err error, code string) {

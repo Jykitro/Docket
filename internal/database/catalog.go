@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"docket/internal/slug"
+	"plandillo/internal/slug"
 )
 
 // ErrPreviousLayout is returned before changing application tables.

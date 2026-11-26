@@ -14,7 +14,7 @@ web: ## фронт: tsc + vite build -> internal/web/dist
 	cd web && bun run build
 
 build: web ## бинарь bin/plandillo с вшитым UI
-	CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o bin/plandillo ./cmd/docket
+	CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o bin/plandillo ./cmd/plandillo
 	ln -f bin/plandillo bin/docket
 
 test: ## тесты бэкенда (HTTP-тесты открывают порт на localhost)
@@ -33,7 +33,7 @@ knip: ## неиспользуемый код и зависимости фрон�
 check: typecheck knip test ## все проверки
 
 dev-api: ## бэкенд на :7777 с отдельной dev-базой
-	PLANDILLO_DB=./data/dev.db PLANDILLO_BACKUP_DIR=./data/backups go run ./cmd/docket
+	PLANDILLO_DB=./data/dev.db PLANDILLO_BACKUP_DIR=./data/backups go run ./cmd/plandillo
 
 dev-web: ## Vite с hot reload (проксирует /api на :7777)
 	cd web && bun run dev

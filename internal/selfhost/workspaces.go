@@ -15,11 +15,11 @@ import (
 	"sync"
 	"time"
 
-	"docket/internal/auth"
-	"docket/internal/database"
-	"docket/internal/events"
-	"docket/internal/service"
-	"docket/internal/store"
+	"plandillo/internal/auth"
+	"plandillo/internal/database"
+	"plandillo/internal/events"
+	"plandillo/internal/service"
+	"plandillo/internal/store"
 )
 
 // ErrRemoved is returned by Open for a profile that was deleted while the process runs.

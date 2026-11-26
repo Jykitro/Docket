@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"docket/internal/testutil"
+	"plandillo/internal/testutil"
 )
 
 // eachEngine runs a catalog test on SQLite and, with PLANDILLO_TEST_POSTGRES_DSN, on PostgreSQL. The test gets an open

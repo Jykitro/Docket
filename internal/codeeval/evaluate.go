@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"docket/internal/toolcatalog"
+	"plandillo/internal/toolcatalog"
 
 	"github.com/dop251/goja"
 )

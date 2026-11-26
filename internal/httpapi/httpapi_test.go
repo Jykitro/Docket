@@ -14,11 +14,11 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"docket/internal/events"
-	"docket/internal/mcpserver"
-	"docket/internal/service"
-	"docket/internal/store"
-	"docket/internal/testutil"
+	"plandillo/internal/events"
+	"plandillo/internal/mcpserver"
+	"plandillo/internal/service"
+	"plandillo/internal/store"
+	"plandillo/internal/testutil"
 )
 
 func openTestStore(t *testing.T) (*store.Store, error) {
@@ -441,7 +441,7 @@ func TestSelfCheckHints(t *testing.T) {
 	}
 	local := map[string]string{
 		"server":   "Проверьте, что контейнер запущен: docker ps",
-		"protocol": "Посмотрите лог контейнера: docker logs docket",
+		"protocol": "Посмотрите лог контейнера: docker logs plandillo",
 		"token":    "Задайте PLANDILLO_MCP_TOKEN в .env или перевыпустите токен на этой странице",
 		"hosts":    "Добавьте хост в PLANDILLO_ALLOWED_HOSTS и перезапустите контейнер",
 		"db":       "Проверьте место на диске и том ./data; бэкапы лежат в data/backups",

@@ -10,8 +10,8 @@ import (
 	"sort"
 	"time"
 
-	"docket/internal/store"
-	"docket/internal/toolcatalog"
+	"plandillo/internal/store"
+	"plandillo/internal/toolcatalog"
 )
 
 // MCP administration: token, access mode, tool switches, call log, health data for the self-check.

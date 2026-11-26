@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"io"
 
-	"docket/internal/store"
+	"plandillo/internal/store"
 )
 
 // WriteExport streams one consistent snapshot; even exports made before HTML quotas fit in memory one row at a time.

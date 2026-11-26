@@ -2,12 +2,12 @@ package mcpserver
 
 import (
 	"context"
-	"docket/internal/codeeval"
 	"encoding/json"
 	"errors"
 	"io"
 	"net"
 	"path/filepath"
+	"plandillo/internal/codeeval"
 	"testing"
 	"time"
 )

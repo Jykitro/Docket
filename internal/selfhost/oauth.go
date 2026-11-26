@@ -17,11 +17,11 @@ import (
 	"time"
 	"unicode"
 
-	"docket/internal/auth"
-	"docket/internal/httpapi"
-	"docket/internal/mcpserver"
-	"docket/internal/service"
 	"github.com/go-chi/chi/v5"
+	"plandillo/internal/auth"
+	"plandillo/internal/httpapi"
+	"plandillo/internal/mcpserver"
+	"plandillo/internal/service"
 )
 
 const oauthRead = "mcp:read"

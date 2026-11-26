@@ -14,16 +14,16 @@ import (
 	"time"
 	_ "time/tzdata" // distroless has no zoneinfo
 
-	"docket/internal/auth"
-	"docket/internal/config"
-	"docket/internal/database"
-	"docket/internal/events"
-	"docket/internal/httpapi"
-	"docket/internal/mcpserver"
-	"docket/internal/selfhost"
-	"docket/internal/service"
-	"docket/internal/store"
-	"docket/internal/web"
+	"plandillo/internal/auth"
+	"plandillo/internal/config"
+	"plandillo/internal/database"
+	"plandillo/internal/events"
+	"plandillo/internal/httpapi"
+	"plandillo/internal/mcpserver"
+	"plandillo/internal/selfhost"
+	"plandillo/internal/service"
+	"plandillo/internal/store"
+	"plandillo/internal/web"
 )
 
 func main() {

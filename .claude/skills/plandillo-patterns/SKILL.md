@@ -22,7 +22,7 @@ Measured on 51 commits. Commands, layout and rules are in `AGENTS.md`; this skil
 
 ## Code Architecture
 
-- `cmd/docket` wires; `internal/service` owns rules and validation; `internal/store` owns SQL; `internal/httpapi` and `internal/mcpserver` are thin adapters that call only `service`.
+- `cmd/plandillo` wires; `internal/service` owns rules and validation; `internal/store` owns SQL; `internal/httpapi` and `internal/mcpserver` are thin adapters that call only `service`.
 - Selfhost mode adds `internal/auth` (users, sessions) and `internal/selfhost` (one database per profile). The two together are the most edited area: `selfhost/handler.go` (10 commits) and `auth/db.go` (7).
 - Frontend: one screen per file in `web/src` (`Board.tsx`, `Today.tsx`, `Mcp.tsx`, ...), shared pieces in `ui.tsx`, API calls and types in `api.ts` (8 commits, the most edited web file).
 

@@ -7,7 +7,7 @@ import (
 	"slices"
 	"strings"
 
-	"docket/internal/store"
+	"plandillo/internal/store"
 )
 
 type ReportIssueInput struct {

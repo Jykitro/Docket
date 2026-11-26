@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"docket/internal/events"
-	"docket/internal/service"
+	"plandillo/internal/events"
+	"plandillo/internal/service"
 )
 
 // Code Mode end to end over /mcp/code: declarations follow the policy, codemode.* calls reach the real tools

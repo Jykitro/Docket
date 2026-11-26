@@ -11,8 +11,8 @@ import (
 	"sync"
 	"time"
 
-	"docket/internal/auth"
 	"github.com/go-chi/chi/v5"
+	"plandillo/internal/auth"
 )
 
 // browserGuard keeps browser writes on the same public origin, including its port.

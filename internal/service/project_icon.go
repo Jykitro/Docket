@@ -7,7 +7,7 @@ import (
 	"encoding/hex"
 	"image/png"
 
-	"docket/internal/store"
+	"plandillo/internal/store"
 )
 
 func (s *Service) ProjectIcon(ctx context.Context, id int64) (data []byte, err error) {

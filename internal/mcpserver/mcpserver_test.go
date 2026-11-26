@@ -13,10 +13,10 @@ import (
 	"testing"
 	"time"
 
-	"docket/internal/events"
-	"docket/internal/service"
-	"docket/internal/store"
-	"docket/internal/testutil"
+	"plandillo/internal/events"
+	"plandillo/internal/service"
+	"plandillo/internal/store"
+	"plandillo/internal/testutil"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )

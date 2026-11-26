@@ -12,9 +12,9 @@ import (
 	"testing"
 	"time"
 
-	"docket/internal/events"
-	"docket/internal/store"
-	"docket/internal/testutil"
+	"plandillo/internal/events"
+	"plandillo/internal/store"
+	"plandillo/internal/testutil"
 )
 
 var ctx = context.Background()

@@ -7,11 +7,11 @@ import (
 	"strconv"
 	"strings"
 
-	"docket/internal/auth"
-	"docket/internal/events"
-	"docket/internal/service"
-	"docket/internal/store"
 	"github.com/go-chi/chi/v5"
+	"plandillo/internal/auth"
+	"plandillo/internal/events"
+	"plandillo/internal/service"
+	"plandillo/internal/store"
 )
 
 // UseShared installs the catalog-backed workspace manager before serving requests.

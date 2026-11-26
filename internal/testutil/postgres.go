@@ -29,7 +29,7 @@ func PostgresDSN(t testing.TB) string {
 	if err != nil {
 		t.Fatal("cannot connect to test PostgreSQL")
 	}
-	name := fmt.Sprintf("docket_test_%x", rand.Text()[:16])
+	name := fmt.Sprintf("plandillo_test_%x", rand.Text()[:16])
 	if _, err = conn.Exec(ctx, `CREATE DATABASE `+pgx.Identifier{name}.Sanitize()); err != nil {
 		conn.Close(ctx)
 		t.Fatal(err)

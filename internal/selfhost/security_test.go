@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"docket/internal/events"
-	"docket/internal/service"
-	"docket/internal/store"
+	"plandillo/internal/events"
+	"plandillo/internal/service"
+	"plandillo/internal/store"
 )
 
 func TestTrustedProxyChain(t *testing.T) {

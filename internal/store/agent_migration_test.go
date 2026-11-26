@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"docket/internal/database"
-	"docket/internal/testutil"
+	"plandillo/internal/database"
+	"plandillo/internal/testutil"
 )
 
 func TestSharedInstallRejectsPreviousLayoutAndPreservesHistory(t *testing.T) {

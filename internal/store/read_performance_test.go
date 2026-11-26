@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"docket/internal/testutil"
+	"plandillo/internal/testutil"
 )
 
 // Run on either engine with the same rows and offset. Fixture setup is outside the timed loop.

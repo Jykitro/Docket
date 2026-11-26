@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"docket/internal/store"
+	"plandillo/internal/store"
 )
 
 type SearchGroups struct {

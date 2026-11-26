@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"docket/internal/auth"
-	"docket/internal/events"
-	"docket/internal/service"
-	"docket/internal/testutil"
+	"plandillo/internal/auth"
+	"plandillo/internal/events"
+	"plandillo/internal/service"
+	"plandillo/internal/testutil"
 )
 
 func TestPostgresWorkspacePersistenceAndRemoval(t *testing.T) {

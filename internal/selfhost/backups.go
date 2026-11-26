@@ -11,8 +11,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"docket/internal/auth"
-	"docket/internal/store"
+	"plandillo/internal/auth"
+	"plandillo/internal/store"
 )
 
 // backupName matches the files store.Backup writes; anything else in the directory is never listed or served.

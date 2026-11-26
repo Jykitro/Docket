@@ -7,7 +7,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"docket/internal/store"
+	"plandillo/internal/store"
 )
 
 const (

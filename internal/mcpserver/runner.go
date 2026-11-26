@@ -11,8 +11,8 @@ import (
 	"sync"
 	"time"
 
-	"docket/internal/codeeval"
-	"docket/internal/service"
+	"plandillo/internal/codeeval"
+	"plandillo/internal/service"
 )
 
 type evaluator func(context.Context, string, func(string, json.RawMessage) (string, error)) (string, error)

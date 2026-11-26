@@ -37,7 +37,7 @@ export function startConnectionWatch() {
   onlineManager.setEventListener(() => () => {}) // the probe decides when we are online, not the browser's `online` event
   const lost = () => { if (state.online) setOnline(false) }
   window.addEventListener('offline', lost)
-  window.addEventListener('docket:disconnected', lost)
+  window.addEventListener('plandillo:disconnected', lost)
   window.addEventListener('online', () => { if (!state.online) void probe() })
   if (!state.online) setOnline(false)
 }

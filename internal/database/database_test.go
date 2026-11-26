@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"docket/internal/testutil"
 	"github.com/jackc/pgx/v5"
+	"plandillo/internal/testutil"
 )
 
 func TestSQLParametersAndLiterals(t *testing.T) {

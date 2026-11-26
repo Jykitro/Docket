@@ -5,7 +5,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"docket/internal/store"
+	"plandillo/internal/store"
 )
 
 // The profile is just a display name; an empty one means first run and the UI starts onboarding.

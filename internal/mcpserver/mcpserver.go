@@ -15,10 +15,10 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"docket/internal/codeeval"
-	"docket/internal/service"
-	"docket/internal/store"
-	"docket/skills"
+	"plandillo/internal/codeeval"
+	"plandillo/internal/service"
+	"plandillo/internal/store"
+	"plandillo/skills"
 )
 
 type agentKey struct{}

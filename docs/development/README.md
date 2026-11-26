@@ -49,7 +49,7 @@ The [repository instructions](../../AGENTS.md) describe the conventions for work
 
 ```
 landing/            public Plandillo website, built separately from the planner
-cmd/docket          config, wiring, graceful shutdown, housekeeping (daily backup and call-log cleanup)
+cmd/plandillo       config, wiring, graceful shutdown, housekeeping (daily backup and call-log cleanup)
 internal/database   SQLite/PostgreSQL connections, SQL dialect boundary and schema locks
 internal/store      task queries, SQLite/PostgreSQL migrations and SQLite backups
 internal/service    domain rules, validation, activity, events, MCP settings

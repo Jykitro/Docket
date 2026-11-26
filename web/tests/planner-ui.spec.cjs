@@ -12,7 +12,7 @@ const path = require('node:path')
 const longTitle = 'Review ' + 'ReleaseCandidate'.repeat(5)
 const test = base.extend({
   planner: async ({ playwright }, use) => {
-    const dir = await mkdtemp(path.join(tmpdir(), 'docket-browser-'))
+    const dir = await mkdtemp(path.join(tmpdir(), 'plandillo-browser-'))
     const socket = createServer()
     socket.listen(0, '127.0.0.1')
     await once(socket, 'listening')

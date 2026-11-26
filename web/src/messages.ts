@@ -743,7 +743,7 @@ export const MESSAGES: Record<string, [en: string, uk: string]> = {
   'Host и Origin': ['Host and Origin', 'Host і Origin'],
   'База данных': ['Database', 'База даних'],
   'Проверьте, что контейнер запущен: docker ps': ['Check that the container is running: docker ps', 'Перевірте, що контейнер запущено: docker ps'],
-  'Посмотрите лог контейнера: docker logs docket': ['Look at the container log: docker logs docket', 'Перегляньте журнал контейнера: docker logs docket'],
+  'Посмотрите лог контейнера: docker logs plandillo': ['Look at the container log: docker logs plandillo', 'Перегляньте журнал контейнера: docker logs plandillo'],
   'Задайте PLANDILLO_MCP_TOKEN в .env или перевыпустите токен на этой странице': ['Set PLANDILLO_MCP_TOKEN in .env or reissue the token on this page', 'Задайте PLANDILLO_MCP_TOKEN в .env або перевипустіть токен на цій сторінці'],
   'Добавьте хост в PLANDILLO_ALLOWED_HOSTS и перезапустите контейнер': ['Add the host to PLANDILLO_ALLOWED_HOSTS and restart the container', 'Додайте хост до PLANDILLO_ALLOWED_HOSTS і перезапустіть контейнер'],
   'Проверьте место на диске и том ./data; бэкапы лежат в data/backups': ['Check the disk space and the ./data volume; backups are in data/backups', 'Перевірте місце на диску й том ./data; бекапи лежать у data/backups'],

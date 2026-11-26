@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"docket/internal/database"
+	"plandillo/internal/database"
 )
 
 func TestHTMLCompressionBoundsAndIntegrity(t *testing.T) {

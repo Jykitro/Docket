@@ -213,10 +213,10 @@ async function req<T>(method: string, url: string, body?: unknown, budget?: Coll
     signal: sessionRequests.signal,
     body: body === undefined ? undefined : JSON.stringify(body),
   }).catch((error: unknown) => {
-    if (!sessionRequests.signal.aborted) window.dispatchEvent(new Event('docket:disconnected'))
+    if (!sessionRequests.signal.aborted) window.dispatchEvent(new Event('plandillo:disconnected'))
     throw error
   })
-  if (res.status >= 502 && res.status <= 504) window.dispatchEvent(new Event('docket:disconnected'))
+  if (res.status >= 502 && res.status <= 504) window.dispatchEvent(new Event('plandillo:disconnected'))
   let data
   if (res.status !== 204) {
     if (res.ok && budget) {

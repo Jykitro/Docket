@@ -17,9 +17,9 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-webauthn/webauthn/webauthn"
 
-	"docket/internal/auth"
-	"docket/internal/httpapi"
-	"docket/internal/store"
+	"plandillo/internal/auth"
+	"plandillo/internal/httpapi"
+	"plandillo/internal/store"
 )
 
 const (

@@ -5,7 +5,7 @@ import (
 	"sync"
 	"testing"
 
-	"docket/internal/testutil"
+	"plandillo/internal/testutil"
 )
 
 // Two independent handles exercise the advisory lock instead of the per-handle connection limit.

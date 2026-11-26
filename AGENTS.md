@@ -26,7 +26,7 @@ Requirements: Go (version in `go.mod`), [Bun](https://bun.sh), `make`, Docker fo
 
 ```
 landing/            public Plandillo site (its own build and README)
-cmd/docket          config, wiring, graceful shutdown, housekeeping (daily backup, call-log cleanup)
+cmd/plandillo       config, wiring, graceful shutdown, housekeeping (daily backup, call-log cleanup)
 internal/database   SQLite/PostgreSQL connections, SQL dialect boundary and schema locks
 internal/store      task queries, SQLite/PostgreSQL migrations and SQLite backups
 internal/service    domain rules, validation, activity log, events, MCP settings
