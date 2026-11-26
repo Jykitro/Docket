@@ -1,4 +1,5 @@
-import { type ReactNode, useEffect, useState, useSyncExternalStore } from 'react'
+import { type ReactNode, useSyncExternalStore } from 'react'
+import { useConnection, useUnsavedFlash } from './connection'
 import { locale, tr, useLang } from './i18n'
 import { ErrorPage, btn, btnPri } from './ui'
 
@@ -37,35 +38,9 @@ export function InstallPlandillo({ fallback = null }: { fallback?: ReactNode }) 
 
 export function ConnectionGate({ children }: { children: ReactNode }) {
   useLang()
-  const [offline, setOffline] = useState(!navigator.onLine)
-  const [network, setNetwork] = useState(navigator.onLine)
-  const [checking, setChecking] = useState(false)
-  const [lastTry, setLastTry] = useState<Date>()
-  const retry = async () => {
-    setChecking(true)
-    try {
-      if ((await fetch('/healthz', { cache: 'no-store' })).ok) return location.reload()
-    } catch { /* keep the retry button available */ }
-    setChecking(false)
-    setLastTry(new Date())
-    setNetwork(navigator.onLine)
-  }
-  useEffect(() => {
-    const lost = () => { setOffline(true); setNetwork(navigator.onLine) }
-    window.addEventListener('offline', lost)
-    window.addEventListener('docket:disconnected', lost)
-    return () => {
-      window.removeEventListener('offline', lost)
-      window.removeEventListener('docket:disconnected', lost)
-    }
-  }, [])
-  useEffect(() => {
-    if (!offline) return
-    window.addEventListener('online', retry)
-    const timer = window.setInterval(retry, 5000)
-    return () => { window.removeEventListener('online', retry); window.clearInterval(timer) }
-  }, [offline])
-  if (!offline) return children
+  const { online, network, checking, lastTry, retry } = useConnection()
+  useUnsavedFlash() // rendered by the status bar in the next step; keeps the export used until then
+  if (online) return children
   // Without a network the device is at fault; with one, the Plandillo server is down or unreachable.
   return (
     <ErrorPage full kind="offline"

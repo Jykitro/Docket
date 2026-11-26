@@ -97,6 +97,7 @@ export function errorKind(e: unknown): ErrorKind {
   if (e.status === 403 || e.code === 'forbidden') return 'forbidden'
   if (e.status === 404 || e.code === 'not_found') return 'not_found'
   if (e.status === 429) return 'rate'
+  if (e.status >= 502 && e.status <= 504) return 'offline' // the proxy in front of Plandillo has no server behind it
   if (e.status >= 500) return 'server'
   return 'other'
 }
@@ -202,6 +203,7 @@ async function req<T>(method: string, url: string, body?: unknown, budget?: Coll
     if (!sessionRequests.signal.aborted) window.dispatchEvent(new Event('docket:disconnected'))
     throw error
   })
+  if (res.status >= 502 && res.status <= 504) window.dispatchEvent(new Event('docket:disconnected'))
   let data
   if (res.status !== 204) {
     if (res.ok && budget) {

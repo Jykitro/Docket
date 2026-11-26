@@ -4,7 +4,7 @@ import { workspaceApi } from './workspacePath'
 // Tasks touched by agents are highlighted for 3 seconds.
 import { useEffect, useSyncExternalStore } from 'react'
 import { isAgent } from './api'
-import type { QueryClient } from '@tanstack/react-query'
+import { onlineManager, type QueryClient } from '@tanstack/react-query'
 
 const fresh = new Map<number, number>() // task id -> expiry timestamp
 let version = 0
@@ -87,11 +87,11 @@ export function useLive(qc: QueryClient) {
     sync()
     document.addEventListener('visibilitychange', sync)
     window.addEventListener('pageshow', sync) // back from the back/forward cache
-    window.addEventListener('online', open)
+    const unsubscribe = onlineManager.subscribe(online => { if (online) open() })
     return () => {
       document.removeEventListener('visibilitychange', sync)
       window.removeEventListener('pageshow', sync)
-      window.removeEventListener('online', open)
+      unsubscribe()
       window.clearTimeout(timer)
       close()
     }

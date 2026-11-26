@@ -28,15 +28,20 @@ import './styles.css'
 
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { MutationCache, QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { RouterProvider } from '@tanstack/react-router'
 import { CollectionLimit, PagingRequests } from './Paging'
 import { workspaceId } from './workspacePath'
 import { hashKey } from '@tanstack/react-query'
 import { errorKind } from './api'
+import { reportUnsaved, startConnectionWatch } from './connection'
 import { router } from './router'
 
-const client = new QueryClient({ defaultOptions: { queries: { queryKeyHashFn: key => hashKey([workspaceId, ...key]), retry: (failures, error) => failures < 1 && !(error instanceof CollectionLimit) && ['offline', 'server'].includes(errorKind(error)), staleTime: 5_000 } } })
+startConnectionWatch()
+
+const client = new QueryClient({
+  mutationCache: new MutationCache({ onError: e => { if (errorKind(e) === 'offline') reportUnsaved() } }),
+  defaultOptions: { mutations: { networkMode: 'always' }, queries: { gcTime: 7 * 24 * 60 * 60 * 1000, queryKeyHashFn: key => hashKey([workspaceId, ...key]), retry: (failures, error) => failures < 1 && !(error instanceof CollectionLimit) && ['offline', 'server'].includes(errorKind(error)), staleTime: 5_000 } } })
 
 if (import.meta.env.PROD && window.isSecureContext && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
