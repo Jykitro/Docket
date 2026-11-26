@@ -55,7 +55,8 @@ export function hrefWith(key: string, value: string | null) {
   if (value === null) p.delete(key)
   else p.set(key, value)
   const q = p.toString()
-  return location.pathname + (q ? '?' + q : '')
+  // An app path: Link and navigate add the workspace prefix themselves.
+  return appPath(location.pathname) + (q ? '?' + q : '')
 }
 
 export function Link({ to, onClick, onMouseEnter, onFocus, ...rest }: { to: string } & ComponentProps<'a'>) {
