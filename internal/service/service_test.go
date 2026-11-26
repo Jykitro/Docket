@@ -355,6 +355,34 @@ func TestExternalIDIdempotent(t *testing.T) {
 	}
 }
 
+// A resent offline draft (double click, lost response, a second tab) returns the first task unchanged.
+func TestClientKeyCreatesOnce(t *testing.T) {
+	s := newSvc(t)
+	p := mustProject(t, s, "p")
+	first := mustTasks(t, s, ActorDenis, NewTask{Project: "p", Title: "draft", ClientKey: "d-1"})[0]
+	if _, err := s.UpdateTask(ctx, ActorDenis, first.Code, Changes{Title: ptr("edited")}); err != nil {
+		t.Fatal(err)
+	}
+	again := mustTasks(t, s, ActorDenis, NewTask{Project: "p", Title: "draft", ClientKey: "d-1"})[0]
+	if again.ID != first.ID || again.Title != "edited" {
+		t.Fatalf("client_key created a duplicate or overwrote the task: %+v", again)
+	}
+	if all, _ := s.ListTasks(ctx, store.TaskFilter{ProjectID: p.ID}); len(all) != 1 {
+		t.Fatalf("%d tasks, want 1", len(all))
+	}
+	if other := mustTasks(t, s, ActorDenis, NewTask{Project: "p", Title: "draft", ClientKey: "d-2"})[0]; other.ID == first.ID {
+		t.Fatal("another client_key reused the task")
+	}
+	for name, it := range map[string]NewTask{
+		"both keys": {Project: "p", Title: "x", ClientKey: "d-3", ExternalID: "e"},
+		"too long":  {Project: "p", Title: "x", ClientKey: strings.Repeat("k", 65)},
+	} {
+		if _, err := s.CreateTasks(ctx, ActorDenis, []NewTask{it}); err == nil {
+			t.Errorf("%s: expected validation error", name)
+		}
+	}
+}
+
 func TestSeedIdempotent(t *testing.T) {
 	s := newSvc(t)
 	path := filepath.Join(t.TempDir(), "seed.json")

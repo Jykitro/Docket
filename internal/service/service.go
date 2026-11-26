@@ -667,6 +667,7 @@ func (s *Service) Trash(ctx context.Context) ([]store.Task, error) {
 
 // NewTask creates a task. Project is an id, slug or key (used when ProjectID is 0). Status is a status key.
 // Ref/ParentRef link items of one batch; Parent is an existing task (code or id); ExternalID makes creation idempotent.
+// ClientKey (an offline draft's id) creates once: a repeat returns the existing task unchanged.
 type NewTask struct {
 	ProjectID     int64          `json:"project_id"`
 	Project       string         `json:"project"`
@@ -682,6 +683,7 @@ type NewTask struct {
 	Ref           string         `json:"ref"`
 	ParentRef     string         `json:"parent_ref"`
 	ExternalID    string         `json:"external_id"`
+	ClientKey     string         `json:"client_key"`
 }
 
 func (s *Service) CreateTasks(ctx context.Context, actor string, items []NewTask) (out []store.Task, err error) {
@@ -739,7 +741,17 @@ func createTasks(o *op, items []NewTask) ([]store.Task, error) {
 		if statusKey != "" {
 			ch.Status = &statusKey
 		}
-		if it.DescriptionMD != "" || it.ExternalID == "" {
+		ext := it.ExternalID
+		if it.ClientKey != "" {
+			if ext != "" {
+				return nil, fail(invalid("send external_id or client_key, not both"))
+			}
+			if len(it.ClientKey) > 64 {
+				return nil, fail(invalid("client_key must be at most 64 characters"))
+			}
+			ext = "client:" + it.ClientKey // kept in external_id (unique per workspace), apart from import ids
+		}
+		if it.DescriptionMD != "" || ext == "" {
 			ch.DescriptionMD = &it.DescriptionMD
 		}
 		if len(it.Custom) > 0 {
@@ -747,13 +759,13 @@ func createTasks(o *op, items []NewTask) ([]store.Task, error) {
 		}
 
 		var t store.Task
-		if it.ExternalID != "" {
-			t, err = o.tx.GetTaskByExternalID(it.ExternalID)
+		if ext != "" {
+			t, err = o.tx.GetTaskByExternalID(ext)
 			if err != nil && !errors.Is(err, store.ErrNotFound) {
 				return nil, err
 			}
 		}
-		if t.ID != 0 { // known external_id: update in place
+		if t.ID != 0 && it.ClientKey == "" { // known external_id: update in place
 			d, err := apply(o, &t, ch)
 			if err != nil {
 				return nil, fail(err)
@@ -763,15 +775,15 @@ func createTasks(o *op, items []NewTask) ([]store.Task, error) {
 					return nil, err
 				}
 			}
-		} else {
+		} else if t.ID == 0 { // a known client_key keeps the task as it is now
 			t = store.Task{CreatedBy: o.actor, ProjectID: p.ID, Custom: map[string]any{}}
 			st, err := defaultStatus(o.tx, p.ID)
 			if err != nil {
 				return nil, fail(err)
 			}
 			setStatus(&t, st)
-			if it.ExternalID != "" {
-				t.ExternalID = &it.ExternalID
+			if ext != "" {
+				t.ExternalID = &ext
 			}
 			if _, err := validate(o, &t, ch); err != nil {
 				return nil, fail(err)

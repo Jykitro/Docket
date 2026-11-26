@@ -31,7 +31,7 @@ Paged project, task, trash and Today reads accept `limit` and `offset` (up to 10
 | `GET/POST /api/views?project=`, `PATCH/DELETE /api/views/:id` | Saved views |
 | `GET /api/today?date=` | Tasks for a date, overdue tasks and recent activity |
 | `GET /api/tasks?project=&status=&planned_for=&area=&created_by=&q=&parent=&include_done=1` | Task list |
-| `POST /api/tasks`, `GET/PATCH/DELETE /api/tasks/:id` | CRUD; `planned_for: ""` clears the date |
+| `POST /api/tasks`, `GET/PATCH/DELETE /api/tasks/:id` | CRUD; `planned_for: ""` clears the date. A create with `client_key` (up to 64 characters, e.g. an offline draft id) runs once: a repeat returns the existing task unchanged |
 | `POST /api/tasks/:id/move` | `{status, before_id?, after_id?, project_id?}` (drag and drop) |
 | `POST /api/tasks/:id/restore`, `POST /api/tasks/:id/notes`, `POST /api/tasks/carry-over` | Restore, add a note, move tasks from one date to another |
 | `GET /api/tasks/:id/pages` | Wiki pages that mention the task (`[{id, title, project}]`) |
