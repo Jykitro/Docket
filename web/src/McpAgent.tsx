@@ -14,6 +14,7 @@ const SKILLS = [
   ['plandillo', 'Рабочий процесс: задача, план, заметки, финиш. Его же сервер отправляет при подключении.'],
   ['plandillo-reference', 'Справочник: инструменты, поля, ошибки и ответы на частые вопросы.'],
   ['plandillo-setup', 'Подключение клиентов, установка навыков, хуки и разбор проблем.'],
+  ['plandillo-infographics', 'Наглядные страницы и отчёты: структура, готовность, таблицы и HTML-графики.'],
 ] as const
 // One file works for both: Claude Code and Codex share the hooks format and the Stop contract.
 // SessionStart stdout becomes context. Stop blocks the first stop of a turn and lets the second pass (stop_hook_active),
@@ -26,7 +27,7 @@ const HOOK = `{
     }] }],
     "Stop": [{ "hooks": [{
       "type": "command",
-      "command": "grep -Eq '\\"stop_hook_active\\": ?true' && exit 0; echo '{\\"decision\\":\\"block\\",\\"reason\\":\\"Plandillo end checklist: tick finished steps, add_note the result, move_tasks to done only if checks passed, record findings with report_issue and list their IDs, check get_board doing. For read-only requests or untracked work, finish without planner writes.\\"}'"
+      "command": "grep -Eq '\\"stop_hook_active\\": ?true' && exit 0; echo '{\\"decision\\":\\"block\\",\\"reason\\":\\"Plandillo end checklist: tick finished steps, add_note the result, move_tasks to done only if checks passed, record findings with report_issue and list their IDs, check get_board doing and offer the next task by priority. For read-only requests or untracked work, finish without planner writes.\\"}'"
     }] }]
   }
 }`
@@ -59,7 +60,7 @@ function installCommand(client: Client, method: Method, address: string) {
     case 'plugin':
       return `${cli} plugin marketplace add ${repo}\n${cli} plugin ${codex ? 'add' : 'install'} plandillo@huntly-digital`
     case 'skills':
-      return `npx skills add ${repo} --skill plandillo plandillo-reference plandillo-setup --agent ${agent}`
+      return `npx skills add ${repo} --skill plandillo plandillo-reference plandillo-setup plandillo-infographics --agent ${agent}`
     case 'mcp':
       return codex ? `codex mcp add plandillo --url ${shellQuote(address)}`
         : `claude mcp add --transport http plandillo ${shellQuote(address)}\nclaude mcp login plandillo`
@@ -109,10 +110,10 @@ export function McpAgent() {
     return r.text()
   }
   const instructions = {
-    workspace: 'Запустите в терминале на macOS или Linux. Установщик добавит три навыка и MCP в выбранный клиент. Подтвердите вход в браузере или воспользуйтесь командой входа из терминала.',
-    plugin: client === 'Codex' ? 'Плагин содержит три навыка и MCP локальной доски {url}. Для другой доски выберите «Навыки и MCP этой доски». Выполните команды, откройте новый сеанс клиента и подтвердите доступ к пространству в настройках MCP.'
-      : 'Плагин содержит три навыка и MCP локальной доски {url}. Для другой доски запускайте Claude Code с PLANDILLO_URL={board}. Выполните команды, откройте новый сеанс клиента и подтвердите доступ к пространству в настройках MCP.',
-    skills: 'Запустите в папке проекта с установленным Node.js. Команда установит три навыка из GitHub. Для доступа к задачам добавьте MCP этой доски.',
+    workspace: 'Запустите в терминале на macOS или Linux. Установщик добавит все навыки и MCP в выбранный клиент. Подтвердите вход в браузере или воспользуйтесь командой входа из терминала.',
+    plugin: client === 'Codex' ? 'Плагин содержит все навыки и MCP локальной доски {url}. Для другой доски выберите «Навыки и MCP этой доски». Выполните команды, откройте новый сеанс клиента и подтвердите доступ к пространству в настройках MCP.'
+      : 'Плагин содержит все навыки и MCP локальной доски {url}. Для другой доски запускайте Claude Code с PLANDILLO_URL={board}. Выполните команды, откройте новый сеанс клиента и подтвердите доступ к пространству в настройках MCP.',
+    skills: 'Запустите в папке проекта с установленным Node.js. Команда установит все навыки из GitHub. Для доступа к задачам добавьте MCP этой доски.',
     mcp: client === 'Codex' ? 'Выполните команду и подтвердите доступ в браузере. Если вход не открылся, выполните codex mcp login plandillo.'
       : 'Выполните команды в терминале и подтвердите доступ к пространству в браузере.',
   } as const
@@ -156,7 +157,7 @@ export function McpAgent() {
           <div className="mb-2 break-all font-mono text-xs text-t3">{cli ? path : tr('Вставьте в инструкции проекта')}</div>
           {SKILLS.map(([name, text]) => (
             <div key={name} className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-ln py-2.5">
-              <span className="flex-[0_0_150px] font-mono text-[12.5px] font-medium">{name}</span>
+              <span className="flex-[0_0_175px] font-mono text-[12.5px] font-medium">{name}</span>
               <span className="min-w-0 flex-[1_1_220px] text-[13px] text-t2">{tr(text)}</span>
               <button type="button" className={BTN} aria-label={tr('Скопировать SKILL.md') + ': ' + name} title={tr('Скопировать SKILL.md')} onClick={() => copy(name, skill(name))}>
                 <Icon name={copied === name ? 'check' : 'doc'} size={14} />

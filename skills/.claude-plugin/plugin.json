@@ -1,7 +1,7 @@
 {
   "name": "plandillo",
-  "version": "1.1.0",
-  "description": "Plan work, track findings and maintain a project wiki through Plandillo MCP.",
+  "version": "1.2.0",
+  "description": "Plan work, track findings and maintain a project wiki through Plandillo MCP or plandillo-cli.",
   "author": { "name": "Huntly Digital" },
   "repository": "https://github.com/huntly-digital/plandillo",
   "license": "MIT",

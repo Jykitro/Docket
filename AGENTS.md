@@ -67,11 +67,12 @@ Code Mode (`/mcp/code`) exposes the same tools as `codemode.<tool>()` inside one
 
 ## Agent skills (`skills/`)
 
-Three skills, one `SKILL.md` each, embedded by `skills/skills.go` and served at `/api/mcp/skill/{name}`:
+Four skills, one `SKILL.md` each, embedded by `skills/skills.go` and served at `/api/mcp/skill/{name}`:
 
-- `plandillo`: the workflow (task per piece of work, plan, notes, issues, end checklist). Its body is also sent to every client as MCP `instructions`, and Claude Code truncates instructions at 2048 bytes: `TestPlandilloSkillIsServedAndSentAsInstructions` enforces that. Keep it compact; put detail in the other two.
-- `plandillo-reference`: data model, every tool, errors, conventions, FAQ.
-- `plandillo-setup`: connecting Claude Code, Claude Desktop and Codex, installing skills, the `SessionStart` and `Stop` hooks, troubleshooting.
+- `plandillo`: the workflow (task per piece of work, plan, notes, issues, end checklist). Its body is also sent to every client as MCP `instructions`, and Claude Code truncates instructions at 2048 bytes: `TestPlandilloSkillIsServedAndSentAsInstructions` enforces that. Keep it compact; put detail in the others.
+- `plandillo-reference`: data model, every tool, `plandillo-cli` commands and exit codes, errors, conventions, FAQ.
+- `plandillo-setup`: connecting Claude Code, Claude Desktop and Codex, installing skills and `plandillo-cli`, the `SessionStart` and `Stop` hooks, troubleshooting.
+- `plandillo-infographics`: how to lay out wiki pages, readiness and HTML visuals so a person grasps them, within what the Markdown renderer and the HTML sandbox allow.
 
 Both native marketplaces point to `./skills` as the plugin root. Edit the public skill files there so the two plugins, skills.sh and the Go embed consume the same instructions. Keep the versions in the two plugin manifests in sync when releasing skill changes. Mark repository-only skills with `metadata.internal: "true"` to keep them out of default skills.sh discovery.
 

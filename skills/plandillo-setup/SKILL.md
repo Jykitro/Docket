@@ -11,9 +11,10 @@ A new installation needs two things: the planner instructions and a connection t
 
 | Starting point | What to do |
 |---|---|
-| A running board, macOS or Linux | In **Integrations → Agent setup**, select the CLI and **Skills + MCP for this board**. Copy the command into a terminal. It installs all three skills and registers MCP for that client. Follow the printed login instructions in the browser. Older Docket installations keep their names. |
-| A team using skills.sh | In the target project run `npx skills add huntly-digital/plandillo --skill plandillo plandillo-reference plandillo-setup --agent codex claude-code`. Select just one agent if appropriate. Add `-g` for a personal install. |
-| A team using native plugins | Add the repository marketplace and install its Plandillo plugin using the commands below. The plugin includes all three skills and MCP for a local board at `http://localhost:7777/mcp`. In Claude Code, set `PLANDILLO_URL` to a self-hosted board's `/mcp` URL before starting it. For a self-hosted board in Codex, or Code Mode, use the board installer or skills.sh and register your URL. |
+| A running board, macOS or Linux | In **Integrations → Agent setup**, select the CLI and **Skills + MCP for this board**. Copy the command into a terminal. It installs all Plandillo skills and registers MCP for that client. Follow the printed login instructions in the browser. Older Docket installations keep their names. |
+| A team using skills.sh | In the target project run `npx skills add huntly-digital/plandillo --skill plandillo plandillo-reference plandillo-setup plandillo-infographics --agent codex claude-code`. Select just one agent if appropriate. Add `-g` for a personal install. |
+| A team using native plugins | Add the repository marketplace and install its Plandillo plugin using the commands below. The plugin includes all Plandillo skills and MCP for a local board at `http://localhost:7777/mcp`. In Claude Code, set `PLANDILLO_URL` to a self-hosted board's `/mcp` URL before starting it. For a self-hosted board in Codex, or Code Mode, use the board installer or skills.sh and register your URL. |
+| An agent with only a shell, a script or CI | Install the skills by any method here, then `plandillo-cli` as in **Use the CLI**. The agent calls the same tools through the shell. |
 | Manual install | Download each SKILL.md from **Integrations** into its own named folder under `~/.claude/skills/` or `~/.agents/skills/` (Codex). The signed-in UI works on self-hosted workspaces. For Claude Desktop projects, copy the workflow into project instructions if needed. |
 
 Codex:
@@ -41,6 +42,16 @@ Use one distribution method per client to avoid loading duplicate instructions. 
 
 To switch endpoints or workspaces, authorize the new connection. Revoke it in the workspace’s **Integrations → Connected apps**. For scripts and bearer-only clients, store the manual workspace token in the client’s secret settings. Keep credentials out of chats and shared config.
 
+## Use the CLI
+
+`plandillo-cli` gives an agent, a script or CI the board's tools without an MCP client. It uses the same `/mcp` endpoint, permissions and call log.
+
+1. Get the binary for the user's system. In a Plandillo checkout, `make cli` builds `bin/plandillo-cli`; on Windows run `go build -o plandillo-cli.exe ./cmd/plandillo-cli`. Put it on `PATH`.
+2. Sign in: `plandillo-cli login https://plans.example.com` (the local default is `http://localhost:7777`). The browser opens; select the workspace and approve. Clear the write checkbox for reads only. Add `--code` to authorize Code Mode as well. Without a browser on that machine (SSH, CI), copy the workspace token from **Integrations** and run `plandillo-cli login https://plans.example.com --with-token < token.txt`, or set `PLANDILLO_URL` and `PLANDILLO_TOKEN` as secrets.
+3. Check with `plandillo-cli status`, then `plandillo-cli list_projects`. Set `PLANDILLO_AGENT` (for example `codex`) so task history names the agent.
+
+The sign-in is saved in the user's config directory (`plandillo/cli.json`, readable only by the user) and sent only to the board it belongs to. For a second board, point `PLANDILLO_CLI_CONFIG` at another file. If MCP is also connected, the agent uses MCP; keep the CLI for shells without it. Commands and exit codes are in `plandillo-reference`.
+
 ## Diagnose a connection
 
 | Observation | Next check |
@@ -53,6 +64,8 @@ To switch endpoints or workspaces, authorize the new connection. Revoke it in th
 | Read succeeds, write is missing or returns `forbidden` | Check both the approved OAuth permissions and the workspace’s access mode. Authorize again to request additional access. |
 | A specific tool is missing or returns `tool_disabled` | Check its switch in Integrations. Fresh installations disable `delete_tasks`. |
 | Code Mode returns `unavailable` | In selfhost, the operator checks the isolated worker. Ordinary MCP uses its own endpoint and the same workspace policy. |
+| `plandillo-cli` exits with 3 | Run `plandillo-cli status`. Sign in again with `login`; a browser sign-in expires when the owner revokes it in **Connected apps**, a workspace token when it is rotated. `forbidden:` means read-only access or a switched-off tool. |
+| `plandillo-cli` exits with 4 | Check the address in `status` (`--url`, `PLANDILLO_URL` or the saved sign-in) and that the board is running. |
 | The cause is unclear | Run **Check connection** in Integrations. It checks the server, MCP protocol, token, allowed hosts and database. Compare with the client's error and the call log. |
 
 For starting a new server, administrator bootstrap and worker configuration, see the [hosting guide](https://github.com/huntly-digital/plandillo/blob/main/docs/hosting.md).
@@ -70,7 +83,7 @@ Install hooks only when the user wants reminders for tracked work. Merge these e
     }] }],
     "Stop": [{ "hooks": [{
       "type": "command",
-      "command": "grep -Eq '\"stop_hook_active\": ?true' && exit 0; echo '{\"decision\":\"block\",\"reason\":\"Plandillo end checklist: tick finished steps, add_note the result, move_tasks to done only if checks passed, record findings with report_issue and list their IDs, check get_board doing. For read-only requests or untracked work, finish without planner writes.\"}'"
+      "command": "grep -Eq '\"stop_hook_active\": ?true' && exit 0; echo '{\"decision\":\"block\",\"reason\":\"Plandillo end checklist: tick finished steps, add_note the result, move_tasks to done only if checks passed, record findings with report_issue and list their IDs, check get_board doing and offer the next task by priority. For read-only requests or untracked work, finish without planner writes.\"}'"
     }] }]
   }
 }

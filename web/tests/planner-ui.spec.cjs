@@ -485,7 +485,7 @@ test('agent setup copies the selected client, method and endpoint without readin
     await expect(setup.getByText('http://localhost:7777/mcp', { exact: false })).toBeVisible()
     expect(await copied()).toBe(`${cli} plugin marketplace add huntly-digital/plandillo\n${cli} plugin ${action} plandillo@huntly-digital`)
     await setup.getByRole('button', { name: 'Skills only' }).click()
-    expect(await copied()).toBe(`npx skills add huntly-digital/plandillo --skill plandillo plandillo-reference plandillo-setup --agent ${agent}`)
+    expect(await copied()).toBe(`npx skills add huntly-digital/plandillo --skill plandillo plandillo-reference plandillo-setup plandillo-infographics --agent ${agent}`)
     await setup.getByRole('button', { name: 'MCP only' }).click()
     const config = await copied('Copy config')
     if (cli === 'codex') expect(config).toBe(`codex mcp add plandillo --url '${planner.url}/mcp/code'`)

@@ -1,11 +1,11 @@
 ---
 name: plandillo-reference
-description: Use when choosing a Plandillo MCP tool or its arguments, editing a task or wiki page without losing work, publishing HTML, paginating results, or handling a failed write.
+description: Use when choosing a Plandillo MCP tool, a plandillo-cli command or their arguments, editing a task or wiki page without losing work, publishing HTML, paginating results, or handling a failed write.
 ---
 
-# Plandillo MCP reference
+# Plandillo tools reference
 
-Use the schema advertised by the connected server. Tool names below are the names on the wire. Clients may prefix them with the connection name, including `docket` on older installations. The workspace selected during OAuth approval, or the workspace that issued a manual token, determines which data you can access. A client label such as `codex` identifies the author in history.
+Every tool below works the same over MCP and through `plandillo-cli` (see **Use the CLI**). Use the schema advertised by the connected server. Tool names below are the names on the wire. Clients may prefix them with the connection name, including `docket` on older installations. The workspace selected during OAuth approval, or the workspace that issued a manual token, determines which data you can access. A client label such as `codex` identifies the author in history.
 
 ## Read the right record
 
@@ -29,7 +29,7 @@ Use the schema advertised by the connected server. Tool names below are the name
 | `create_project` | `name`, optional `key`, `slug`, `icon`, `color`, `description` | Create a project when requested. The server can derive the key. The UI handles renaming and archiving. |
 | `create_tasks` | `tasks` array, each item needs `project` and `title` | 1–100 items in one transaction. Returns IDs and titles in input order. Use `ref` on an epic and `parent_ref` on later children in the same batch, or `parent` for an existing epic. One subtask level within one project. |
 | `update_task` | `id` and changed fields, e.g. `description_md`, `title`, `priority`, `area`, `custom`, `planned_for`, `parent` | Omitted fields stay. An empty date clears the plan date, an empty parent detaches a subtask, and a null custom value clears that field. Read the latest description before replacing it. |
-| `move_tasks` | `ids` array and at least one of `status`, `planned_for`, `project` | 1–100 IDs; a repeated ID (code or number) counts once. Returns the count of tasks that actually changed: a task already in the target status, date and project is skipped. Moving across projects gives tasks new codes and moves an epic's children too. Look up the new codes in the destination board. |
+| `move_tasks` | `ids` array and at least one of `status`, `planned_for`, `project` | 1–100 IDs; a repeated ID (code or number) counts once. Returns the count of tasks that actually changed: a task already in the target status, date and project is skipped. Moving across projects gives tasks new codes and moves an epic's children too. Look up the new codes in the destination board. When an agent moves or creates a task in a done-category status, the owner can receive a push notification, so do it only after the checks passed. |
 | `add_note` | `task_id`, `body_md` | Append a decision or result to the task. Keep changes to the plan in the description. |
 | `report_issue` | `project`, `title`, `observation`, optional `source_task`, `existing_issue`, `kind`, `priority` | Returns the issue ID and whether it was created or evidence was added. Same open title within a project is reused. Kinds are `problem`, `unverified`, `decision`, `blocker`. |
 | `carry_over` | `from`, `to` as YYYY-MM-DD | Moves **all** open tasks planned for the source date across the workspace. For specific tasks, use `move_tasks` with their IDs. |
@@ -56,7 +56,41 @@ Use the schema advertised by the connected server. Tool names below are the name
 | `write_page` | `project`, `title`, exactly one of `body_md` or `body_html`, optional `parent`, `expected_updated_at` | Create or replace the entire body. For an edit, read the page, preserve its format, merge the requested changes and pass its exact timestamp back. |
 | `publish_html` | Exactly one of `task` or numeric `page_id`, plus `title`, `html`, optional `expected_version` | Attach a self-contained document. For a new title omit the version or pass 0. To revise, use the same owner and title with the current version from `read_html`. |
 
-Use `[[Title]]` to link wiki pages and a task code to link an existing task. For an interactive block within Markdown use a top-level `html-preview` fence. For a whole HTML wiki page use `write_page` with `body_html`. For a separately versioned attachment use `publish_html`. Inline CSS, scripts and data in the HTML. A Markdown page holds up to 200 KiB, an HTML page or attachment up to 2 MiB. Versioned attachments share a workspace history budget of 64 MiB or 4096 revisions.
+Use `[[Title]]` to link wiki pages and a task code to link an existing task. For an interactive block within Markdown use a top-level `html-preview` fence. For a whole HTML wiki page use `write_page` with `body_html`. For a separately versioned attachment use `publish_html`. Inline CSS, scripts and data in the HTML. A Markdown page holds up to 200 KiB, an HTML page or attachment up to 2 MiB. Versioned attachments share a workspace history budget of 64 MiB or 4096 revisions. To choose a layout, a table or a chart for the reader, use `plandillo-infographics`.
+
+## Use the CLI
+
+`plandillo-cli` is a shell client for the same board: an agent without an MCP connection, a script or CI can call every tool in the tables above with the same names, arguments, results and errors. It connects to the board's `/mcp` (and `/mcp/code` for `code`), so access mode, tool switches, the call log and attribution apply exactly as over MCP. Install and sign in with `plandillo-setup`.
+
+| Command | Use |
+|---|---|
+| `plandillo-cli TOOL [JSON] [--ARG VALUE]` | Call any tool, e.g. `get_today`. Pass arguments as one JSON object, as `@file.json`, as `-` (stdin), or as `--ARG VALUE` for top-level fields; options override JSON keys. Values follow the schema: `--limit 5` is a number, a bare `--include_done` is true, `--planned_for=` sends an empty string, arrays and objects are JSON (`--ids '["TRK-07"]'`). A missing required argument fails before the call. |
+| `plandillo-cli tools [--json]` | Tools this sign-in may call, marked `read` or `write`; `--json` adds each argument schema. Read-only mode and switched-off tools are not listed. |
+| `plandillo-cli code JS` | Run Code Mode JavaScript (also `@file.js` or `-`). Needs a token for `/mcp/code`: a workspace token, or `login --code`. |
+| `plandillo-cli status` | Board address, sign-in kind, access mode and tool list. Run it first when a call fails with exit 3. |
+| `plandillo-cli login [URL]`, `logout` | Browser sign-in, `--with-token` reads a workspace token from stdin; `logout` deletes the saved sign-in. |
+
+Put global options before the command: `--url URL` picks the board, `--agent NAME` sets the author shown in task history (default `plandillo-cli`), `--pretty` indents JSON for people. The same settings come from `PLANDILLO_URL`, `PLANDILLO_AGENT`, `PLANDILLO_TOKEN` (a workspace token that overrides the saved sign-in) and `PLANDILLO_CLI_CONFIG` (another config file, e.g. one per board).
+
+```sh
+plandillo-cli --agent claude get_today
+plandillo-cli search --q "release checklist" --limit 5
+plandillo-cli create_tasks @tasks.json
+plandillo-cli move_tasks --ids '["TRK-07","TRK-08"]' --status done
+plandillo-cli add_note --task_id TRK-07 --body_md "Tests pass on macOS and Linux."
+echo '{"project":"TRK","title":"Release notes","text":"## 1.2\n- CLI"}' | plandillo-cli append_to_page -
+plandillo-cli code 'return (await codemode.get_board({project: "TRK"})).doing?.length ?? 0'
+```
+
+stdout carries only the tool result (compact JSON), so it can be piped into `jq`. Messages go to stderr; a failed tool prints `code: message` with the codes from the error table below.
+
+| Exit | Meaning | Next step |
+|---|---|---|
+| 0 | Success | Parse stdout. |
+| 1 | The tool returned an error | Handle the `code:` prefix as over MCP. |
+| 2 | Wrong command, option or JSON | Read the message: it lists the valid options. |
+| 3 | `unauthorized` or `forbidden` | Run `status`; sign in again, or report the missing access. |
+| 4 | The board did not answer | Check the URL and that the board is running. |
 
 ## Code Mode and errors
 

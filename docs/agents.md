@@ -33,21 +33,25 @@ an embedded sandbox with no network or files, for at most 30 seconds and 100 too
 and the call log apply to every call it makes. Pick MCP or Code Mode on the **Integrations** tab: the address, the
 configs and the install command follow. How it works inside: [Integration internals](integrations.md).
 
+## Without MCP: plandillo-cli
+
+An agent that only has a shell, a script or CI can call the same tools with `plandillo-cli`: `plandillo-cli get_today`, `plandillo-cli get_task --id TRK-07`, `plandillo-cli create_tasks @tasks.json`. It talks to the board's `/mcp`, so access mode, tool switches, the call log and attribution (`--agent` or `PLANDILLO_AGENT`) apply as for MCP. Build it with `make cli`, sign in with `plandillo-cli login https://plans.example.com` (or `--with-token` from stdin) and check with `plandillo-cli status`. The `plandillo` skill tells the agent to use it when no MCP tools are connected; commands and exit codes are in `plandillo-reference`.
+
 ## Install agent skills
 
-Choose one method per client. For a new board, **Integrations → Agent setup → Skills + MCP for this board** installs all three skills and registers MCP in the selected CLI on macOS or Linux. The script runs locally. Follow the printed login instructions to authorize in the browser.
+Choose one method per client. For a new board, **Integrations → Agent setup → Skills + MCP for this board** installs all Plandillo skills and registers MCP in the selected CLI on macOS or Linux. The script runs locally. Follow the printed login instructions to authorize in the browser.
 
-The native plugins include the three skills and an MCP connection to a local board at `http://localhost:7777/mcp`. Claude Code reads `PLANDILLO_URL` for another address, for example `PLANDILLO_URL=https://plans.example.com/mcp claude`; Codex keeps the local address. For a self-hosted board in Codex, or for Code Mode, install the skills and register the URL from that board’s **Integrations** tab. The skills.sh command installs the instructions only.
+The native plugins include the Plandillo skills and an MCP connection to a local board at `http://localhost:7777/mcp`. Claude Code reads `PLANDILLO_URL` for another address, for example `PLANDILLO_URL=https://plans.example.com/mcp claude`; Codex keeps the local address. For a self-hosted board in Codex, or for Code Mode, install the skills and register the URL from that board’s **Integrations** tab. The skills.sh command installs the instructions only.
 
 ### skills.sh
 
 Run this in the project where you want the skills. Select one or both agents. Add `-g` for a personal installation.
 
 ```sh
-npx skills add huntly-digital/plandillo --skill plandillo plandillo-reference plandillo-setup --agent codex claude-code
+npx skills add huntly-digital/plandillo --skill plandillo plandillo-reference plandillo-setup plandillo-infographics --agent codex claude-code
 ```
 
-The CLI reads the three named skills from the public repository. You can also download their files directly under **Integrations → Download individual skills**.
+The CLI reads the named skills from the public repository. You can also download their files directly under **Integrations → Download individual skills**.
 
 ### Codex plugin
 
@@ -85,9 +89,10 @@ Plugin 1.1.0 changed the default address from `https://app.plandillo.dev/mcp` to
 
 | Skill | When the agent uses it |
 |---|---|
-| [plandillo](../skills/plandillo/SKILL.md) | Read the board or track a piece of work from its checklist to verified completion. The server also sends this workflow as MCP instructions. |
-| [plandillo-reference](../skills/plandillo-reference/SKILL.md) | Choose among the 19 MCP tools, construct arguments, resolve a conflict or recover from an uncertain write. |
-| [plandillo-setup](../skills/plandillo-setup/SKILL.md) | Connect a client, install the skills, enable optional session reminders or diagnose missing tools. |
+| [plandillo](../skills/plandillo/SKILL.md) | Read the board or track a piece of work from its checklist to verified completion, record findings as it goes and offer the next task by priority. The server also sends this workflow as MCP instructions. |
+| [plandillo-reference](../skills/plandillo-reference/SKILL.md) | Choose among the 19 MCP tools or `plandillo-cli` commands, construct arguments, resolve a conflict or recover from an uncertain write. |
+| [plandillo-setup](../skills/plandillo-setup/SKILL.md) | Connect a client or `plandillo-cli`, install the skills, enable optional session reminders or diagnose missing tools. |
+| [plandillo-infographics](../skills/plandillo-infographics/SKILL.md) | Lay out a wiki page, a readiness report or an HTML chart so the reader sees the state, the next step and the details they need. |
 
 **Manual installation.** The Integrations tab offers Copy and Download for each SKILL.md. Put each file under its skill name in `~/.claude/skills/` or `~/.agents/skills/` (Codex). The server also serves them at `/api/mcp/skill/<name>` and its shell installer at `/api/mcp/install.sh`. For authenticated self-hosted downloads use the signed-in UI.
 

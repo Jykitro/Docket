@@ -87,7 +87,7 @@ func TestPluginsConnectToALocalBoard(t *testing.T) {
 func TestLegacySkillKeepsDistributionAddresses(t *testing.T) {
 	setup, _ := Get("docket-setup")
 	for _, command := range []string{
-		"npx skills add huntly-digital/plandillo --skill plandillo plandillo-reference plandillo-setup",
+		"npx skills add huntly-digital/plandillo --skill plandillo plandillo-reference plandillo-setup plandillo-infographics",
 		"codex plugin add plandillo@huntly-digital",
 		"claude plugin install plandillo@huntly-digital",
 	} {
@@ -96,7 +96,7 @@ func TestLegacySkillKeepsDistributionAddresses(t *testing.T) {
 		}
 	}
 	workflow, _ := Get("docket")
-	for _, sibling := range []string{"docket-reference", "docket-setup"} {
+	for _, sibling := range []string{"docket-reference", "docket-setup", "docket-infographics"} {
 		if !strings.Contains(workflow, "`"+sibling+"`") {
 			t.Errorf("legacy workflow lost its reference to installed skill %s", sibling)
 		}

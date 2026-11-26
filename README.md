@@ -71,7 +71,7 @@ Open <http://localhost:7777>, enter your name and create your first project. The
 
 ### Install skills and connect your board
 
-Open **Integrations → Agent setup**, select **Codex** or **Claude Code**, and choose **Skills + MCP for this board**. Copy the command into a terminal on macOS or Linux. It installs the three skills and registers the selected endpoint in that client. Choose your workspace when the browser opens and approve access. If sign-in does not start automatically, run the login command printed by the installer. The client refreshes its own credentials.
+Open **Integrations → Agent setup**, select **Codex** or **Claude Code**, and choose **Skills + MCP for this board**. Copy the command into a terminal on macOS or Linux. It installs the Plandillo skills and registers the selected endpoint in that client. Choose your workspace when the browser opens and approve access. If sign-in does not start automatically, run the login command printed by the installer. The client refreshes its own credentials.
 
 For the default local board, the Codex command is:
 
@@ -84,7 +84,7 @@ Use `PLANDILLO_CLIENT=claude-code` for Claude Code. For self-hosting or Code Mod
 <details>
 <summary><strong>Install a plugin from GitHub</strong></summary>
 
-The native plugin bundles the three skills and an MCP connection to a local board at `http://localhost:7777/mcp`. For a self-hosted board, start Claude Code with `PLANDILLO_URL=https://your-host/mcp`; in Codex, use the board installer above, since Codex keeps the plugin's address fixed. Details are in [Board address for the plugins](docs/agents.md#board-address-for-the-plugins). The public GitHub repository serves as the marketplace for personal and team installations. Choose the commands for your client.
+The native plugin bundles the Plandillo skills and an MCP connection to a local board at `http://localhost:7777/mcp`. For a self-hosted board, start Claude Code with `PLANDILLO_URL=https://your-host/mcp`; in Codex, use the board installer above, since Codex keeps the plugin's address fixed. Details are in [Board address for the plugins](docs/agents.md#board-address-for-the-plugins). The public GitHub repository serves as the marketplace for personal and team installations. Choose the commands for your client.
 
 **Codex**
 
@@ -110,7 +110,7 @@ Start a new client session, select the Plandillo connection in the MCP settings 
 Run this in the project directory with Node.js installed. It downloads the workflow, tool reference and setup guide directly from the public GitHub repository. You can specify either agent or both.
 
 ```sh
-npx skills add huntly-digital/plandillo --skill plandillo plandillo-reference plandillo-setup --agent codex claude-code
+npx skills add huntly-digital/plandillo --skill plandillo plandillo-reference plandillo-setup plandillo-infographics --agent codex claude-code
 ```
 
 You can also download individual files from **Integrations → Download individual skills**. To give the agent access to your tasks, choose **MCP only** in the same screen.

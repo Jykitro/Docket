@@ -1,5 +1,5 @@
 // Package skills embeds the agent skills that teach an assistant to run Plandillo as a personal planner:
-// plandillo (the workflow and MCP instructions), plandillo-reference and plandillo-setup.
+// plandillo (the workflow and MCP instructions), plandillo-reference, plandillo-setup and plandillo-infographics.
 package skills
 
 import (
@@ -41,8 +41,7 @@ func installerSkills(prefix string) string {
 // Get returns the SKILL.md of the named skill. Only embedded names resolve; anything else, a path included, does not.
 func Get(name string) (string, bool) {
 	canonical := name
-	switch name {
-	case "docket", "docket-reference", "docket-setup":
+	if name == "docket" || strings.HasPrefix(name, "docket-") {
 		canonical = "plandillo" + strings.TrimPrefix(name, "docket")
 	}
 	b, err := all.ReadFile(canonical + "/SKILL.md")
@@ -52,7 +51,9 @@ func Get(name string) (string, bool) {
 	if name != canonical {
 		// Rename the installed skills, keeping upstream repository URLs and plugin install commands intact.
 		legacy := strings.Replace(string(b), "\nname: "+canonical+"\n", "\nname: "+name+"\n", 1)
-		for _, skill := range []string{"plandillo", "plandillo-reference", "plandillo-setup"} {
+		files, _ := fs.Glob(all, "plandillo*/SKILL.md")
+		for _, f := range files {
+			skill := path.Dir(f)
 			legacy = strings.ReplaceAll(legacy, "`"+skill+"`", "`docket"+strings.TrimPrefix(skill, "plandillo")+"`")
 		}
 		return legacy, true
