@@ -34,7 +34,7 @@ function nextStatus(t: Task, meta: Meta | undefined) {
 
 function StatusButton({ t, onCycle }: { t: Task; onCycle: (t: Task) => void }) {
   return (
-    <button type="button" className="-mx-2 grid size-9 shrink-0 place-items-center rounded-md hover:bg-sk" aria-label={`${t.code}: ${t.status_name}. ${tr('Сменить статус')}`} onClick={() => onCycle(t)}>
+    <button type="button" className="row-btn -mx-2 grid size-9 shrink-0 place-items-center rounded-md hover:bg-sk" aria-label={`${t.code}: ${t.status_name}. ${tr('Сменить статус')}`} onClick={() => onCycle(t)}>
       <span className={'grid size-[18px] place-items-center rounded-full border-[1.5px] text-white ' + SC[t.status_category]}>{t.status_category === 'done' && <Icon name="check" size={11} sw={3.2} />}</span>
     </button>
   )
@@ -44,7 +44,7 @@ function TaskRow({ t, meta, onCycle }: { t: Task; meta?: Meta; onCycle: (t: Task
   const fresh = useFresh(t.id)
   const done = t.status_category === 'done'
   return (
-    <div className={'flex items-center gap-3 min-h-[46px] px-4 py-1.5 border-t border-ln no-underline text-inherit hover:bg-sf2' + (fresh ? freshRing : '')}>
+    <div className={'row flex items-center gap-3 min-h-[46px] px-4 py-1.5 border-t border-ln no-underline text-inherit hover:bg-sf2' + (fresh ? freshRing : '')}>
       <StatusButton t={t} onCycle={onCycle} />
       <Link to={hrefWith('task', t.code)} className="flex flex-wrap items-center gap-x-3 gap-y-1 flex-1 min-w-0 self-stretch no-underline text-inherit">
         <span className="font-mono text-[11.5px] text-t3 w-[58px] flex-[0_0_58px]">{t.code}</span>
@@ -66,7 +66,7 @@ function OverdueRow({ t, project, date, onCycle }: { t: Task; project?: Project;
   const who = useWho()
   const days = Math.round((Date.parse(date + 'T12:00:00') - Date.parse(t.planned_for + 'T12:00:00')) / dayMs)
   return (
-    <div className={'flex flex-wrap items-center gap-x-3 gap-y-1 min-h-11 px-4 py-1.5 border-t border-ln hover:bg-sf2 ' + lateCols + (fresh ? freshRing : '')}>
+    <div className={'row flex flex-wrap items-center gap-x-3 gap-y-1 min-h-11 px-4 py-1.5 border-t border-ln hover:bg-sf2 ' + lateCols + (fresh ? freshRing : '')}>
       <StatusButton t={t} onCycle={onCycle} />
       <span className="font-mono text-[11.5px] text-t3">{t.code}</span>
       <Link to={hrefWith('task', t.code)} className="flex-[1_1_180px] min-w-0 line-clamp-2 wrap-anywhere font-medium no-underline text-inherit hover:underline">{t.title}</Link>

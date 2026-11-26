@@ -10,7 +10,7 @@ import { LANGS, locale, setLang, tr, useLang } from './i18n'
 import { NAME_MAX } from './Onboarding'
 import { InstallPlandillo } from './Pwa'
 import { Link } from './router'
-import { ACCENTS, FONTS, RADII, SCALES, type ThemePref, WEIGHTS, useLookPref } from './theme'
+import { ACCENTS, DENSITIES, FONTS, RADII, SCALES, type ThemePref, WEIGHTS, useLookPref } from './theme'
 import { AccountSection, Users } from './Users'
 import { WorkspaceGeneral, WorkspaceList } from './Workspaces'
 import { Avatar, ErrorState, MENUITEM, MENUSEP, Menu, SettingsRow, SettingsSection, SkeletonRows, btn, btnPri, cap, textInput } from './ui'
@@ -254,6 +254,7 @@ function Appearance({ theme, onTheme }: { theme: ThemePref; onTheme: (t: ThemePr
   const [font, setFont] = useLookPref('font', FONTS, 'inter')
   const [weight, setWeight] = useLookPref('weight', WEIGHTS, 'normal')
   const [scale, setScale] = useLookPref('scale', SCALES, '100')
+  const [density, setDensity] = useLookPref('density', DENSITIES, 'normal')
   const step = SCALES.findIndex((s) => s.id === scale)
   const ink = accent === 'purple' ? undefined : ACCENTS.find((a) => a.id === accent)?.color
   return (
@@ -311,6 +312,11 @@ function Appearance({ theme, onTheme }: { theme: ThemePref; onTheme: (t: ThemePr
             <span className="min-w-11 text-right font-semibold tabular-nums" aria-live="polite">{scale}%</span>
             <button type="button" className={btn + ' h-7 px-2.5 text-[13px]'} disabled={scale === '100'} onClick={() => setScale('100')}>{tr('Сбросить')}</button>
           </span>
+        </SettingsRow>
+      </SettingsSection>
+      <SettingsSection title={tr('Списки')} hint={tr('Как задачи выглядят в списках и на доске.')}>
+        <SettingsRow label={tr('Плотность')} hint={tr('Компактная: строки 32 px в списках и в поиске, карточки на доске ниже.')}>
+          <Segmented label={tr('Плотность')} value={density} options={DENSITIES} onChange={setDensity} />
         </SettingsRow>
       </SettingsSection>
       <SettingsSection title={tr('Язык')} hint={tr('Даты и числа тоже следуют выбранному языку.')}>

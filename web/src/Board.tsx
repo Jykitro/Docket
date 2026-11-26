@@ -49,7 +49,7 @@ const ADDROW = 'flex items-center gap-2 w-full h-9 px-2.5 rounded-md border-0 bg
 const CONTENT = 'flex flex-wrap items-start gap-6 px-8 pt-6 pb-8 max-[640px]:px-4'
 const COL_MAIN = 'flex flex-[999_1_520px] flex-col gap-[18px] min-w-0 bg-sf border border-ln rounded-xl'
 const TH = 'text-left px-3 py-2 border-b border-ln'
-const TD = 'px-3 py-2.5 border-t border-ln align-middle group-hover:bg-sf2 group-hover:cursor-pointer'
+const TD = 'row-cell px-3 py-2.5 border-t border-ln align-middle group-hover:bg-sf2 group-hover:cursor-pointer'
 
 // ---- filtering, sorting, grouping ----
 
@@ -160,7 +160,7 @@ function TaskCard(props: CardProps) {
   return (
     <div ref={sortable.setNodeRef} style={{ transform: CSS.Transform.toString(tf && { ...tf, x: tf.x / z, y: tf.y / z }), transition: sortable.transition }}
       className={'relative rounded-[10px] border ' + (sortable.isDragging ? 'border-dashed border-ac bg-acs' : 'border-ln bg-sf hover:border-ln2') + (fresh ? ' shadow-[inset_0_0_0_2px_var(--ac)]' : '')}>
-      <Link to={hrefWith('task', t.code)} draggable={false} className={'flex flex-col gap-1.5 rounded-[inherit] px-3 py-2.5 no-underline' + (sortable.isDragging ? ' opacity-0' : '')}>
+      <Link to={hrefWith('task', t.code)} draggable={false} className={'card-pad flex flex-col gap-1.5 rounded-[inherit] px-3 py-2.5 no-underline' + (sortable.isDragging ? ' opacity-0' : '')}>
         <CardContent {...props} />
       </Link>
       {movable && <button type="button" ref={sortable.setActivatorNodeRef} {...sortable.attributes} {...sortable.listeners}

@@ -875,4 +875,10 @@ export const MESSAGES: Record<string, [en: string, uk: string]> = {
   'Ожидает': ['Pending', 'Очікує'],
   'Никого не найдено': ['No one found', 'Нікого не знайдено'],
   'Агенты (Claude Code, Codex) в списке не появляются: они действуют от имени пользователя, который их подключил, и видны в его журнале вызовов.': ['Agents (Claude Code, Codex) are not listed: they act on behalf of the user who connected them and show up in that user’s call log.', 'Агенти (Claude Code, Codex) у списку не з’являються: вони діють від імені користувача, який їх підключив, і видні в його журналі викликів.'],
+  'Обычная': ['Normal', 'Звичайна'],
+  'Компактная': ['Compact', 'Компактна'],
+  'Списки': ['Lists', 'Списки'],
+  'Как задачи выглядят в списках и на доске.': ['How tasks look in lists and on the board.', 'Як завдання виглядають у списках і на дошці.'],
+  'Плотность': ['Density', 'Щільність'],
+  'Компактная: строки 32 px в списках и в поиске, карточки на доске ниже.': ['Compact: 32 px rows in lists and search, shorter board cards.', 'Компактна: рядки 32 px у списках і пошуку, нижчі картки на дошці.'],
 }

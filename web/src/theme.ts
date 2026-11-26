@@ -74,6 +74,12 @@ export const FONTS = [
   { id: 'mono', label: 'Моноширинный', family: "'JetBrains Mono', monospace" },
 ] as const
 
+/** Row height in lists and on the board: the default, or compact 32 px rows (styles.css, html[data-density]). */
+export const DENSITIES = [
+  { id: 'normal', label: 'Обычная' },
+  { id: 'compact', label: 'Компактная' },
+] as const
+
 /** The page zoom chosen in Appearance (1 by default). Code that turns mouse coordinates into CSS pixels divides by it. */
 export const zoom = () => parseFloat(getComputedStyle(document.documentElement).zoom) || 1
 
@@ -89,7 +95,7 @@ function stored<T extends string>(key: string, ok: readonly { id: T }[], fallbac
 }
 
 /** One Appearance choice: kept as plandillo-<attr> in localStorage and shown on <html> as data-<attr>. */
-export function useLookPref<T extends string>(attr: 'accent' | 'radius' | 'scale' | 'weight' | 'font', options: readonly { id: T }[], fallback: T) {
+export function useLookPref<T extends string>(attr: 'accent' | 'radius' | 'scale' | 'weight' | 'font' | 'density', options: readonly { id: T }[], fallback: T) {
   const key = 'plandillo-' + attr
   const [value, setValue] = useState<T>(() => stored(key, options, fallback))
   const set = (v: T) => {

@@ -87,7 +87,7 @@ export function SearchDialog({ projects, current, onClose, onCreate }: {
   let idx = -1
   const row = (it: Item, body: ReactNode, to: string) => {
     const i = ++idx
-    return <Link key={i} to={to} className="group flex items-center gap-3 min-h-[46px] px-3 py-1.5 rounded-[9px] no-underline data-[on]:bg-acs" data-on={i === sel ? '' : undefined} onMouseMove={() => setSel(i)} onClick={(e) => { e.preventDefault(); open(it) }}>{body}</Link>
+    return <Link key={i} to={to} className="row group flex items-center gap-3 min-h-[46px] px-3 py-1.5 rounded-[9px] no-underline data-[on]:bg-acs" data-on={i === sel ? '' : undefined} onMouseMove={() => setSel(i)} onClick={(e) => { e.preventDefault(); open(it) }}>{body}</Link>
   }
   const hitRow = (it: Item & { hit: Hit }, snippet: boolean) => {
     const h = it.hit
