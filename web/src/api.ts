@@ -3,6 +3,7 @@ import { workspaceApi } from './workspacePath'
 import { useQueries, useQuery } from '@tanstack/react-query'
 import { getLang, locale, tr } from './i18n'
 import { CollectionBudget } from './Paging'
+import { wipeOfflineCache } from './offlineCache'
 
 export type Category = 'todo' | 'doing' | 'done'
 
@@ -151,6 +152,7 @@ let owner: number | 'guest' | 'setup' | 'local' | undefined
 function sessionStamp() {
   try { return localStorage.getItem(changeKey) } catch { return null }
 }
+export function offlineStamp() { return sessionStamp() ?? 'local' }
 let stamp = sessionStamp()
 let sessionGeneration = 0
 
@@ -172,7 +174,8 @@ export function cacheSpaces(rows: Space[]) {
 function leaveWorkspace() {
   if (!sessionRequests.signal.aborted) {
     sessionRequests.abort()
-    location.reload()
+    // The reload must happen even if the wipe fails or hangs.
+    void Promise.race([wipeOfflineCache(), new Promise(r => setTimeout(r, 1000))]).finally(() => location.reload())
   }
 }
 function checkSessionStamp() {

@@ -28,20 +28,24 @@ import './styles.css'
 
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { MutationCache, QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { MutationCache, QueryClient } from '@tanstack/react-query'
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
 import { RouterProvider } from '@tanstack/react-router'
 import { CollectionLimit, PagingRequests } from './Paging'
 import { workspaceId } from './workspacePath'
 import { hashKey } from '@tanstack/react-query'
-import { errorKind } from './api'
+import { errorKind, offlineStamp } from './api'
+import { OFFLINE_MAX_AGE, persistOptions, wipeOfflineCache } from './offlineCache'
 import { reportUnsaved, startConnectionWatch } from './connection'
 import { router } from './router'
 
 startConnectionWatch()
+// Another sign-in's leftovers (a different user on this device) go before anything is restored.
+void wipeOfflineCache(offlineStamp())
 
 const client = new QueryClient({
   mutationCache: new MutationCache({ onError: e => { if (errorKind(e) === 'offline') reportUnsaved() } }),
-  defaultOptions: { mutations: { networkMode: 'always' }, queries: { gcTime: 7 * 24 * 60 * 60 * 1000, queryKeyHashFn: key => hashKey([workspaceId, ...key]), retry: (failures, error) => failures < 1 && !(error instanceof CollectionLimit) && ['offline', 'server'].includes(errorKind(error)), staleTime: 5_000 } } })
+  defaultOptions: { mutations: { networkMode: 'always' }, queries: { gcTime: OFFLINE_MAX_AGE, queryKeyHashFn: key => hashKey([workspaceId, ...key]), retry: (failures, error) => failures < 1 && !(error instanceof CollectionLimit) && ['offline', 'server'].includes(errorKind(error)), staleTime: 5_000 } } })
 
 if (import.meta.env.PROD && window.isSecureContext && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
@@ -54,9 +58,9 @@ window.addEventListener('vite:preloadError', () => location.reload())
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <QueryClientProvider client={client}>
+    <PersistQueryClientProvider client={client} persistOptions={persistOptions(`${offlineStamp()}:${workspaceId}`)}>
       <RouterProvider router={router} />
       <PagingRequests />
-    </QueryClientProvider>
+    </PersistQueryClientProvider>
   </StrictMode>,
 )
