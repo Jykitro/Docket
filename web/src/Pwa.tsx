@@ -1,6 +1,7 @@
 import { useIsFetching, useQueryClient } from '@tanstack/react-query'
 import { type ReactNode, useEffect, useReducer, useRef, useState, useSyncExternalStore } from 'react'
 import { useConnection, useUnsavedFlash } from './connection'
+import { DraftsDialog, useDrafts } from './drafts'
 import { locale, tr, useLang } from './i18n'
 import { ErrorPage, btn, btnPri } from './ui'
 
@@ -84,6 +85,8 @@ export function ConnectionGate({ children }: { children: ReactNode }) {
   const qc = useQueryClient()
   const { online, network, checking, retry } = useConnection()
   const unsaved = useUnsavedFlash()
+  const drafts = useDrafts().length
+  const [showDrafts, setShowDrafts] = useState(false)
   const fetching = useIsFetching()
   const update = useSyncExternalStore(subscribe, () => updateReady)
   const [, rerender] = useReducer((n: number) => n + 1, 0)
@@ -123,12 +126,17 @@ export function ConnectionGate({ children }: { children: ReactNode }) {
         : tr('Нет интернета · данные от {time} · изменения не сохраняются', { time })
   } else if (refreshing && (minShown || fetching > 0)) text = tr('Связь восстановлена, обновляем данные…')
   else if (update) { text = tr('Доступна новая версия Plandillo'); offerUpdate = true }
+  else if (drafts) text = tr('Есть неотправленные черновики задач')
   // Always the same element tree around children: a changing shape would remount the page and lose unsaved drafts.
   return (
     <>
-      <StatusBar text={text} action={!online ? <button type="button" className={btn} disabled={checking} onClick={retry}>{checking ? tr('Проверяем…') : tr('Проверить сейчас')}</button>
-        : offerUpdate && <button type="button" className={btnPri} onClick={() => location.reload()}>{tr('Обновить')}</button>} />
+      <StatusBar text={text} action={<>
+        {!online ? <button type="button" className={btn} disabled={checking} onClick={retry}>{checking ? tr('Проверяем…') : tr('Проверить сейчас')}</button>
+          : offerUpdate && <button type="button" className={btnPri} onClick={() => location.reload()}>{tr('Обновить')}</button>}
+        {drafts > 0 && <button type="button" className={btn} onClick={() => setShowDrafts(true)}>{tr('Черновики · {n}', { n: drafts })}</button>}
+      </>} />
       {children}
+      {showDrafts && <DraftsDialog onClose={() => setShowDrafts(false)} />}
     </>
   )
 }

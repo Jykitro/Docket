@@ -63,9 +63,16 @@ function createPersister(key: () => string): Persister {
   }
 }
 
-// Drops every entry that is not `${keepStamp}:…` (another sign-in's data); with no argument, all of them.
+// Prefix of the localStorage keys that hold task drafts (drafts.ts): `${DRAFTS}${stamp}:${workspace}`.
+export const DRAFTS = 'plandillo-drafts:'
+
+// Drops every entry that is not `${keepStamp}:…` (another sign-in's data); with no argument, all of them. Drafts go the same way.
 export function wipeOfflineCache(keepStamp?: string): Promise<void> {
   if (keepStamp === undefined) wiped = true
+  try {
+    for (const k of Object.keys(localStorage))
+      if (k.startsWith(DRAFTS) && (keepStamp === undefined || !k.startsWith(`${DRAFTS}${keepStamp}:`))) localStorage.removeItem(k)
+  } catch { /* blocked storage holds no drafts */ }
   return run('readwrite', undefined, s => {
     s.openCursor().onsuccess = e => {
       const cursor = (e.target as IDBRequest<IDBCursor | null>).result

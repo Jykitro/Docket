@@ -54,7 +54,7 @@ export type View = {
   group_by: string; sort: string; pinned: boolean; position: number
 }
 export type NewTask = {
-  project: string; title: string; description_md?: string; status?: string; priority?: string; area?: string; planned_for?: string; parent?: string
+  project: string; title: string; description_md?: string; status?: string; priority?: string; area?: string; planned_for?: string; parent?: string; client_key?: string
 }
 export type Note = { id: number; task_id: number; author: string; body_md: string; created_at: string }
 export type AttentionItem = Pick<Task, 'id' | 'code' | 'title' | 'status_name' | 'status_category' | 'priority' | 'issue_kind' | 'report_count'> & { project: string }

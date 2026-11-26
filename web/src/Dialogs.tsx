@@ -1,7 +1,9 @@
 // "New task" (key C) and "New project" dialogs. Pickers are chips and segmented buttons, not native selects.
 import { useEffect, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { type Project, addDays, api, fmtDay, todayStr, useProjectsMeta } from './api'
+import { type Project, addDays, api, errorKind, fmtDay, todayStr, useProjectsMeta } from './api'
+import { useOnline } from './connection'
+import { saveDraft } from './drafts'
 import { PROJECT_COLORS, ProjectTile } from './icons'
 import { ProjectIconPicker } from './ProjectIconPicker'
 import { tr } from './i18n'
@@ -34,14 +36,23 @@ export function NewTaskDialog({ projects, project, date, status, title: initial 
   const statuses = meta?.statuses ?? []
   const effStatus = statuses.some((s) => s.key === st) ? st : (statuses.find((s) => s.key === 'backlog') ?? statuses[0])?.key ?? ''
 
+  const body = () => ({ project: proj!.key, title: title.trim(), description_md: desc.trim(), status: effStatus, priority: prio, area: area.trim(), planned_for: day })
   const create = useMutation({
-    mutationFn: () => api.createTask({ project: proj!.key, title: title.trim(), description_md: desc.trim(), status: effStatus, priority: prio, area: area.trim(), planned_for: day }),
+    mutationFn: () => api.createTask(body()),
     onSuccess: () => {
       qc.invalidateQueries()
       onClose()
     },
   })
-  const submit = () => title.trim() && proj && !create.isPending && create.mutate()
+  // Without the server the task can wait on this device as a draft; the user sends it later from the notice.
+  const offline = !useOnline() || (create.isError && errorKind(create.error) === 'offline')
+  const [draftFailed, setDraftFailed] = useState(false)
+  const submit = () => {
+    if (!title.trim() || !proj || create.isPending) return
+    if (!offline) return create.mutate()
+    if (saveDraft(body())) onClose()
+    else setDraftFailed(true)
+  }
   const tomorrow = addDays(todayStr(), 1)
 
   return (
@@ -100,10 +111,12 @@ export function NewTaskDialog({ projects, project, date, status, title: initial 
           <input className={dateinput} type="date" aria-label={tr('Выбрать дату')} value={day} onChange={(e) => setDay(e.target.value)} />
         </div>
       </div>
-      {create.isError && <div className={errline} role="alert">{create.error.message}</div>}
+      {offline ? <div className="text-t2 text-[13px]" role="status">{tr('Нет связи с сервером. Задачу можно сохранить черновиком на этом устройстве и отправить, когда связь вернётся.')}</div>
+        : create.isError && <div className={errline} role="alert">{create.error.message}</div>}
+      {draftFailed && <div className={errline} role="alert">{tr('Не удалось сохранить черновик на этом устройстве.')}</div>}
       <div className={foot}>
         <button type="button" className={btn} onClick={onClose}>{tr('Отмена')}</button>
-        <button type="button" className={btnPri} disabled={!title.trim() || !proj || create.isPending} onClick={submit}>{tr('Создать')}</button>
+        <button type="button" className={btnPri} disabled={!title.trim() || !proj || create.isPending} onClick={submit}>{offline ? tr('Сохранить черновик') : tr('Создать')}</button>
       </div>
     </Dialog>
   )
