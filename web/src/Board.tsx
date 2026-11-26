@@ -17,7 +17,8 @@ import { tr, useLang } from './i18n'
 import { useFresh } from './live'
 import { Link, hrefWith, navigate, setParam, useRoute } from './router'
 import { zoom } from './theme'
-import { AreaDot, AgentBadge, EmptyState, ErrorState, Menu, PriorityChip, Skeleton } from './ui'
+import { AreaDot, AgentBadge, EmptyState, ErrorState, Menu, PriorityChip, Skeleton, SkeletonRows } from './ui'
+import { useOnline } from './connection'
 import { Wiki } from './Wiki'
 
 type Group = 'status' | 'priority' | 'area'
@@ -379,11 +380,12 @@ function ListTable({ tasks, meta }: { tasks: Task[]; meta: Meta }) {
 
 export function Board({ slug, onNewTask, wiki }: { slug: string; onNewTask: (o: { project?: Project; status?: string }) => void; wiki?: { id?: number } }) {
   const projects = useProjects()
+  const online = useOnline()
   const project = projects.data?.find((p) => p.slug === slug)
   if (projects.isError) return <div className={CONTENT}><div className={COL_MAIN}><ErrorState error={projects.error} onRetry={() => projects.refetch()} /></div></div>
   if (!project) {
     return projects.isPending
-      ? <div className={CONTENT}><Skeleton w="40%" h={28} /></div>
+      ? <div className={CONTENT}>{online ? <Skeleton w="40%" h={28} /> : <SkeletonRows />}</div>
       : <div className={CONTENT}><div className={COL_MAIN}><EmptyState icon="board" title={tr('Проект не найден')} hint={tr('Нет проекта «{slug}». Возможно, он в архиве.', { slug })} /></div></div>
   }
   return <ProjectBoard key={project.id} project={project} onNewTask={onNewTask} wiki={wiki} />
@@ -396,6 +398,7 @@ function ProjectBoard({ project, onNewTask, wiki }: { project: Project; onNewTas
   const pid = project.id
   const meta = useProjectsMeta([pid])[pid]
   const tq = useQuery({ queryKey: ['tasks', pid], queryFn: () => api.tasks(project.key) })
+  const online = useOnline()
   const vq = useQuery({ queryKey: ['views', pid], queryFn: () => api.views(pid) })
   const pq = useQuery({ queryKey: ['pages', pid], queryFn: () => api.pages(pid) }) // same key as the wiki
   const tasks = tq.data ?? []
@@ -524,7 +527,8 @@ function ProjectBoard({ project, onNewTask, wiki }: { project: Project; onNewTas
         meta={meta} tasks={tasks} shown={shown.length} project={project} layout={layout} who={who} />
 
       {tq.isError && <div className={CONTENT}><div className={COL_MAIN}><ErrorState error={tq.error} onRetry={() => tq.refetch()} /></div></div>}
-      {tq.isPending && (
+      {tq.isPending && !online && <SkeletonRows />}
+      {tq.isPending && online && (
         <div className="grow overflow-x-auto px-4 pt-3 pb-7 sm:px-7 sm:pt-[18px]"><div className="flex items-start gap-4">{[0, 1, 2, 3].map((i) => (
           <div key={i} className={COLBOX} aria-hidden="true"><Skeleton w="50%" h={18} /><Skeleton h={92} /><Skeleton h={92} /></div>
         ))}</div></div>

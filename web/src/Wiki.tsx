@@ -11,6 +11,7 @@ import { HtmlFrame, HtmlPreview } from './HtmlPreview'
 import { InsertHTML, MarkdownBody } from './MarkdownBody'
 import { Link, hrefWith, navigate, setParam } from './router'
 import { WikiTree } from './WikiTree'
+import { useOnline } from './connection'
 import { ConfirmButton, EmptyState, ErrorState, MENUITEM, Menu, Skeleton, SkeletonRows, btn, btnPri, cap, mc } from './ui'
 
 const BOX = 'bg-sf border border-ln rounded-xl'
@@ -232,6 +233,7 @@ function PageArea({ id, c, dirty }: { id: number; c: Ctx; dirty: RefObject<boole
 export function Wiki({ project, pageId }: { project: Project; pageId?: number }) {
   const pq = useQuery({ queryKey: ['pages', project.id], queryFn: () => api.pages(project.id) })
   const tq = useQuery({ queryKey: ['tasks', project.id], queryFn: () => api.tasks(project.key) }) // same key as the board
+  const online = useOnline()
   const pages = useMemo(() => pq.data ?? [], [pq.data])
   const tasks = useMemo(() => tq.data ?? [], [tq.data])
   const dirty = useRef(false) // set by the open editor
@@ -254,7 +256,8 @@ export function Wiki({ project, pageId }: { project: Project; pageId?: number })
     <div className="flex flex-col items-start gap-6 px-8 pt-6 pb-8 max-[640px]:px-4 min-[900px]:@3xl:flex-row">
       <aside className="flex w-full flex-col gap-3 min-[900px]:@3xl:w-[260px] min-[900px]:@3xl:shrink-0">
         <span className="flex items-center justify-between gap-2"><span className={cap}>{tr('Страницы')}</span>{newBtn}</span>
-        {pq.isPending && <div className="flex flex-col gap-2.5"><Skeleton h={28} /><Skeleton h={28} w="80%" /><Skeleton h={28} w="65%" /></div>}
+        {pq.isPending && !online && <SkeletonRows n={3} />}
+        {pq.isPending && online && <div className="flex flex-col gap-2.5"><Skeleton h={28} /><Skeleton h={28} w="80%" /><Skeleton h={28} w="65%" /></div>}
         {pq.isError && <ErrorState error={pq.error} onRetry={() => pq.refetch()} />}
         {pq.isSuccess && pages.length > 0 && (
           <WikiTree key={project.id} pages={pages} current={pageId} project={project} leave={leave} />
