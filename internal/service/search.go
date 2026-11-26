@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"regexp"
 	"strings"
 	"time"
 
@@ -20,7 +21,9 @@ type SearchResult struct {
 	TookMS int64          `json:"took_ms"`
 }
 
-// Search finds tasks by title (or by ID like TRK-07), tasks by description with a snippet, and projects.
+var digitsRe = regexp.MustCompile(`^\d{1,6}$`)
+
+// Search finds tasks by title (or by ID like TRK-07, or by number like 7), tasks by description with a snippet, and projects.
 // scope is all, tasks or projects.
 func (s *Service) Search(ctx context.Context, q, scope string, limit int) (r SearchResult, err error) {
 	if scope == "" {
@@ -47,6 +50,18 @@ func (s *Service) Search(ctx context.Context, q, scope string, limit int) (r Sea
 					r.Groups.Tasks = append(r.Groups.Tasks, store.SearchHit{ID: t.ID, ProjectID: t.ProjectID, Code: t.Code, Title: t.Title,
 						Status: t.Status, StatusName: st.Name, StatusColor: st.Color})
 					seen[t.ID] = true
+				}
+			}
+			if digitsRe.MatchString(q) { // a bare task number, as in the codes on the board
+				hits, err := tx.SearchNumber(q, limit)
+				if err != nil {
+					return err
+				}
+				for _, h := range hits {
+					if !seen[h.ID] {
+						r.Groups.Tasks = append(r.Groups.Tasks, h)
+						seen[h.ID] = true
+					}
 				}
 			}
 			titles, err := tx.SearchTitles(q, limit)

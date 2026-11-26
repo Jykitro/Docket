@@ -543,7 +543,7 @@ export const MESSAGES: Record<string, [en: string, uk: string]> = {
   'Задачи · по названию': ['Tasks · by title', 'Завдання · за назвою'],
   'В описаниях': ['In descriptions', 'В описах'],
   'Ничего не найдено по «{q}»': ['Nothing found for “{q}”', 'Нічого не знайдено за «{q}»'],
-  'Введите слово из названия или описания, либо код задачи, например TRK-07': ['Type a word from a title or description, or a task code such as TRK-07', 'Введіть слово з назви чи опису або код завдання, наприклад TRK-07'],
+  'Введите слово из названия или описания, код задачи, например TRK-07, или только номер, например 7': ['Type a word from a title or description, a task code such as TRK-07, or just its number, such as 7', 'Введіть слово з назви чи опису, код завдання, наприклад TRK-07, або лише номер, наприклад 7'],
   'Действия': ['Actions', 'Дії'],
   'Создать задачу «{q}»': ['Create task “{q}”', 'Створити завдання «{q}»'],
   'Открыть интеграции и журнал вызовов': ['Open integrations and the call log', 'Відкрити інтеграції і журнал викликів'],

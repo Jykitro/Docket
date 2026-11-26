@@ -15,7 +15,7 @@ var MCPTools = []ToolInfo{
 		"Descriptions are not included: use get_task."},
 	{"get_today", "read", "Plan for a day (default: today): tasks planned for the date grouped by project, plus overdue open tasks planned earlier."},
 	{"get_task", "read", "Full task by ID such as TRK-07: description, subtasks, notes, custom fields and the last 20 history entries."},
-	{"search", "read", "Full-text search in task titles and descriptions (prefix match). Also finds a task by its ID."},
+	{"search", "read", "Full-text search in task titles and descriptions (prefix match). Also finds a task by its ID, and digits alone (7) find tasks by number in every project."},
 	{"create_project", "write", "Create a project. key (2-5 chars like TRK), icon, color and description are optional."},
 	{"create_tasks", "write", "Create up to 100 tasks in one transaction. To create an epic with subtasks, give the epic a ref and the " +
 		"subtasks parent_ref = that ref (the epic must come first). Items with an external_id that already exists update that task " +

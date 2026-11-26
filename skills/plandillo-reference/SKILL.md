@@ -14,7 +14,7 @@ Use the schema advertised by the connected server. Tool names below are the name
 | `list_projects` | `{}`, optionally `include_archived` | Key, slug, name and task counts by status. Resolve the user's project before writing. |
 | `get_today` | `{}` for today or `date` as YYYY-MM-DD | Server-local `date`, planned tasks grouped in `projects`, and earlier open tasks in `overdue`. |
 | `get_board` | Optional `project`, `status`, `area`, `planned_for`, `include_done` | Tasks grouped by status key. Done-category tasks are hidden by default. An explicit status selects that column. Fetch details to see checklists. |
-| `search` | `q`, optional `limit` (default 20) | Prefix search of task titles and descriptions across projects, or lookup by ID. Match by project and status before reusing a result. For wiki titles use `list_pages`. |
+| `search` | `q`, optional `limit` (default 20) | Prefix search of task titles and descriptions across projects, or lookup by ID; digits alone (`7`) list tasks with that number, then numbers starting with it, in every project. Match by project and status before reusing a result. For wiki titles use `list_pages`. |
 | `get_task` | `id`, e.g. `TRK-07` | Latest description, custom fields, subtasks, notes, document headers and up to 20 recent history entries. |
 | `list_pages` | `project` | Wiki headers including title and numeric ID. |
 | `read_page` | `project`, `title`, optional `document_offset` | Matches title case-insensitively. Returns the page ID, `body_md` or `body_html`, `updated_at`, backlinks, linked tasks and document headers. |

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -592,6 +593,31 @@ func (t *Tx) Purge() (int64, error) {
 // SearchTitles matches the title column; SearchDescriptions matches the description and returns a snippet.
 func (t *Tx) SearchTitles(q string, limit int) ([]SearchHit, error) {
 	return t.search(q, "title", `''`, limit)
+}
+
+// SearchNumber finds live tasks by number in every project, for a search of digits only: the number itself first
+// ("08" is 8), then the numbers that start with those digits ("1" goes on to 10-19, 100…).
+func (t *Tx) SearchNumber(digits string, limit int) ([]SearchHit, error) {
+	n, err := strconv.ParseInt(digits, 10, 64)
+	if err != nil || n < 1 {
+		return []SearchHit{}, nil
+	}
+	rows, err := t.tx.Query(`SELECT t.id, t.project_id, p.key || '-' || printf('%02d', t.number), t.title, s.key, s.name, s.color`+taskFrom+`
+  WHERE (t.number = ? OR CAST(t.number AS TEXT) LIKE ?) AND t.deleted_at IS NULL AND p.deleted_at IS NULL
+  ORDER BY CASE WHEN t.number = ? THEN 0 ELSE 1 END, t.number, p.key LIMIT ?`, n, strconv.FormatInt(n, 10)+"%", n, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []SearchHit{}
+	for rows.Next() {
+		var h SearchHit
+		if err := rows.Scan(&h.ID, &h.ProjectID, &h.Code, &h.Title, &h.Status, &h.StatusName, &h.StatusColor); err != nil {
+			return nil, err
+		}
+		out = append(out, h)
+	}
+	return out, rows.Err()
 }
 
 func (t *Tx) SearchDescriptions(q string, limit int) ([]SearchHit, error) {

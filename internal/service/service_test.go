@@ -1126,3 +1126,39 @@ func TestTrashedTasksAreNotFound(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// Typing only digits finds tasks by number in every project: that number first, then numbers starting with it.
+func TestSearchFindsTasksByBareNumber(t *testing.T) {
+	s := newSvc(t)
+	for _, slug := range []string{"aa", "bb", "gone"} {
+		p := mustProject(t, s, slug)
+		n := map[string]int{"aa": 12, "bb": 3, "gone": 1}[slug]
+		var items []NewTask
+		for i := 1; i <= n; i++ {
+			items = append(items, NewTask{Project: slug, Title: slug + " task"})
+		}
+		mustTasks(t, s, ActorDenis, items...)
+		if slug == "gone" {
+			if _, err := s.DeleteProject(ctx, ActorDenis, p.ID); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	codes := func(q string) string {
+		r, err := s.Search(ctx, q, "tasks", 20)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var out []string
+		for _, h := range r.Groups.Tasks {
+			out = append(out, h.Code)
+		}
+		return strings.Join(out, ",")
+	}
+	if got := codes("1"); got != "AA-01,BB-01,AA-10,AA-11,AA-12" {
+		t.Fatalf(`search "1" = %s; want the tasks numbered 1 in every live project, then 10-12`, got)
+	}
+	if got := codes("08"); got != "AA-08" {
+		t.Fatalf(`search "08" = %s, want AA-08`, got)
+	}
+}

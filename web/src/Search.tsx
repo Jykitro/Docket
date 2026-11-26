@@ -51,6 +51,8 @@ export function SearchDialog({ projects, current, onClose, onCreate }: {
 
   const inProject = (h: Hit) => !onlyCurrent || !current || h.project_id === current.id
   const tasks = scope === 'projects' ? [] : (data?.groups.tasks ?? []).filter(inProject)
+  // A bare number matches that task in every project: the open project's comes first.
+  if (current && /^\d+$/.test(dq)) tasks.sort((a, b) => Number(b.project_id === current.id) - Number(a.project_id === current.id))
   const descs = scope === 'projects' ? [] : (data?.groups.descriptions ?? []).filter(inProject)
   const projs = scope === 'tasks' ? [] : (data?.groups.projects ?? [])
   const items: Item[] = [
@@ -108,8 +110,8 @@ export function SearchDialog({ projects, current, onClose, onCreate }: {
   const i0 = (it: Item) => items.indexOf(it)
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 px-4 pt-[112px] pb-4" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="flex flex-col self-start w-[680px] max-w-full overflow-hidden bg-sf border border-ln rounded-lg shadow-pop" role="dialog" aria-modal="true" aria-label={tr('Поиск')} onKeyDown={key} ref={trap} tabIndex={-1}>
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 px-4 pt-[8vh] pb-4" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="flex flex-col self-start w-[min(960px,92vw)] max-w-full overflow-hidden bg-sf border border-ln rounded-lg shadow-pop" role="dialog" aria-modal="true" aria-label={tr('Поиск')} onKeyDown={key} ref={trap} tabIndex={-1}>
         <div className="flex items-center gap-3 px-4 h-[58px] border-b border-ln text-t3">
           <Icon name="search" size={19} sw={1.9} />
           <input className="flex-1 min-w-0 border-0 bg-transparent outline-0 text-[17px] font-medium text-tx" autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={tr('Поиск по задачам и проектам')} aria-label={tr('Поиск по задачам, проектам и командам')} />
@@ -125,7 +127,7 @@ export function SearchDialog({ projects, current, onClose, onCreate }: {
             <button type="button" className={SCH + (onlyCurrent ? ' bg-ink border-ink text-inkt font-medium' : ' border-ln bg-sf text-t2')} aria-pressed={onlyCurrent} onClick={() => setOnlyCurrent(!onlyCurrent)}>{tr('Проект: {name}', { name: current.name })}</button>
           )}
         </div>
-        <div className="flex flex-col gap-0.5 max-h-[52vh] overflow-y-auto px-2 pt-2 pb-1.5" ref={listRef}>
+        <div className="flex flex-col gap-0.5 max-h-[68vh] overflow-y-auto px-2 pt-2 pb-1.5" ref={listRef}>
           {res.isError && <div className="px-3 py-2 text-[13px] text-rd" role="alert">{res.error.message}</div>}
           {tasks.length > 0 && <div className={RHEAD_CAP}>{tr('Задачи · по названию')}</div>}
           {items.filter((i): i is Item & { kind: 'task' } => i.kind === 'task').map((it) => hitRow(it, false))}
@@ -140,7 +142,7 @@ export function SearchDialog({ projects, current, onClose, onCreate }: {
             </>
           ), `/p/${it.project.slug}`))}
           {dq !== '' && !res.isFetching && total === 0 && <div className={RHEAD}>{tr('Ничего не найдено по «{q}»', { q: dq })}</div>}
-          {dq === '' && <div className={RHEAD}>{tr('Введите слово из названия или описания, либо код задачи, например TRK-07')}</div>}
+          {dq === '' && <div className={RHEAD}>{tr('Введите слово из названия или описания, код задачи, например TRK-07, или только номер, например 7')}</div>}
           <div className={RHEAD_CAP}>{tr('Действия')}</div>
           {items.filter((i) => i.kind === 'create').map((it) => row(it, (
             <>
