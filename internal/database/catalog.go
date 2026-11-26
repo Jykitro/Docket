@@ -86,10 +86,10 @@ func (d *DB) EnsureCatalog(tx *Tx) error {
 		if version != 2 && (d.Postgres || version != 3) {
 			return ErrPreviousLayout
 		}
-		if err := ensureSpaceSlugs(tx); err != nil {
+		if err := d.ensureOAuthCatalog(tx); err != nil {
 			return err
 		}
-		return d.ensureOAuthCatalog(tx)
+		return applyMigrations(tx, false)
 	}
 	if !occupied && d.Postgres && strings.HasSuffix(d.schema, "_auth") {
 		if err := tx.QueryRow("SELECT EXISTS(SELECT 1 FROM pg_catalog.pg_namespace WHERE nspname ~ '^(docket|plandillo)_user_[1-9][0-9]*$')").Scan(&occupied); err != nil {
@@ -108,54 +108,10 @@ func (d *DB) EnsureCatalog(tx *Tx) error {
 	if _, err := tx.Exec(ddl); err != nil {
 		return err
 	}
-	return d.ensureOAuthCatalog(tx)
-}
-
-// ensureSpaceSlugs gives workspaces made before addresses used slugs (/w/<id>/) their slug.
-func ensureSpaceSlugs(tx *Tx) error {
-	q := "SELECT EXISTS(SELECT 1 FROM pragma_table_info('workspaces') WHERE name='slug')"
-	if tx.Postgres() {
-		q = "SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=current_schema() AND table_name='workspaces' AND column_name='slug')"
-	}
-	var done bool
-	if err := tx.QueryRow(q).Scan(&done); err != nil || done {
+	if err := d.ensureOAuthCatalog(tx); err != nil {
 		return err
 	}
-	if _, err := tx.Exec("ALTER TABLE workspaces ADD COLUMN slug TEXT NOT NULL DEFAULT ''"); err != nil {
-		return err
-	}
-	rows, err := tx.Query("SELECT id,owner_user_id,name FROM workspaces ORDER BY id")
-	if err != nil {
-		return err
-	}
-	type space struct {
-		id, owner int64
-		name      string
-	}
-	var all []space
-	for rows.Next() {
-		var v space
-		if err = rows.Scan(&v.id, &v.owner, &v.name); err != nil {
-			rows.Close()
-			return err
-		}
-		all = append(all, v)
-	}
-	rows.Close()
-	if err = rows.Err(); err != nil {
-		return err
-	}
-	for _, v := range all {
-		s, err := tx.SpaceSlug(v.owner, v.name)
-		if err != nil {
-			return err
-		}
-		if _, err = tx.Exec("UPDATE workspaces SET slug=? WHERE id=?", s, v.id); err != nil {
-			return err
-		}
-	}
-	_, err = tx.Exec("CREATE UNIQUE INDEX workspaces_slug ON workspaces(owner_user_id,slug)")
-	return err
+	return applyMigrations(tx, true) // the DDL above is already the latest layout
 }
 
 // reservedSlugs are first segments of addresses outside a workspace (server routes, sign-in pages, old /w/<id>/

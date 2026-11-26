@@ -84,6 +84,14 @@ func runSelfHost(ctx context.Context, cfg config.Config) error {
 		if err = database.CheckSQLiteLayout(cfg.DB); err != nil {
 			return err
 		}
+		// Opening the database applies pending migrations; keep the previous layout to roll back to.
+		var copied string
+		if copied, err = database.BackupBeforeMigrations(cfg.DB, cfg.BackupDir, time.Now()); err != nil {
+			return fmt.Errorf("back up before migrating: %w", err)
+		}
+		if copied != "" {
+			slog.Info("database copied before migration", "path", copied)
+		}
 		ad, err = auth.Open(cfg.DB)
 	}
 	if err != nil {
