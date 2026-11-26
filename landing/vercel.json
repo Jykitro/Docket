@@ -1,0 +1,4 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "ignoreCommand": "p=${VERCEL_GIT_PREVIOUS_SHA:-HEAD^}; git cat-file -e \"$p^{commit}\" 2>/dev/null || { echo \"$p is not in the shallow clone, building\"; exit 1; }; git diff --quiet \"$p\" HEAD -- :/landing"
+}

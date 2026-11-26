@@ -4,7 +4,7 @@ Vercel hosts only the public site at `plandillo.dev`, the static Astro project i
 
 ## Project settings
 
-Import the repository as one Vercel project and set its **Root Directory** to `landing`. Vercel then sees a plain Astro project, and the repository holds no Vercel configuration:
+Import the repository as one Vercel project and set its **Root Directory** to `landing`. Vercel then sees a plain Astro project. The only Vercel configuration in the repository is the skip rule in [`landing/vercel.json`](../landing/vercel.json):
 
 | Setting | Value |
 | --- | --- |
@@ -19,7 +19,9 @@ Attach `plandillo.dev` as the production domain and redirect `www.plandillo.dev`
 
 ## When it builds
 
-With **Skip deployments** on, Vercel builds only when a push changes `landing/`. GitHub Actions works the other way round: [`ci.yml`](../.github/workflows/ci.yml) ignores pushes that touch only `landing/`, so a landing-only change runs no app tests and publishes no Docker image.
+The dashboard toggle alone did not stop builds for app-only pushes, so `landing/vercel.json` sets an `ignoreCommand`: Vercel skips the build unless `landing/` changed since the last deployment (`VERCEL_GIT_PREVIOUS_SHA`, or the previous commit when there is none). Such a push still shows up in Vercel as a canceled deployment, but nothing is built. Vercel clones only recent history, so if the last deployed commit is missing from the clone, the command prints that it is building and exits 1, and Vercel builds anyway. Vercel accepts only 0 (skip) and 1 (build); any other code, such as git's 128 for a missing commit, fails the deployment.
+
+GitHub Actions works the other way round: [`ci.yml`](../.github/workflows/ci.yml) ignores pushes that touch only `landing/`, so a landing-only change runs no app tests and publishes no Docker image.
 
 ## Preview locally
 
