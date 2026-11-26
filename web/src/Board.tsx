@@ -16,6 +16,7 @@ import { Icon, ProjectTile } from './icons'
 import { tr, useLang } from './i18n'
 import { useFresh } from './live'
 import { Link, hrefWith, navigate, setParam, useRoute } from './router'
+import { zoom } from './theme'
 import { AreaDot, AgentBadge, EmptyState, ErrorState, Menu, PriorityChip, Skeleton } from './ui'
 import { Wiki } from './Wiki'
 
@@ -154,8 +155,10 @@ function TaskCard(props: CardProps) {
   const { t, movable } = props
   const sortable = useSortable({ id: t.id, disabled: !movable })
   const fresh = useFresh(t.id)
+  const tf = sortable.transform
+  const z = tf ? zoom() : 1 // dnd-kit measures on-screen pixels; the transform is zoomed again
   return (
-    <div ref={sortable.setNodeRef} style={{ transform: CSS.Transform.toString(sortable.transform), transition: sortable.transition }}
+    <div ref={sortable.setNodeRef} style={{ transform: CSS.Transform.toString(tf && { ...tf, x: tf.x / z, y: tf.y / z }), transition: sortable.transition }}
       className={'relative rounded-[10px] border ' + (sortable.isDragging ? 'border-dashed border-ac bg-acs' : 'border-ln bg-sf hover:border-ln2') + (fresh ? ' shadow-[inset_0_0_0_2px_var(--ac)]' : '')}>
       <Link to={hrefWith('task', t.code)} draggable={false} className={'flex flex-col gap-1.5 rounded-[inherit] px-3 py-2.5 no-underline' + (sortable.isDragging ? ' opacity-0' : '')}>
         <CardContent {...props} />
@@ -479,6 +482,7 @@ function ProjectBoard({ project, onNewTask, wiki }: { project: Project; onNewTas
   }
 
   const dragged = tasks.find((t) => t.id === dragId)
+  const pageZoom = dragged ? zoom() : 1
   const tab = (label: string, icon: string, on: boolean, click: () => void, count?: number) => (
     <button type="button" key={label} className={TAB + (on ? ' text-tx border-b-ac' : ' text-t3 border-b-transparent')} aria-current={on ? 'page' : undefined} onClick={click}>
       <Icon name={icon} size={15} />{label}{count !== undefined && <span className="rounded-full bg-sk px-1.5 text-xs font-normal text-t2 tabular-nums">{count}</span>}
@@ -546,7 +550,8 @@ function ProjectBoard({ project, onNewTask, wiki }: { project: Project; onNewTas
               ))}
             </div>
           </section>
-          <DragOverlay>{dragged && <div aria-hidden="true" className="flex cursor-grabbing flex-col gap-1.5 rounded-[10px] border border-ac bg-sf px-3 py-2.5 shadow-pop">
+          {/* The overlay is placed in on-screen pixels: undo the page zoom on the wrapper and restore it on the card. */}
+          <DragOverlay style={{ zoom: 1 / pageZoom }}>{dragged && <div aria-hidden="true" style={{ zoom: pageZoom }} className="flex cursor-grabbing flex-col gap-1.5 rounded-[10px] border border-ac bg-sf px-3 py-2.5 shadow-pop">
             <CardContent t={dragged} labels={meta.labels} fields={meta.fields} movable who={who} />
           </div>}</DragOverlay>
         </DndContext>
