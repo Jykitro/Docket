@@ -54,9 +54,6 @@ func (s *Service) ReportIssue(ctx context.Context, actor string, in ReportIssueI
 			if err != nil {
 				return err
 			}
-			if err = requireLiveProject(o.tx, source.ProjectID); err != nil {
-				return err
-			}
 		}
 		var issue store.Task
 		if in.ExistingIssue != "" {
@@ -141,9 +138,6 @@ func (s *Service) TriageIssue(ctx context.Context, ref string, in TriageInput) e
 	return s.write(ctx, ActorDenis, func(o *op) error {
 		t, err := liveTask(o.tx, ref)
 		if err != nil {
-			return err
-		}
-		if err = requireLiveProject(o.tx, t.ProjectID); err != nil {
 			return err
 		}
 		if (t.IssueKind == "" && t.Area != "issue") || t.StatusCategory == "done" {

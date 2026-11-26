@@ -29,22 +29,10 @@ func openTestStore(t *testing.T) (*store.Store, error) {
 	return store.Open(filepath.Join(t.TempDir(), "t.db"))
 }
 
-// Handler panics at startup when a service.MCPTools entry has no registration (or the reverse); this builds
-// it and drives the wiki tools through JSON-RPC in-process (httptest recorder, no port).
-func TestWikiToolsOverMCP(t *testing.T) {
-	st, err := openTestStore(t)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { st.Close() })
-	svc := service.New(st, events.NewBus(), time.UTC)
-	if _, err := svc.CreateProject(context.Background(), service.ActorDenis, service.ProjectInput{Name: "p", Slug: "p"}); err != nil {
-		t.Fatal(err)
-	}
-	h := Handler(svc, time.UTC)
-
+// caller sends tools/call to h in-process and returns the text result, prefixed "ERR " when the tool failed.
+func caller(t *testing.T, h http.Handler) func(tool, args string) string {
 	id := 0
-	call := func(tool, args string) string {
+	return func(tool, args string) string {
 		t.Helper()
 		id++
 		body := `{"jsonrpc":"2.0","id":` + strconv.Itoa(id) + `,"method":"tools/call","params":{"name":"` + tool + `","arguments":` + args + `}}`
@@ -70,6 +58,67 @@ func TestWikiToolsOverMCP(t *testing.T) {
 		}
 		return res.Result.Content[0].Text
 	}
+}
+
+// A task in the trash, or in a project in the trash, is not found over MCP; restoring brings it back (PLD-51).
+func TestTrashedTasksOverMCP(t *testing.T) {
+	st, err := openTestStore(t)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { st.Close() })
+	ctx := context.Background()
+	svc := service.New(st, events.NewBus(), time.UTC)
+	p, err := svc.CreateProject(ctx, service.ActorDenis, service.ProjectInput{Name: "p", Slug: "p", Key: "TP"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.CreateProject(ctx, service.ActorDenis, service.ProjectInput{Name: "q", Slug: "q", Key: "TQ"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.CreateTasks(ctx, service.ActorDenis, []service.NewTask{{Project: "p", Title: "a"}, {Project: "q", Title: "b"}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.DeleteProject(ctx, service.ActorDenis, p.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.DeleteTasks(ctx, service.ActorDenis, []string{"TQ-01"}); err != nil {
+		t.Fatal(err)
+	}
+	call := caller(t, Handler(svc, time.UTC))
+	for _, ref := range []string{"TP-01", "TQ-01"} {
+		for tool, args := range map[string]string{
+			"get_task":    `{"id":"` + ref + `"}`,
+			"update_task": `{"id":"` + ref + `","title":"x"}`,
+			"move_tasks":  `{"ids":["` + ref + `"],"status":"todo"}`,
+			"add_note":    `{"task_id":"` + ref + `","body_md":"x"}`,
+		} {
+			if out := call(tool, args); !strings.HasPrefix(out, "ERR not_found:") {
+				t.Errorf("%s %s: %s, want not_found", tool, ref, out)
+			}
+		}
+	}
+	if _, err := svc.RestoreProject(ctx, service.ActorDenis, p.ID); err != nil {
+		t.Fatal(err)
+	}
+	if out := call("get_task", `{"id":"TP-01"}`); !strings.Contains(out, `"title":"a"`) {
+		t.Fatalf("get_task after restore: %s", out)
+	}
+}
+
+// Handler panics at startup when a service.MCPTools entry has no registration (or the reverse); this builds
+// it and drives the wiki tools through JSON-RPC in-process (httptest recorder, no port).
+func TestWikiToolsOverMCP(t *testing.T) {
+	st, err := openTestStore(t)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { st.Close() })
+	svc := service.New(st, events.NewBus(), time.UTC)
+	if _, err := svc.CreateProject(context.Background(), service.ActorDenis, service.ProjectInput{Name: "p", Slug: "p"}); err != nil {
+		t.Fatal(err)
+	}
+	call := caller(t, Handler(svc, time.UTC))
 
 	out := call("write_page", `{"project":"p","title":"Root","body_md":"see [[Kid]] and TRK-99"}`)
 	if !strings.Contains(out, `"created":true`) || !strings.Contains(out, `"updated_at":"`) {

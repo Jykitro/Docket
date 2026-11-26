@@ -71,8 +71,8 @@ The response includes the return value in `result` and any console output in `lo
 | Error | How to proceed |
 |---|---|
 | `invalid_argument` | Correct the named field. An unknown status error includes valid keys. A failed batch can identify the zero-based item index. |
-| `not_found` | Check the workspace, task code or page title. A task may have moved to another project. |
-| `conflict` | Reread the current page or HTML revision. Merge the requested edit with current content and submit the fresh timestamp or version. A deleted or renamed page needs a new decision. |
+| `not_found` | Check the workspace, task code or page title. A task may have moved to another project. A task in the trash, or in a project in the trash, is not found until the owner restores it. |
+| `conflict` | Reread the current page or HTML revision. Merge the requested edit with current content and submit the fresh timestamp or version. A deleted or renamed page needs a new decision. An `external_id` whose task is in the trash is not reused: ask the owner to restore the task, or use a new `external_id`. |
 | `forbidden`, `tool_disabled` | Report the blocked operation. Read-only mode hides writes, and the owner can disable individual tools. |
 | `page_too_large` | Reduce `limit`, keeping the same `offset`. |
 | `quota_exceeded` | Tell the owner which quota the service reported. |

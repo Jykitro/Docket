@@ -449,7 +449,7 @@ type taskIn struct {
 }
 
 func (t *tools) getTask(ctx context.Context, in taskIn) (any, error) {
-	d, err := t.svc.TaskPage(ctx, in.ID, 20, service.ReadPage{Limit: in.Limit, Offset: in.Offset})
+	d, err := t.svc.LiveTaskPage(ctx, in.ID, 20, service.ReadPage{Limit: in.Limit, Offset: in.Offset})
 	if err != nil {
 		return nil, err
 	}
@@ -485,12 +485,10 @@ func (t *tools) getTask(ctx context.Context, in taskIn) (any, error) {
 		CreatedBy   string               `json:"created_by"`
 		Created     string               `json:"created"`
 		Done        string               `json:"done,omitempty"`
-		Trashed     bool                 `json:"trashed,omitempty"`
 		Subtasks    []sub                `json:"subtasks,omitempty"`
 		Notes       []note               `json:"notes,omitempty"`
 		History     []act                `json:"history,omitempty"`
-	}{ctask: compact(d.Task), Documents: d.Documents, Description: d.DescriptionMD, CreatedBy: d.CreatedBy, Created: t.short(d.CreatedAt),
-		Trashed: d.DeletedAt != nil}
+	}{ctask: compact(d.Task), Documents: d.Documents, Description: d.DescriptionMD, CreatedBy: d.CreatedBy, Created: t.short(d.CreatedAt)}
 	out.HasDescription = false
 	out.Project = project.Slug
 	for _, f := range fields {

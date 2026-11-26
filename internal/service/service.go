@@ -597,7 +597,17 @@ func (s *Service) GetTask(ctx context.Context, ref string, activityLimit int) (T
 	return s.TaskPage(ctx, ref, activityLimit, ReadPage{})
 }
 
-func (s *Service) TaskPage(ctx context.Context, ref string, activityLimit int, paging ReadPage) (d TaskDetail, err error) {
+// TaskPage is the owner's read: a task in the trash stays readable so the UI can show it with Restore.
+func (s *Service) TaskPage(ctx context.Context, ref string, activityLimit int, paging ReadPage) (TaskDetail, error) {
+	return s.taskPage(ctx, resolveTask, ref, activityLimit, paging)
+}
+
+// LiveTaskPage is the agents' read (MCP get_task): a task in the trash, or in a trashed project, is not found.
+func (s *Service) LiveTaskPage(ctx context.Context, ref string, activityLimit int, paging ReadPage) (TaskDetail, error) {
+	return s.taskPage(ctx, liveTask, ref, activityLimit, paging)
+}
+
+func (s *Service) taskPage(ctx context.Context, resolve func(*store.Tx, string) (store.Task, error), ref string, activityLimit int, paging ReadPage) (d TaskDetail, err error) {
 	paging, err = paging.normalized()
 	if err != nil {
 		return
@@ -606,7 +616,7 @@ func (s *Service) TaskPage(ctx context.Context, ref string, activityLimit int, p
 		activityLimit = TaskPageSize
 	}
 	err = s.read(ctx, func(tx *store.Tx) error {
-		if d.Task, err = resolveTask(tx, ref); err != nil {
+		if d.Task, err = resolve(tx, ref); err != nil {
 			return err
 		}
 		if d.Subtasks, err = tx.ListTasks(store.TaskFilter{ParentID: d.ID, IncludeDone: true, Summary: true, Limit: paging.Limit, Offset: paging.Offset}); err != nil {
@@ -757,7 +767,7 @@ func createTasks(o *op, items []NewTask) ([]store.Task, error) {
 			}
 			parentID = id
 		case it.Parent != "":
-			pt, err := resolveTask(o.tx, it.Parent)
+			pt, err := liveTask(o.tx, it.Parent)
 			if err != nil {
 				return nil, fail(err)
 			}
@@ -795,6 +805,10 @@ func createTasks(o *op, items []NewTask) ([]store.Task, error) {
 			t, err = o.tx.GetTaskByExternalID(ext)
 			if err != nil && !errors.Is(err, store.ErrNotFound) {
 				return nil, err
+			}
+			// The id stays with the trashed task (unique per workspace), so neither update it nor create a twin.
+			if t.ID != 0 && it.ClientKey == "" && requireLive(o.tx, t) != nil {
+				return nil, fail(conflict("external_id %q belongs to a task in the trash; the owner can restore it, or use another external_id", ext))
 			}
 		}
 		if t.ID != 0 && it.ClientKey == "" { // known external_id: update in place
@@ -962,7 +976,7 @@ func validate(o *op, t *store.Task, c Changes) (diff, error) {
 			zero := int64(0)
 			c.ParentID = &zero
 		} else {
-			pt, err := resolveTask(o.tx, *c.ParentRef)
+			pt, err := liveTask(o.tx, *c.ParentRef)
 			if err != nil {
 				return nil, err
 			}
@@ -1215,10 +1229,18 @@ func liveTask(tx *store.Tx, ref string) (store.Task, error) {
 	if err != nil {
 		return t, err
 	}
-	if t.DeletedAt != nil {
-		return t, notFound("task %s not found", t.Code)
+	return t, requireLive(tx, t)
+}
+
+// requireLive reports a task in the trash, or in a project in the trash, as not found.
+func requireLive(tx *store.Tx, t store.Task) error {
+	if t.DeletedAt == nil {
+		p, err := tx.GetProject(t.ProjectID)
+		if err != nil || p.DeletedAt == nil {
+			return err
+		}
 	}
-	return t, nil
+	return notFound("task %s not found", t.Code)
 }
 
 // UpdateTask takes a task code (TRK-07) or numeric id.
@@ -1396,11 +1418,11 @@ func (s *Service) DeleteTasks(ctx context.Context, actor string, refs []string) 
 			if err != nil {
 				return err
 			}
-			if t.DeletedAt != nil {
-				if *t.DeletedAt == ts {
-					continue // trashed above as a subtask of an earlier id
-				}
-				return notFound("task %s not found", t.Code)
+			if t.DeletedAt != nil && *t.DeletedAt == ts {
+				continue // trashed above as a subtask of an earlier id
+			}
+			if err := requireLive(o.tx, t); err != nil {
+				return err
 			}
 			kids, err := o.tx.ListTasks(store.TaskFilter{ParentID: t.ID, IncludeDone: true})
 			if err != nil {

@@ -39,7 +39,7 @@ func (s *Service) Search(ctx context.Context, q, scope string, limit int) (r Sea
 		if scope != "projects" {
 			seen := map[int64]bool{}
 			if codeRe.MatchString(q) {
-				if t, err := resolveTask(tx, q); err == nil && t.DeletedAt == nil {
+				if t, err := resolveTask(tx, q); err == nil && requireLive(tx, t) == nil {
 					st, err := tx.GetStatus(t.StatusID)
 					if err != nil {
 						return err

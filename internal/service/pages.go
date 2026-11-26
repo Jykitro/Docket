@@ -583,7 +583,7 @@ func pageDetail(tx *store.Tx, pg store.Page, documentOffset int) (PageDetail, er
 			}
 			return d, err
 		}
-		if t.DeletedAt == nil && t.Code == c { // only the canonical form (TRK-07) is a link, as in TaskPages
+		if t.Code == c && requireLive(tx, t) == nil { // only the canonical form (TRK-07) is a link, as in TaskPages
 			d.Links.Tasks = append(d.Links.Tasks, TaskRef{t.Code, t.Title})
 		}
 	}
@@ -638,12 +638,9 @@ func (s *Service) PageDocumentsByTitle(ctx context.Context, projectRef, title st
 func (s *Service) TaskPages(ctx context.Context, taskRef string) (out []TaskPage, err error) {
 	out = []TaskPage{}
 	err = s.read(ctx, func(tx *store.Tx) error {
-		t, err := resolveTask(tx, taskRef)
+		t, err := liveTask(tx, taskRef)
 		if err != nil {
 			return err
-		}
-		if t.DeletedAt != nil {
-			return notFound("task %s not found", t.Code)
 		}
 		return tx.WalkTaskMentions(t.Code, func(id int64, title, slug, body string) {
 			if contains(taskCodeRe.FindAllString(linkText(body), -1), t.Code) {

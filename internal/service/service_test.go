@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -994,7 +995,7 @@ func TestBulkOperationsAreBoundedDeduplicatedAndSkipNoOps(t *testing.T) {
 	s := newSvc(t)
 	mustProject(t, s, "p")
 	x := mustTasks(t, s, ActorDenis, NewTask{Project: "p", Title: "t", Status: "todo"})[0]
-	ch, cancel := s.bus.Subscribe()
+	ch, cancel, _ := s.bus.Subscribe()
 	defer cancel()
 	activity := func() []store.Activity {
 		t.Helper()
@@ -1055,5 +1056,73 @@ func TestBulkOperationsAreBoundedDeduplicatedAndSkipNoOps(t *testing.T) {
 
 	if n, err = s.CarryOver(ctx, ActorClaude, "2026-11-04", "2026-11-04"); err != nil || n != 0 {
 		t.Fatalf("carry-over onto the same date = %d, %v; want 0", n, err)
+	}
+}
+
+// A task in the trash, or in a project in the trash, is not found for direct reads and writes (PLD-51).
+func TestTrashedTasksAreNotFound(t *testing.T) {
+	s := newSvc(t)
+	p := mustProject(t, s, "doomed")
+	mustProject(t, s, "keep")
+	in := mustTasks(t, s, ActorClaude,
+		NewTask{Project: "doomed", Title: "epic"},
+		NewTask{Project: "doomed", Title: "imported", ExternalID: "gh:1"})
+	gone := mustTasks(t, s, ActorClaude, NewTask{Project: "keep", Title: "gone", ExternalID: "gh:2"})[0]
+	if _, err := s.DeleteTasks(ctx, ActorDenis, []string{gone.Code}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.DeleteProject(ctx, ActorDenis, p.ID); err != nil {
+		t.Fatal(err)
+	}
+	code := func(err error) string {
+		var se *Error
+		if errors.As(err, &se) {
+			return se.Code
+		}
+		return "not a service error: " + fmt.Sprint(err)
+	}
+	for _, ref := range []string{in[0].Code, id(in[0].ID), gone.Code} {
+		checks := map[string]error{}
+		_, checks["get"] = s.LiveTaskPage(ctx, ref, 1, ReadPage{})
+		_, checks["update"] = s.UpdateTask(ctx, ActorClaude, ref, Changes{Title: ptr("x")})
+		_, checks["move"] = s.MoveTasks(ctx, ActorClaude, []string{ref}, BulkMove{Status: ptr("todo")})
+		_, checks["note"] = s.AddNote(ctx, ActorClaude, ref, "hi")
+		_, checks["delete"] = s.DeleteTasks(ctx, ActorClaude, []string{ref})
+		_, checks["parent"] = s.CreateTasks(ctx, ActorClaude, []NewTask{{Project: "keep", Title: "sub", Parent: ref}})
+		_, checks["issue"] = s.ReportIssue(ctx, ActorClaude, ReportIssueInput{Project: "keep", Title: "bug", Observation: "seen", SourceTask: ref})
+		for name, err := range checks {
+			if code(err) != "not_found" {
+				t.Errorf("%s %s: %v, want not_found", name, ref, err)
+			}
+		}
+	}
+	// The owner's panel still opens a task in the trash (read-only, with Restore).
+	if d, err := s.TaskPage(ctx, gone.Code, 1, ReadPage{}); err != nil || d.DeletedAt == nil {
+		t.Fatalf("owner read of a trashed task: %v", err)
+	}
+
+	// The external_id of a trashed task must not update it, nor create a second task (the id is unique per workspace).
+	for _, ext := range []string{"gh:1", "gh:2"} {
+		if _, err := s.CreateTasks(ctx, ActorClaude, []NewTask{{Project: "keep", Title: "changed", ExternalID: ext}}); code(err) != "conflict" {
+			t.Errorf("external_id %s of a trashed task: %v, want conflict", ext, err)
+		}
+	}
+
+	if _, err := s.RestoreProject(ctx, ActorDenis, p.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.RestoreTask(ctx, ActorDenis, gone.Code); err != nil {
+		t.Fatal(err)
+	}
+	for _, x := range []store.Task{in[1], gone} {
+		if d, err := s.LiveTaskPage(ctx, x.Code, 1, ReadPage{}); err != nil || d.Title != x.Title {
+			t.Fatalf("after restore %s: %q %v", x.Code, d.Title, err)
+		}
+	}
+	if ts, err := s.CreateTasks(ctx, ActorClaude, []NewTask{{Project: "doomed", Title: "updated", ExternalID: "gh:1"}}); err != nil || ts[0].ID != in[1].ID || ts[0].Title != "updated" {
+		t.Fatalf("external_id after restore: %+v %v", ts, err)
+	}
+	if _, err := s.UpdateTask(ctx, ActorClaude, in[0].Code, Changes{Title: ptr("epic 2")}); err != nil {
+		t.Fatal(err)
 	}
 }
