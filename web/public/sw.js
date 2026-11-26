@@ -2,7 +2,7 @@
 const BUILD = '__PLANDILLO_BUILD__'
 const PRECACHE = __PLANDILLO_PRECACHE__
 const cacheName = `plandillo-${BUILD}`
-const index = '/index.html'
+const index = '/'
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(cacheName).then(cache => cache.addAll(PRECACHE.map(u => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting()))
@@ -22,9 +22,7 @@ self.addEventListener('fetch', event => {
   const url = new URL(request.url)
   if (request.method !== 'GET' || url.origin !== self.location.origin) return
   if (/^\/(api|mcp|healthz)(\/|$)/.test(url.pathname)) return
-  if (url.pathname.startsWith('/assets/') || PRECACHE.includes(url.pathname)) {
-    event.respondWith(caches.match(request).then(hit => hit || fetch(request)))
-  } else if (request.mode === 'navigate') {
+  if (request.mode === 'navigate') {
     event.respondWith((async () => {
       let proxied
       try {
@@ -35,5 +33,7 @@ self.addEventListener('fetch', event => {
       } catch {}
       return (await caches.match(index)) || proxied || Response.error()
     })())
+  } else if (url.pathname.startsWith('/assets/') || PRECACHE.includes(url.pathname)) {
+    event.respondWith(caches.match(request).then(hit => hit || fetch(request)))
   }
 })

@@ -23,10 +23,14 @@ const precacheList = {
   writeBundle(options: { dir?: string }) {
     const dir = options.dir as string
     const assets = readdirSync(join(dir, 'assets')).sort()
-    const build = createHash('sha256').update(assets.join('\n')).digest('hex').slice(0, 10)
-    // Root static files (icons, logos, manifest) too, or the logo is a broken image offline. Not in the build id: they rarely change without an asset changing.
+    // Root static files (icons, logos, manifest) too, or the logo is a broken image offline.
     const root = readdirSync(dir).filter((f: string) => !f.startsWith('.') && f !== 'sw.js' && f !== 'index.html' && statSync(join(dir, f)).isFile()).sort()
-    const list = ['/index.html', ...root.map((f: string) => `/${f}`), ...assets.map((f: string) => `/assets/${f}`)]
+    // The shell is cached as `/`: the Go file server may redirect /index.html, and a redirected response cannot answer a navigation.
+    const list = ['/', ...root.map((f: string) => `/${f}`), ...assets.map((f: string) => `/assets/${f}`)]
+    // The build id covers every precached byte: a change only in public/ or index.html must still install a new worker.
+    const hash = createHash('sha256')
+    for (const p of list) hash.update(p).update(readFileSync(join(dir, p === '/' ? 'index.html' : p.slice(1))))
+    const build = hash.digest('hex').slice(0, 10)
     const file = join(dir, 'sw.js')
     let sw = readFileSync(file, 'utf8')
     for (const p of ['__PLANDILLO_BUILD__', '__PLANDILLO_PRECACHE__']) if (!sw.includes(p)) throw new Error(`sw.js lacks ${p}`)
