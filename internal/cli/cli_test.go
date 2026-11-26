@@ -21,6 +21,7 @@ import (
 	"plandillo/internal/mcpserver"
 	"plandillo/internal/service"
 	"plandillo/internal/store"
+	"plandillo/skills"
 
 	"golang.org/x/oauth2"
 )
@@ -59,7 +60,7 @@ func newBoard(t *testing.T) *board {
 	srv.Start()
 	t.Cleanup(srv.Close)
 	return &board{url: srv.URL, token: token, svc: svc,
-		env: map[string]string{"PLANDILLO_URL": srv.URL, "PLANDILLO_CLI_CONFIG": filepath.Join(t.TempDir(), "cli.json")}}
+		env: map[string]string{"PLANDILLO_URL": srv.URL, "PLANDILLO_CLI_CONFIG": filepath.Join(t.TempDir(), "cli.json"), "HOME": t.TempDir()}}
 }
 
 func (b *board) run(stdin string, args ...string) (code int, stdout, stderr string) {
@@ -155,7 +156,8 @@ func TestLoginWithTokenIsSavedForThatBoardOnly(t *testing.T) {
 		t.Fatalf("config file: %v %v", fi.Mode(), err)
 	}
 	b.must(t, "", "get_today")
-	if out := b.must(t, "", "status"); !strings.Contains(out, "sign-in: workspace token") || !strings.Contains(out, "access:  read-write") {
+	if out := b.must(t, "", "status"); !strings.Contains(out, "sign-in: workspace token") || !strings.Contains(out, "access:  read-write") ||
+		!strings.Contains(out, "skills:  not installed") {
 		t.Fatalf("status printed %q", out)
 	}
 
@@ -284,5 +286,60 @@ func TestCallbackHandler(t *testing.T) {
 	case cb := <-codes:
 		t.Fatalf("stray request delivered %+v", cb)
 	default:
+	}
+}
+
+// The detector compares installed skills with the ones built into the CLI; update rewrites only stale or missing files.
+func TestSkillsStatusAndUpdate(t *testing.T) {
+	t.Chdir(t.TempDir()) // no project skills folder
+	home := t.TempDir()
+	b := &board{env: map[string]string{"HOME": home}}
+	skillsJSON := func(args ...string) (report struct {
+		Skills   []skillState
+		ToUpdate int `json:"to_update"`
+		Updated  []string
+	}, stderr string) {
+		t.Helper()
+		code, out, errs := b.run("", args...)
+		if code != exitOK || json.Unmarshal([]byte(out), &report) != nil {
+			t.Fatalf("%v: exit %d %q %q", args, code, out, errs)
+		}
+		return report, errs
+	}
+
+	if code, _, errs := b.run("", "skills", "update"); code != exitUsage || !strings.Contains(errs, "--agent claude-code") {
+		t.Fatalf("update without installed skills: exit %d %q", code, errs)
+	}
+	claude := filepath.Join(home, ".claude", "skills")
+	os.MkdirAll(filepath.Join(claude, "plandillo"), 0o755)
+	os.WriteFile(filepath.Join(claude, "plandillo", "SKILL.md"), []byte("old"), 0o644)
+
+	report, errs := skillsJSON("skills")
+	if report.ToUpdate != len(skills.Names()) || !strings.Contains(errs, "skills update") {
+		t.Fatalf("one outdated and the rest missing, got %+v %q", report, errs)
+	}
+	if report, _ := skillsJSON("skills", "update"); len(report.Updated) != len(skills.Names()) {
+		t.Fatalf("update wrote %v", report.Updated)
+	}
+	for _, name := range skills.Names() {
+		want, _ := skills.Get(name)
+		if got, _ := os.ReadFile(filepath.Join(claude, name, "SKILL.md")); string(got) != want {
+			t.Errorf("%s not updated", name)
+		}
+	}
+	if report, _ := skillsJSON("skills"); report.ToUpdate != 0 {
+		t.Fatalf("after update: %+v", report)
+	}
+	if report, _ := skillsJSON("skills", "update"); len(report.Updated) != 0 {
+		t.Fatalf("a second update rewrote %v", report.Updated)
+	}
+	if report, _ := skillsJSON("skills", "update", "--agent", "codex"); len(report.Updated) != len(skills.Names()) {
+		t.Fatalf("--agent codex installed %v", report.Updated)
+	}
+	if _, err := os.Stat(filepath.Join(home, ".agents", "skills", "plandillo", "SKILL.md")); err != nil {
+		t.Fatal(err)
+	}
+	if code, _, _ := b.run("", "skills", "update", "--agent", "cursor"); code != exitUsage {
+		t.Fatalf("unknown agent: exit %d", code)
 	}
 }

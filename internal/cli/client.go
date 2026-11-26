@@ -294,7 +294,7 @@ func (a *app) status(ctx context.Context) error {
 			signIn += " (with Code Mode)"
 		}
 	}
-	fmt.Fprintf(a.stdout, "board:   %s\nsign-in: %s\n", base, signIn)
+	fmt.Fprintf(a.stdout, "board:   %s\nsign-in: %s\nskills:  %s\n", base, signIn, a.skillsLine())
 	c, err := a.open(ctx, "/mcp")
 	if err != nil {
 		return err

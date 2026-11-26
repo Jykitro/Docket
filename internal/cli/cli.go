@@ -37,6 +37,8 @@ Commands:
   TOOL [JSON] [--ARG V]  call a tool: get_today, get_task --id PLD-12, create_tasks '{"tasks":[...]}'
                          JSON may be @file.json or - for stdin; --ARG sets one top-level argument
   code JS                run Code Mode JavaScript (also @file.js or -): 'return await codemode.get_today({})'
+  skills [update]        check the Plandillo skills of Claude Code and Codex against this version, or update them;
+                         --agent claude-code|codex or --dir DIR installs into a new folder
   version
 
 Output is the tool result as JSON on stdout; errors go to stderr as "code: message".
@@ -104,6 +106,8 @@ func (a *app) run(ctx context.Context, cmd string, args []string) error {
 		return a.tools(ctx, args)
 	case "code":
 		return a.code(ctx, args)
+	case "skills":
+		return a.skills(args)
 	}
 	return a.call(ctx, cmd, args)
 }

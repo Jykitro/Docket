@@ -73,22 +73,7 @@ func (a *app) saveConfig(cfg *config) error {
 	if err != nil {
 		return err
 	}
-	f, err := os.CreateTemp(filepath.Dir(path), ".cli-*.json") // created with mode 0600
-	if err != nil {
-		return err
-	}
-	_, err = f.Write(b)
-	if cerr := f.Close(); err == nil {
-		err = cerr
-	}
-	if err == nil {
-		err = os.Rename(f.Name(), path)
-	}
-	if err != nil {
-		os.Remove(f.Name())
-		return fmt.Errorf("save %s: %w", path, err)
-	}
-	return nil
+	return writeAtomic(path, b, 0o600)
 }
 
 // target picks the board: --url, PLANDILLO_URL, the saved sign-in, then the local default.

@@ -67,6 +67,7 @@ Use `[[Title]]` to link wiki pages and a task code to link an existing task. For
 | `plandillo-cli TOOL [JSON] [--ARG VALUE]` | Call any tool, e.g. `get_today`. Pass arguments as one JSON object, as `@file.json`, as `-` (stdin), or as `--ARG VALUE` for top-level fields; options override JSON keys. Values follow the schema: `--limit 5` is a number, a bare `--include_done` is true, `--planned_for=` sends an empty string, arrays and objects are JSON (`--ids '["TRK-07"]'`). A missing required argument fails before the call. |
 | `plandillo-cli tools [--json]` | Tools this sign-in may call, marked `read` or `write`; `--json` adds each argument schema. Read-only mode and switched-off tools are not listed. |
 | `plandillo-cli code JS` | Run Code Mode JavaScript (also `@file.js` or `-`). Needs a token for `/mcp/code`: a workspace token, or `login --code`. |
+| `plandillo-cli skills [update]` | Compare the Plandillo skills installed for Claude Code and Codex with the CLI's own version (`to_update` counts outdated and missing files); `update` rewrites them, `--agent claude-code|codex` or `--dir DIR` adds a folder. `status` shows the same check in its `skills:` line. |
 | `plandillo-cli status` | Board address, sign-in kind, access mode and tool list. Run it first when a call fails with exit 3. |
 | `plandillo-cli login [URL]`, `logout` | Browser sign-in, `--with-token` reads a workspace token from stdin; `logout` deletes the saved sign-in. |
 
