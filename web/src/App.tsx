@@ -1,4 +1,4 @@
-import { Suspense, createContext, lazy, useContext, useEffect, useState } from 'react'
+import { Suspense, createContext, lazy, useContext, useEffect, useRef, useState } from 'react'
 import { Outlet } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { type Project, useProfile, useProjects } from './api'
@@ -7,10 +7,10 @@ import { NewProjectDialog, NewTaskDialog } from './Dialogs'
 import { useLive } from './live'
 import { tr, useLang } from './i18n'
 import { Header } from './Header'
-import { useRoute } from './router'
+import { navigate, useRoute } from './router'
 import { SearchDialog } from './Search'
 import { Sidebar } from './Sidebar'
-import { useTheme } from './theme'
+import { lastProject, useTheme } from './theme'
 
 // The drawer brings Markdown rendering with it, which the first page does not need.
 const TaskPanel = lazy(() => import('./TaskPanel').then((m) => ({ default: m.TaskPanel })))
@@ -94,6 +94,18 @@ export function App() {
   const heading = path === '/attention' ? tr('Требует внимания') : path === '/' ? tr('Сегодня') : path === '/integrations' || path === '/mcp' ? tr('Интеграции') : path === '/trash' ? tr('Корзина') : section ? tr('Настройки') : taskPage ? taskPage[1].toUpperCase()
     : proj ? (current ? current.name + (proj[2] ? `: ${tr('настройки')}` : proj[3] ? `: ${tr('вики')}` : '') : tr('Проект')) : 'Plandillo'
   const crumbs = proj ? [current?.name ?? tr('Проект'), proj[2] ? tr('Настройки') : proj[3] ? tr('Вики') : tr('Доска')] : [heading]
+  useEffect(() => { if (proj) lastProject(proj[1]) }, [proj?.[1]])
+  // Settings → Appearance → Start page: once per load, an app that opens on Today goes to the chosen page instead.
+  const started = useRef(false)
+  useEffect(() => {
+    if (started.current || !projects.isSuccess) return
+    started.current = true
+    if (path !== '/' || params.toString()) return
+    const start = document.documentElement.dataset.start
+    const last = lastProject()
+    if (start === 'attention') navigate('/attention', true)
+    else if (start === 'last' && last && active?.some((p) => p.slug === last)) navigate('/p/' + last, true)
+  }, [projects.isSuccess])
   useEffect(() => { document.title = task ? `${task.toUpperCase()} · ${heading} · Plandillo` : heading === 'Plandillo' ? 'Plandillo' : `${heading} · Plandillo` }, [heading, task])
   if (profile.isPending || projects.isPending) return <div className="min-h-screen bg-bg" data-theme={theme.resolved} /> // avoid flashing the app before onboarding
   if (setup === 'open') return <div className="min-h-screen bg-bg text-tx" data-theme={theme.resolved}><Onboarding hasProjects={!!active?.length} onDone={() => setSetup('done')} /></div>

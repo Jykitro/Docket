@@ -1,6 +1,7 @@
 // Theme: light, dark or follow the system. The choice lives in localStorage; index.html applies it before the
 // first paint (same logic as apply() below) so there is no flash.
 import { useEffect, useState } from 'react'
+import { workspaceId } from './workspacePath'
 
 export type ThemePref = 'light' | 'dark' | 'system'
 const KEY = 'docket-theme'
@@ -80,6 +81,24 @@ export const DENSITIES = [
   { id: 'compact', label: 'Компактная' },
 ] as const
 
+/** What the app opens on when it starts at Today (App.tsx). */
+export const STARTS = [
+  { id: 'today', label: 'Сегодня' },
+  { id: 'attention', label: 'Требует внимания' },
+  { id: 'last', label: 'Последний проект' },
+] as const
+
+const LAST = 'plandillo-last-project-' + workspaceId
+/** The project last opened in this workspace on this device, for the "last project" start page. */
+export function lastProject(slug?: string) {
+  try {
+    if (slug) localStorage.setItem(LAST, slug)
+    return localStorage.getItem(LAST)
+  } catch {
+    return null // storage can be blocked: no start-page memory
+  }
+}
+
 /** The page zoom chosen in Appearance (1 by default). Code that turns mouse coordinates into CSS pixels divides by it. */
 export const zoom = () => parseFloat(getComputedStyle(document.documentElement).zoom) || 1
 
@@ -95,7 +114,7 @@ function stored<T extends string>(key: string, ok: readonly { id: T }[], fallbac
 }
 
 /** One Appearance choice: kept as plandillo-<attr> in localStorage and shown on <html> as data-<attr>. */
-export function useLookPref<T extends string>(attr: 'accent' | 'radius' | 'scale' | 'weight' | 'font' | 'density', options: readonly { id: T }[], fallback: T) {
+export function useLookPref<T extends string>(attr: 'accent' | 'radius' | 'scale' | 'weight' | 'font' | 'density' | 'start', options: readonly { id: T }[], fallback: T) {
   const key = 'plandillo-' + attr
   const [value, setValue] = useState<T>(() => stored(key, options, fallback))
   const set = (v: T) => {
