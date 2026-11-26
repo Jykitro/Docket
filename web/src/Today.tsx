@@ -1,11 +1,11 @@
 import { useEffect, useRef } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  type Activity, type Category, type Meta, type Project, type Task, type TodayData, addDays, agentName, api, fmtDay, fmtLongDay, fmtStamp, fmtTime, isoDay,
+  type Activity, type Category, type Meta, type Project, type Task, type TodayData, addDays, agentName, api, dayHead, fmtDay, fmtLongDay, fmtStamp, fmtTime, isoDay,
   mcpHealthLabel, mcpLastCallLabel, todayStr, isAgent, useProjects, useProjectsMeta, useWho,
 } from './api'
 import { Icon, ProjectTile } from './icons'
-import { locale, plural, tr } from './i18n'
+import { plural, tr } from './i18n'
 import { useFresh } from './live'
 import { Link, hrefWith, navigate, scrollToSection, useRoute } from './router'
 import { AreaDot, AgentBadge, ConfirmButton, ErrorState, Menu, PriorityChip, SkeletonRows, btn, btnPri, btnSq, cap, kbdPri, mc } from './ui'
@@ -134,12 +134,6 @@ function groupText(r: Activity[]) {
   const n = plural(notes, '{n} заметка|{n} заметки|{n} заметок')
   if (main.action === 'note_added') return notes > 1 ? `${main.task_code} · ${n}` : actText(main)
   return notes ? `${actText(main)} · ${n}` : actText(main)
-}
-
-function dayHead(day: string) {
-  const s = new Date(day + 'T12:00:00').toLocaleDateString(locale(), { day: 'numeric', month: 'long' })
-  const today = todayStr()
-  return day === today ? tr('сегодня, {day}', { day: s }) : day === addDays(today, -1) ? tr('вчера, {day}', { day: s }) : s
 }
 
 export function Today({ onNewTask }: { onNewTask: (o: { project?: Project; date: string }) => void }) {

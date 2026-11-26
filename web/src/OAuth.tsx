@@ -56,13 +56,20 @@ export function OAuthConnections() {
   const revoke = useMutation({ mutationFn: api.revokeOAuth, onSuccess: () => qc.invalidateQueries({ queryKey: key }) })
   const error = list.error || revoke.error
   if (!list.data?.length && !error) return null
-  return <section className="grid gap-2 rounded-xl border border-ln bg-sf px-4 py-3.5">
-    <h2 className="text-[15px] font-semibold">{tr('Подключённые приложения')}</h2>
-    {list.data?.map(c => <div key={c.id} className="flex flex-wrap items-center gap-2 text-[13px]">
-      <b className="grow break-all font-medium">{c.name}</b>
-      <span className="text-sm text-t2">{c.scope.split(' ').includes('mcp:write') ? tr('Чтение и запись') : tr('Только чтение')}</span>
-      <button className={btn} disabled={revoke.isPending} onClick={() => revoke.mutate(c.id)}>{tr('Отключить')}</button>
-    </div>)}
-    {error && <p role="alert" className="text-sm text-rd">{errText(error)}</p>}
+  return <section className="overflow-hidden rounded-xl border border-ln bg-sf" aria-labelledby="apps-title">
+    <h2 id="apps-title" className="px-4 pt-3.5 pb-3 text-[15px] font-semibold">{tr('Подключённые приложения')}</h2>
+    {!!list.data?.length && <div className="overflow-x-auto"><table className="w-full text-[13px]">
+      <thead><tr className="border-t border-ln bg-sf2 text-left text-xs text-t3">
+        <th scope="col" className="h-[30px] px-4 font-medium">{tr('Приложение')}</th>
+        <th scope="col" className="px-3 font-medium">{tr('Права')}</th>
+        <th scope="col" className="px-4"><span className="sr-only">{tr('Действие')}</span></th>
+      </tr></thead>
+      <tbody>{list.data.map(c => <tr key={c.id} className="border-t border-ln">
+        <td className="px-4 py-2 font-medium break-all">{c.name}</td>
+        <td className="px-3 py-2 whitespace-nowrap text-t2">{c.scope.split(' ').includes('mcp:write') ? tr('Чтение и запись') : tr('Только чтение')}</td>
+        <td className="px-4 py-2 text-right"><button className={btn} disabled={revoke.isPending} onClick={() => revoke.mutate(c.id)}>{tr('Отключить')}</button></td>
+      </tr>)}</tbody>
+    </table></div>}
+    {error && <p role="alert" className="px-4 pb-3 text-sm text-rd">{errText(error)}</p>}
   </section>
 }

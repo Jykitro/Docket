@@ -516,6 +516,13 @@ export function fmtLongDay(day: string) {
   return s.charAt(0).toUpperCase() + s.slice(1)
 }
 
+/** "сегодня, 26 ноября", "вчера, 25 ноября" or "24 ноября" for a day header. */
+export function dayHead(day: string) {
+  const s = new Date(day + 'T12:00:00').toLocaleDateString(locale(), { day: 'numeric', month: 'long' })
+  const today = todayStr()
+  return day === today ? tr('сегодня, {day}', { day: s }) : day === addDays(today, -1) ? tr('вчера, {day}', { day: s }) : s
+}
+
 export const fmtTime = (iso: string) => new Date(iso).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' })
 
 /** "17:08" for today, "4 ноя, 22:10" for other days (from a stored UTC timestamp). */

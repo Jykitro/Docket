@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { type ReactNode, useState } from 'react'
 import { Icon } from './icons'
 import { tr } from './i18n'
 import { Select } from './ui'
@@ -66,6 +66,16 @@ function installCommand(client: Client, method: Method, address: string) {
   }
 }
 
+/** A numbered step of the connect sequence; the numbers are real order, so they stay in an <ol>. */
+function Step({ n, title, children }: { n: number; title: string; children: ReactNode }) {
+  return (
+    <li className="grid grid-cols-[24px_minmax(0,1fr)] gap-3">
+      <span aria-hidden="true" className="grid size-6 place-items-center rounded-full border border-ln2 text-xs font-semibold text-t2">{n}</span>
+      <div className="grid min-w-0 gap-2"><span className="pt-0.5 text-sm font-medium">{title}</span>{children}</div>
+    </li>
+  )
+}
+
 export function McpAgent() {
   const [client, setClient] = useState<Client>('Claude Code')
   const [method, setMethod] = useState<Method>(location.origin + '/mcp' === local ? 'plugin' : 'workspace')
@@ -110,31 +120,36 @@ export function McpAgent() {
     : client === 'Другой клиент' ? tr('Вставьте адрес в настройки клиента, выберите Streamable HTTP и подтвердите вход через браузер.')
     : tr(instructions[active], { url: local, board: endpoint })
   const copyLabel = client === 'Claude Desktop' ? tr('Скопировать конфиг') : client === 'Другой клиент' ? tr('Копировать адрес') : tr('Скопировать команду')
+  const stepTitle = cli ? tr('Выполните в терминале') : client === 'Claude Desktop' ? tr('Добавьте конфиг в Claude Desktop') : tr('Вставьте адрес в клиент')
   return (
     <section className={PANEL} aria-labelledby="agent-install-title">
-      <div className="flex flex-wrap items-center gap-2 px-4 pt-3.5 pb-3">
-        <h2 id="agent-install-title" className="mr-auto text-[15px] font-semibold">{tr('Подключение агента')}</h2>
-        <Select right label={tr('Клиент')} showLabel value={client} options={CLIENTS.map((c) => ({ value: c, label: tr(c) }))} onChange={setClient} />
-      </div>
-      <div className="grid min-w-0 gap-2.5 px-4 pb-4">
-        {(cli || useBoard) && <div className="flex flex-wrap gap-2">
-          {cli && <Select label={tr('Способ установки')} value={active} options={(Object.keys(METHODS) as Method[]).map((m) => ({ value: m, label: tr(METHODS[m]) }))} onChange={setMethod} />}
-          {useBoard && <Select label={tr('Режим MCP')} showLabel value={codeMode ? 'code' : 'tools'} options={[{ value: 'tools', label: 'MCP' }, { value: 'code', label: 'Code Mode' }]} onChange={(v) => setCodeMode(v === 'code')} />}
-        </div>}
-        {client === 'Другой клиент' && <label className="flex flex-wrap items-center gap-2 text-[13px] text-t2">{tr('Имя агента')}
-          <input className={INPUT} value={agentName} maxLength={48} placeholder={tr('Из запроса MCP')} onChange={e => setAgentName(e.target.value)} />
-        </label>}
-        <p className="break-words text-[13px] leading-snug text-t2">{help}</p>
-        <div className="relative min-w-0 rounded-lg border border-ln bg-sf2">
-          <pre className="whitespace-pre-wrap [overflow-wrap:anywhere] py-2.5 pr-12 pl-3 font-mono text-xs leading-relaxed" dir="ltr">{command}</pre>
-          <button type="button" className={COPY} aria-label={copyLabel} title={copyLabel} onClick={() => copy(command, () => command)}>
-            <Icon name={copied === command ? 'check' : 'doc'} size={14} />
-          </button>
-          <span className="sr-only" aria-live="polite">{copied === command ? tr('Скопировано') : ''}</span>
-        </div>
-        {active !== 'skills' && <p className="text-xs text-t3">{tr('Для проверки попросите агента показать проекты выбранного пространства.')}</p>}
-        {error && <p role="alert" className="text-sm text-rd">{error}</p>}
-      </div>
+      <h2 id="agent-install-title" className="px-4 pt-3.5 pb-1 text-[15px] font-semibold">{tr('Подключить агента')}</h2>
+      <ol className="flex flex-col gap-4 px-4 pt-2 pb-4">
+        <Step n={1} title={tr('Выберите клиент и состав')}>
+          <div className="flex flex-wrap gap-2">
+            <Select label={tr('Клиент')} showLabel value={client} options={CLIENTS.map((c) => ({ value: c, label: tr(c) }))} onChange={setClient} />
+            {cli && <Select label={tr('Способ установки')} value={active} options={(Object.keys(METHODS) as Method[]).map((m) => ({ value: m, label: tr(METHODS[m]) }))} onChange={setMethod} />}
+            {useBoard && <Select label={tr('Режим MCP')} showLabel value={codeMode ? 'code' : 'tools'} options={[{ value: 'tools', label: 'MCP' }, { value: 'code', label: 'Code Mode' }]} onChange={(v) => setCodeMode(v === 'code')} />}
+          </div>
+          {client === 'Другой клиент' && <label className="flex flex-wrap items-center gap-2 text-[13px] text-t2">{tr('Имя агента')}
+            <input className={INPUT} value={agentName} maxLength={48} placeholder={tr('Из запроса MCP')} onChange={e => setAgentName(e.target.value)} />
+          </label>}
+        </Step>
+        <Step n={2} title={stepTitle}>
+          <div className="relative min-w-0 rounded-lg border border-ln bg-sf2">
+            <pre className="whitespace-pre-wrap [overflow-wrap:anywhere] py-2.5 pr-12 pl-3 font-mono text-xs leading-relaxed" dir="ltr">{command}</pre>
+            <button type="button" className={COPY} aria-label={copyLabel} title={copyLabel} onClick={() => copy(command, () => command)}>
+              <Icon name={copied === command ? 'check' : 'doc'} size={14} />
+            </button>
+            <span className="sr-only" aria-live="polite">{copied === command ? tr('Скопировано') : ''}</span>
+          </div>
+          <p className="break-words text-[13px] leading-snug text-t2">{help}</p>
+          {error && <p role="alert" className="text-sm text-rd">{error}</p>}
+        </Step>
+        {active !== 'skills' && <Step n={3} title={tr('Проверьте подключение')}>
+          <p className="text-[13px] text-t2">{tr('Попросите агента показать проекты этого пространства. Вызов появится в журнале вызовов.')}</p>
+        </Step>}
+      </ol>
       <details className="group border-t border-ln px-4 py-2.5 text-[13px]">
         <summary className={SUMMARY}>{tr('Скачать отдельные навыки')}<span className={CHEVRON}><Icon name="chevron" size={15} /></span></summary>
         <div className="pt-3">
