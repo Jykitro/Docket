@@ -23,7 +23,9 @@ export const MENUSEP = 'my-1 h-px bg-ln'
 /** The user's photo, or the first letter of their name on a soft tile. */
 export function Avatar({ name, photo, size = 32 }: { name?: string; photo?: string | null; size?: number }) {
   const box = { width: size, height: size, fontSize: Math.round(size * 0.42) }
-  if (photo) return <img src={photo} style={box} className="shrink-0 rounded-full object-cover" alt="" />
+  // A photo that does not load (offline: the image is not stored on the device) falls back to the initial.
+  const [broken, setBroken] = useState<string>()
+  if (photo && photo !== broken) return <img src={photo} style={box} className="shrink-0 rounded-full object-cover" alt="" onError={() => setBroken(photo)} />
   return <span style={box} className="grid shrink-0 place-items-center rounded-full bg-acs font-semibold text-act">{name ? name.charAt(0).toUpperCase() : <Icon name="user" size={Math.round(size * 0.47)} sw={2} />}</span>
 }
 
