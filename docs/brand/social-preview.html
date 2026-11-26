@@ -1,0 +1,30 @@
+<!doctype html>
+<!-- Source of social-preview.png (GitHub repository social preview, 1280×640).
+     Render: Chrome --headless --screenshot=social-preview.png --window-size=1280,640 social-preview.html -->
+<meta charset="utf-8">
+<style>
+  @font-face { font-family: Inter; font-weight: 400; src: url(../../landing/public/assets/fonts/inter-latin-400-normal.woff2); }
+  @font-face { font-family: Inter; font-weight: 600; src: url(../../landing/public/assets/fonts/inter-latin-600-normal.woff2); }
+  @font-face { font-family: Mono; src: url(../../landing/public/assets/fonts/jetbrains-mono-latin-400-normal.woff2); }
+  html, body { margin: 0; width: 1280px; height: 640px; overflow: hidden; }
+  body { position: relative; font-family: Inter, sans-serif; background: #120E19; color: #F7F3FE; }
+  body::before { content: ""; position: absolute; inset: 0;
+    background: radial-gradient(600px 420px at 85% 20%, #543099aa, transparent 70%); }
+  .shot { position: absolute; left: 640px; top: 112px; width: 900px; border-radius: 14px;
+    border: 1px solid #3A2F4D; box-shadow: 0 40px 80px #0009;
+    transform: perspective(1600px) rotateY(-14deg) rotateX(4deg); transform-origin: left center; }
+  .text { position: absolute; left: 80px; top: 100px; width: 540px; }
+  .logo { height: 44px; display: block; }
+  h1 { margin: 56px 0 0; font-size: 60px; line-height: 1.03; font-weight: 600; letter-spacing: -0.04em; }
+  h1 em { font-style: normal; color: #CEB7FF; }
+  p { margin: 24px 0 0; font-size: 22px; line-height: 1.45; color: #B9AECB; }
+  code { position: absolute; left: 80px; bottom: 76px; font: 16px Mono, monospace; color: #CEB7FF;
+    background: #1E1729; border: 1px solid #3A2F4D; padding: 12px 18px; border-radius: 10px; }
+</style>
+<img class="shot" src="../images/mcp-dark.png" alt="">
+<div class="text">
+  <img class="logo" src="../../web/public/plandillo-inverse.svg" alt="Plandillo">
+  <h1>A task board for you <em>and your AI agent.</em></h1>
+  <p>Claude Code, Codex or any MCP client works the same board you do.</p>
+</div>
+<code>$ docker run ghcr.io/huntly-digital/plandillo:main</code>

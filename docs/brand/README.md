@@ -8,5 +8,6 @@ The armadillo's shell contains a checkmark. Use the outlined wordmark in the pla
 | Dark surfaces | [Wordmark](../../web/public/plandillo-inverse.svg) · [PNG](plandillo-inverse.png) · [WebP](plandillo-inverse.webp) · [symbol](plandillo-mark-inverse.svg) |
 | App and browser icon | [Square SVG](../../web/public/plandillo-icon.svg) · [favicon](../../web/public/favicon.ico) · [PWA manifest](../../web/public/manifest.webmanifest) |
 | Print | [Vector PDF](plandillo.pdf) |
+| GitHub social preview (1280×640) | [PNG](social-preview.png) · [HTML source](social-preview.html) |
 
 The symbol is purple (`#543099`) on light backgrounds and lavender (`#CEB7FF`) on dark backgrounds. The corresponding wordmarks use `#261C36` and `#F7F3FE`.
