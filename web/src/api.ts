@@ -438,7 +438,8 @@ export const api = {
 // ---- hooks ----
 
 export const useAttention = () => useQuery({ queryKey: ['attention'], queryFn: api.attention, refetchInterval: 60_000 })
-export const useMe = () => useQuery({ queryKey: ['me'], queryFn: api.me, retry: false, staleTime: 0, refetchOnWindowFocus: 'always' })
+// A lost connection pauses the refetch (the cached user stays) instead of failing it; auth and server errors still fail at once.
+export const useMe = () => useQuery({ queryKey: ['me'], queryFn: api.me, retry: (n, e) => n < 1 && errorKind(e) === 'offline', staleTime: 0, refetchOnWindowFocus: 'always' })
 export const useProjects = () => useQuery({ queryKey: ['projects'], queryFn: api.projects })
 export const useProfile = () => useQuery({ queryKey: ['profile'], queryFn: api.profile })
 

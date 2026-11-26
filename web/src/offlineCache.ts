@@ -44,7 +44,10 @@ function createPersister(key: () => string): Persister {
   return {
     // Every cache change calls this: write the newest snapshot at most once a second.
     persistClient: client => {
-      latest = client
+      // A refetch that failed (server down) keeps its data: store it as successful, because restored as an error
+      // the query would lose its place in the next snapshot and screens that check isError would hide the data.
+      latest = { ...client, clientState: { ...client.clientState, queries: client.clientState.queries.map(q => q.state.status === 'error'
+        ? { ...q, state: { ...q.state, status: 'success', error: null, fetchFailureCount: 0, fetchFailureReason: null } } : q) } }
       timer ??= setTimeout(() => {
         timer = undefined
         // The key is read at write time: a sign-in in this document changes the stamp without a reload.
@@ -74,6 +77,8 @@ export function persistOptions(key: () => string) {
     persister: createPersister(key),
     maxAge: OFFLINE_MAX_AGE,
     buster: OFFLINE_DATA_VERSION,
-    dehydrateOptions: { shouldDehydrateQuery: (q: { state: { status: string }; queryKey: readonly unknown[] }) => q.state.status === 'success' && PERSISTED.has(String(q.queryKey[0])) },
+    // Any query holding data, also one whose last refetch failed; restored entries get a fresh gc timer, so the age is checked here.
+    dehydrateOptions: { shouldDehydrateQuery: (q: { state: { data: unknown; dataUpdatedAt: number }; queryKey: readonly unknown[] }) =>
+      q.state.data !== undefined && Date.now() - q.state.dataUpdatedAt < OFFLINE_MAX_AGE && PERSISTED.has(String(q.queryKey[0])) },
   }
 }
