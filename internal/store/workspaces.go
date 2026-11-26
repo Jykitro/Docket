@@ -60,6 +60,7 @@ func (s *Store) Space(ctx context.Context, owner, id int64) (Space, error) {
 	}
 	return scanSpace(s.db.ReadQueryRowContext(ctx, q+" AND id=?", owner, id))
 }
+
 // SpaceRef is Space by the reference an address carries: the numeric ID or the slug ("" is the first workspace).
 // Slugs are never all digits (database.Tx.SpaceSlug), so the two cannot be confused.
 func (s *Store) SpaceRef(ctx context.Context, owner int64, ref string) (Space, error) {
