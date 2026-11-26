@@ -33,8 +33,6 @@ export const MESSAGES: Record<string, [en: string, uk: string]> = {
   "По адресу {path} ничего нет. Возможно, ссылка устарела или страницу удалили.": ["There is nothing at {path}. The link may be out of date or the page was deleted.", "За адресою {path} нічого немає. Можливо, посилання застаріло або сторінку видалили."],
   "Проверить сейчас": ["Check now", "Перевірити зараз"],
   "Проверьте интернет. Если Plandillo запущен у вас, убедитесь, что сервер работает.": ["Check your internet. If you run Plandillo yourself, make sure the server is up.", "Перевірте інтернет. Якщо Plandillo запущено у вас, переконайтеся, що сервер працює."],
-  "Проверяем каждые 5 секунд. Последняя попытка: {time}": ["Checking every 5 seconds. Last attempt: {time}", "Перевіряємо кожні 5 секунд. Остання спроба: {time}"],
-  "Проверяем соединение каждые 5 секунд": ["Checking the connection every 5 seconds", "Перевіряємо з’єднання кожні 5 секунд"],
   "Проверяем…": ["Checking…", "Перевіряємо…"],
   "Нет связи с сервером · данные от {time} · изменения не сохраняются": ["Can’t reach the server · data from {time} · changes are not saved", "Немає зв’язку із сервером · дані від {time} · зміни не зберігаються"],
   "Нет интернета · данные от {time} · изменения не сохраняются": ["No internet · data from {time} · changes are not saved", "Немає інтернету · дані від {time} · зміни не зберігаються"],

@@ -25,7 +25,7 @@ async function probe() {
   if (state.checking) return
   set({ checking: true })
   let ok = false
-  try { ok = (await fetch('/healthz', { cache: 'no-store' })).ok } catch { /* stay offline */ }
+  try { ok = (await fetch('/healthz', { cache: 'no-store', signal: AbortSignal.timeout(4000) })).ok } catch { /* stay offline */ }
   if (ok) setOnline(true)
   set({ checking: false, lastTry: new Date(), network: navigator.onLine })
 }

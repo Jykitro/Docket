@@ -152,8 +152,10 @@ let owner: number | 'guest' | 'setup' | 'local' | undefined
 function sessionStamp() {
   try { return localStorage.getItem(changeKey) } catch { return null }
 }
-export function offlineStamp() { return sessionStamp() ?? 'local' }
 let stamp = sessionStamp()
+// This document's own sign-in (kept current by an in-document sign-in), not the live one: a tab resumed after another
+// tab signed in must not write its data under the new stamp before it reloads.
+export function offlineStamp() { return stamp ?? 'local' }
 let sessionGeneration = 0
 
 // The last workspace list, tagged with the sign-in stamp: switching workspaces reloads the page, and this lets the
