@@ -6,9 +6,9 @@ path can be given by code (`TRK-07`) or by id.
 
 ## Accounts and workspaces
 
-In selfhost, an authenticated account owns its workspaces. In local mode the same routes use the installation's local owner. The browser opens `/{slug}/`, where `slug` is the workspace's `slug` field; the API keeps using the numeric `id`. Use `GET /api/workspaces` to list active and archived entries. Create with `POST /api/workspaces`, edit with `PATCH /api/workspaces/{id}`, and send `{"action":"archive"}` or `{"action":"restore"}` to change state. To delete an archived space, send its name and selfhost password with `DELETE /api/workspaces/{id}`.
+In selfhost, an authenticated account owns its workspaces. In local mode the same routes use the installation's local owner. The browser opens `/{slug}/`, where `slug` is the workspace's `slug` field. Workspace routes `/api/workspaces/{ref}/…` accept the slug or the numeric `id`; a slug is never all digits. Use `GET /api/workspaces` to list active and archived entries. Create with `POST /api/workspaces`, edit with `PATCH /api/workspaces/{id}`, and send `{"action":"archive"}` or `{"action":"restore"}` to change state. To delete an archived space, send its name and selfhost password with `DELETE /api/workspaces/{id}`.
 
-Prefix planner requests with `/api/workspaces/{id}/`, including `projects`, `tasks`, `events` and `export`. The existing unscoped planner endpoints select the owner's first active workspace. Authentication, passkeys, TOTP and device sessions live under `/api/auth`. MCP selects a workspace by its bearer token.
+Prefix planner requests with `/api/workspaces/{ref}/`, including `projects`, `tasks`, `events` and `export`. The existing unscoped planner endpoints select the owner's first active workspace. Authentication, passkeys, TOTP and device sessions live under `/api/auth`. MCP selects a workspace by its bearer token.
 
 | Account endpoint | Purpose |
 |---|---|

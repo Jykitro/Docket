@@ -104,6 +104,15 @@ func TestSharedWorkspaceLifecycleAndIsolation(t *testing.T) {
 	if err := json.Unmarshal(status("GET", target+"/projects", "", a, 200), &ps); err != nil || len(ps) != 1 || ps[0].Name != "Second unique" {
 		t.Fatal("project listing escaped workspace", err)
 	}
+	// Page addresses name the workspace by slug, and the UI sends that slug to the API.
+	if second.Slug != "second" {
+		t.Fatalf("slug %q", second.Slug)
+	}
+	if !bytes.Contains(status("GET", "/api/workspaces/second/projects", "", a, 200), []byte("Second unique")) {
+		t.Fatal("slug addressed another workspace")
+	}
+	status("GET", "/api/workspaces/second/projects", "", b, 404)
+	status("GET", "/api/auth/oauth/connections?workspace=second", "", a, 200)
 	for _, route := range []string{"/tasks/APP-01", "/search?q=unique"} {
 		payload := status("GET", target+route, "", a, 200)
 		if !bytes.Contains(payload, []byte("Second unique")) || bytes.Contains(payload, []byte("First unique")) || bytes.Contains(payload, []byte("Bob unique")) {

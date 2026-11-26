@@ -216,8 +216,8 @@ func (h *handler) changeSpace(w http.ResponseWriter, r *http.Request, u auth.Use
 	apply()
 }
 func (h *handler) workspaceAPI(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(chi.URLParam(r, "wid"), 10, 64)
-	if err != nil || id < 1 {
+	ref := chi.URLParam(r, "wid")
+	if ref == "" {
 		spaceError(w, store.ErrNotFound)
 		return
 	}
@@ -226,5 +226,5 @@ func (h *handler) workspaceAPI(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	h.forwardAPI(w, r, id, "/api/"+tail)
+	h.forwardAPI(w, r, ref, "/api/"+tail)
 }

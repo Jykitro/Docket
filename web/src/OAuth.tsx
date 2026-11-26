@@ -4,7 +4,7 @@ import { api, errText, errorKind } from './api'
 import { tr } from './i18n'
 import { PlandilloLogo } from './PlandilloLogo'
 import { ErrorPage, Select, btn, btnPri, cap } from './ui'
-import { workspaceId } from './workspacePath'
+import { workspaceSlug } from './workspacePath'
 
 export function OAuthConsent() {
   const request = useQuery({ queryKey: ['oauth-request', location.search], queryFn: () => api.oauthRequest(location.search), retry: false })
@@ -51,8 +51,8 @@ export function OAuthConsent() {
 
 export function OAuthConnections() {
   const qc = useQueryClient()
-  const key = ['oauth-connections', workspaceId]
-  const list = useQuery({ queryKey: key, queryFn: () => api.oauthConnections(workspaceId), enabled: workspaceId > 0 })
+  const key = ['oauth-connections', workspaceSlug]
+  const list = useQuery({ queryKey: key, queryFn: () => api.oauthConnections(workspaceSlug), enabled: !!workspaceSlug })
   const revoke = useMutation({ mutationFn: api.revokeOAuth, onSuccess: () => qc.invalidateQueries({ queryKey: key }) })
   const error = list.error || revoke.error
   if (!list.data?.length && !error) return null

@@ -25,7 +25,7 @@ func TestWorkspaceSlugs(t *testing.T) {
 	if _, err = tx.Exec("INSERT INTO users(username,name,role,created_at,updated_at) VALUES ('a','','user',0,0),('b','','user',0,0)"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = tx.Exec("INSERT INTO workspaces(owner_user_id,name,generation,created_at,updated_at) VALUES (1,'Работа','g1',0,0),(1,'Работа!','g2',0,0),(2,'Работа','g3',0,0),(1,'Settings','g4',0,0),(1,'★','g5',0,0)"); err != nil {
+	if _, err = tx.Exec("INSERT INTO workspaces(owner_user_id,name,generation,created_at,updated_at) VALUES (1,'Работа','g1',0,0),(1,'Работа!','g2',0,0),(2,'Работа','g3',0,0),(1,'Settings','g4',0,0),(1,'★','g5',0,0),(1,'2024','g7',0,0)"); err != nil {
 		t.Fatal(err)
 	}
 	if err = db.EnsureCatalog(tx); err != nil {
@@ -42,7 +42,7 @@ func TestWorkspaceSlugs(t *testing.T) {
 		got = append(got, s)
 	}
 	rows.Close()
-	if want := "rabota rabota-2 rabota space-settings space"; strings.Join(got, " ") != want {
+	if want := "rabota rabota-2 rabota space-settings space space-2024";strings.Join(got, " ") != want {
 		t.Fatalf("slugs = %q, want %q", got, want)
 	}
 	if s, err := tx.SpaceSlug(1, "работа"); err != nil || s != "rabota-3" {

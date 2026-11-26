@@ -32,7 +32,7 @@ import { MutationCache, QueryClient } from '@tanstack/react-query'
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
 import { RouterProvider } from '@tanstack/react-router'
 import { CollectionLimit, PagingRequests } from './Paging'
-import { workspaceId } from './workspacePath'
+import { workspaceSlug } from './workspacePath'
 import { hashKey } from '@tanstack/react-query'
 import { adoptRestoredMe, errorKind, offlineStamp } from './api'
 import { OFFLINE_MAX_AGE, persistOptions, wipeOfflineCache } from './offlineCache'
@@ -45,7 +45,7 @@ void wipeOfflineCache(offlineStamp())
 
 const client = new QueryClient({
   mutationCache: new MutationCache({ onError: e => { if (errorKind(e) === 'offline') reportUnsaved() } }),
-  defaultOptions: { mutations: { networkMode: 'always' }, queries: { gcTime: OFFLINE_MAX_AGE, queryKeyHashFn: key => hashKey([workspaceId, ...key]), retry: (failures, error) => failures < 1 && !(error instanceof CollectionLimit) && ['offline', 'server'].includes(errorKind(error)), staleTime: 5_000 } } })
+  defaultOptions: { mutations: { networkMode: 'always' }, queries: { gcTime: OFFLINE_MAX_AGE, queryKeyHashFn: key => hashKey([workspaceSlug, ...key]), retry: (failures, error) => failures < 1 && !(error instanceof CollectionLimit) && ['offline', 'server'].includes(errorKind(error)), staleTime: 5_000 } } })
 
 if (import.meta.env.PROD && window.isSecureContext && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
@@ -58,7 +58,7 @@ window.addEventListener('vite:preloadError', () => location.reload())
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <PersistQueryClientProvider client={client} persistOptions={persistOptions(() => `${offlineStamp()}:${workspaceId}`)} onSuccess={() => adoptRestoredMe(client.getQueryData(['me']))}>
+    <PersistQueryClientProvider client={client} persistOptions={persistOptions(() => `${offlineStamp()}:${workspaceSlug}`)} onSuccess={() => adoptRestoredMe(client.getQueryData(['me']))}>
       <RouterProvider router={router} />
       <PagingRequests />
     </PersistQueryClientProvider>

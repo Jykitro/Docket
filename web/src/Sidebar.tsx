@@ -11,7 +11,7 @@ import { PlandilloLogo } from './PlandilloLogo'
 import { tr } from './i18n'
 import { Link } from './router'
 import { cap, kbd, useFocusTrap } from './ui'
-import { workspaceId } from './workspacePath'
+import { workspaceSlug } from './workspacePath'
 
 const nv = 'flex h-8 items-center gap-2 rounded-md px-2 text-sm no-underline w-full text-left text-tx hover:bg-sk '
 const nvOn = nv + 'bg-sk font-medium'
@@ -47,7 +47,7 @@ export function Sidebar({ path, view, overdue, settings, rail, mobileOpen, onClo
   const trash = useQuery({ queryKey: ['trash'], queryFn: api.trash })
   const mcp = useQuery({ queryKey: ['mcp-status'], queryFn: api.mcpStatus })
   // Same key as OAuthConnections on the Integrations page; selfhost only, elsewhere it fails and the count is just not shown.
-  const apps = useQuery({ queryKey: ['oauth-connections', workspaceId], queryFn: () => api.oauthConnections(workspaceId), enabled: workspaceId > 0 })
+  const apps = useQuery({ queryKey: ['oauth-connections', workspaceSlug], queryFn: () => api.oauthConnections(workspaceSlug), enabled: !!workspaceSlug })
   const all: Project[] = projects.data ?? []
   const list = all.filter((p) => !p.archived_at)
   const archived = all.filter((p) => p.archived_at)

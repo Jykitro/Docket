@@ -166,7 +166,7 @@ var reservedSlugs = map[string]bool{"api": true, "assets": true, "healthz": true
 // SpaceSlug is a free address word for a new workspace of owner: its name in a-z0-9 words, then -2, -3… on a clash.
 func (t *Tx) SpaceSlug(owner int64, name string) (string, error) {
 	base := slug.ASCII(name)
-	if base == "" || reservedSlugs[base] {
+	if base == "" || reservedSlugs[base] || strings.Trim(base, "0123456789") == "" { // all digits would read as an ID
 		base = strings.TrimSuffix("space-"+base, "-")
 	}
 	s := base

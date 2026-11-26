@@ -575,10 +575,12 @@ func setCookie(w http.ResponseWriter, r *http.Request, value string, maxAge int)
 
 // api hands any other /api/* request to the session user's own router. The request ends when the session does
 // (logout, password change elsewhere, expiry) or when the user is deleted.
-func (h *handler) api(w http.ResponseWriter, r *http.Request) { h.forwardAPI(w, r, 0, r.URL.Path) }
-func (h *handler) forwardAPI(w http.ResponseWriter, r *http.Request, id int64, path string) {
+func (h *handler) api(w http.ResponseWriter, r *http.Request) { h.forwardAPI(w, r, "", r.URL.Path) }
+
+// forwardAPI serves path in the workspace that ref names: its ID or slug, "" for the first one.
+func (h *handler) forwardAPI(w http.ResponseWriter, r *http.Request, ref string, path string) {
 	if h.LocalID != 0 {
-		h.authed(func(w http.ResponseWriter, r *http.Request, u auth.User) { h.forwardSpace(w, r, u, id, path) })(w, r)
+		h.authed(func(w http.ResponseWriter, r *http.Request, u auth.User) { h.forwardSpace(w, r, u, ref, path) })(w, r)
 		return
 	}
 	w.Header().Set("Cache-Control", "private, no-store")
@@ -611,14 +613,14 @@ func (h *handler) forwardAPI(w http.ResponseWriter, r *http.Request, id int64, p
 	}
 	ctx, cancel := context.WithDeadline(ctx, expires)
 	defer cancel()
-	h.forwardSpace(w, r.WithContext(ctx), u, id, path)
+	h.forwardSpace(w, r.WithContext(ctx), u, ref, path)
 }
-func (h *handler) forwardSpace(w http.ResponseWriter, r *http.Request, u auth.User, id int64, path string) {
+func (h *handler) forwardSpace(w http.ResponseWriter, r *http.Request, u auth.User, ref string, path string) {
 	var ws *Workspace
 	var err error
 	if h.WS.shared != nil {
 		var sp store.Space
-		sp, err = h.WS.shared.Space(r.Context(), u.ID, id)
+		sp, err = h.WS.shared.SpaceRef(r.Context(), u.ID, ref)
 		if err == nil {
 			ws, err = h.WS.openSpace(r.Context(), sp)
 		}

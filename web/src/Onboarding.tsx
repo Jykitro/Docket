@@ -3,7 +3,7 @@
 // miniature of the sidebar that fills in as you type, with the part the current step edits outlined.
 import { type ReactNode, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { type Project, api, errText, useMe, useProfile } from './api'
+import { type Project, api, cachedSpaces, errText, useMe, useProfile } from './api'
 import { NewProjectForm, type ProjectDraft } from './Dialogs'
 import { Icon, ProjectTile } from './icons'
 import { PlandilloLogo } from './PlandilloLogo'
@@ -12,13 +12,17 @@ import { tr } from './i18n'
 import { navigate } from './router'
 import { Avatar, LangSwitch, btn, btnPri, cap, textInput } from './ui'
 import { SPACE_NAME_MAX, SpaceIcon, useSpaces } from './Workspaces'
-import { workspaceId } from './workspacePath'
+import { workspaceSlug } from './workspacePath'
 
 export const NAME_MAX = 40
 
-const KEY = 'plandillo-onboarded-' + workspaceId
+const KEY = 'plandillo-onboarded-' + workspaceSlug
 export function isOnboarded() {
-  try { return !!localStorage.getItem(KEY) } catch { return false }
+  try {
+    // Browsers that finished onboarding before addresses used slugs kept the mark under the workspace ID.
+    const id = cachedSpaces()?.find((s) => s.slug === workspaceSlug)?.id
+    return !!localStorage.getItem(KEY) || (!!id && !!localStorage.getItem('plandillo-onboarded-' + id))
+  } catch { return false }
 }
 function markOnboarded() {
   try { localStorage.setItem(KEY, '1') } catch { /* storage can be blocked: onboarding may show again in this browser */ }
@@ -31,7 +35,7 @@ export function Onboarding({ hasProjects, onDone }: { hasProjects: boolean; onDo
   const qc = useQueryClient()
   const profile = useProfile().data
   const me = useMe().data
-  const space = useSpaces().data?.find((s) => s.id === workspaceId)
+  const space = useSpaces().data?.find((s) => s.slug === workspaceSlug)
   // The step list is fixed on first render so that finishing a step never removes it from the progress bar.
   const [steps] = useState<Step[]>(() => [
     ...(!profile?.name ? ['you' as const] : []),

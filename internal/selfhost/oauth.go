@@ -353,12 +353,13 @@ func (h *handler) oauthToken(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, out)
 }
 func (h *handler) oauthConnections(w http.ResponseWriter, r *http.Request, u auth.User) {
-	space, err := strconv.ParseInt(r.URL.Query().Get("workspace"), 10, 64)
-	if err != nil || space <= 0 {
+	ref := r.URL.Query().Get("workspace")
+	sp, err := h.WS.shared.SpaceRef(r.Context(), u.ID, ref)
+	if ref == "" || err != nil {
 		oauthError(w, 400, "invalid_request", "Select a workspace.")
 		return
 	}
-	out, err := h.Auth.OAuthConnections(r.Context(), u.ID, space)
+	out, err := h.Auth.OAuthConnections(r.Context(), u.ID, sp.ID)
 	if err != nil {
 		internalError(w, err)
 		return

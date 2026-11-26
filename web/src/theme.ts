@@ -1,7 +1,7 @@
 // Theme: light, dark or follow the system. The choice lives in localStorage; index.html applies it before the
 // first paint (same logic as apply() below) so there is no flash.
 import { useEffect, useState } from 'react'
-import { workspaceId } from './workspacePath'
+import { workspaceSlug } from './workspacePath'
 
 export type ThemePref = 'light' | 'dark' | 'system'
 const KEY = 'docket-theme'
@@ -100,7 +100,7 @@ export const STARTS = [
   { id: 'last', label: 'Последний проект' },
 ] as const
 
-const LAST = 'plandillo-last-project-' + workspaceId
+const LAST = 'plandillo-last-project-' + workspaceSlug
 /** The project last opened in this workspace on this device, for the "last project" start page. */
 export function lastProject(slug?: string) {
   try {

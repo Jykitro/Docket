@@ -327,7 +327,7 @@ type Device = { id: string; user_agent: string; current: boolean; created_at: st
 export const api = {
   oauthRequest: (query: string) => req<{client: string; redirect_uri: string; write: boolean}>('GET', '/api/auth/oauth/request' + query),
   oauthDecision: (query: string, workspace: number, allow: boolean, write: boolean) => req<{redirect: string}>('POST', '/api/auth/oauth/decision' + query, { workspace, allow, write }),
-  oauthConnections: (workspace: number) => req<{id: string; name: string; scope: string}[]>('GET', '/api/auth/oauth/connections?workspace=' + workspace),
+  oauthConnections: (workspace: string) => req<{id: string; name: string; scope: string}[]>('GET', '/api/auth/oauth/connections?workspace=' + workspace),
   revokeOAuth: (id: string) => req<void>('DELETE', '/api/auth/oauth/connections/' + encodeURIComponent(id)),
   spaces: () => req<Space[]>('GET', '/api/workspaces'),
   createSpace: (name: string) => req<Space>('POST', '/api/workspaces', {name}),

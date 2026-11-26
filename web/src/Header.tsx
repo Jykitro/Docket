@@ -9,14 +9,14 @@ import { Link } from './router'
 import { type ThemePref } from './theme'
 import { MENUITEM, Menu } from './ui'
 import { useSpaces } from './Workspaces'
-import { workspaceId } from './workspacePath'
+import { workspaceSlug } from './workspacePath'
 
 const ghost = 'inline-grid size-8 place-items-center rounded-md bg-transparent p-0 text-tx hover:bg-sk'
 
 export function Header({ onToggle, sidebarExpanded, onSearch, crumbs, theme, resolved, onTheme }: {
   onToggle: () => void; sidebarExpanded: boolean; onSearch: () => void; crumbs: string[]; theme: ThemePref; resolved: 'light' | 'dark'; onTheme: (t: ThemePref) => void
 }) {
-  const space = useSpaces().data?.find((s) => s.id === workspaceId)?.name
+  const space = useSpaces().data?.find((s) => s.slug === workspaceSlug)?.name
   const mcp = useQuery({ queryKey: ['mcp-status'], queryFn: api.mcpStatus })
   // Green only when an agent has actually connected, as in mcpHealthLabel; "ready to connect" stays neutral.
   const ok = !mcp.isError && mcp.data?.check && mcp.data.online && (mcp.data.last_call_at || mcp.data.token_last_used_at)

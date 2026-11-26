@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"errors"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -58,6 +59,15 @@ func (s *Store) Space(ctx context.Context, owner, id int64) (Space, error) {
 		return scanSpace(s.db.ReadQueryRowContext(ctx, q+" ORDER BY id LIMIT 1", owner))
 	}
 	return scanSpace(s.db.ReadQueryRowContext(ctx, q+" AND id=?", owner, id))
+}
+// SpaceRef is Space by the reference an address carries: the numeric ID or the slug ("" is the first workspace).
+// Slugs are never all digits (database.Tx.SpaceSlug), so the two cannot be confused.
+func (s *Store) SpaceRef(ctx context.Context, owner int64, ref string) (Space, error) {
+	if id, err := strconv.ParseInt(ref, 10, 64); err == nil && id > 0 || ref == "" {
+		return s.Space(ctx, owner, id)
+	}
+	q := "SELECT " + spaceColumns + " FROM workspaces WHERE owner_user_id=? AND slug=? AND archived_at IS NULL AND EXISTS(SELECT 1 FROM users WHERE id=owner_user_id AND is_active=1)"
+	return scanSpace(s.db.ReadQueryRowContext(ctx, q, owner, ref))
 }
 func (s *Store) SpaceByToken(ctx context.Context, digest string) (Space, error) {
 	return scanSpace(s.db.ReadQueryRowContext(ctx, "SELECT "+spaceColumns+" FROM workspaces WHERE token_digest=? AND archived_at IS NULL AND EXISTS(SELECT 1 FROM users WHERE users.id=owner_user_id AND is_active=1)", digest))

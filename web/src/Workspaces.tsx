@@ -8,7 +8,7 @@ import { Icon } from './icons'
 import { ProjectIconPicker } from './ProjectIconPicker'
 import { Link } from './router'
 import { Dialog, ErrorPage, MENUITEM, MENUSEP, Menu, SettingsRow, SettingsSection, btn, btnPri, cap, textInput } from './ui'
-import { workspaceApi, workspaceId, workspaceSlug } from './workspacePath'
+import { workspaceApi, workspaceSlug } from './workspacePath'
 
 // Starts from the list saved by the last load (switching reloads the page), then replaces it with the server's answer.
 export const useSpaces = () => useQuery({
@@ -22,8 +22,7 @@ export const SPACE_NAME_MAX = 80
 export function WorkspaceGate({ children }: { children: ReactNode }) {
   const spaces = useSpaces()
   const first = spaces.data?.find((s) => !s.archived_at)
-  const named = spaces.data?.find((s) => s.slug === workspaceSlug && !s.archived_at)
-  const current = named?.id === workspaceId ? named : undefined
+  const current = spaces.data?.find((s) => s.slug === workspaceSlug && !s.archived_at)
   const fresh = !spaces.isPlaceholderData // the saved list may be stale: redirect and refuse only on the server's answer
   useEffect(() => {
     if (!fresh) return
@@ -32,12 +31,10 @@ export function WorkspaceGate({ children }: { children: ReactNode }) {
     const old = /^\/w\/([1-9]\d*)(\/.*)?$/.exec(location.pathname)
     const to = old ? spaces.data?.find((s) => s.id === Number(old[1]) && !s.archived_at) ?? first : first
     if (!workspaceSlug && to) location.replace('/' + to.slug + (old ? old[2] ?? '' : location.pathname.replace(/^\/$/, '')) + rest)
-    // The ID came from a list saved by an earlier sign-in or no ID was found before signing in: start again with this one.
-    else if (named && named.id !== workspaceId) location.reload()
-  }, [first, fresh, named, spaces.data])
+  }, [first, fresh, spaces.data])
   if (spaces.isError) return <ErrorPage full error={spaces.error} />
   if (!workspaceSlug || !spaces.data) return null
-  if (!current && (!fresh || named)) return null
+  if (!current && !fresh) return null
   if (!current)
     return (
       <ErrorPage full kind="forbidden" title={tr('Пространство недоступно')} hint={tr('Его архивировали или у вас нет к нему доступа.')}
@@ -56,7 +53,7 @@ export function SpaceIcon({ space, size = 32 }: { space?: Pick<Space, 'id' | 'ic
 export function WorkspaceSwitcher({ rail }: { rail: boolean }) {
   const spaces = useSpaces().data ?? []
   const list = spaces.filter((s) => !s.archived_at)
-  const current = spaces.find((s) => s.id === workspaceId)
+  const current = spaces.find((s) => s.slug === workspaceSlug)
   const owner = useProfile().data?.name
   const [creating, setCreating] = useState(false)
   const trigger = rail
@@ -82,11 +79,11 @@ export function WorkspaceSwitcher({ rail }: { rail: boolean }) {
           <div className="w-60">
             <div className={cap + ' px-2 pt-1 pb-1.5'}>{tr('Пространства')}</div>
             {list.map((s) => (
-              <button key={s.id} type="button" role="menuitemradio" aria-checked={s.id === workspaceId} className={MENUITEM + ' h-9'}
-                onClick={() => { close(); if (s.id !== workspaceId) open(s.slug) }}>
+              <button key={s.id} type="button" role="menuitemradio" aria-checked={s.slug === workspaceSlug} className={MENUITEM + ' h-9'}
+                onClick={() => { close(); if (s.slug !== workspaceSlug) open(s.slug) }}>
                 <SpaceIcon space={s} size={22} />
                 <span className="min-w-0 grow truncate">{s.name}</span>
-                {s.id === workspaceId && <Icon name="check" size={14} sw={2.2} />}
+                {s.slug === workspaceSlug && <Icon name="check" size={14} sw={2.2} />}
               </button>
             ))}
             <div className={MENUSEP} />
@@ -150,7 +147,7 @@ function NameForm({ space }: { space: Space }) {
 /** Settings → Workspace → General: name, icon, data, archive. */
 export function WorkspaceGeneral() {
   const spaces = useSpaces()
-  const current = spaces.data?.find((s) => s.id === workspaceId)
+  const current = spaces.data?.find((s) => s.slug === workspaceSlug)
   const change = useChangeSpace()
   if (!current) return null
   const canArchive = (spaces.data ?? []).filter((s) => !s.archived_at).length > 1
@@ -212,7 +209,7 @@ export function WorkspaceList() {
           <div key={s.id} className={row}>
             <SpaceIcon space={s} />
             <span className="min-w-0 grow truncate text-sm font-medium">{s.name}</span>
-            {s.id === workspaceId ? <span className="rounded-md bg-acs px-2 py-0.5 text-xs font-medium text-act">{tr('Текущее')}</span>
+            {s.slug === workspaceSlug ? <span className="rounded-md bg-acs px-2 py-0.5 text-xs font-medium text-act">{tr('Текущее')}</span>
               : <button type="button" className={btn} onClick={() => open(s.slug)}>{tr('Открыть')}</button>}
           </div>
         ))}
