@@ -164,8 +164,10 @@ func OpenPostgres(dsn, schema string) (*DB, error) {
 	defer cancel()
 	if err := raw.PingContext(ctx); err != nil {
 		raw.Close()
-		if errors.Is(err, errSchemaLayout) {
-			return nil, errSchemaLayout
+		for _, known := range []error{errSchemaLayout, errRetiredSchemas} { // the bare message, never the DSN
+			if errors.Is(err, known) {
+				return nil, known
+			}
 		}
 		return nil, errors.New("cannot connect to PostgreSQL; check PLANDILLO_POSTGRES_DSN and server availability")
 	}
