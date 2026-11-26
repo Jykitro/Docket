@@ -258,6 +258,9 @@ func (s *Service) UpdatePage(ctx context.Context, actor string, id int64, patch 
 				return err
 			}
 			cur.BodyMD = replaceLinks(cur.BodyMD, oldKey, cur.Title)
+			if err := checkRenamedBody(cur); err != nil {
+				return err
+			}
 		}
 		if patch.ParentID != nil {
 			var parent *int64
@@ -463,11 +466,23 @@ func rewriteLinks(tx *store.Tx, self store.Page, oldKey, newTitle string) error 
 				continue
 			}
 			p.BodyMD, p.UpdatedAt = body, nextPageRevision(p.UpdatedAt)
+			if err := checkRenamedBody(p); err != nil {
+				return err
+			}
 			if err := tx.UpdatePage(p, titleKey(p.Title)); err != nil {
 				return err
 			}
 		}
 	}
+}
+
+// checkRenamedBody applies the normal body limit to a page whose [[links]] a rename rewrote;
+// the error rolls back the whole rename.
+func checkRenamedBody(p store.Page) error {
+	if err := checkPageBody(p.BodyMD); err != nil {
+		return invalid("renaming would rewrite the [[links]] in page %q past the size limit: %v; choose a shorter title or shorten that page", p.Title, err)
+	}
+	return nil
 }
 
 func samePage(a, b *int64) bool { return (a == nil && b == nil) || (a != nil && b != nil && *a == *b) }

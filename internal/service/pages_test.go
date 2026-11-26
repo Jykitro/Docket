@@ -307,6 +307,42 @@ func TestRenameRewritesOwnLinksInPatchedBody(t *testing.T) {
 	}
 }
 
+func TestRenameRejectsLinkRewritePastBodyLimit(t *testing.T) {
+	s := newSvc(t)
+	mustProject(t, s, "a")
+	links := strings.Repeat("[[T]]", 2000)
+	pad := strings.Repeat("a", maxPageBody-len(links))
+	target, _ := s.CreatePage(ctx, ActorDenis, "a", PageInput{Title: "T", BodyMD: "self [[T]]"})
+	linking, err := s.CreatePage(ctx, ActorDenis, "a", PageInput{Title: "Linking", BodyMD: links + pad})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = s.UpdatePage(ctx, ActorDenis, target.ID, PagePatch{Title: ptr(strings.Repeat("L", maxPageTitle))})
+	wantCode(t, err, "validation")
+	if !strings.Contains(err.Error(), `"Linking"`) {
+		t.Fatalf("error must name the page that would grow: %v", err)
+	}
+	if g, _ := s.GetPage(ctx, target.ID); g.Title != "T" || g.BodyMD != "self [[T]]" || g.UpdatedAt != target.UpdatedAt {
+		t.Fatalf("renamed page changed: %+v", g.Page)
+	}
+	if g, _ := s.GetPage(ctx, linking.ID); g.BodyMD != links+pad || g.UpdatedAt != linking.UpdatedAt {
+		t.Fatalf("linking page changed: %d bytes", len(g.BodyMD))
+	}
+	// The renamed page's own [[links]] are rewritten too and get the same check.
+	self, _ := s.CreatePage(ctx, ActorDenis, "a", PageInput{Title: "S", BodyMD: strings.Repeat("[[S]]", 2000)})
+	_, err = s.UpdatePage(ctx, ActorDenis, self.ID, PagePatch{Title: ptr(strings.Repeat("M", maxPageTitle))})
+	wantCode(t, err, "validation")
+	if g, _ := s.GetPage(ctx, self.ID); g.Title != "S" {
+		t.Fatalf("self-linking page renamed: %+v", g.Page)
+	}
+	if _, err := s.UpdatePage(ctx, ActorDenis, target.ID, PagePatch{Title: ptr("U")}); err != nil {
+		t.Fatalf("same-length rename must still pass: %v", err)
+	}
+	if g, _ := s.GetPage(ctx, linking.ID); !strings.HasPrefix(g.BodyMD, "[[U]][[U]]") {
+		t.Fatalf("links not rewritten: %q", g.BodyMD[:20])
+	}
+}
+
 func TestRenameUniqueness(t *testing.T) {
 	s := newSvc(t)
 	mustProject(t, s, "a")
