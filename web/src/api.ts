@@ -176,6 +176,7 @@ export function cacheSpaces(rows: Space[]) {
 function leaveWorkspace() {
   if (!sessionRequests.signal.aborted) {
     sessionRequests.abort()
+    if ('clearAppBadge' in navigator) void navigator.clearAppBadge().catch(() => {}) // the signed-out app icon keeps no count
     // The reload must happen even if the wipe fails or hangs.
     void Promise.race([wipeOfflineCache(), new Promise(r => setTimeout(r, 1000))]).finally(() => location.reload())
   }

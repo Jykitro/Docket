@@ -37,12 +37,12 @@ export function Sidebar({ path, view, overdue, settings, rail, mobileOpen, onClo
   const trap = useFocusTrap<HTMLElement>(mobileOpen)
   const projects = useProjects()
   const today = useQuery({ queryKey: ['today', 'now'], queryFn: () => api.today() })
-  // The installed app's icon (dock, home screen) shows the overdue count where the browser supports badges.
-  const late = today.data?.overdue.length
+  // The installed app's icon (dock, home screen) shows how many of today's tasks are still open, where badges are supported.
+  const open = today.data?.tasks.filter((t) => t.status_category !== 'done').length
   useEffect(() => {
-    if (late === undefined || !('setAppBadge' in navigator)) return
-    void (late ? navigator.setAppBadge(late) : navigator.clearAppBadge()).catch(() => {}) // no permission or not installed: no badge
-  }, [late])
+    if (open === undefined || !('setAppBadge' in navigator)) return
+    void (open ? navigator.setAppBadge(open) : navigator.clearAppBadge()).catch(() => {}) // no permission or not installed: no badge
+  }, [open])
   const attention = useAttention()
   const trash = useQuery({ queryKey: ['trash'], queryFn: api.trash })
   const mcp = useQuery({ queryKey: ['mcp-status'], queryFn: api.mcpStatus })
