@@ -122,8 +122,12 @@ function PanelBody({ code, mode, onClose }: { code: string; mode: 'drawer' | 'pa
       setErr('')
       if (typeof b.description_md !== 'string' || !d) return
       qc.setQueryData<TaskDetail>(['task', code], { ...d, description_md: b.description_md }) // checkbox ticks show at once
+      return { prev: d }
     },
-    onError: (e: Error) => setErr(e.message),
+    onError: (e: Error, _b, ctx) => {
+      if (ctx?.prev) qc.setQueryData<TaskDetail>(['task', code], ctx.prev)
+      setErr(e.message)
+    },
     onSettled: () => qc.invalidateQueries(),
   })
   const del = useMutation({
