@@ -33,13 +33,14 @@ func Handler() http.Handler {
 			files.ServeHTTP(w, r)
 			return
 		}
+		// no-transform stops proxies such as Cloudflare from injecting scripts (Web Analytics) that the CSP blocks.
+		w.Header().Set("Cache-Control", "no-cache, no-transform")
 		index, err := fs.ReadFile(sub, "index.html")
 		if err != nil {
 			http.Error(w, "UI is not built: run `bun run build` in web/", http.StatusNotFound)
 			return
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Header().Set("Cache-Control", "no-cache")
 		w.Write(index)
 	})
 }
