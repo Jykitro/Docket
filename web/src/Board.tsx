@@ -1,5 +1,6 @@
 // Project screen: board (columns by status, drag-and-drop) and list tabs, filters, grouping, sorting, saved views.
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useWindowVirtualizer } from '@tanstack/react-virtual'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   DndContext, DragOverlay, KeyboardSensor, PointerSensor, closestCorners, useDroppable, useSensor, useSensors,
@@ -302,19 +303,31 @@ function FilterBar({ filter, setFilter, group, setGroup, sort, setSort, meta, ta
 
 // ---- list tab ----
 
+// Past this many rows the list renders only what is on screen; shorter lists stay whole for find-in-page and screen readers.
+const VIRTUAL_ROWS = 150
+
 function ListTable({ tasks, meta }: { tasks: Task[]; meta: Meta }) {
   const color = (s: Status | undefined) => (s ? statusColor(s.color) : 'var(--bk)')
+  const body = useRef<HTMLTableSectionElement>(null)
+  const [top, setTop] = useState(0)
+  useLayoutEffect(() => setTop((body.current?.getBoundingClientRect().top ?? 0) + window.scrollY), [tasks]) // filters above the table can change its offset
+  const virtual = tasks.length > VIRTUAL_ROWS
+  const v = useWindowVirtualizer({ count: tasks.length, estimateSize: () => 42, overscan: 12, scrollMargin: top, enabled: virtual })
+  const items = v.getVirtualItems()
+  const rows = virtual ? items.map((i) => ({ t: tasks[i.index], index: i.index })) : tasks.map((t, index) => ({ t, index }))
+  const pad = (h: number) => h > 0 && <tr aria-hidden="true"><td colSpan={6} style={{ height: h, padding: 0 }} /></tr>
   return (
     <div className="px-7 pt-[18px] pb-7 overflow-x-auto">
       <table className="w-full border-separate border-spacing-0 text-sm bg-sf border border-ln rounded-xl">
         <thead>
           <tr className="text-xs font-medium text-t3"><th className={TH}>ID</th><th className={TH}>{tr('Название')}</th><th className={TH}>{tr('Статус')}</th><th className={TH}>{tr('Приоритет')}</th><th className={TH}>{tr('Область')}</th><th className={TH}>{tr('Дата')}</th></tr>
         </thead>
-        <tbody>
-          {tasks.map((t) => {
+        <tbody ref={body}>
+          {virtual && pad((items[0]?.start ?? top) - top)}
+          {rows.map(({ t, index }) => {
             const st = meta.statuses.find((s) => s.key === t.status)
             return (
-              <tr key={t.id} className="group relative">
+              <tr key={t.id} data-index={index} ref={virtual ? v.measureElement : undefined} className="group relative">
                 <td className={TD + ' font-mono text-[12px] text-t3 whitespace-nowrap'}>{t.code}</td>
                 <td className={TD + ' font-medium wrap-anywhere'}><Link to={hrefWith('task', t.code)} aria-label={t.code + ' ' + t.title} className="no-underline after:absolute after:inset-0 focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-ring">{t.title}</Link>{isAgent(t.created_by) && <> <AgentBadge actor={t.created_by} /></>}</td>
                 <td className={TD + ' whitespace-nowrap'}><span className="inline-flex items-center gap-[5px] text-[13px] text-t2"><span className="inline-block w-2 h-2 flex-[0_0_8px] rounded-full" style={{ background: color(st) }} />{t.status_name}</span></td>
@@ -324,6 +337,7 @@ function ListTable({ tasks, meta }: { tasks: Task[]; meta: Meta }) {
               </tr>
             )
           })}
+          {virtual && pad(v.getTotalSize() - ((items.at(-1)?.end ?? top) - top))}
         </tbody>
       </table>
     </div>

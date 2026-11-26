@@ -1,12 +1,8 @@
-import { useEffect, useState } from 'react'
+import { Suspense, createContext, lazy, useContext, useEffect, useState } from 'react'
+import { Outlet } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { type Project, useProfile, useProjects } from './api'
-import { Attention } from './Attention'
-import { Board } from './Board'
-import { Mcp } from './Mcp'
 import { Onboarding, isOnboarded } from './Onboarding'
-import { Settings } from './Settings'
-import { SettingsPage } from './SettingsPage'
 import { NewProjectDialog, NewTaskDialog } from './Dialogs'
 import { useLive } from './live'
 import { tr, useLang } from './i18n'
@@ -14,13 +10,16 @@ import { Header } from './Header'
 import { useRoute } from './router'
 import { SearchDialog } from './Search'
 import { Sidebar } from './Sidebar'
-import { TaskPanel } from './TaskPanel'
 import { useTheme } from './theme'
-import { Today } from './Today'
-import { Trash } from './Trash'
-import { ErrorPage } from './ui'
+
+// The drawer brings Markdown rendering with it, which the first page does not need.
+const TaskPanel = lazy(() => import('./TaskPanel').then((m) => ({ default: m.TaskPanel })))
 
 type NewTaskOpts = { project?: Project; date?: string; status?: string; title?: string }
+
+// What pages need from the shell around them.
+const ShellContext = createContext<{ openNewTask: (o: NewTaskOpts) => void; theme: ReturnType<typeof useTheme> } | null>(null)
+export const useShell = () => useContext(ShellContext)!
 
 const WIDE = '(min-width: 900px)'
 
@@ -85,20 +84,10 @@ export function App() {
 
   const openNewTask = (o: NewTaskOpts) => (active?.length ? setNewTask(o) : setNewProject(true))
 
-  let page
   const proj = path.match(/^\/p\/([^/]+)(?:\/(settings)|\/(wiki)(?:\/(\d+))?)?$/)
   const taskPage = path.match(/^\/t\/([^/]+)$/)
   const settingsPage = path.match(/^\/settings(?:\/([a-z]+))?\/?$/)
   const section = settingsPage ? settingsPage[1] ?? 'profile' : null
-  if (path === '/') page = <Today onNewTask={openNewTask} />
-  else if (path === '/attention') page = <Attention />
-  else if (proj && !proj[2]) page = <Board slug={proj[1]} onNewTask={openNewTask} wiki={proj[3] ? { id: proj[4] ? Number(proj[4]) : undefined } : undefined} />
-  else if (proj) page = <Settings slug={proj[1]} />
-  else if (taskPage) page = <TaskPanel key={taskPage[1]} code={taskPage[1]} mode="page" />
-  else if (path === '/integrations' || path === '/mcp') page = <Mcp /> // /mcp: old bookmarks
-  else if (path === '/trash') page = <Trash />
-  else if (section) page = <SettingsPage section={section} theme={theme.pref} onTheme={theme.set} />
-  else page = <ErrorPage kind="not_found" title={tr('Страница не найдена')} hint={tr('По адресу {path} ничего нет. Возможно, ссылка устарела или страницу удалили.', { path })} />
 
   const task = params.get('task')
   const current = proj ? projects.data?.find((p) => p.slug === proj[1]) : undefined
@@ -114,9 +103,9 @@ export function App() {
         onNewProject={() => { sidebar.close(); setNewProject(true) }} onSearch={() => { sidebar.close(); setSearch(true) }} />
       <div className="flex min-w-0 flex-1 flex-col">
         <Header onToggle={sidebar.toggle} sidebarExpanded={sidebar.expanded} onSearch={() => setSearch(true)} crumbs={crumbs} theme={theme.pref} resolved={theme.resolved} onTheme={theme.set} />
-        <main className="flex min-w-0 flex-1 flex-col">{page}</main>
+        <main className="flex min-w-0 flex-1 flex-col"><ShellContext value={{ openNewTask, theme }}><Outlet /></ShellContext></main>
       </div>
-      {task && <TaskPanel key={task} code={task} mode="drawer" />}
+      {task && <Suspense fallback={null}><TaskPanel key={task} code={task} mode="drawer" /></Suspense>}
       {search && projects.data && (
         <SearchDialog projects={projects.data} current={current} onClose={() => setSearch(false)} onCreate={(title) => openNewTask({ title, project: current })} />
       )}

@@ -4,12 +4,14 @@
 |---|---|---|
 | Today | `/` | Day plan, overdue tasks, progress, activity and MCP status; the status circle cycles todo → doing → done |
 | Needs attention | `/attention` | Review agent findings across projects, open the source task, take an issue, snooze it or close it with a reason |
-| Project board | `/p/:slug` | Columns per project status, drag and drop, filters, grouping, sorting, a list tab and saved views |
-| Project wiki | `/p/:slug/wiki` | Right-click a page or open its ⋯ menu to pin it or change its place among siblings. You can also drag pages and tick Markdown checklists while reading. |
+| Project board | `/:slug` | Columns per project status, drag and drop, filters, grouping, sorting, a list tab and saved views |
+| Project wiki | `/:slug/wiki`, `/:slug/wiki/:page` | Right-click a page or open its ⋯ menu to pin it or change its place among siblings. You can also drag pages and tick Markdown checklists while reading. |
 | Task panel | `?task=TRK-07`, `/t/TRK-07` | Properties, markdown description with clickable checkboxes, subtasks, notes and history |
-| Project settings | `/p/:slug/settings` | Icon, colour, key, statuses, labels, custom fields, views, export, archive and delete |
+| Project settings | `/:slug/settings` | Icon, colour, key, statuses, labels, custom fields, views, export, archive and delete |
 | Integrations | `/integrations` | MCP or Code Mode: status and self-check, address and token, access mode, tool switches and the call log |
 | Trash | `/trash` | Restore tasks and projects, or empty the trash |
+
+A project whose slug equals a reserved word (`settings`, `trash`, `api` and the other first segments of these addresses) keeps the `/p/:slug` form. Old `/p/:slug` links still open and switch to the short address. In a shared installation every address starts with `/w/:workspace`.
 
 **Keyboard:** `C` creates a task, `⌘K` / `Ctrl+K` opens search, `Esc` closes the panel, search and dialogs.
 

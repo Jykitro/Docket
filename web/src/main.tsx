@@ -29,15 +29,12 @@ import './styles.css'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { App } from './App'
+import { RouterProvider } from '@tanstack/react-router'
 import { CollectionLimit, PagingRequests } from './Paging'
-import { ConnectionGate } from './Pwa'
-import { WorkspaceGate } from './Workspaces'
 import { workspaceId } from './workspacePath'
 import { hashKey } from '@tanstack/react-query'
-import { OAuthConsent } from './OAuth'
 import { errorKind } from './api'
-import { Gate } from './Auth'
+import { router } from './router'
 
 const client = new QueryClient({ defaultOptions: { queries: { queryKeyHashFn: key => hashKey([workspaceId, ...key]), retry: (failures, error) => failures < 1 && !(error instanceof CollectionLimit) && ['offline', 'server'].includes(errorKind(error)), staleTime: 5_000 } } })
 
@@ -47,10 +44,13 @@ if (import.meta.env.PROD && window.isSecureContext && 'serviceWorker' in navigat
   })
 }
 
+// After a deploy an open tab (an installed PWA above all) asks for page chunks that no longer exist: reload onto the new build.
+window.addEventListener('vite:preloadError', () => location.reload())
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={client}>
-      <ConnectionGate><Gate>{location.pathname === '/oauth/authorize' ? <OAuthConsent /> : <WorkspaceGate><App /></WorkspaceGate>}</Gate></ConnectionGate>
+      <RouterProvider router={router} />
       <PagingRequests />
     </QueryClientProvider>
   </StrictMode>,

@@ -1,6 +1,6 @@
 // Settings as pages (/settings/<section>), grouped the way people think about them: their account, the current
 // workspace, and the app on this device. The sidebar swaps to SettingsNav while a settings page is open.
-// Per-project settings stay in Settings.tsx (/p/<slug>/settings).
+// Per-project settings stay in Settings.tsx (/<slug>/settings).
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { type Me, api, errText, useMe, useProfile } from './api'
