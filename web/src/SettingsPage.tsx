@@ -125,9 +125,9 @@ export function SettingsPage({ section, theme, onTheme }: { section: string; the
   // An admin page opened by a non-admin (a typed or shared link) says so instead of quietly showing the profile.
   const denied = !!me && asked?.group === ADMIN && !admin(me)
   const s = (denied && asked) || (SECTIONS.find((x) => x.id === section && (!x.when || x.when(me))) ?? SECTIONS[0])
-  if (meq.isPending) return <div className="mx-auto w-full max-w-3xl px-8 pt-8"><SkeletonRows n={4} /></div>
+  if (meq.isPending) return <div className="mx-auto w-full max-w-5xl px-8 pt-8"><SkeletonRows n={4} /></div>
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-8 pt-8 pb-16 max-[640px]:px-4">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-8 pt-8 pb-16 max-[640px]:px-4">
       <header className="flex flex-wrap items-end gap-x-4 gap-y-3">
         <div className="flex min-w-0 grow flex-col gap-1">
           <span className="text-[13px] text-t3">{tr('Настройки')} / {tr(s.group)}</span>
