@@ -3,7 +3,7 @@
 // `rail` is the collapsed icon-only mode (desktop); on narrow screens it is an off-canvas drawer.
 import { WorkspaceSwitcher } from './Workspaces'
 import { SettingsNav, UserMenu } from './SettingsPage'
-import { type ReactNode } from 'react'
+import { type ReactNode, useEffect } from 'react'
 import { useQueries, useQuery } from '@tanstack/react-query'
 import { type Project, type View, api, useAttention, useProjects } from './api'
 import { Icon, ProjectTile } from './icons'
@@ -37,6 +37,12 @@ export function Sidebar({ path, view, overdue, settings, rail, mobileOpen, onClo
   const trap = useFocusTrap<HTMLElement>(mobileOpen)
   const projects = useProjects()
   const today = useQuery({ queryKey: ['today', 'now'], queryFn: () => api.today() })
+  // The installed app's icon (dock, home screen) shows the overdue count where the browser supports badges.
+  const late = today.data?.overdue.length
+  useEffect(() => {
+    if (late === undefined || !('setAppBadge' in navigator)) return
+    void (late ? navigator.setAppBadge(late) : navigator.clearAppBadge()).catch(() => {}) // no permission or not installed: no badge
+  }, [late])
   const attention = useAttention()
   const trash = useQuery({ queryKey: ['trash'], queryFn: api.trash })
   const mcp = useQuery({ queryKey: ['mcp-status'], queryFn: api.mcpStatus })
