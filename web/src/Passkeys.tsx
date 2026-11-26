@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, errText } from './api'
+import { Icon } from './icons'
 import { tr } from './i18n'
 import { btn, btnPri, cap } from './ui'
 
@@ -46,9 +47,14 @@ export function PasskeyLogin() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['me'] }),
   })
   if (!supported()) return null
-  return <div className="grid gap-2">
-    <button type="button" className={btn} disabled={login.isPending} onClick={() => login.mutate()}>{tr('Войти с ключом доступа')}</button>
-    {login.isError && <p className="text-rd text-sm" role="alert">{passkeyError(login.error)}</p>}
+  return <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-2">
+      <button type="button" className="inline-flex h-11 w-full items-center justify-center gap-2.5 rounded-md border border-ln2 bg-sf text-[15px] font-semibold text-tx shadow-xs hover:bg-sk disabled:opacity-50" disabled={login.isPending} onClick={() => login.mutate()}>
+        <Icon name="key" size={17} sw={1.9} />{tr('Войти с ключом доступа')}
+      </button>
+      {login.isError && <p className="text-rd text-sm" role="alert">{passkeyError(login.error)}</p>}
+    </div>
+    <div className="flex items-center gap-3 text-[12.5px] text-t3"><span aria-hidden="true" className="h-px flex-1 bg-ln" />{tr('или паролем')}<span aria-hidden="true" className="h-px flex-1 bg-ln" /></div>
   </div>
 }
 

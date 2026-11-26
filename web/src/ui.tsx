@@ -91,7 +91,14 @@ export function Menu({ label, className = fc, right, up, block, ariaLabel, title
   }, [open])
   return (
     <span className={'relative ' + (block ? 'block' : 'inline-block')} ref={ref}>
-      <button type="button" className={className} aria-haspopup="menu" aria-expanded={open} aria-label={ariaLabel} title={title} disabled={disabled} onClick={() => setOpen(!open)}>
+      <button type="button" className={className} aria-haspopup="menu" aria-expanded={open} aria-label={ariaLabel} title={title} disabled={disabled} onClick={() => setOpen(!open)}
+        onKeyDown={(e) => {
+          if (open || e.key !== 'ArrowDown') return
+          // ArrowDown on a closed trigger opens the menu on its first item.
+          e.preventDefault()
+          setOpen(true)
+          requestAnimationFrame(() => ref.current?.querySelector<HTMLElement>('[data-menu] button:not(:disabled), [data-menu] a[href]')?.focus())
+        }}>
         {label}
       </button>
       {open && <div data-menu className={'absolute z-30 min-w-[200px] max-h-80 overflow-y-auto bg-sf border border-ln rounded-md shadow-pop p-1 ' + (up ? 'bottom-[calc(100%+6px)] ' : 'top-[calc(100%+6px)] ') + (right ? 'right-0' : 'left-0')} role="menu">{children(close)}</div>}
@@ -293,17 +300,38 @@ export const AgentBadge = ({ actor }: { actor: string }) => (
   <span className="inline-flex min-w-0 max-w-36 items-center gap-1 text-[11px] font-medium text-act bg-acs rounded-[5px] py-0.5 pr-1.5 pl-[5px]" title={tr('Автор: {name}', { name: agentName(actor) })}><Icon name="spark" size={11} sw={2.2} /><span className="truncate">{agentName(actor)}</span></span>
 )
 
-/** EN / RU / UK switch. It subscribes itself, so it works on the login screen too. */
+/** Language menu: the current language named in itself, the list from LANGS. It subscribes itself, so it works on the login screen too. */
 export function LangSwitch() {
   const lang = useLang()
+  const current = LANGS.find((l) => l.id === lang) ?? LANGS[0]
   return (
-    <span className="inline-flex gap-0.5 rounded-md border border-ln p-0.5 text-xs" role="group" aria-label={tr('Язык')}>
-      {LANGS.map((l) => (
-        <button key={l.id} type="button" lang={l.id} title={l.name} aria-pressed={lang === l.id} onClick={() => setLang(l.id)}
-          className="rounded-sm px-2 py-0.5 font-medium text-t3 aria-pressed:bg-sk aria-pressed:font-semibold aria-pressed:text-tx">{l.id.toUpperCase()}</button>
-      ))}
-    </span>
+    <Menu right ariaLabel={tr('Язык интерфейса: {name}', { name: current.name })}
+      className="inline-flex h-8 items-center gap-1.5 rounded-md border border-ln pr-2 pl-2.5 text-[13px] font-medium text-t2 hover:bg-sk aria-expanded:border-ln2"
+      label={<><Icon name="globe" size={15} /><span lang={current.id}>{current.name}</span><Icon name="chevD" size={13} sw={2} /></>}>
+      {(close) => <>
+        {LANGS.map((l) => (
+          <button key={l.id} type="button" role="menuitemradio" aria-checked={l.id === lang} lang={l.id} className={MENUITEM + ' aria-checked:bg-sk aria-checked:font-semibold'}
+            onClick={() => { setLang(l.id); close() }}>
+            <span className="grow">{l.name}</span>
+            <span className="font-mono text-[11.5px] font-normal text-t3">{l.id.toUpperCase()}</span>
+            <span className="grid w-3.5 place-items-center text-act">{l.id === lang && <Icon name="check" size={14} sw={2.4} />}</span>
+          </button>
+        ))}
+        <div role="separator" className={MENUSEP} />
+        <a role="menuitem" href="https://github.com/huntly-digital/plandillo/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener noreferrer" className={MENUITEM + ' text-[13px] text-t2'}>
+          <Icon name="plus" size={14} /><span className="grow">{tr('Помочь с переводом')}</span><Icon name="expand" size={12} />
+        </a>
+      </>}
+    </Menu>
   )
+}
+
+/** Copies an input's value. navigator.clipboard is missing on plain-HTTP origins (a LAN IP), so fall back to execCommand, then leave the text selected for a manual copy. */
+export async function copyInput(field: HTMLInputElement | HTMLTextAreaElement | null): Promise<'done' | 'manual'> {
+  try { await navigator.clipboard.writeText(field?.value ?? ''); return 'done' } catch { /* try the legacy path */ }
+  field?.select()
+  try { if (document.execCommand('copy')) return 'done' } catch { /* leave it selected */ }
+  return 'manual'
 }
 
 export function AreaDot({ area, labels }: { area: string; labels: Label[] }) {

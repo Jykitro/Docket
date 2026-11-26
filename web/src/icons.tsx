@@ -55,6 +55,13 @@ const P = {
   lock: 'M6 11h12v9H6zM8 11V8a4 4 0 0 1 8 0v3',
   offline: 'M3 3l18 18M8.5 16.5a5 5 0 0 1 7 0M5 12.9a10 10 0 0 1 4.6-2.6M19 12.9a10 10 0 0 0-2.2-1.6M2 9a15 15 0 0 1 4.3-2.8M22 9a15 15 0 0 0-11.3-3.9M12 20h.01',
   expand: 'M14 4h6v6M20 4l-8 8M10 6H5a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5',
+  eye: 'M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12zM12 9a3 3 0 1 0 0 6a3 3 0 0 0 0-6z',
+  eyeOff: 'M3 3l18 18M10.6 5.1A10 10 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.6 6.6A17 17 0 0 0 2 12s3.5 7 10 7a9.7 9.7 0 0 0 5.4-1.6M9.9 9.9a3 3 0 0 0 4.2 4.2',
+  mail: 'M3 5h18v14H3zM3 7l9 6 9-6',
+  phone: 'M8 2.5h8a2 2 0 0 1 2 2v15a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-15a2 2 0 0 1 2-2zM11 18h2',
+  shield: 'M12 3L4 6v6c0 5 3.5 8 8 9c4.5-1 8-4 8-9V6zM9 12l2 2 4-4',
+  copy: 'M9 9h12v12H9zM5 15V5a2 2 0 0 1 2-2h10',
+  download: 'M12 4v11M7 10l5 5 5-5M5 20h14',
 } as const
 
 export const PROJECT_ICONS = ['target', 'clover', 'key', 'stack', 'candle', 'bars', 'board', 'plug', 'flag', 'tag', 'doc', 'cal', 'link', 'spark', 'home', 'cart', 'globe'] as const

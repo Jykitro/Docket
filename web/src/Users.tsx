@@ -6,7 +6,7 @@ import { ApiError, type AuthUser, type Registration, api, errText } from './api'
 import { PasskeySettings } from './Passkeys'
 import { Icon } from './icons'
 import { locale, tr } from './i18n'
-import { Avatar, ConfirmButton, Dialog, ErrorState, SettingsSection, SkeletonRows, btn, btnPri, cap } from './ui'
+import { Avatar, ConfirmButton, Dialog, ErrorState, SettingsSection, SkeletonRows, btn, btnPri, cap, copyInput } from './ui'
 
 const input = 'h-9 w-full min-w-0 border border-ln rounded-md bg-sf px-2.5 text-sm text-tx focus:border-ring focus:ring-[3px] focus:ring-ring focus:outline-none'
 const item = 'flex items-center gap-3 min-h-10 px-3 rounded-md border border-ln bg-sf2 text-sm'
@@ -51,13 +51,7 @@ function InvitePanel({ closed, onClose }: { closed: boolean; onClose: () => void
     const t = setTimeout(() => setCopied(null), copied === 'done' ? 2000 : 4000)
     return () => clearTimeout(t)
   }, [copied])
-  // navigator.clipboard is missing on plain-HTTP origins (a LAN IP), so fall back to execCommand, then to a manual-copy hint.
-  const copy = async () => {
-    try { await navigator.clipboard.writeText(link!); return setCopied('done') } catch { /* try the legacy path */ }
-    field.current?.select()
-    try { if (document.execCommand('copy')) return setCopied('done') } catch { /* leave it selected */ }
-    setCopied('manual')
-  }
+  const copy = async () => setCopied(await copyInput(field.current))
   return (
     <Dialog side title={tr('Пригласить пользователя')} onClose={onClose}>
       <p className="text-sm text-t2">{tr('Создайте ссылку и отправьте её человеку. По ней он создаст аккаунт на этом сервере. Ссылка одноразовая.')}</p>

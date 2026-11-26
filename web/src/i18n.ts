@@ -13,16 +13,18 @@ export const LANGS: { id: Lang; name: string }[] = [
 const KEY = 'docket-lang'
 const LOCALES: Record<Lang, string> = { en: 'en-GB', ru: 'ru-RU', uk: 'uk-UA' }
 
+const isLang = (v: string | null): v is Lang => LANGS.some((l) => l.id === v)
+
 function initial(): Lang {
   try {
     const v = localStorage.getItem(KEY)
-    if (v === 'en' || v === 'ru' || v === 'uk') return v
+    if (isLang(v)) return v
   } catch {
     /* storage can be blocked: fall back to the browser language */
   }
   for (const l of navigator.languages) {
     const c = l.slice(0, 2)
-    if (c === 'en' || c === 'ru' || c === 'uk') return c
+    if (isLang(c)) return c
   }
   return 'en'
 }
