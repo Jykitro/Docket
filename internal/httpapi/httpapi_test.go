@@ -406,6 +406,46 @@ func TestSSE(t *testing.T) {
 	}
 }
 
+func TestSSEStreamBudget(t *testing.T) {
+	e := newEnv(t)
+	open := func() (*http.Response, context.CancelFunc) {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		req, _ := http.NewRequestWithContext(ctx, "GET", e.srv.URL+"/api/events", nil)
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			cancel()
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { res.Body.Close(); cancel() })
+		return res, cancel
+	}
+	var first context.CancelFunc
+	for i := range events.MaxPerBus {
+		res, cancel := open()
+		if res.StatusCode != 200 {
+			t.Fatalf("stream %d: status %d", i+1, res.StatusCode)
+		}
+		if i == 0 {
+			first = cancel
+		}
+	}
+	res, _ := open()
+	var body struct{ Error struct{ Code string } }
+	json.NewDecoder(res.Body).Decode(&body)
+	if res.StatusCode != http.StatusTooManyRequests || res.Header.Get("Retry-After") == "" || body.Error.Code != "too_many_streams" {
+		t.Fatalf("stream over the budget: status %d, Retry-After %q, code %q", res.StatusCode, res.Header.Get("Retry-After"), body.Error.Code)
+	}
+	first() // the server releases the slot once it sees the request end
+	for deadline := time.Now().Add(3 * time.Second); ; time.Sleep(20 * time.Millisecond) {
+		if res, cancel := open(); res.StatusCode == 200 {
+			cancel()
+			break
+		} else if time.Now().After(deadline) {
+			t.Fatalf("closing a stream did not free its slot: status %d", res.StatusCode)
+		}
+	}
+}
+
 func TestLocalMe(t *testing.T) {
 	st, err := openTestStore(t)
 	if err != nil {

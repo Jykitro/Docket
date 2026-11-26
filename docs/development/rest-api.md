@@ -49,5 +49,5 @@ Paged project, task, trash and Today reads accept `limit` and `offset` (up to 10
 | `GET /api/mcp/token`, `POST /api/mcp/token/rotate`, `GET/DELETE /api/mcp/calls` | Token, rotation, call log |
 | `GET/PUT /api/profile` | Display name (an empty name means first run) |
 | `GET/PUT/DELETE /api/push` | Push notifications for this device: `GET` says whether push is on and gives the VAPID key, with the device's settings when the `X-Push-Endpoint` header names its subscription; `PUT` saves `{endpoint, p256dh, auth, agent_done, morning, tz, lang}`; `DELETE {endpoint}` unsubscribes |
-| `GET /api/events` | SSE: `{type, task_id?, project_id?, actor}` |
+| `GET /api/events` | SSE: `{type, task_id?, project_id?, actor}`. At most 16 open streams per workspace and 1024 per process; over that, `429 too_many_streams` with `Retry-After` |
 | `GET /api/export`, `GET /healthz` | Full dump, liveness check |

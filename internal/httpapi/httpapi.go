@@ -964,11 +964,16 @@ func (a *api) events(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 500, "internal", "streaming unsupported")
 		return
 	}
+	ch, cancel, ok := a.bus.Subscribe()
+	if !ok {
+		w.Header().Set("Retry-After", "30")
+		writeError(w, http.StatusTooManyRequests, "too_many_streams", "too many open live-update streams; close a tab or window and try again")
+		return
+	}
+	defer cancel()
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("X-Accel-Buffering", "no") // nginx would otherwise hold events back until its buffer fills
-	ch, cancel := a.bus.Subscribe()
-	defer cancel()
 	fmt.Fprint(w, ": connected\n\n")
 	fl.Flush()
 	ping := time.NewTicker(25 * time.Second)

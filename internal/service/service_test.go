@@ -473,7 +473,7 @@ func TestActivityActor(t *testing.T) {
 
 func TestEventsPublishedAfterCommit(t *testing.T) {
 	s := newSvc(t)
-	ch, cancel := s.bus.Subscribe()
+	ch, cancel, _ := s.bus.Subscribe()
 	defer cancel()
 	mustProject(t, s, "p")
 	if _, err := s.CreateTasks(ctx, ActorClaude, []NewTask{{Project: "p", Title: ""}}); err == nil {
