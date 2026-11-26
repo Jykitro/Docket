@@ -378,7 +378,8 @@ export const api = {
   profile: () => req<Profile>('GET', '/api/profile'),
   setProfile: (name: string) => req<Profile>('PUT', '/api/profile', { name }),
   projects: () => listPages<Project>('/api/projects?include_archived=1'),
-  createProject: (b: { name: string; key?: string; icon?: string; icon_png?: string; color?: string }) => req<Project>('POST', '/api/projects', b),
+  // lang names the new project's default statuses in the interface language.
+  createProject: (b: { name: string; key?: string; icon?: string; icon_png?: string; color?: string }) => req<Project>('POST', '/api/projects', { ...b, lang: getLang() }),
   statuses: (pid: number) => req<Status[]>('GET', `/api/projects/${pid}/statuses`),
   labels: (pid: number) => req<Label[]>('GET', `/api/projects/${pid}/labels`),
   fields: (pid: number) => req<Field[]>('GET', `/api/projects/${pid}/fields`),

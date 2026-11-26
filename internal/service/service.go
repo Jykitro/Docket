@@ -203,6 +203,7 @@ type ProjectInput struct {
 	Icon        string `json:"icon"`
 	Color       string `json:"color"`
 	Description string `json:"description"`
+	Lang        string `json:"lang"` // names the default statuses: ru (also when empty), en or uk
 }
 
 func (s *Service) CreateProject(ctx context.Context, actor string, in ProjectInput) (p store.Project, err error) {
@@ -217,10 +218,20 @@ var defaultStatuses = []store.Status{
 	{Key: "done", Name: "Готово", Color: "dn", Category: "done"},
 }
 
+// Default status names in the other interface languages, in defaultStatuses order. Stored as data: renaming one later is the user's call.
+var statusNames = map[string][]string{
+	"en": {"Backlog", "To do", "In progress", "Done"},
+	"uk": {"Беклог", "До роботи", "В роботі", "Готово"},
+}
+
 func createProject(o *op, in ProjectInput) (store.Project, error) {
 	name := strings.TrimSpace(in.Name)
 	if name == "" {
 		return store.Project{}, invalid("project name is required")
+	}
+	names, ok := statusNames[in.Lang]
+	if !ok && in.Lang != "" && in.Lang != "ru" {
+		return store.Project{}, invalid("lang must be ru, en or uk")
 	}
 	count, err := o.tx.CountLiveProjects()
 	if err != nil {
@@ -283,6 +294,9 @@ func createProject(o *op, in ProjectInput) (store.Project, error) {
 	}
 	for i, st := range defaultStatuses {
 		st.ProjectID, st.ShowOnBoard, st.Position = p.ID, true, float64(i+1)*1024
+		if names != nil {
+			st.Name = names[i]
+		}
 		if _, err := o.tx.InsertStatus(st); err != nil {
 			return p, err
 		}

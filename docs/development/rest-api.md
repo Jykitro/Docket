@@ -23,7 +23,7 @@ Paged project, task, trash and Today reads accept `limit` and `offset` (up to 10
 
 | Method and path | Purpose |
 |---|---|
-| `GET/POST /api/projects`, `PATCH/DELETE /api/projects/:id` | Projects; `DELETE` moves a project to the trash |
+| `GET/POST /api/projects`, `PATCH/DELETE /api/projects/:id` | Projects; `POST` takes `lang` (`ru`, `en`, `uk`; empty means `ru`) for the default status names; `DELETE` moves a project to the trash |
 | `POST /api/projects/:id/archive`, `POST /api/projects/:id/restore`, `GET /api/projects/:id/export` | Archive, restore from the trash, JSON export |
 | `GET/POST /api/projects/:id/statuses`, `PATCH/DELETE /api/statuses/:id`, `POST …/statuses/reorder` | Statuses; `DELETE ?move_to=<id>` moves the tasks |
 | `GET/POST /api/projects/:id/labels`, `PATCH/DELETE /api/labels/:id` | Area labels |

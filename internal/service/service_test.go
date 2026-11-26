@@ -934,3 +934,30 @@ func TestBoardSummaryPageMatchesTaskOrderingAndCounts(t *testing.T) {
 		}
 	}
 }
+
+func TestProjectStatusesFollowTheCreatorsLanguage(t *testing.T) {
+	s, ctx := newSvc(t), context.Background()
+	for lang, want := range map[string]string{
+		"":   "Бэклог,К работе,В работе,Готово", // MCP and older clients send no language
+		"ru": "Бэклог,К работе,В работе,Готово",
+		"en": "Backlog,To do,In progress,Done",
+		"uk": "Беклог,До роботи,В роботі,Готово",
+	} {
+		p, err := s.CreateProject(ctx, ActorDenis, ProjectInput{Name: "Lang " + lang, Lang: lang})
+		if err != nil {
+			t.Fatalf("lang %q: %v", lang, err)
+		}
+		sts, _ := s.ListStatuses(ctx, p.ID)
+		var names []string
+		for _, st := range sts {
+			names = append(names, st.Name)
+		}
+		if got := strings.Join(names, ","); got != want {
+			t.Errorf("lang %q: statuses %q, want %q", lang, got, want)
+		}
+	}
+	var se *Error
+	if _, err := s.CreateProject(ctx, ActorDenis, ProjectInput{Name: "French", Lang: "fr"}); !asErr(err, &se) || se.Code != "validation" {
+		t.Fatalf("an unknown language must be rejected, got %v", err)
+	}
+}
