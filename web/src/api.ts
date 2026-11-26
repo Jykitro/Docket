@@ -510,6 +510,14 @@ export function fmtDay(day: string) {
   return `${d} ${tr('янв фев мар апр мая июн июл авг сен окт ноя дек').split(' ')[m - 1]}`
 }
 
+/** A due date on cards and in lists: like fmtDay, or "через 3 дня" / "2 дня назад" with Appearance → Due dates → relative. */
+export function fmtDue(day: string) {
+  if (document.documentElement.dataset.dates !== 'relative') return fmtDay(day)
+  const days = Math.round((Date.parse(day + 'T12:00:00') - Date.parse(todayStr() + 'T12:00:00')) / 86_400_000)
+  const s = new Intl.RelativeTimeFormat(locale(), { numeric: 'auto' }).format(days, 'day')
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}
+
 export function fmtLongDay(day: string) {
   const d = new Date(day + 'T12:00:00')
   const s = d.toLocaleDateString(locale(), { weekday: 'long', day: 'numeric', month: 'long' })

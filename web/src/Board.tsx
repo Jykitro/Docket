@@ -10,7 +10,7 @@ import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalList
 import { CSS } from '@dnd-kit/utilities'
 import {
   type Category, type Field, type Label, type Meta, type Project, type Status, type Task, type View, type ViewFilter,
-  api, fmtDay, statusColor, todayStr, useProjects, isAgent, useProjectsMeta, useWho,
+  api, fmtDue, statusColor, todayStr, useProjects, isAgent, useProjectsMeta, useWho,
 } from './api'
 import { Icon, ProjectTile } from './icons'
 import { tr, useLang } from './i18n'
@@ -137,7 +137,7 @@ function CardContent({ t, labels, fields, movable, who }: CardProps) {
           <AreaDot area={t.area} labels={labels} />
           {t.planned_for && (
             <span className={MC + (today ? ' text-act' : late ? ' text-rd' : ' text-t3')}>
-              <Icon name="cal" size={12} sw={2} />{fmtDay(t.planned_for)}
+              <Icon name="cal" size={12} sw={2} />{fmtDue(t.planned_for)}
             </span>
           )}
           {t.subtask_count > 0 && <span className={MC + ' text-t3 tabular-nums'}><Icon name="subtask" size={12} sw={2} />{t.subtask_done}/{t.subtask_count}</span>}
@@ -364,7 +364,7 @@ function ListTable({ tasks, meta }: { tasks: Task[]; meta: Meta }) {
                 <td className={TD + ' whitespace-nowrap'}><span className="inline-flex items-center gap-[5px] text-[13px] text-t2"><span className="inline-block w-2 h-2 flex-[0_0_8px] rounded-full" style={{ background: color(st) }} />{t.status_name}</span></td>
                 <td className={TD + ' whitespace-nowrap'}><PriorityChip p={t.priority} /></td>
                 <td className={TD + ' whitespace-nowrap'}><AreaDot area={t.area} labels={meta.labels} /></td>
-                <td className={TD + ' tabular-nums text-t2 whitespace-nowrap'}>{t.planned_for ? fmtDay(t.planned_for) : '—'}</td>
+                <td className={TD + ' tabular-nums text-t2 whitespace-nowrap'}>{t.planned_for ? fmtDue(t.planned_for) : '—'}</td>
               </tr>
             )
           })}

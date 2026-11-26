@@ -10,7 +10,7 @@ import { LANGS, locale, setLang, tr, useLang } from './i18n'
 import { NAME_MAX } from './Onboarding'
 import { InstallPlandillo } from './Pwa'
 import { Link } from './router'
-import { ACCENTS, DENSITIES, FONTS, KEYS, RADII, SCALES, STARTS, type ThemePref, WEIGHTS, useLookPref } from './theme'
+import { ACCENTS, DATES, DENSITIES, FONTS, KEYS, RADII, SCALES, STARTS, type ThemePref, WEIGHTS, useLookPref } from './theme'
 import { AccountSection, Users } from './Users'
 import { WorkspaceGeneral, WorkspaceList } from './Workspaces'
 import { Avatar, ErrorState, MENUITEM, MENUSEP, Menu, SettingsRow, SettingsSection, SkeletonRows, btn, btnPri, cap, textInput } from './ui'
@@ -257,6 +257,7 @@ function Appearance({ theme, onTheme }: { theme: ThemePref; onTheme: (t: ThemePr
   const [density, setDensity] = useLookPref('density', DENSITIES, 'normal')
   const [start, setStart] = useLookPref('start', STARTS, 'today')
   const [keys, setKeys] = useLookPref('keys', KEYS, 'show')
+  const [dates, setDates] = useLookPref('dates', DATES, 'absolute')
   const step = SCALES.findIndex((s) => s.id === scale)
   const ink = accent === 'purple' ? undefined : ACCENTS.find((a) => a.id === accent)?.color
   return (
@@ -322,6 +323,9 @@ function Appearance({ theme, onTheme }: { theme: ThemePref; onTheme: (t: ThemePr
         </SettingsRow>
         <SettingsRow label={tr('Ключи задач')} hint={tr('ABC-12 в списках, на карточках и в поиске. В карточке задачи ключ виден всегда.')}>
           <Segmented label={tr('Ключи задач')} value={keys} options={KEYS} onChange={setKeys} />
+        </SettingsRow>
+        <SettingsRow label={tr('Сроки')} hint={tr('На карточках и в списке: «21 ноя» или «через 3 дня».')}>
+          <Segmented label={tr('Сроки')} value={dates} options={DATES} onChange={setDates} />
         </SettingsRow>
       </SettingsSection>
       <SettingsSection title={tr('Запуск')}>
