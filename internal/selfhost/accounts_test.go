@@ -27,16 +27,16 @@ func TestRegistrationModesAndRecovery(t *testing.T) {
 	expect := func(method, path, body string, c *http.Cookie, status int) {
 		t.Helper()
 		if r := s.do(method, path, body, c, nil); r.Code != status {
-			t.Fatalf("%s %s returned %d, expected %d", method, strings.Split(path, "/invite/")[0], r.Code, status)
+			t.Fatalf("%s %s returned %d, expected %d", method, path, r.Code, status)
 		}
 	}
 	expect("POST", "/api/auth/register", body, nil, 403)
-	invite := s.invite(admin)
+	invited := jsonBody("token", s.invite(admin), "username", "owner", "password", testPassword)
 	mode("closed")
-	expect("POST", "/api/auth/invite/"+invite, body, nil, 403)
+	expect("POST", "/api/auth/invite", invited, nil, 403)
 	expect("POST", "/api/admin/invites", "", admin, 403)
 	mode("invite")
-	r := s.do("POST", "/api/auth/invite/"+invite, body, nil, nil)
+	r := s.do("POST", "/api/auth/invite", invited, nil, nil)
 	if r.Code != 200 {
 		t.Fatalf("resume invite: %d", r.Code)
 	}
@@ -52,7 +52,7 @@ func TestRegistrationModesAndRecovery(t *testing.T) {
 	expect("PUT", "/api/admin/registration", jsonBody("mode", "open"), owner, 403)
 	mode("open")
 	expect("POST", "/api/auth/register", jsonBody("username", "next", "password", testPassword), nil, 200)
-	expect("POST", "/api/auth/invite/"+invite, body, nil, 400)
+	expect("POST", "/api/auth/invite", invited, nil, 400)
 	expect("PUT", "/api/admin/users/2/blocked", `{"blocked":true}`, admin, 204)
 	expect("GET", "/api/projects", "", owner, 401)
 	if s.login("owner", testPassword, nil).Code != 401 {
@@ -160,7 +160,7 @@ func TestProvisioningRetry(t *testing.T) {
 		t.Fatal(err)
 	}
 	token := s.invite(admin)
-	r := s.do("POST", "/api/auth/invite/"+token, jsonBody("username", "retry", "password", testPassword), nil, nil)
+	r := s.do("POST", "/api/auth/invite", jsonBody("token", token, "username", "retry", "password", testPassword), nil, nil)
 	if r.Code != 500 || sessionCookie(r) != nil {
 		t.Fatal("failed provisioning issued a session")
 	}

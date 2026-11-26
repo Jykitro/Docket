@@ -9,6 +9,7 @@ import { PlandilloLogo } from './PlandilloLogo'
 import { tr, useLang } from './i18n'
 import { Link, navigate, useRoute } from './router'
 import { ErrorPage, LangSwitch, btn, btnPri, copyInput } from './ui'
+import { inviteToken } from './workspacePath'
 
 const GITHUB = 'https://github.com/huntly-digital/plandillo'
 const input = 'h-11 w-full min-w-0 rounded-md border border-ln2 bg-sf px-3.5 text-[15px] text-tx focus:border-ring focus:ring-[3px] focus:ring-ring/30 focus:outline-none aria-invalid:border-rd'
@@ -241,15 +242,15 @@ function Guest({ path, saved }: { path: string; saved: Saved }) {
       fields={[username, { key: 'code', label: 'Резервный код', autoComplete: 'off', kind: 'code' }, { ...newPassword, label: 'Новый пароль' }]}
       onSubmit={(v) => api.recover(v.username, v.code, v.password).then(saved)} footer={backToLogin()} />
   )
-  const invite = path.startsWith('/invite/')
+  const invite = path === '/invite'
   if (invite || path === '/register') {
     if (policy.isPending) return null
-    if (policy.data?.mode === 'open' || (invite && policy.data?.mode === 'invite')) {
+    if (policy.data?.mode === 'open' || (invite && inviteToken && policy.data?.mode === 'invite')) {
       return (
         <AuthForm head={<ServerChip invite={invite} />} title={invite ? tr('Вас пригласили в Plandillo') : tr('Создать аккаунт')}
           text={invite ? tr('Придумайте логин и пароль. После регистрации откроется ваше личное рабочее пространство.') : tr('После регистрации откроется ваше личное рабочее пространство.')}
           submit={tr('Создать аккаунт')} fields={[username, newPassword]} footer={toLogin}
-          onSubmit={(v) => (invite ? api.acceptInvite(path.slice(8), v.username, v.password) : api.register(v.username, v.password)).then(saved)} />
+          onSubmit={(v) => (invite ? api.acceptInvite(inviteToken, v.username, v.password) : api.register(v.username, v.password)).then(saved)} />
       )
     }
     return <AuthShell><Heading title={tr('Регистрация сейчас недоступна')} text={tr('Нет аккаунта? Попросите приглашение у администратора сервера.')} />{backToLogin()}</AuthShell>
@@ -311,8 +312,8 @@ export function Gate({ children }: { children: ReactNode }) {
     if (!inApp) document.title = 'Plandillo'
   }, [inApp])
 
-  // Signed in already: drop /invite/<token> from the URL and history instead of letting the app print it as "not found".
-  const leaving = !loggedOut && !!me.data?.user && (path.startsWith('/invite/') || path === '/register' || path === '/recover')
+  // Signed in already: leave /invite instead of letting the app print it as "not found".
+  const leaving = !loggedOut && !!me.data?.user && (path === '/invite' || path === '/register' || path === '/recover')
   useEffect(() => {
     if (leaving) navigate(returnPath, true)
   }, [leaving, returnPath])

@@ -125,7 +125,11 @@ func Handler(o Options) http.Handler {
 		r.Post("/api/auth/login", smallCredentials(h.login))
 		r.Post("/api/auth/logout", h.logout)
 		r.Post("/api/auth/setup", smallCredentials(h.setup))
-		r.Post("/api/auth/invite/{token}", smallCredentials(h.limitSignup("signup", h.acceptInvite)))
+		// The invite token travels in the body: a request path ends up in proxy and tracing logs.
+		r.Post("/api/auth/invite", smallCredentials(h.limitSignup("signup", h.acceptInvite)))
+		r.Handle("/api/auth/invite/*", http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			writeError(w, 404, "not_found", "no such endpoint")
+		}))
 		r.Put("/api/auth/password", smallCredentials(h.authed(h.changePassword)))
 		// Registered explicitly so no /api/admin path ever reaches a user's own router.
 		r.Get("/api/admin/users", h.admin(h.listUsers))
@@ -411,11 +415,11 @@ func (h *handler) setup(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handler) acceptInvite(w http.ResponseWriter, r *http.Request) {
-	var in struct{ Username, Password string }
+	var in struct{ Token, Username, Password string }
 	if !decode(w, r, &in) {
 		return
 	}
-	u, err := h.Auth.Register(r.Context(), chi.URLParam(r, "token"), in.Username, in.Password)
+	u, err := h.Auth.Register(r.Context(), in.Token, in.Username, in.Password)
 	if err != nil {
 		credentialError(w, err)
 		return
@@ -469,7 +473,7 @@ func (h *handler) createInvite(w http.ResponseWriter, _ *http.Request, u auth.Us
 		credentialError(w, err)
 		return
 	}
-	writeJSON(w, 201, map[string]string{"url": "/invite/" + token, "expires_at": expires.UTC().Format(time.RFC3339)})
+	writeJSON(w, 201, map[string]string{"url": "/invite#" + token, "expires_at": expires.UTC().Format(time.RFC3339)})
 }
 
 func (h *handler) deleteInvite(w http.ResponseWriter, r *http.Request, _ auth.User) {

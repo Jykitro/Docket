@@ -5,6 +5,16 @@
 // internal/database/catalog.go keeps workspace slugs out of them). A project whose slug is one of these keeps /p/<slug>.
 const RESERVED = new Set(['p', 't', 'w', 'attention', 'integrations', 'mcp', 'trash', 'settings', 'oauth', 'register', 'recover', 'invite', 'api', 'healthz', 'assets'])
 
+/** The invite token of /invite#<token> (or of an old /invite/<token> link), kept in memory only: it leaves the address
+ * bar and history before the router reads the URL, so it shows in no screenshot, history entry or later request. */
+export const inviteToken = (() => {
+  const m = /^\/invite(?:\/([^/]+))?\/?$/.exec(location.pathname)
+  if (!m) return ''
+  const token = m[1] ?? location.hash.slice(1) // tokens are base64url: nothing to decode
+  history.replaceState(history.state, '', '/invite')
+  return token
+})()
+
 const first = location.pathname.split('/')[1]
 /** This document's workspace slug; '' on pages outside a workspace and on old /w/<id>/ links (WorkspaceGate redirects). */
 export const workspaceSlug = first && !RESERVED.has(first) ? first : ''
@@ -14,7 +24,7 @@ export function workspacePath(path: string) {
   if (!path.startsWith('/')) return path
   const slug = /^\/p\/([^/?#]+)/.exec(path)?.[1]
   if (slug && !RESERVED.has(slug)) path = path.slice(2)
-  if (!workspaceSlug || /^\/(?:register$|recover$|invite\/)/.test(path)) return path
+  if (!workspaceSlug || /^\/(?:register$|recover$|invite(?:$|\/))/.test(path)) return path
   return `/${workspaceSlug}${path.replace(/^\/(?=[?#]|$)/, '')}`
 }
 

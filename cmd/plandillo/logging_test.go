@@ -37,6 +37,7 @@ func TestAccessLog(t *testing.T) {
 		{"server error at error", "/api/boom", "", "ERROR", "/api/boom", 500, false},
 		{"stream keeps Flush", "/api/events", "", "INFO", "/api/events", 200, false},
 		{"invite token hidden", "/api/auth/invite/abc123secret", "", "INFO", "/api/auth/invite/…", 200, false},
+		{"old invite link hidden", "/invite/abc123secret", "", "DEBUG", "/invite/…", 200, false},
 		{"proxy id kept", "/api/projects", "trace-42.a_b", "INFO", "/api/projects", 200, true},
 		{"unsafe id replaced", "/api/projects", "bad id\nINFO forged", "INFO", "/api/projects", 200, false},
 	}

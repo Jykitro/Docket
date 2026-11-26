@@ -240,7 +240,7 @@ async function req<T>(method: string, url: string, body?: unknown, budget?: Coll
   if (data?.error?.code === 'session_changed' || (res.status === 401 && typeof owner === 'number' && (data?.error?.code === 'unauthorized' || !url.startsWith('/api/auth/')))) leaveWorkspace()
   sessionRequests.signal.throwIfAborted()
   if (!res.ok) throw new ApiError(data?.error?.code ?? 'internal', data?.error?.message ?? data?.error_description ?? res.statusText, res.status)
-  if (!data?.challenge && (['/api/auth/login/totp','/api/auth/login', '/api/auth/passkeys/login/finish', '/api/auth/logout', '/api/auth/setup', '/api/auth/register', '/api/auth/account', '/api/auth/recover'].includes(url) || url.startsWith('/api/auth/invite/'))) {
+  if (!data?.challenge && ['/api/auth/login/totp','/api/auth/login', '/api/auth/passkeys/login/finish', '/api/auth/logout', '/api/auth/setup', '/api/auth/register', '/api/auth/account', '/api/auth/recover', '/api/auth/invite'].includes(url)) {
     sessionGeneration++
     try {
       localStorage.setItem(changeKey, crypto.getRandomValues(new Uint32Array(4)).join('-'))
@@ -363,7 +363,7 @@ export const api = {
   logout: () => req<void>('POST', '/api/auth/logout'),
   setup: (username: string, password: string) => req<AuthUser & Recovery>('POST', '/api/auth/setup', { username, password }),
   acceptInvite: (token: string, username: string, password: string) =>
-    req<AuthUser & Recovery>('POST', `/api/auth/invite/${encodeURIComponent(token)}`, { username, password }),
+    req<AuthUser & Recovery>('POST', '/api/auth/invite', { token, username, password }), // never in the URL: proxies log paths
   changePassword: (old: string, next: string) => req<void>('PUT', '/api/auth/password', { old, new: next }),
   adminUsers: () => req<AuthUser[]>('GET', '/api/admin/users'),
   adminBackups: () => req<Backups>('GET', '/api/admin/backups'),

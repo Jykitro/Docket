@@ -104,7 +104,8 @@ func isAPI(path string) bool {
 	return false
 }
 
-// redactPath hides invitation tokens, the only secret that travels in a URL path.
+// redactPath hides invitation tokens: new links carry them in the fragment, but links sent before still reach the
+// server once as /invite/<token>, and an old open tab may still post to /api/auth/invite/<token> (answered with 404).
 func redactPath(path string) string {
 	if i := strings.Index(path, "/invite/"); i >= 0 {
 		return path[:i] + "/invite/…"

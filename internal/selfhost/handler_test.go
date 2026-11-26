@@ -530,7 +530,7 @@ func TestSetupWithoutCodeMakesFirstAccountAdmin(t *testing.T) {
 	}
 }
 
-// invite has the admin create an invite and returns its token.
+// invite has the admin create an invite and returns its token, which the link carries in the fragment.
 func (s *server) invite(admin *http.Cookie) string {
 	s.t.Helper()
 	rec := s.do("POST", "/api/admin/invites", "", admin, nil)
@@ -538,13 +538,29 @@ func (s *server) invite(admin *http.Cookie) string {
 		URL       string `json:"url"`
 		ExpiresAt string `json:"expires_at"`
 	}
-	if rec.Code != 201 || json.Unmarshal(rec.Body.Bytes(), &out) != nil || !strings.HasPrefix(out.URL, "/invite/") {
+	if rec.Code != 201 || json.Unmarshal(rec.Body.Bytes(), &out) != nil || !strings.HasPrefix(out.URL, "/invite#") {
 		s.t.Fatalf("create invite: %d %s", rec.Code, rec.Body)
 	}
 	if _, err := time.Parse(time.RFC3339, out.ExpiresAt); err != nil || !strings.Contains(rec.Body.String(), `"expires_at"`) {
 		s.t.Fatalf("expires_at: %s", rec.Body)
 	}
-	return strings.TrimPrefix(out.URL, "/invite/")
+	return strings.TrimPrefix(out.URL, "/invite#")
+}
+
+// The token never travels in a request path, where proxy and tracing logs would keep it.
+func TestInviteTokenNotInPath(t *testing.T) {
+	s := newServer(t)
+	admin, _ := s.addUser("alice")
+	tok := s.invite(admin)
+	for _, method := range []string{"POST", "GET"} {
+		if rec := s.do(method, "/api/auth/invite/"+tok, jsonBody("username", "bob", "password", testPassword), nil, nil); rec.Code != 404 || sessionCookie(rec) != nil {
+			t.Fatalf("%s token in path: %d %s, want 404", method, rec.Code, rec.Body)
+		}
+	}
+	rec := s.do("POST", "/api/auth/invite", jsonBody("token", tok, "username", "bob", "password", testPassword), nil, nil)
+	if rec.Code != 200 || sessionCookie(rec) == nil {
+		t.Fatalf("token in body: %d %s", rec.Code, rec.Body)
+	}
 }
 
 func TestInviteFlow(t *testing.T) {
@@ -554,7 +570,7 @@ func TestInviteFlow(t *testing.T) {
 	if rec := s.do("GET", "/api/admin/invites", "", admin, nil); rec.Code != 200 || strings.Count(rec.Body.String(), `"expires_at"`) != 1 || strings.Contains(rec.Body.String(), tok) {
 		t.Fatalf("list invites: %d %s", rec.Code, rec.Body)
 	}
-	rec := s.do("POST", "/api/auth/invite/"+tok, jsonBody("username", "bob", "password", testPassword), nil, nil)
+	rec := s.do("POST", "/api/auth/invite", jsonBody("token", tok, "username", "bob", "password", testPassword), nil, nil)
 	c := sessionCookie(rec)
 	if rec.Code != 200 || c == nil || !strings.Contains(rec.Body.String(), `"is_admin":false`) {
 		t.Fatalf("accept: %d %s", rec.Code, rec.Body)
@@ -584,11 +600,11 @@ func TestInviteReuseAndExpiry(t *testing.T) {
 	s := newServer(t)
 	admin, _ := s.addUser("alice")
 	tok := s.invite(admin)
-	if rec := s.do("POST", "/api/auth/invite/"+tok, jsonBody("username", "bob", "password", testPassword), nil, nil); rec.Code != 200 {
+	if rec := s.do("POST", "/api/auth/invite", jsonBody("token", tok, "username", "bob", "password", testPassword), nil, nil); rec.Code != 200 {
 		t.Fatalf("first accept: %d %s", rec.Code, rec.Body)
 	}
-	reused := s.do("POST", "/api/auth/invite/"+tok, jsonBody("username", "carol", "password", testPassword), nil, nil)
-	garbage := s.do("POST", "/api/auth/invite/garbage", jsonBody("username", "carol", "password", testPassword), nil, nil)
+	reused := s.do("POST", "/api/auth/invite", jsonBody("token", tok, "username", "carol", "password", testPassword), nil, nil)
+	garbage := s.do("POST", "/api/auth/invite", jsonBody("token", "garbage", "username", "carol", "password", testPassword), nil, nil)
 	for _, rec := range []*httptest.ResponseRecorder{reused, garbage} {
 		if rec.Code != 400 || !strings.Contains(rec.Body.String(), `"validation"`) || sessionCookie(rec) != nil {
 			t.Fatalf("bad token: %d %s", rec.Code, rec.Body)
@@ -599,10 +615,10 @@ func TestInviteReuseAndExpiry(t *testing.T) {
 	}
 	// A taken username and a weak password do not burn the invite.
 	tok = s.invite(admin)
-	if rec := s.do("POST", "/api/auth/invite/"+tok, jsonBody("username", "alice", "password", testPassword), nil, nil); rec.Code != 400 || !strings.Contains(rec.Body.String(), "username is taken") {
+	if rec := s.do("POST", "/api/auth/invite", jsonBody("token", tok, "username", "alice", "password", testPassword), nil, nil); rec.Code != 400 || !strings.Contains(rec.Body.String(), "username is taken") {
 		t.Fatalf("taken: %d %s", rec.Code, rec.Body)
 	}
-	if rec := s.do("POST", "/api/auth/invite/"+tok, jsonBody("username", "carol", "password", "short"), nil, nil); rec.Code != 400 || !strings.Contains(rec.Body.String(), "password must be") {
+	if rec := s.do("POST", "/api/auth/invite", jsonBody("token", tok, "username", "carol", "password", "short"), nil, nil); rec.Code != 400 || !strings.Contains(rec.Body.String(), "password must be") {
 		t.Fatalf("weak password: %d %s", rec.Code, rec.Body)
 	}
 }
@@ -619,7 +635,7 @@ func TestRevokeInvite(t *testing.T) {
 	if rec := s.do("DELETE", path, "", nil, nil); rec.Code != 401 {
 		t.Fatalf("anonymous revoke: %d", rec.Code)
 	}
-	bob := sessionCookie(s.do("POST", "/api/auth/invite/"+s.invite(admin), jsonBody("username", "bob", "password", testPassword), nil, nil))
+	bob := sessionCookie(s.do("POST", "/api/auth/invite", jsonBody("token", s.invite(admin), "username", "bob", "password", testPassword), nil, nil))
 	if rec := s.do("DELETE", path, "", bob, nil); rec.Code != 403 {
 		t.Fatalf("non-admin revoke: %d", rec.Code)
 	}
@@ -628,7 +644,7 @@ func TestRevokeInvite(t *testing.T) {
 			t.Errorf("DELETE %s: %d %s, want %d", p, rec.Code, rec.Body, want)
 		}
 	}
-	if rec := s.do("POST", "/api/auth/invite/"+tok, jsonBody("username", "carol", "password", testPassword), nil, nil); rec.Code != 400 {
+	if rec := s.do("POST", "/api/auth/invite", jsonBody("token", tok, "username", "carol", "password", testPassword), nil, nil); rec.Code != 400 {
 		t.Fatalf("revoked invite accepted: %d %s", rec.Code, rec.Body)
 	}
 	// Bob's invite (id 2) is used: it cannot be revoked.
