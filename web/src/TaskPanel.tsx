@@ -115,6 +115,14 @@ function PanelBody({ code, mode, onClose }: { code: string; mode: 'drawer' | 'pa
   const qc = useQueryClient()
   const [err, setErr] = useState('')
   const [copied, setCopied] = useState(false)
+  // A touch screen gets the system share sheet; with a mouse the button keeps copying the link in one click.
+  const canShare = !!navigator.share && matchMedia('(pointer: coarse)').matches
+  const shareLink = () => {
+    const url = location.origin + workspacePath('/t/' + (d?.code ?? code))
+    const copy = () => navigator.clipboard?.writeText(url).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500) })
+    if (!canShare) return void copy()
+    navigator.share({ title: d?.title ?? code, url }).catch((e: Error) => { if (e.name !== 'AbortError') copy() })
+  }
 
   const patch = useMutation({
     mutationFn: (b: Record<string, unknown>) => api.updateTask(code, b),
@@ -143,8 +151,8 @@ function PanelBody({ code, mode, onClose }: { code: string; mode: 'drawer' | 'pa
       {project ? <Link to={`/p/${project.slug}`} onClick={() => mode === 'drawer' && setParam('task', null)} className="text-[13px] text-t2 no-underline">{project.name}</Link> : null}
       <span className="text-t3">/</span>
       <span className="grow font-mono text-[12.5px] text-t3">{d?.code ?? code}</span>
-      <button type="button" className={HEAD_BTN} aria-label={tr('Копировать ссылку')} title={copied ? tr('Скопировано') : tr('Копировать ссылку')}
-        onClick={() => navigator.clipboard?.writeText(location.origin + workspacePath('/t/' + (d?.code ?? code))).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500) })}>
+      <button type="button" className={HEAD_BTN} aria-label={canShare ? tr('Поделиться ссылкой') : tr('Копировать ссылку')}
+        title={copied ? tr('Скопировано') : canShare ? tr('Поделиться ссылкой') : tr('Копировать ссылку')} onClick={shareLink}>
         <Icon name={copied ? 'check' : 'link'} size={16} sw={1.8} />
       </button>
       {mode === 'drawer' && (

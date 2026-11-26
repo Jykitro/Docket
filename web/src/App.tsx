@@ -7,7 +7,7 @@ import { NewProjectDialog, NewTaskDialog } from './Dialogs'
 import { useLive } from './live'
 import { tr, useLang } from './i18n'
 import { Header } from './Header'
-import { navigate, setParam, useRoute } from './router'
+import { navigate, useRoute } from './router'
 import { SearchDialog } from './Search'
 import { Sidebar } from './Sidebar'
 import { lastProject, useTheme } from './theme'
@@ -15,7 +15,7 @@ import { lastProject, useTheme } from './theme'
 // The drawer brings Markdown rendering with it, which the first page does not need.
 const TaskPanel = lazy(() => import('./TaskPanel').then((m) => ({ default: m.TaskPanel })))
 
-type NewTaskOpts = { project?: Project; date?: string; status?: string; title?: string }
+type NewTaskOpts = { project?: Project; date?: string; status?: string; title?: string; description?: string }
 
 // What pages need from the shell around them.
 const ShellContext = createContext<{ openNewTask: (o: NewTaskOpts) => void; theme: ReturnType<typeof useTheme> } | null>(null)
@@ -101,10 +101,17 @@ export function App() {
     if (started.current || !projects.isSuccess) return
     started.current = true
     // Shortcuts from the installed app's icon menu (manifest.webmanifest): ?open=new-task or ?open=today.
-    const open = params.get('open')
+    // Its share_target opens /?title=&text=&url= (a GET share replaces the query, so no ?open=): a task from what was shared.
+    const [title, text, url] = ['title', 'text', 'url'].map((k) => params.get(k)?.trim() ?? '')
+    const open = params.get('open') ?? (title || text || url ? 'new-task' : null)
     if (open) {
-      setParam('open', null)
-      if (open === 'new-task') openNewTask({})
+      const rest = new URLSearchParams(params)
+      for (const k of ['open', 'title', 'text', 'url']) rest.delete(k)
+      navigate(path + (rest.toString() ? '?' + rest : ''), true)
+      const head = title || text.split('\n')[0].trim() || url
+      const body = [text, text.includes(url) ? '' : url].filter((s) => s && s !== head).join('\n\n')
+      // The API has no task title limit (only the 1 MiB request body); a title is one line, so keep it short.
+      if (open === 'new-task') openNewTask({ title: head.slice(0, 200), description: body.slice(0, 10000) })
       return
     }
     if (path !== '/' || params.toString()) return

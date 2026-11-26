@@ -18,12 +18,13 @@ const textin = 'h-9 border border-ln rounded-md bg-sf px-2.5 text-sm text-tx foc
 const errline = 'text-rd text-[13px]'
 const foot = 'flex items-center gap-2 justify-end'
 
-export function NewTaskDialog({ projects, project, date, status, title: initial = '', onClose }: {
-  projects: Project[]; project?: Project; date?: string; status?: string; title?: string; onClose: () => void
+export function NewTaskDialog({ projects, project, date, status, title: initial = '', description: shared = '', onClose }: {
+  projects: Project[]; project?: Project; date?: string; status?: string; title?: string; description?: string; onClose: () => void
 }) {
   const qc = useQueryClient()
   const [pid, setPid] = useState((project ?? projects[0])?.id)
   const [title, setTitle] = useState(initial)
+  const [desc, setDesc] = useState(shared)
   const [st, setSt] = useState(status ?? '')
   const [prio, setPrio] = useState('P1')
   const [area, setArea] = useState('')
@@ -34,7 +35,7 @@ export function NewTaskDialog({ projects, project, date, status, title: initial 
   const effStatus = statuses.some((s) => s.key === st) ? st : (statuses.find((s) => s.key === 'backlog') ?? statuses[0])?.key ?? ''
 
   const create = useMutation({
-    mutationFn: () => api.createTask({ project: proj!.key, title: title.trim(), status: effStatus, priority: prio, area: area.trim(), planned_for: day }),
+    mutationFn: () => api.createTask({ project: proj!.key, title: title.trim(), description_md: desc.trim(), status: effStatus, priority: prio, area: area.trim(), planned_for: day }),
     onSuccess: () => {
       qc.invalidateQueries()
       onClose()
@@ -47,6 +48,10 @@ export function NewTaskDialog({ projects, project, date, status, title: initial 
     <Dialog title={tr('Новая задача')} onClose={onClose}>
       <input className="border-b border-ln bg-transparent text-[17px] font-medium pt-1.5 pb-2.5 px-0 outline-none w-full focus:border-ac" autoFocus placeholder={tr('Что нужно сделать')} aria-label={tr('Название задачи')} value={title}
         onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submit()} />
+      {shared && ( // only for what was shared to the installed app; other tasks get a description in the task panel
+        <textarea className="min-h-20 resize-y border border-ln rounded-md bg-sf px-2.5 py-2 text-[13px] text-tx focus:border-ring focus:ring-[3px] focus:ring-ring focus:outline-none" rows={3}
+          aria-label={tr('Описание')} value={desc} onChange={(e) => setDesc(e.target.value)} />
+      )}
       <div className={field}>
         <span className={cap}>{tr('Проект')}</span>
         <div className={chips}>
