@@ -4,7 +4,7 @@ labels: [bug]
 body:
   - type: markdown
     attributes:
-      value: English or Russian is fine. Please remove tokens (`dkt_…`) and passwords from anything you paste.
+      value: English, Russian or Ukrainian is fine. Please remove tokens (`dkt_…`) and passwords from anything you paste.
   - type: textarea
     id: what
     attributes:
@@ -51,5 +51,5 @@ body:
     id: logs
     attributes:
       label: Logs
-      description: Output of `docker logs docket`, or the MCP tab self-check and call log.
+      description: Output of `docker logs plandillo`, or the self-check and call log from Integrations.
       render: text
