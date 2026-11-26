@@ -300,6 +300,8 @@ export const AgentBadge = ({ actor }: { actor: string }) => (
   <span className="inline-flex min-w-0 max-w-36 items-center gap-1 text-[11px] font-medium text-act bg-acs rounded-[5px] py-0.5 pr-1.5 pl-[5px]" title={tr('Автор: {name}', { name: agentName(actor) })}><Icon name="spark" size={11} sw={2.2} /><span className="truncate">{agentName(actor)}</span></span>
 )
 
+const LANGITEM = 'flex h-9 w-full items-center gap-3 rounded-sm px-2.5 text-left text-sm hover:bg-sk'
+
 /** Language menu: the current language named in itself, the list from LANGS. It subscribes itself, so it works on the login screen too. */
 export function LangSwitch() {
   const lang = useLang()
@@ -308,20 +310,20 @@ export function LangSwitch() {
     <Menu right ariaLabel={tr('Язык интерфейса: {name}', { name: current.name })}
       className="inline-flex h-8 items-center gap-1.5 rounded-md border border-ln pr-2 pl-2.5 text-[13px] font-medium text-t2 hover:bg-sk aria-expanded:border-ln2"
       label={<><Icon name="globe" size={15} /><span lang={current.id}>{current.name}</span><Icon name="chevD" size={13} sw={2} /></>}>
-      {(close) => <>
+      {(close) => <div className="flex w-60 flex-col gap-0.5">
         {LANGS.map((l) => (
-          <button key={l.id} type="button" role="menuitemradio" aria-checked={l.id === lang} lang={l.id} className={MENUITEM + ' aria-checked:bg-sk aria-checked:font-semibold'}
+          <button key={l.id} type="button" role="menuitemradio" aria-checked={l.id === lang} lang={l.id} className={LANGITEM + ' aria-checked:bg-sk'}
             onClick={() => { setLang(l.id); close() }}>
-            <span className="grow">{l.name}</span>
-            <span className="font-mono text-[11.5px] font-normal text-t3">{l.id.toUpperCase()}</span>
+            <span className="grow truncate">{l.name}</span>
+            <span className="w-6 font-mono text-[11.5px] text-t3">{l.id.toUpperCase()}</span>
             <span className="grid w-3.5 place-items-center text-act">{l.id === lang && <Icon name="check" size={14} sw={2.4} />}</span>
           </button>
         ))}
         <div role="separator" className={MENUSEP} />
-        <a role="menuitem" href="https://github.com/huntly-digital/plandillo/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener noreferrer" className={MENUITEM + ' text-[13px] text-t2'}>
-          <Icon name="plus" size={14} /><span className="grow">{tr('Помочь с переводом')}</span><Icon name="expand" size={12} />
+        <a role="menuitem" href="https://github.com/huntly-digital/plandillo/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener noreferrer" className={LANGITEM + ' text-[13px] text-t2'}>
+          <Icon name="plus" size={14} /><span className="grow truncate">{tr('Помочь с переводом')}</span><Icon name="expand" size={12} />
         </a>
-      </>}
+      </div>}
     </Menu>
   )
 }
