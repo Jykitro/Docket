@@ -1,5 +1,5 @@
 import { useIsFetching, useQueryClient } from '@tanstack/react-query'
-import { type ReactNode, useEffect, useReducer, useState, useSyncExternalStore } from 'react'
+import { type ReactNode, useEffect, useReducer, useRef, useState, useSyncExternalStore } from 'react'
 import { useConnection, useUnsavedFlash } from './connection'
 import { locale, tr, useLang } from './i18n'
 import { ErrorPage, btn, btnPri } from './ui'
@@ -45,10 +45,11 @@ function oldestData(qc: ReturnType<typeof useQueryClient>) {
   return d.toDateString() === new Date().toDateString() ? time : `${d.toLocaleDateString(locale(), { day: 'numeric', month: 'short' })} ${time}`
 }
 
+// One live region that stays mounted, so a screen reader announces the first notice too; hidden while empty.
 function StatusBar({ text, action }: { text: string; action?: ReactNode }) {
   return (
-    <div role="status" aria-live="polite" className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-4 z-[90] flex max-w-[calc(100vw-2rem)] flex-wrap items-center gap-3 rounded-lg border border-ln bg-sf px-4 py-2 text-sm text-tx shadow-lg">
-      <span>{text}</span>{action}
+    <div className={text ? 'fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-4 z-[90] flex max-w-[calc(100vw-2rem)] flex-wrap items-center gap-3 rounded-lg border border-ln bg-sf px-4 py-2 text-sm text-tx shadow-lg' : 'sr-only'}>
+      <span role="status">{text}</span>{text && action}
     </div>
   )
 }
@@ -61,21 +62,22 @@ export function ConnectionGate({ children }: { children: ReactNode }) {
   const fetching = useIsFetching()
   const [, rerender] = useReducer((n: number) => n + 1, 0)
   useEffect(() => qc.getQueryCache().subscribe(rerender), [qc])
-  // After a reconnect keep the bar for at least 1.5 s so it does not flicker, and while the refetch runs.
-  const [wasOffline, setWasOffline] = useState(false)
-  const [hold, setHold] = useState(false)
+  // After a reconnect the notice stays at least 1.5 s, so it does not flicker, and while the refetch runs.
+  const [refreshing, setRefreshing] = useState(false)
+  const [minShown, setMinShown] = useState(false)
+  const prev = useRef(online)
   useEffect(() => {
-    if (!online) { setWasOffline(true); return }
-    if (!wasOffline) return
-    setHold(true)
-    const t = window.setTimeout(() => setHold(false), 1500)
+    const reconnected = online && !prev.current
+    prev.current = online
+    if (!online) { setRefreshing(false); return }
+    if (!reconnected) return
+    setRefreshing(true)
+    setMinShown(true)
+    const t = window.setTimeout(() => setMinShown(false), 1500)
     return () => window.clearTimeout(t)
-  }, [online, wasOffline])
-  useEffect(() => { if (online && !hold && fetching === 0) setWasOffline(false) }, [online, hold, fetching])
-  if (online) return wasOffline && (hold || fetching > 0)
-    ? <><StatusBar text={tr('Связь восстановлена, обновляем данные…')} />{children}</>
-    : children
-  if (!qc.getQueryData(['me'])) {
+  }, [online])
+  useEffect(() => { if (refreshing && !minShown && fetching === 0) setRefreshing(false) }, [refreshing, minShown, fetching])
+  if (!online && !qc.getQueryData(['me'])) {
     // Nothing cached to show: the full-screen page. Without a network the device is at fault; with one, the server is down.
     return (
       <ErrorPage full kind="offline"
@@ -86,13 +88,17 @@ export function ConnectionGate({ children }: { children: ReactNode }) {
         actions={<button type="button" className={btnPri} disabled={checking} onClick={retry}>{checking ? tr('Проверяем…') : tr('Проверить сейчас')}</button>} />
     )
   }
-  const time = oldestData(qc)
-  const text = unsaved ? tr('Не сохранено: нет связи с сервером')
-    : network ? tr('Нет связи с сервером · данные от {time} · изменения не сохраняются', { time })
-      : tr('Нет интернета · данные от {time} · изменения не сохраняются', { time })
+  let text = ''
+  if (!online) {
+    const time = oldestData(qc)
+    text = unsaved ? tr('Не сохранено: нет связи с сервером')
+      : network ? tr('Нет связи с сервером · данные от {time} · изменения не сохраняются', { time })
+        : tr('Нет интернета · данные от {time} · изменения не сохраняются', { time })
+  } else if (refreshing && (minShown || fetching > 0)) text = tr('Связь восстановлена, обновляем данные…')
+  // Always the same element tree around children: a changing shape would remount the page and lose unsaved drafts.
   return (
     <>
-      <StatusBar text={text} action={<button type="button" className={btn} disabled={checking} onClick={retry}>{checking ? tr('Проверяем…') : tr('Проверить сейчас')}</button>} />
+      <StatusBar text={text} action={!online && <button type="button" className={btn} disabled={checking} onClick={retry}>{checking ? tr('Проверяем…') : tr('Проверить сейчас')}</button>} />
       {children}
     </>
   )
