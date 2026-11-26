@@ -34,7 +34,7 @@ import { RouterProvider } from '@tanstack/react-router'
 import { CollectionLimit, PagingRequests } from './Paging'
 import { workspaceId } from './workspacePath'
 import { hashKey } from '@tanstack/react-query'
-import { errorKind, offlineStamp } from './api'
+import { adoptRestoredMe, errorKind, offlineStamp } from './api'
 import { OFFLINE_MAX_AGE, persistOptions, wipeOfflineCache } from './offlineCache'
 import { reportUnsaved, startConnectionWatch } from './connection'
 import { router } from './router'
@@ -58,7 +58,7 @@ window.addEventListener('vite:preloadError', () => location.reload())
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <PersistQueryClientProvider client={client} persistOptions={persistOptions(`${offlineStamp()}:${workspaceId}`)}>
+    <PersistQueryClientProvider client={client} persistOptions={persistOptions(() => `${offlineStamp()}:${workspaceId}`)} onSuccess={() => adoptRestoredMe(client.getQueryData(['me']))}>
       <RouterProvider router={router} />
       <PagingRequests />
     </PersistQueryClientProvider>

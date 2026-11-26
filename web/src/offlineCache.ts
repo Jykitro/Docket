@@ -10,6 +10,8 @@ const PERSISTED = new Set(['me', 'profile', 'workspaces', 'projects', 'today', '
 const DB = 'plandillo-cache'
 const STORE = 'clients'
 const WRITE_DELAY = 1000
+// Set by the full wipe (sign-out, invalid session): a write still pending then must not bring the data back.
+let wiped = false
 
 function open(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -36,7 +38,7 @@ async function run<T>(mode: IDBTransactionMode, fallback: T, work: (store: IDBOb
   } catch { return fallback }
 }
 
-function createPersister(key: string): Persister {
+function createPersister(key: () => string): Persister {
   let timer: ReturnType<typeof setTimeout> | undefined
   let latest: PersistedClient | undefined
   return {
@@ -45,16 +47,18 @@ function createPersister(key: string): Persister {
       latest = client
       timer ??= setTimeout(() => {
         timer = undefined
-        void run('readwrite', undefined, s => { s.put(latest, key) })
+        // The key is read at write time: a sign-in in this document changes the stamp without a reload.
+        if (!wiped) void run('readwrite', undefined, s => { s.put(latest, key()) })
       }, WRITE_DELAY)
     },
-    restoreClient: () => run<PersistedClient | undefined>('readonly', undefined, s => s.get(key)),
-    removeClient: () => run('readwrite', undefined, s => { s.delete(key) }),
+    restoreClient: () => run<PersistedClient | undefined>('readonly', undefined, s => s.get(key())),
+    removeClient: () => run('readwrite', undefined, s => { s.delete(key()) }),
   }
 }
 
 // Drops every entry that is not `${keepStamp}:…` (another sign-in's data); with no argument, all of them.
 export function wipeOfflineCache(keepStamp?: string): Promise<void> {
+  if (keepStamp === undefined) wiped = true
   return run('readwrite', undefined, s => {
     s.openCursor().onsuccess = e => {
       const cursor = (e.target as IDBRequest<IDBCursor | null>).result
@@ -65,7 +69,7 @@ export function wipeOfflineCache(keepStamp?: string): Promise<void> {
   })
 }
 
-export function persistOptions(key: string) {
+export function persistOptions(key: () => string) {
   return {
     persister: createPersister(key),
     maxAge: OFFLINE_MAX_AGE,

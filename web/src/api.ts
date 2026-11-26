@@ -192,6 +192,14 @@ function assertSessionCurrent() {
   sessionRequests.signal.throwIfAborted()
 }
 
+const identityOf = (me: { user?: { id?: number }; mode?: string; setup?: boolean } | null | undefined) =>
+  me?.user?.id ?? (me?.mode === 'local' ? 'local' : me?.setup ? 'setup' : 'guest')
+
+// Data restored from the device belongs to whoever /me said last: the usual identity checks (401, changed user) then apply to it.
+export function adoptRestoredMe(me: unknown) {
+  if (owner === undefined && me && typeof me === 'object') owner = identityOf(me)
+}
+
 async function req<T>(method: string, url: string, body?: unknown, budget?: CollectionBudget): Promise<T> {
   assertSessionCurrent()
   const started = sessionGeneration
@@ -218,7 +226,7 @@ async function req<T>(method: string, url: string, body?: unknown, budget?: Coll
   assertSessionCurrent()
   if (started !== sessionGeneration) throw new DOMException('Session changed', 'AbortError')
   if (url === '/api/auth/me' && (res.ok || res.status === 401)) {
-    const observed = data?.user?.id ?? (data?.mode === 'local' ? 'local' : data?.setup ? 'setup' : 'guest')
+    const observed = identityOf(data)
     if (owner !== undefined && observed !== owner) leaveWorkspace()
     sessionRequests.signal.throwIfAborted()
     owner = observed
