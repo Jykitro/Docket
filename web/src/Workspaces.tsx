@@ -4,6 +4,7 @@ import { type ReactNode, useEffect, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, cacheSpaces, cachedSpaces, errText, type Space, useMe, useProfile } from './api'
 import { useOnline } from './connection'
+import { launchSettled } from './launchFile'
 import { tr } from './i18n'
 import { Icon } from './icons'
 import { ProjectIconPicker } from './ProjectIconPicker'
@@ -47,7 +48,8 @@ export function WorkspaceGate({ children }: { children: ReactNode }) {
     // An old /w/<id>/… link goes to the same place in that workspace; an address without a workspace, to the last one opened here.
     const old = /^\/w\/([1-9]\d*)(\/.*)?$/.exec(location.pathname)
     const to = old ? spaces.data?.find((s) => s.id === Number(old[1]) && !s.archived_at) ?? first : first
-    if (!workspaceSlug && to) location.replace('/' + to.slug + (old ? old[2] ?? '' : location.pathname.replace(/^\/$/, '')) + rest)
+    // A Markdown file opened with the app must be stored before this document goes (launchFile.ts).
+    if (!workspaceSlug && to) void launchSettled().then(() => location.replace('/' + to.slug + (old ? old[2] ?? '' : location.pathname.replace(/^\/$/, '')) + rest))
   }, [first, fresh, settled, spaces.data])
   if (spaces.isError) return <ErrorPage full error={spaces.error} />
   if (!workspaceSlug || !spaces.data) return null

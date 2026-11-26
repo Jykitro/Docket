@@ -3,7 +3,8 @@ import { Outlet } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { type Project, useProfile, useProjects } from './api'
 import { Onboarding, isOnboarded } from './Onboarding'
-import { NewProjectDialog, NewTaskDialog } from './Dialogs'
+import { ImportDialog, NewProjectDialog, NewTaskDialog } from './Dialogs'
+import { type ImportFile, takeLaunchFile } from './launchFile'
 import { useLive } from './live'
 import { tr, useLang } from './i18n'
 import { Header } from './Header'
@@ -57,6 +58,7 @@ export function App() {
   const [newTask, setNewTask] = useState<NewTaskOpts | null>(null)
   const [newProject, setNewProject] = useState(false)
   const [search, setSearch] = useState(false)
+  const [importing, setImporting] = useState<{ file?: ImportFile } | null>(null)
   // Onboarding opens for a workspace with no name yet, or with no projects that has not finished it in this browser.
   // It stays up (latched) until it finishes, even though its own steps fill the name and add a project.
   const profile = useProfile()
@@ -83,6 +85,7 @@ export function App() {
   }, [active?.length])
 
   const openNewTask = (o: NewTaskOpts) => (active?.length ? setNewTask(o) : setNewProject(true))
+  const openImport = (file?: ImportFile) => (active?.length ? setImporting({ file }) : setNewProject(true))
 
   const proj = path.match(/^\/p\/([^/]+)(?:\/(settings)|\/(wiki)(?:\/(\d+))?)?$/)
   const taskPage = path.match(/^\/t\/([^/]+)$/)
@@ -100,7 +103,7 @@ export function App() {
   useEffect(() => {
     if (started.current || !projects.isSuccess) return
     started.current = true
-    // Shortcuts from the installed app's icon menu (manifest.webmanifest): ?open=new-task or ?open=today.
+    // Shortcuts from the installed app's icon menu (manifest.webmanifest): ?open=new-task or ?open=today; a Markdown file opened with it: ?open=import.
     // Its share_target opens /?title=&text=&url= (a GET share replaces the query, so no ?open=): a task from what was shared.
     const [title, text, url] = ['title', 'text', 'url'].map((k) => params.get(k)?.trim() ?? '')
     const open = params.get('open') ?? (title || text || url ? 'new-task' : null)
@@ -112,6 +115,7 @@ export function App() {
       const body = [text, text.includes(url) ? '' : url].filter((s) => s && s !== head).join('\n\n')
       // The API has no task title limit (only the 1 MiB request body); a title is one line, so keep it short.
       if (open === 'new-task') openNewTask({ title: head.slice(0, 200), description: body.slice(0, 10000) })
+      if (open === 'import') openImport(takeLaunchFile())
       return
     }
     if (path !== '/' || params.toString()) return
@@ -126,7 +130,8 @@ export function App() {
   return (
     <div className="min-h-screen flex items-stretch bg-bg text-tx" data-theme={theme.resolved}>
       <Sidebar path={path} view={params.get('view')} overdue={path === '/' && params.get('focus') === 'overdue'} settings={section} rail={sidebar.rail} mobileOpen={sidebar.open} onClose={sidebar.close}
-        onNewProject={() => { sidebar.close(); setNewProject(true) }} onSearch={() => { sidebar.close(); setSearch(true) }} />
+        onNewProject={() => { sidebar.close(); setNewProject(true) }} onSearch={() => { sidebar.close(); setSearch(true) }}
+        onImport={() => { sidebar.close(); openImport() }} />
       <div className="flex min-w-0 flex-1 flex-col">
         <Header onToggle={sidebar.toggle} sidebarExpanded={sidebar.expanded} onSearch={() => setSearch(true)} crumbs={crumbs} theme={theme.pref} resolved={theme.resolved} onTheme={theme.set} />
         <main className="flex min-w-0 flex-1 flex-col"><ShellContext value={{ openNewTask, theme }}><Outlet /></ShellContext></main>
@@ -136,6 +141,7 @@ export function App() {
         <SearchDialog projects={projects.data} current={current} onClose={() => setSearch(false)} onCreate={(title) => openNewTask({ title, project: current })} />
       )}
       {newTask && active && <NewTaskDialog projects={active} {...newTask} onClose={() => setNewTask(null)} />}
+      {importing && active && <ImportDialog projects={active} project={current} file={importing.file} onClose={() => setImporting(null)} />}
       {newProject && <NewProjectDialog onClose={() => setNewProject(false)} />}
     </div>
   )

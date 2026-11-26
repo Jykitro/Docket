@@ -31,8 +31,8 @@ function Group({ label, rail, action, children }: { label: string; rail: boolean
   )
 }
 
-export function Sidebar({ path, view, overdue, settings, rail, mobileOpen, onClose, onNewProject, onSearch }: {
-  path: string; view: string | null; overdue: boolean; settings: string | null; rail: boolean; mobileOpen: boolean; onClose: () => void; onNewProject: () => void; onSearch: () => void
+export function Sidebar({ path, view, overdue, settings, rail, mobileOpen, onClose, onNewProject, onSearch, onImport }: {
+  path: string; view: string | null; overdue: boolean; settings: string | null; rail: boolean; mobileOpen: boolean; onClose: () => void; onNewProject: () => void; onSearch: () => void; onImport: () => void
 }) {
   const trap = useFocusTrap<HTMLElement>(mobileOpen)
   const projects = useProjects()
@@ -149,6 +149,10 @@ export function Sidebar({ path, view, overdue, settings, rail, mobileOpen, onClo
         <div className="flex shrink-0 flex-col gap-1 p-2">
           {settings === null && <Group label={tr('Дополнительно')} rail={rail}>
             {more.map((n) => navLink(n))}
+            <button type="button" className={cls(false)} onClick={onImport} title={rail ? tr('Импорт Markdown') : undefined} aria-label={rail ? tr('Импорт Markdown') : undefined}>
+              <Icon name="doc" />
+              {!rail && <span className={nvName}>{tr('Импорт Markdown')}</span>}
+            </button>
             <a href="https://github.com/huntly-digital/plandillo" target="_blank" rel="noopener noreferrer" className={cls(false)} title={rail ? 'GitHub' : undefined}>
               <Icon name="github" />
               {!rail && <span className={nvName}>GitHub</span>}

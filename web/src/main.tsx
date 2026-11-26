@@ -37,9 +37,11 @@ import { hashKey } from '@tanstack/react-query'
 import { adoptRestoredMe, errorKind, offlineStamp } from './api'
 import { OFFLINE_MAX_AGE, persistOptions, wipeOfflineCache } from './offlineCache'
 import { reportUnsaved, startConnectionWatch } from './connection'
+import { watchLaunchFiles } from './launchFile'
 import { router } from './router'
 
 startConnectionWatch()
+watchLaunchFiles()
 // Another sign-in's leftovers (a different user on this device) go before anything is restored.
 void wipeOfflineCache(offlineStamp())
 
