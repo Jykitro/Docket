@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, fmtStamp, type HTMLDocumentInfo, useWho } from './api'
-import { HtmlPreview } from './HtmlPreview'
+import { HtmlFrame } from './HtmlPreview'
 import { tr } from './i18n'
 import { ConfirmButton, ErrorState, Select, SkeletonRows, btn, btnPri } from './ui'
 
@@ -70,9 +70,9 @@ function InlineDocument({ doc, owner }: { doc: HTMLDocumentInfo; owner: Owner })
   if (draft) return <DocumentEditor owner={owner} initial={draft} close={() => setDraft(null)} />
   return <article aria-label={doc.title} className="min-w-0 space-y-2">
     {read.isPending ? <SkeletonRows /> : read.isError ? <ErrorState error={read.error} onRetry={() => read.refetch()} />
-      : <HtmlPreview key={version} title={doc.title} html={read.data.html} />}
+      : <HtmlFrame key={version} title={doc.title} html={read.data.html} version={version} />}
     <details className="text-xs text-t3">
-      <summary className="w-fit max-w-full cursor-pointer wrap-anywhere hover:text-tx">{doc.title} · {tr('Версия')} {version}</summary>
+      <summary className="w-fit max-w-full cursor-pointer wrap-anywhere hover:text-tx">{tr('Версии и изменение')}</summary>
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <span className="flex items-center gap-2">{tr('Версия')}
           {doc.version <= 50 ? <Select label={tr('Версия')} value={String(version)} onChange={v => setPrevious(Number(v) === doc.version ? null : Number(v))}

@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react'
+import { Icon } from './icons'
+import { tr } from './i18n'
 
 const policy = "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; media-src data: blob:; font-src data:; frame-src about:; form-action 'none'; base-uri 'none'; object-src 'none'; worker-src 'none'; connect-src 'none'"
 
@@ -30,6 +32,30 @@ function previewHTML(html: string) {
       }
     })
   </script><iframe title="HTML" sandbox="allow-scripts" referrerpolicy="no-referrer" srcdoc="${attr}"></iframe></body></html>`
+}
+
+/** Opens the same sandboxed wrapper in a new tab: the document keeps its policy and its opaque-origin frame. */
+function openHTML(html: string) {
+  const url = URL.createObjectURL(new Blob([previewHTML(html)], { type: 'text/html' }))
+  window.open(url, '_blank', 'noopener')
+  setTimeout(() => URL.revokeObjectURL(url), 60_000) // the new tab has loaded it by then
+}
+
+/** An HTML document or page in a frame with a header: name, version, the sandbox note and "open separately". */
+export function HtmlFrame({ title, html, version }: { title: string; html: string; version?: number }) {
+  return (
+    <figure className="min-w-0 overflow-hidden rounded-[10px] border border-ln">
+      <figcaption className="flex flex-wrap items-center gap-x-2.5 gap-y-1 border-b border-ln bg-sf2 px-3 py-2 text-[12.5px]">
+        <Icon name="doc" size={14} />
+        <span className="min-w-0 truncate font-medium">{title}</span>
+        {version !== undefined && <span className="text-t3">{tr('версия {n}', { n: version })}</span>}
+        <span className="grow" />
+        <span className="text-t3">{tr('HTML, выполняется в песочнице')}</span>
+        <button type="button" className="font-medium text-act hover:underline" onClick={() => openHTML(html)}>{tr('Открыть отдельно')}</button>
+      </figcaption>
+      <HtmlPreview title={title} html={html} />
+    </figure>
+  )
 }
 
 export function HtmlPreview({ title, html }: { title: string; html: string }) {

@@ -7,11 +7,11 @@ import { HtmlDocuments, HtmlFileInput } from './HtmlDocuments'
 import { Icon } from './icons'
 import { tr } from './i18n'
 import { toggleMarkdownCheckbox } from './markdown'
-import { HtmlPreview } from './HtmlPreview'
+import { HtmlFrame, HtmlPreview } from './HtmlPreview'
 import { InsertHTML, MarkdownBody } from './MarkdownBody'
 import { Link, hrefWith, navigate, setParam } from './router'
 import { WikiTree } from './WikiTree'
-import { ConfirmButton, EmptyState, ErrorState, Skeleton, SkeletonRows, btn, btnPri, cap, mc } from './ui'
+import { ConfirmButton, EmptyState, ErrorState, MENUITEM, Menu, Skeleton, SkeletonRows, btn, btnPri, cap, mc } from './ui'
 
 const BOX = 'bg-sf border border-ln rounded-xl'
 const SEG = 'inline-flex self-start gap-0.5 rounded-md border border-ln p-0.5 text-[12.5px]'
@@ -44,8 +44,9 @@ function Body({ md, c, onCheck, busy }: { md: string; c: Ctx; onCheck: (md: stri
   </fieldset>
 }
 
+/** A section of the page's side column ("about this page"). */
 function Block({ title, children }: { title: string; children: ReactNode }) {
-  return <section className="border-t border-ln pt-4 flex flex-col gap-2"><h3 className="text-[13px] font-semibold text-t2">{title}</h3><ul className="flex flex-col gap-1 text-sm">{children}</ul></section>
+  return <section className="flex flex-col gap-2"><h3 className={cap}>{title}</h3>{children}</section>
 }
 
 function PageEditor({ page, initialTitle = '', c, dirty, onDone }: { page?: Page; initialTitle?: string; c: Ctx; dirty: RefObject<boolean>; onDone: (saved?: Page) => void }) {
@@ -181,35 +182,49 @@ function PageArea({ id, c, dirty }: { id: number; c: Ctx; dirty: RefObject<boole
   if (d.project_id !== c.project.id) return notFound // an id from another project
   if (editing) return <PageEditor key={d.id} page={d} c={cc} dirty={dirty} onDone={() => setEditing(false)} />
   return (
-    <div className="flex flex-col gap-4 p-5 max-[640px]:p-4">
-      <div className="flex flex-wrap items-start gap-2.5">
-        <h2 className="min-w-0 flex-[1_1_200px] text-xl font-semibold tracking-tight break-words">{d.title}</h2>
-        <span className="flex gap-2">
-          <button type="button" className={btn} disabled={check.isPending} onClick={() => { check.reset(); setEditing(true) }}>{tr('Изменить')}</button>
-          <ConfirmButton label={tr('Удалить')} armed={tr('Точно удалить?')} icon={<Icon name="trash" size={15} />} disabled={del.isPending} onConfirm={() => del.mutate()} />
-        </span>
-      </div>
-      <span className={mc}>{tr('Обновлено {when}', { when: fmtStamp(d.updated_at) })}</span>
-      {del.isError && <p role="alert" className="rounded-lg bg-rds p-3 text-sm text-rd">{errText(del.error)}</p>}
-      {check.isError && <p role="alert" className="rounded-lg bg-rds p-3 text-sm text-rd">
-        {check.error instanceof ApiError && check.error.code === 'conflict'
-          ? tr('Страница изменилась. Проверьте актуальный чеклист и повторите отметку.') : errText(check.error)}
-      </p>}
-      {d.body_html !== undefined ? <HtmlPreview title={d.title} html={d.body_html} /> : d.body_md.trim() ? <Body md={check.isPending ? check.variables.body : d.body_md} c={cc} busy={check.isPending || del.isPending}
-        onCheck={(body) => check.mutate({ body, revision: d.updated_at })} /> : !d.documents?.length && <p className="text-sm text-t3">{tr('Страница пока пуста. Нажмите «Изменить», чтобы написать.')}</p>}
-      {(d.body_html === undefined || !!d.documents?.length) && <HtmlDocuments key={d.id} docs={d.documents} owner={{ page_id: d.id }} />}
-      {d.backlinks.length > 0 && (
-        <Block title={tr('Ссылаются сюда')}>
-          {d.backlinks.map((b) => <li key={b.id}><Link to={`${base}/${b.id}`} className="text-act">{b.title}</Link></li>)}
+    <div className="grid @3xl:grid-cols-[minmax(0,1fr)_240px]">
+      <article className="flex min-w-0 flex-col gap-4 p-5 max-[640px]:p-4">
+        <div className="flex flex-wrap items-start gap-2.5">
+          <div className="flex min-w-0 flex-[1_1_200px] flex-col gap-1">
+            <h2 className="text-xl font-semibold tracking-tight break-words">{d.title}</h2>
+            <span className={mc}>{tr('Обновлено {when}', { when: fmtStamp(d.updated_at) })}</span>
+          </div>
+          <span className="flex gap-2">
+            <button type="button" className={btn} disabled={check.isPending} onClick={() => { check.reset(); setEditing(true) }}>{tr('Изменить')}</button>
+            <Menu right ariaLabel={tr('Ещё действия')} className={btn + ' px-2'} label={<Icon name="more" size={16} sw={3} />}>
+              {() => <ConfirmButton className={MENUITEM + ' text-rd [&.warn]:font-medium'} label={tr('Удалить страницу')} armed={tr('Точно удалить?')} icon={<Icon name="trash" size={15} />} disabled={del.isPending} onConfirm={() => del.mutate()} />}
+            </Menu>
+          </span>
+        </div>
+        {del.isError && <p role="alert" className="rounded-lg bg-rds p-3 text-sm text-rd">{errText(del.error)}</p>}
+        {check.isError && <p role="alert" className="rounded-lg bg-rds p-3 text-sm text-rd">
+          {check.error instanceof ApiError && check.error.code === 'conflict'
+            ? tr('Страница изменилась. Проверьте актуальный чеклист и повторите отметку.') : errText(check.error)}
+        </p>}
+        {d.body_html !== undefined ? <HtmlFrame title={d.title} html={d.body_html} /> : d.body_md.trim() ? <Body md={check.isPending ? check.variables.body : d.body_md} c={cc} busy={check.isPending || del.isPending}
+          onCheck={(body) => check.mutate({ body, revision: d.updated_at })} /> : !d.documents?.length && <p className="text-sm text-t3">{tr('Страница пока пуста. Нажмите «Изменить», чтобы написать.')}</p>}
+        {(d.body_html === undefined || !!d.documents?.length) && <HtmlDocuments key={d.id} docs={d.documents} owner={{ page_id: d.id }} />}
+      </article>
+      <aside aria-label={tr('О странице')} className="flex min-w-0 flex-col gap-5 border-t border-ln p-5 text-sm max-[640px]:p-4 @3xl:border-t-0 @3xl:border-l">
+        <Block title={tr('Связанные задачи')}>
+          {d.links.tasks.length ? <ul className="flex flex-col gap-1">{d.links.tasks.map((t) => (
+            <li key={t.code}><Link to={hrefWith('task', t.code)} className="flex flex-col rounded-md px-2 py-1.5 -mx-2 no-underline hover:bg-sk">
+              <span className="font-mono text-[12px] text-act">{t.code}</span><span className="text-[13px] text-t2">{t.title}</span>
+            </Link></li>
+          ))}</ul> : <p className="text-[13px] text-t3">{tr('Упомяните код задачи в тексте, и она появится здесь.')}</p>}
         </Block>
-      )}
-      {d.links.tasks.length > 0 && (
-        <Block title={tr('Задачи')}>
-          {d.links.tasks.map((t) => (
-            <li key={t.code}><Link to={hrefWith('task', t.code)} className="text-act"><span className="font-mono text-[12.5px]">{t.code}</span> <span className="text-t2">{t.title}</span></Link></li>
-          ))}
+        {d.backlinks.length > 0 && (
+          <Block title={tr('Ссылаются сюда')}>
+            <ul className="flex flex-col gap-1">{d.backlinks.map((b) => <li key={b.id}><Link to={`${base}/${b.id}`} className="text-[13px] text-act">{b.title}</Link></li>)}</ul>
+          </Block>
+        )}
+        <Block title={tr('На странице')}>
+          <dl className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1.5 text-[13px]">
+            <dt className="text-t3">{tr('HTML-документы')}</dt><dd className="text-right tabular-nums">{d.documents?.length ?? 0}</dd>
+            <dt className="text-t3">{tr('Обновлено')}</dt><dd className="text-right tabular-nums">{fmtStamp(d.updated_at)}</dd>
+          </dl>
         </Block>
-      )}
+      </aside>
     </div>
   )
 }
@@ -242,7 +257,8 @@ export function Wiki({ project, pageId }: { project: Project; pageId?: number })
           <WikiTree key={project.id} pages={pages} current={pageId} project={project} leave={leave} />
         )}
       </aside>
-      <section className={BOX + ' w-full min-w-0 flex-1'}>
+      {/* @container: the page's side column follows this box's width, which also tracks the page zoom (media queries do not). */}
+      <section className={BOX + ' @container w-full min-w-0 flex-1'}>
         {draftTitle !== null ? <PageEditor key={'new:' + draftTitle} initialTitle={draftTitle} c={c} dirty={dirty} onDone={p => {
           setDraftTitle(null)
           if (p) navigate(`/p/${project.slug}/wiki/${p.id}`)
