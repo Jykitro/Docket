@@ -47,7 +47,7 @@ function oldestData(qc: ReturnType<typeof useQueryClient>) {
 
 function StatusBar({ text, action }: { text: string; action?: ReactNode }) {
   return (
-    <div role="status" aria-live="polite" className="sticky top-0 z-50 flex items-center justify-center gap-3 border-b border-bd bg-card px-4 py-1.5 text-[13px] text-t2">
+    <div role="status" aria-live="polite" className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-4 z-[90] flex max-w-[calc(100vw-2rem)] flex-wrap items-center gap-3 rounded-lg border border-ln bg-sf px-4 py-2 text-sm text-tx shadow-lg">
       <span>{text}</span>{action}
     </div>
   )
