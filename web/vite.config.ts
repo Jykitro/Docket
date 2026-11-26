@@ -16,7 +16,8 @@ const woff2Only = {
   },
 }
 
-// Fills the placeholders in sw.js with the build id and the files to precache, so the app opens offline.
+// Fills the placeholders in sw.js with the build id and the files to precache, so the app opens offline, and puts the
+// build id into index.html.
 const precacheList = {
   name: 'precache-list',
   apply: 'build' as const,
@@ -36,6 +37,9 @@ const precacheList = {
     for (const p of ['__PLANDILLO_BUILD__', '__PLANDILLO_PRECACHE__']) if (!sw.includes(p)) throw new Error(`sw.js lacks ${p}`)
     sw = sw.replace('__PLANDILLO_BUILD__', build).replace('__PLANDILLO_PRECACHE__', JSON.stringify(list))
     writeFileSync(file, sw)
+    // The page knows its own build too: Pwa.tsx compares it with the server's sw.js to offer an update.
+    const html = join(dir, 'index.html')
+    writeFileSync(html, readFileSync(html, 'utf8').replace('</head>', `<meta name="plandillo-build" content="${build}">\n</head>`))
   },
 }
 

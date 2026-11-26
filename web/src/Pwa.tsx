@@ -16,6 +16,31 @@ window.addEventListener('beforeinstallprompt', e => {
   setPrompt(e as InstallEvent)
 })
 window.addEventListener('appinstalled', () => setPrompt(null))
+// The build this page runs (index.html, set by vite.config.ts; absent from the dev server). sw.js carries the build the
+// server has now and is never answered from the worker's cache, so reading it tells an open tab or installed app
+// that a deploy happened: the worker is updated in the background and the status bar offers a reload.
+const pageBuild = document.querySelector<HTMLMetaElement>('meta[name="plandillo-build"]')?.content
+let updateReady = false
+if (pageBuild && window.isSecureContext && 'serviceWorker' in navigator) {
+  let registration: ServiceWorkerRegistration | undefined
+  const check = async () => {
+    if (updateReady || document.hidden) return
+    try {
+      const build = /const BUILD = '([0-9a-f]+)'/.exec(await (await fetch('/sw.js', { cache: 'no-store' })).text())?.[1]
+      if (!build || build === pageBuild) return
+      await registration?.update().catch(() => {})
+      updateReady = true
+      changed.dispatchEvent(new Event('change'))
+    } catch { /* offline: the next check retries */ }
+  }
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }).then(r => { registration = r }, err => console.warn('Plandillo service worker', err))
+    document.addEventListener('visibilitychange', () => void check())
+    window.addEventListener('online', () => void check())
+    window.setInterval(() => void check(), 30 * 60_000)
+  })
+}
+
 function subscribe(listener: () => void) {
   changed.addEventListener('change', listener)
   return () => changed.removeEventListener('change', listener)
@@ -60,6 +85,7 @@ export function ConnectionGate({ children }: { children: ReactNode }) {
   const { online, network, checking, retry } = useConnection()
   const unsaved = useUnsavedFlash()
   const fetching = useIsFetching()
+  const update = useSyncExternalStore(subscribe, () => updateReady)
   const [, rerender] = useReducer((n: number) => n + 1, 0)
   useEffect(() => qc.getQueryCache().subscribe(rerender), [qc])
   // After a reconnect the notice stays at least 1.5 s, so it does not flicker, and while the refetch runs.
@@ -89,16 +115,19 @@ export function ConnectionGate({ children }: { children: ReactNode }) {
     )
   }
   let text = ''
+  let offerUpdate = false
   if (!online) {
     const time = oldestData(qc)
     text = unsaved ? tr('Не сохранено: нет связи с сервером')
       : network ? tr('Нет связи с сервером · данные от {time} · изменения не сохраняются', { time })
         : tr('Нет интернета · данные от {time} · изменения не сохраняются', { time })
   } else if (refreshing && (minShown || fetching > 0)) text = tr('Связь восстановлена, обновляем данные…')
+  else if (update) { text = tr('Доступна новая версия Plandillo'); offerUpdate = true }
   // Always the same element tree around children: a changing shape would remount the page and lose unsaved drafts.
   return (
     <>
-      <StatusBar text={text} action={!online && <button type="button" className={btn} disabled={checking} onClick={retry}>{checking ? tr('Проверяем…') : tr('Проверить сейчас')}</button>} />
+      <StatusBar text={text} action={!online ? <button type="button" className={btn} disabled={checking} onClick={retry}>{checking ? tr('Проверяем…') : tr('Проверить сейчас')}</button>
+        : offerUpdate && <button type="button" className={btnPri} onClick={() => location.reload()}>{tr('Обновить')}</button>} />
       {children}
     </>
   )

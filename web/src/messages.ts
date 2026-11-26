@@ -2,6 +2,8 @@
 // {name} placeholders must stay as they are. "a|b|c" keys are plural forms (see plural() in i18n.ts): Russian and
 // Ukrainian take three forms (1, 2-4, 5+), English two (1, other). Add a key here whenever a new tr('…') appears.
 export const MESSAGES: Record<string, [en: string, uk: string]> = {
+  "Доступна новая версия Plandillo": ["A new version of Plandillo is available", "Доступна нова версія Plandillo"],
+  "Обновить": ["Update", "Оновити"],
   "Бэкапы": ["Backups", "Резервні копії"],
   "Копии базы данных сервера: создайте новую или скачайте готовую.": ["Copies of the server database: make a new one or download an existing one.", "Копії бази даних сервера: створіть нову або завантажте готову."],
   "Копии базы данных": ["Database copies", "Копії бази даних"],

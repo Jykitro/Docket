@@ -47,12 +47,6 @@ const client = new QueryClient({
   mutationCache: new MutationCache({ onError: e => { if (errorKind(e) === 'offline') reportUnsaved() } }),
   defaultOptions: { mutations: { networkMode: 'always' }, queries: { gcTime: OFFLINE_MAX_AGE, queryKeyHashFn: key => hashKey([workspaceSlug, ...key]), retry: (failures, error) => failures < 1 && !(error instanceof CollectionLimit) && ['offline', 'server'].includes(errorKind(error)), staleTime: 5_000 } } })
 
-if (import.meta.env.PROD && window.isSecureContext && 'serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    void navigator.serviceWorker.register('/sw.js').catch(err => console.warn('Plandillo service worker', err))
-  })
-}
-
 // After a deploy an open tab (an installed PWA above all) asks for page chunks that no longer exist: reload onto the new build.
 window.addEventListener('vite:preloadError', () => location.reload())
 
