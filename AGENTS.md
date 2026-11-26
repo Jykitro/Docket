@@ -9,10 +9,10 @@ Requirements: Go (version in `go.mod`), [Bun](https://bun.sh), `make`, Docker fo
 | Command | What it does |
 |---|---|
 | `make install` | Frontend dependencies (`bun install --frozen-lockfile`) |
-| `make check` | Typecheck + Knip (unused code and dependencies) + Go tests. Run it before saying a change is done |
+| `make check` | Typecheck + Knip (unused code and dependencies) + i18n check + Go tests. Run it before saying a change is done |
 | `make test` | `go test ./...` |
 | `make test-postgres` | Same tests with `PLANDILLO_TEST_POSTGRES_DSN` pointing to a disposable PostgreSQL server; test role needs `CREATEDB` |
-| `make typecheck`, `make knip` | Frontend checks alone |
+| `make typecheck`, `make knip`, `make i18n` | Frontend checks alone; `make i18n` fails on a Russian string without an entry in `web/src/messages.ts` |
 | `make dev-api` | Backend on `:7777` with a separate `./data/dev.db` |
 | `make dev-web` | Vite with hot reload; proxies `/api` to `:7777` |
 | `make web`, `make build` | Frontend build into `internal/web/dist`; `bin/plandillo` with the UI embedded (also available as `bin/docket`) |
@@ -47,7 +47,7 @@ web/                React + TypeScript + Vite + Tailwind CSS v4; the design toke
 
 **Commits.** Conventional style, measured on this repo: `type(scope): lowercase subject`, with type `feat`, `fix`, `docs`, `test`, `refactor` or `chore` and scope `web`, `selfhost`, `auth` or `mcp`. Subjects are short (average 54 characters), no trailing period. One logical change per commit. Don't add attribution lines to commit messages or PR descriptions.
 
-**Tests live next to the code** as `*_test.go` and change in the same commit as the code: in this history `selfhost/handler.go` and `auth/db.go` never changed without their test file. A bug fix gets a test that fails without it. There is no frontend test runner; `tsc` and `knip` are the frontend gate.
+**Tests live next to the code** as `*_test.go` and change in the same commit as the code: in this history `selfhost/handler.go` and `auth/db.go` never changed without their test file. A bug fix gets a test that fails without it. There is no frontend test runner; `tsc`, `knip` and the i18n check are the frontend gate.
 
 **Go.** `service` returns typed errors (`*service.Error` with a code such as `invalid_argument`, `not_found`, `forbidden`, `status_in_use`); `httpapi` maps the code to an HTTP status and `mcpserver` reports it as `code: message`. Validation messages say what is wrong and what is allowed. Don't log secrets or tokens.
 

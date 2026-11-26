@@ -2,7 +2,7 @@
 IMAGE := plandillo:local
 NAME  := plandillo
 
-.PHONY: help install web build test test-postgres typecheck knip check dev-api dev-web image rebuild stop logs clean
+.PHONY: help install web build test test-postgres typecheck knip i18n check dev-api dev-web image rebuild stop logs clean
 
 help: ## список целей
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-10s %s\n", $$1, $$2}'
@@ -30,7 +30,10 @@ typecheck: ## tsc --noEmit
 knip: ## неиспользуемый код и зависимости фронта
 	cd web && bun run knip
 
-check: typecheck knip test ## все проверки
+i18n: ## у каждой русской строки фронта есть английский и украинский перевод
+	cd web && bun run i18n
+
+check: typecheck knip i18n test ## все проверки
 
 dev-api: ## бэкенд на :7777 с отдельной dev-базой
 	PLANDILLO_DB=./data/dev.db PLANDILLO_BACKUP_DIR=./data/backups go run ./cmd/plandillo

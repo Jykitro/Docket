@@ -6,7 +6,7 @@ Requirements: Go (see [go.mod](../../go.mod)), [Bun](https://bun.sh) and `make`.
 
 ```bash
 make install   # frontend dependencies (bun install --frozen-lockfile)
-make check     # typecheck + Knip (unused code and dependencies) + Go tests
+make check     # typecheck + Knip (unused code and dependencies) + i18n check + Go tests
 ```
 
 Go tests open a port on localhost. Run `make help` for every target:
@@ -17,7 +17,7 @@ Go tests open a port on localhost. Run `make help` for every target:
 | `make build` | Builds `bin/plandillo` with the UI embedded |
 | `make test` | Backend tests (`go test ./...`) |
 | `make test-postgres` | Same domain, auth, REST and MCP tests against PostgreSQL; requires `PLANDILLO_TEST_POSTGRES_DSN` |
-| `make typecheck`, `make knip` | Frontend checks |
+| `make typecheck`, `make knip`, `make i18n` | Frontend checks (`make i18n`: every Russian string has an English and Ukrainian entry) |
 | `make dev-api` | Backend on `:7777` with a separate `./data/dev.db` |
 | `make dev-web` | Vite with hot reload (proxies `/api` to `:7777`) |
 | `make image`, `make rebuild`, `make stop`, `make logs` | Docker image and container |
