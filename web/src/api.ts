@@ -386,7 +386,7 @@ export const api = {
   patchMcpSettings: (b: { access_mode?: string; tools?: Record<string, boolean> }) => req<McpSettings>('PATCH', '/api/mcp/settings', b),
   mcpToken: () => req<TokenInfo>('GET', '/api/mcp/token'),
   rotateMcpToken: () => req<TokenInfo>('POST', '/api/mcp/token/rotate'),
-  mcpCalls: (filter: string) => req<McpCall[]>('GET', `/api/mcp/calls?filter=${filter}&limit=50`),
+  mcpCalls: (filter: string, limit = 50) => req<McpCall[]>('GET', `/api/mcp/calls?filter=${filter}&limit=${limit}`),
   clearMcpCalls: () => req<void>('DELETE', '/api/mcp/calls'),
   updateProject: (id: number, b: Record<string, unknown>) => req<Project>('PATCH', `/api/projects/${id}`, b),
   archiveProject: (id: number, archived: boolean) => req<Project>('POST', `/api/projects/${id}/archive`, { archived }),

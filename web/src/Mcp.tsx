@@ -22,6 +22,7 @@ const LG = 'items-center gap-2.5 border-t border-ln px-4 py-2 text-[12.5px]'
 const SEG = 'inline-flex gap-0.5 rounded-md border border-ln p-0.5 text-[12.5px]'
 const SEGBTN = 'rounded-sm px-2.5 py-[3px] text-t3 disabled:cursor-default disabled:opacity-50 aria-pressed:bg-sk aria-pressed:font-semibold aria-pressed:text-tx'
 const FC = 'inline-flex h-7 items-center gap-1.5 whitespace-nowrap rounded-full border border-ln bg-sf px-2.5 text-[12.5px] text-t2 hover:bg-sk aria-pressed:border-transparent aria-pressed:bg-acs aria-pressed:font-medium aria-pressed:text-act aria-pressed:hover:bg-sk'
+const ERR_MAX = 500 // the server's cap for one log request
 const MONO = 'font-mono text-[11.5px] text-t3'
 // A <details> whose summary is a panel header: no browser marker, a chevron that turns when open.
 const SUMMARY = 'flex cursor-pointer list-none items-center gap-2 px-4 py-3 [&::-webkit-details-marker]:hidden'
@@ -43,7 +44,8 @@ export function Mcp() {
   const settings = useQuery({ queryKey: ['mcp-settings'], queryFn: api.mcpSettings })
   const [filter, setFilter] = useState<'all' | 'write' | 'error'>('all')
   const calls = useQuery({ queryKey: ['mcp-calls', filter], queryFn: () => api.mcpCalls(filter) })
-  const errors = useQuery({ queryKey: ['mcp-calls', 'error'], queryFn: () => api.mcpCalls('error') })
+  // The server returns up to 500 calls; the log keeps 7 days, so this counts every stored error unless there are more.
+  const errors = useQuery({ queryKey: ['mcp-calls', 'error-count'], queryFn: () => api.mcpCalls('error', ERR_MAX) })
 
   const check = useMutation({
     mutationFn: api.mcpCheck,
@@ -76,8 +78,7 @@ export function Mcp() {
   const masked = s?.token_masked ?? 'dkt_••••'
   const shownToken = token ?? masked
   const kind = new Map(s?.tools.map((t) => [t.name, t.group]))
-  // shortcut: the log API returns at most 50 calls, so a full page reads "50+"; add a count endpoint if the exact number matters.
-  const errCount = errors.data ? (errors.data.length >= 50 ? '50+' : String(errors.data.length)) : '—'
+  const errCount = errors.data ? (errors.data.length >= ERR_MAX ? ERR_MAX + '+' : String(errors.data.length)) : '—'
 
   const groups: [string, McpTool[]][] = [
     ['Чтение', (s?.tools ?? []).filter((t) => t.group === 'read')],
