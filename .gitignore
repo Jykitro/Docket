@@ -12,3 +12,4 @@ internal/web/dist/*
 web/dist/
 # Local preview servers of the Claude desktop app; .claude/skills stays tracked.
 .claude/launch.json
+.DS_Store
