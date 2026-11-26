@@ -18,6 +18,8 @@ A project whose slug equals a reserved word (`settings`, `trash`, `api` and the 
 **Layout and theme:** the top bar collapses the sidebar to an icon rail (a drawer on narrow screens) and switches the
 theme between light, dark and system.
 
+**Offline:** the installed app or an open tab starts without the server, because the service worker stores the whole interface. Pages you opened before (Today, boards, tasks, wiki pages, search results, trash and projects) stay on the device for up to 7 days and open offline, also after a reload. A notice in the bottom-left corner says "No connection to the server" or "No internet", with the time the data on screen was last confirmed. Changes are not possible offline: an edit is rolled back at once and the notice says it was not saved; nothing is sent later. When the connection returns, the notice says it is updating the data, then disappears. A reverse proxy answering 502, 503 or 504 counts as no connection. A page you have never opened shows "Not available offline". Sign-in, passkeys, sessions, two-factor settings, user administration, OAuth and integration/MCP screens, and published HTML documents are not stored on the device. Signing out, or the server ending your session, clears the stored data; another account on the same browser never sees it.
+
 **Needs attention** brings open issues from every project together, including existing tasks with area `issue`. An agent
 calls `report_issue` as soon as it notices a problem. Supply the project, a short title, the observation and, when known,
 the source task. A matching open title in that project receives the observation. Supply `existing_issue` to target a
