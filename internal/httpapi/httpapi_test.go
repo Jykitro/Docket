@@ -742,8 +742,11 @@ func (m memPush) Get(_ context.Context, e string) (service.PushSubscription, boo
 	s, ok := m[e]
 	return s, ok, nil
 }
-func (m memPush) Save(_ context.Context, s service.PushSubscription) error { m[s.Endpoint] = s; return nil }
-func (m memPush) Remove(_ context.Context, e string) error                 { delete(m, e); return nil }
+func (m memPush) Save(_ context.Context, s service.PushSubscription) error {
+	m[s.Endpoint] = s
+	return nil
+}
+func (m memPush) Remove(_ context.Context, e string) error { delete(m, e); return nil }
 
 func TestPushSubscriptionEndpoints(t *testing.T) {
 	e := newEnv(t)
