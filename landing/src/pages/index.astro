@@ -86,7 +86,7 @@ const footLink = 'py-1.5 text-sm text-muted no-underline hover:text-ink';
     <div class:list={[wrap, 'relative flex flex-col items-center gap-[26px] pt-[88px] text-center max-xs:gap-5 max-xs:pt-12']}>
       <a href="https://github.com/huntly-digital/plandillo" class="inline-flex items-center gap-2.5 rounded-full border border-line-3 bg-deep py-1.5 pr-3.5 pl-1.5 text-sm text-ink-2 no-underline hover:text-link"><span class="rounded-full bg-primary px-[9px] py-[3px] text-xs font-semibold text-white">MIT</span>Free and open source</a>
       <h1 class="max-w-[13ch] text-[clamp(44px,6.6vw,88px)] leading-[.98] font-semibold tracking-[-0.045em]">A task board for you and your AI agent.</h1>
-      <p class="max-w-[50ch] text-[19px] leading-normal text-muted max-xs:text-[17px]">Plan in your browser. Your agent works the same board through MCP or Code Mode, and keeps a wiki of everything it learns about the project.</p>
+      <p class="max-w-[50ch] text-[19px] leading-normal text-muted max-xs:text-[17px]">Plan in your browser. Your agent works the same board through MCP, Code Mode or the CLI, and keeps a wiki of everything it learns about the project.</p>
       <div class:list={[ctaRow, 'mt-1']}>
         <a class:list={[btn, lg, primary, 'shadow-[0_10px_30px_-10px_rgba(84,48,153,.8)]']} href="#self-host" data-cta="hero-install">Install in one command</a>
         <a class:list={[btn, lg, secondary]} href="https://github.com/huntly-digital/plandillo" data-cta="hero-github">View on GitHub</a>
@@ -214,7 +214,7 @@ const footLink = 'py-1.5 text-sm text-muted no-underline hover:text-ink';
   <section class="border-y border-line-soft bg-page-2" aria-label="Plandillo at a glance">
     <div class:list={[wrap, 'grid grid-cols-4 max-tab:grid-cols-2']}>
       {[
-        ['MCP, Code Mode', 'Two ways for agents to connect, CLI coming soon'],
+        ['MCP, Code Mode, CLI', 'Three ways for agents to connect'],
         ['Project wiki', 'Kept up to date by your agent'],
         ['1 container', 'One Docker command to run it'],
         ['Go', 'Small footprint, low resource use'],
@@ -236,7 +236,7 @@ const footLink = 'py-1.5 text-sm text-muted no-underline hover:text-ink';
         <ul class={bullets}>
           <li class={bullet}><span class={markSq}></span><span><strong class="font-semibold">MCP</strong> <span class="leading-normal text-muted">for any agent that speaks the Model Context Protocol</span></span></li>
           <li class={bullet}><span class={markSq}></span><span><strong class="font-semibold">Code Mode</strong> <span class="leading-normal text-muted">for agents that write code against the tools</span></span></li>
-          <li class={bullet}><span class={markSq}></span><span><strong class="font-semibold">CLI</strong> <span class="leading-normal text-muted">for terminal agents, scripts and CI</span> <span class="pill ml-1 align-[1px] leading-[inherit]">Coming soon</span></span></li>
+          <li class={bullet}><span class={markSq}></span><span><strong class="font-semibold">CLI</strong> <span class="leading-normal text-muted">for terminal agents, scripts and CI, installed from your board</span> <span class="pill ml-1 align-[1px] leading-[inherit]">Preview</span></span></li>
         </ul>
         <a class={textlink} href="https://github.com/huntly-digital/plandillo/blob/main/docs/agents.md" data-cta="agents-docs">Connect an agent</a>
       </div>
@@ -266,9 +266,13 @@ await codemode.write_page(&#123; project: "APP",
   title: "Navigation", body_md: notes &#125;);</pre>
         </div>
         <div class:list={[panel, 'min-h-[260px]']} role="tabpanel" id="p-cli" aria-labelledby="t-cli" hidden>
-<pre><span class="text-code-dim"># Coming soon</span>
-The Plandillo CLI is in the works.
-<span class="text-muted">Until it ships, terminal agents connect over MCP.</span></pre>
+<pre><span class="text-code-dim"># Install from your board: Integrations, Terminal</span>
+curl -fsSL $BOARD/api/cli/install.sh | PLANDILLO_URL=$BOARD sh
+plandillo-cli move_tasks --ids '["APP-24"]' --status doing
+plandillo-cli add_note --task_id APP-24 \
+<span class="text-agent">  --body_md "The menu never closes"</span>
+plandillo-cli move_tasks --ids '["APP-24"]' --status done
+<span class="text-muted"># Homebrew, Scoop and winget are planned for 1.0</span></pre>
         </div>
       </div>
     </div>
@@ -412,7 +416,7 @@ $ make rebuild</pre>
       <div class="flex flex-col gap-5">
         <span class="inline-flex items-center gap-2 text-[13px] font-semibold tracking-[0.08em] text-ink-3 uppercase"><span class={sq}></span>About Plandillo</span>
         <h2 id="about-title" class="max-w-[22ch] text-balance text-[clamp(28px,3.2vw,40px)] leading-[1.08] font-semibold tracking-[-0.035em]">Built in the open for people who work with AI agents.</h2>
-        <p class:list={[body, 'max-w-[54ch]']}>An open-source task board and project wiki. You plan the work; your agent picks it up through MCP or Code Mode, reports back on the board and keeps the wiki current.</p>
+        <p class:list={[body, 'max-w-[54ch]']}>An open-source task board and project wiki. You plan the work; your agent picks it up through MCP, Code Mode or the CLI, reports back on the board and keeps the wiki current.</p>
         <dl class="mt-3 grid grid-cols-[repeat(4,max-content)] gap-x-10 gap-y-5 max-tab:grid-cols-2 max-tab:gap-x-6">
           {[['Written in', 'Go'], ['Runs as', 'One container'], ['Stores data in', 'SQLite or Postgres'], ['License', 'MIT']].map(([k, v]) => (
             <div class="flex flex-col gap-1 border-t border-line pt-3">

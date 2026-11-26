@@ -31,7 +31,7 @@
 
 ## Why Plandillo
 
-- **One board for both of you.** You plan in the browser; your agent reads and updates the same tasks through MCP or Code Mode. Its changes appear on your screen as it makes them.
+- **One board for both of you.** You plan in the browser; your agent reads and updates the same tasks through MCP, Code Mode or the CLI. Its changes appear on your screen as it makes them.
 - **Done means checked.** Each task carries the checklist you will check the work against. The agent ticks what it verified and records how before it marks the task done.
 - **A wiki the agent keeps.** Every project has a wiki next to its board, so the next task starts with what the agent already learned instead of from scratch.
 - **Your data, your machine.** One Docker container, SQLite in a folder you choose, no account. Self-host it for a team with private workspaces and PostgreSQL.
@@ -118,6 +118,16 @@ You can also download individual files from **Integrations → Download individu
 </details>
 
 More examples and the full tool list: [Agent setup](docs/agents.md).
+
+### Without MCP: plandillo-cli
+
+Terminal agents, scripts and CI can call the same tools with `plandillo-cli` (`plandillo-cli get_today`, `plandillo-cli get_task --id APP-24`). Install it from your board: **Integrations → Agent setup → Terminal: plandillo-cli** copies a command such as
+
+```sh
+curl -fsSL https://plans.example.com/api/cli/install.sh | PLANDILLO_URL=https://plans.example.com sh
+```
+
+(PowerShell: `install.ps1`). It downloads the latest release, checks its checksum and signs in to that board. `plandillo-cli skills update` keeps the agent skills in step with the CLI. Until 1.0 this installer is the supported method; Homebrew, Scoop, winget and Linux packages are planned for 1.0.
 
 ## Documentation
 
