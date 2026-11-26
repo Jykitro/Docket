@@ -715,9 +715,12 @@ type NewTask struct {
 	ClientKey     string         `json:"client_key"`
 }
 
+// maxBulkItems caps the tasks one create, move or delete call may name, like the 100-row read pages.
+const maxBulkItems = 100
+
 func (s *Service) CreateTasks(ctx context.Context, actor string, items []NewTask) (out []store.Task, err error) {
-	if len(items) == 0 || len(items) > 100 {
-		return nil, invalid("send between 1 and 100 tasks")
+	if len(items) == 0 || len(items) > maxBulkItems {
+		return nil, invalid("send between 1 and %d tasks, got %d", maxBulkItems, len(items))
 	}
 	err = s.write(ctx, actor, func(o *op) error { out, err = createTasks(o, items); return err })
 	return out, err
@@ -1325,7 +1328,18 @@ type BulkMove struct {
 	Project    *string // id, slug or key
 }
 
+func checkBulk(refs []string) error {
+	if len(refs) == 0 || len(refs) > maxBulkItems {
+		return invalid("send between 1 and %d task IDs, got %d", maxBulkItems, len(refs))
+	}
+	return nil
+}
+
+// MoveTasks applies in to each named task once; a task already there gets no history entry and is not counted.
 func (s *Service) MoveTasks(ctx context.Context, actor string, refs []string, in BulkMove) (n int, err error) {
+	if err := checkBulk(refs); err != nil {
+		return 0, err
+	}
 	err = s.write(ctx, actor, func(o *op) error {
 		c := Changes{Status: in.Status, PlannedFor: in.PlannedFor}
 		if in.Project != nil {
@@ -1335,14 +1349,30 @@ func (s *Service) MoveTasks(ctx context.Context, actor string, refs []string, in
 			}
 			c.ProjectID = &p.ID
 		}
+		// Resolve every ref before moving anything: codes change on a project move, and a code and an id may name one task.
+		var ids []int64
+		seen := map[int64]string{}
 		for _, ref := range refs {
 			t, err := liveTask(o.tx, ref)
 			if err != nil {
 				return err
 			}
+			if _, ok := seen[t.ID]; !ok {
+				seen[t.ID] = ref
+				ids = append(ids, t.ID)
+			}
+		}
+		for _, id := range ids {
+			t, err := o.tx.GetTask(id) // fresh: an epic moved earlier in this call may have carried this subtask along
+			if err != nil {
+				return err
+			}
 			d, err := apply(o, &t, c)
 			if err != nil {
-				return invalid("task %s: %v", ref, err)
+				return invalid("task %s: %v", seen[id], err)
+			}
+			if len(d) == 0 {
+				continue
 			}
 			if err := o.log("moved", t.ID, t.ProjectID, d); err != nil {
 				return err
@@ -1356,6 +1386,9 @@ func (s *Service) MoveTasks(ctx context.Context, actor string, refs []string, in
 
 // DeleteTasks moves tasks (and their subtasks) to the trash.
 func (s *Service) DeleteTasks(ctx context.Context, actor string, refs []string) (n int, err error) {
+	if err := checkBulk(refs); err != nil {
+		return 0, err
+	}
 	err = s.write(ctx, actor, func(o *op) error {
 		ts := deletionStamp()
 		for _, ref := range refs {
@@ -1489,6 +1522,9 @@ func (s *Service) CarryOver(ctx context.Context, actor, from, to string) (n int,
 	}
 	if err := checkDate("to", to); err != nil {
 		return 0, err
+	}
+	if from == to {
+		return 0, nil // nothing would change; no history entries
 	}
 	err = s.write(ctx, actor, func(o *op) error {
 		ts, err := o.tx.ListTasks(store.TaskFilter{PlannedFor: from})

@@ -100,7 +100,7 @@ status is given by its key.
 
 | Read | Write |
 |---|---|
-| `list_projects`, `get_board`, `get_today`, `get_task`, `search`, `list_pages`, `read_page`, `read_html` | `create_project`, `create_tasks` (up to 100 at a time, epics with subtasks via `ref`/`parent_ref`, idempotent by `external_id`), `update_task`, `move_tasks`, `add_note`, `report_issue`, `publish_html`, `write_page`, `append_to_page`, `carry_over`, `delete_tasks` |
+| `list_projects`, `get_board`, `get_today`, `get_task`, `search`, `list_pages`, `read_page`, `read_html` | `create_project`, `create_tasks` (up to 100 at a time, epics with subtasks via `ref`/`parent_ref`, idempotent by `external_id`), `update_task`, `move_tasks` (up to 100 IDs, unchanged tasks are skipped), `add_note`, `report_issue`, `publish_html`, `write_page`, `append_to_page`, `carry_over`, `delete_tasks` (up to 100 IDs) |
 
 - `delete_tasks` is **off** by default. It only moves tasks to the trash; the owner empties the trash in the UI.
 - Wiki: `write_page` creates a page or replaces its whole body (pass the `updated_at` from `read_page` as `expected_updated_at`;

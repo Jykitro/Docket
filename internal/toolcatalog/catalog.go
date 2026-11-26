@@ -22,7 +22,7 @@ var MCPTools = []ToolInfo{
 		"instead of duplicating it. status is a status key (default backlog); an unknown area becomes a new label. New tasks go to the end of their column."},
 	{"update_task", "write", "Edit task fields by ID such as TRK-07. Omitted fields stay as they are. planned_for \"\" clears the date, " +
 		"parent \"\" detaches from the parent. custom is keyed by field name. Status and project change via move_tasks."},
-	{"move_tasks", "write", "Change status (key), planned date and/or project of several tasks at once. Moved tasks go to the end of the " +
+	{"move_tasks", "write", "Change status (key), planned date and/or project of up to 100 tasks at once; each task changes once. Moved tasks go to the end of the " +
 		"target column. planned_for \"\" clears the date."},
 	{"publish_html", "write", "Publish a versioned interactive HTML document on a task or wiki page."},
 	{"read_html", "read", "Read a saved HTML document, including source, by ID and optional version."},
@@ -34,5 +34,5 @@ var MCPTools = []ToolInfo{
 		"link pages as [[Title]] and tasks by ID such as TRK-07, and pass the updated_at you read as expected_updated_at so a human's newer edit is not overwritten."},
 	{"append_to_page", "write", "Append markdown to the end of an existing Markdown wiki page, after a blank line, without reading it first."},
 	{"carry_over", "write", "Move all open tasks planned for date `from` to date `to`."},
-	{"delete_tasks", "write", "Move tasks (with their subtasks) to the trash. The owner can restore them. Disabled by default."},
+	{"delete_tasks", "write", "Move up to 100 tasks (with their subtasks) to the trash. The owner can restore them. Disabled by default."},
 }

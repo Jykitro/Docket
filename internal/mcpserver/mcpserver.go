@@ -611,7 +611,7 @@ func (t *tools) updateTask(ctx context.Context, in updateTaskIn) (any, error) {
 }
 
 type moveTasksIn struct {
-	IDs        []string `json:"ids" jsonschema:"task IDs such as TRK-07"`
+	IDs        []string `json:"ids" jsonschema:"1 to 100 task IDs such as TRK-07"`
 	Status     *string  `json:"status,omitempty" jsonschema:"status key of the project"`
 	PlannedFor *string  `json:"planned_for,omitempty" jsonschema:"YYYY-MM-DD, or empty string to clear"`
 	Project    *string  `json:"project,omitempty" jsonschema:"target project key, slug or id; subtasks follow their epic and tasks get new IDs"`
@@ -738,7 +738,7 @@ func (t *tools) appendToPage(ctx context.Context, in appendToPageIn) (any, error
 }
 
 type idsIn struct {
-	IDs []string `json:"ids" jsonschema:"task IDs such as TRK-07"`
+	IDs []string `json:"ids" jsonschema:"1 to 100 task IDs such as TRK-07"`
 }
 
 func (t *tools) deleteTasks(ctx context.Context, in idsIn) (any, error) {

@@ -989,3 +989,71 @@ func TestAgentDoneFiresOnceForAnAgentsFinish(t *testing.T) {
 		t.Fatalf("agent-done calls %v, want the agent's finish of PU-02 and the task codex created done (PU-03)", got)
 	}
 }
+
+func TestBulkOperationsAreBoundedDeduplicatedAndSkipNoOps(t *testing.T) {
+	s := newSvc(t)
+	mustProject(t, s, "p")
+	x := mustTasks(t, s, ActorDenis, NewTask{Project: "p", Title: "t", Status: "todo"})[0]
+	ch, cancel := s.bus.Subscribe()
+	defer cancel()
+	activity := func() []store.Activity {
+		t.Helper()
+		d, err := s.GetTask(ctx, x.Code, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return d.Activity
+	}
+	events := func() (n int) {
+		for len(ch) > 0 {
+			<-ch
+			n++
+		}
+		return n
+	}
+	before := len(activity())
+
+	tooMany := make([]string, maxBulkItems+1)
+	for i := range tooMany {
+		tooMany[i] = x.Code
+	}
+	var se *Error
+	if _, err := s.MoveTasks(ctx, ActorClaude, tooMany, BulkMove{Status: ptr("doing")}); !asErr(err, &se) || se.Code != "validation" {
+		t.Fatalf("over-limit move: %v, want a validation error", err)
+	}
+	if _, err := s.DeleteTasks(ctx, ActorClaude, tooMany); !asErr(err, &se) || se.Code != "validation" {
+		t.Fatalf("over-limit delete: %v, want a validation error", err)
+	}
+	if _, err := s.MoveTasks(ctx, ActorClaude, nil, BulkMove{Status: ptr("doing")}); !asErr(err, &se) || se.Code != "validation" {
+		t.Fatalf("empty move: %v, want a validation error", err)
+	}
+	if got, _ := s.ResolveTask(ctx, x.Code); got.Status != "todo" || got.DeletedAt != nil || len(activity()) != before || events() != 0 {
+		t.Fatalf("rejected calls changed the task: %+v", got)
+	}
+
+	n, err := s.MoveTasks(ctx, ActorClaude, []string{x.Code, strings.ToLower(x.Code), id(x.ID)}, BulkMove{Status: ptr("doing")})
+	if err != nil || n != 1 {
+		t.Fatalf("duplicate move = %d, %v; want 1", n, err)
+	}
+	if a := activity(); len(a) != before+1 || a[0].Action != "moved" {
+		t.Fatalf("activity after duplicate move = %+v, want one moved row", a)
+	}
+	if e := events(); e != 1 {
+		t.Fatalf("events after duplicate move = %d, want 1", e)
+	}
+
+	n, err = s.MoveTasks(ctx, ActorClaude, []string{x.Code}, BulkMove{Status: ptr("doing")})
+	if err != nil || n != 0 {
+		t.Fatalf("no-op move = %d, %v; want 0", n, err)
+	}
+	if a := activity(); len(a) != before+1 {
+		t.Fatalf("no-op move logged activity: %+v", a)
+	}
+	if e := events(); e != 0 {
+		t.Fatalf("no-op move published %d events", e)
+	}
+
+	if n, err = s.CarryOver(ctx, ActorClaude, "2026-11-04", "2026-11-04"); err != nil || n != 0 {
+		t.Fatalf("carry-over onto the same date = %d, %v; want 0", n, err)
+	}
+}
