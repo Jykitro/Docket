@@ -10,7 +10,7 @@ import { LANGS, locale, setLang, tr, useLang } from './i18n'
 import { NAME_MAX } from './Onboarding'
 import { InstallPlandillo } from './Pwa'
 import { Link } from './router'
-import { ACCENTS, DENSITIES, FONTS, RADII, SCALES, STARTS, type ThemePref, WEIGHTS, useLookPref } from './theme'
+import { ACCENTS, DENSITIES, FONTS, KEYS, RADII, SCALES, STARTS, type ThemePref, WEIGHTS, useLookPref } from './theme'
 import { AccountSection, Users } from './Users'
 import { WorkspaceGeneral, WorkspaceList } from './Workspaces'
 import { Avatar, ErrorState, MENUITEM, MENUSEP, Menu, SettingsRow, SettingsSection, SkeletonRows, btn, btnPri, cap, textInput } from './ui'
@@ -256,6 +256,7 @@ function Appearance({ theme, onTheme }: { theme: ThemePref; onTheme: (t: ThemePr
   const [scale, setScale] = useLookPref('scale', SCALES, '100')
   const [density, setDensity] = useLookPref('density', DENSITIES, 'normal')
   const [start, setStart] = useLookPref('start', STARTS, 'today')
+  const [keys, setKeys] = useLookPref('keys', KEYS, 'show')
   const step = SCALES.findIndex((s) => s.id === scale)
   const ink = accent === 'purple' ? undefined : ACCENTS.find((a) => a.id === accent)?.color
   return (
@@ -318,6 +319,9 @@ function Appearance({ theme, onTheme }: { theme: ThemePref; onTheme: (t: ThemePr
       <SettingsSection title={tr('Списки')} hint={tr('Как задачи выглядят в списках и на доске.')}>
         <SettingsRow label={tr('Плотность')} hint={tr('Компактная: строки 32 px в списках и в поиске, карточки на доске ниже.')}>
           <Segmented label={tr('Плотность')} value={density} options={DENSITIES} onChange={setDensity} />
+        </SettingsRow>
+        <SettingsRow label={tr('Ключи задач')} hint={tr('ABC-12 в списках, на карточках и в поиске. В карточке задачи ключ виден всегда.')}>
+          <Segmented label={tr('Ключи задач')} value={keys} options={KEYS} onChange={setKeys} />
         </SettingsRow>
       </SettingsSection>
       <SettingsSection title={tr('Запуск')}>

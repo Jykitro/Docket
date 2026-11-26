@@ -127,7 +127,7 @@ function CardContent({ t, labels, fields, movable, who }: CardProps) {
     <>
       <div className={'flex items-center gap-2' + (movable ? ' pr-7' : '')}>
         {done && <span className="inline-flex text-dn"><Icon name="check" size={14} sw={2.4} /></span>}
-        <span className="font-mono grow text-[11.5px] text-t3">{t.code}</span>
+        <span className="task-key font-mono text-[11.5px] text-t3">{t.code}</span><span className="grow" />
         <PriorityChip p={t.priority} />
         <Avatar actor={t.created_by} who={who} />
       </div>
@@ -351,7 +351,7 @@ function ListTable({ tasks, meta }: { tasks: Task[]; meta: Meta }) {
     <div className="px-7 pt-[18px] pb-7 overflow-x-auto">
       <table className="w-full border-separate border-spacing-0 text-sm bg-sf border border-ln rounded-xl">
         <thead>
-          <tr className="text-xs font-medium text-t3"><th className={TH}>ID</th><th className={TH}>{tr('Название')}</th><th className={TH}>{tr('Статус')}</th><th className={TH}>{tr('Приоритет')}</th><th className={TH}>{tr('Область')}</th><th className={TH}>{tr('Дата')}</th></tr>
+          <tr className="text-xs font-medium text-t3"><th className={TH + ' task-key'}>ID</th><th className={TH}>{tr('Название')}</th><th className={TH}>{tr('Статус')}</th><th className={TH}>{tr('Приоритет')}</th><th className={TH}>{tr('Область')}</th><th className={TH}>{tr('Дата')}</th></tr>
         </thead>
         <tbody ref={body}>
           {virtual && pad((items[0]?.start ?? top) - top)}
@@ -359,7 +359,7 @@ function ListTable({ tasks, meta }: { tasks: Task[]; meta: Meta }) {
             const st = meta.statuses.find((s) => s.key === t.status)
             return (
               <tr key={t.id} data-index={index} ref={virtual ? v.measureElement : undefined} className="group relative">
-                <td className={TD + ' font-mono text-[12px] text-t3 whitespace-nowrap'}>{t.code}</td>
+                <td className={TD + ' task-key font-mono text-[12px] text-t3 whitespace-nowrap'}>{t.code}</td>
                 <td className={TD + ' font-medium wrap-anywhere'}><Link to={hrefWith('task', t.code)} aria-label={t.code + ' ' + t.title} className="no-underline after:absolute after:inset-0 focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-ring">{t.title}</Link>{isAgent(t.created_by) && <> <AgentBadge actor={t.created_by} /></>}</td>
                 <td className={TD + ' whitespace-nowrap'}><span className="inline-flex items-center gap-[5px] text-[13px] text-t2"><span className="inline-block w-2 h-2 flex-[0_0_8px] rounded-full" style={{ background: color(st) }} />{t.status_name}</span></td>
                 <td className={TD + ' whitespace-nowrap'}><PriorityChip p={t.priority} /></td>

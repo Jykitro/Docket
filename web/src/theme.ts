@@ -81,6 +81,12 @@ export const DENSITIES = [
   { id: 'compact', label: 'Компактная' },
 ] as const
 
+/** Task keys (ABC-12) in lists, on cards and in search; the task panel always shows its key (styles.css, html[data-keys]). */
+export const KEYS = [
+  { id: 'show', label: 'Показывать' },
+  { id: 'hide', label: 'Скрывать' },
+] as const
+
 /** What the app opens on when it starts at Today (App.tsx). */
 export const STARTS = [
   { id: 'today', label: 'Сегодня' },
@@ -114,7 +120,7 @@ function stored<T extends string>(key: string, ok: readonly { id: T }[], fallbac
 }
 
 /** One Appearance choice: kept as plandillo-<attr> in localStorage and shown on <html> as data-<attr>. */
-export function useLookPref<T extends string>(attr: 'accent' | 'radius' | 'scale' | 'weight' | 'font' | 'density' | 'start', options: readonly { id: T }[], fallback: T) {
+export function useLookPref<T extends string>(attr: 'accent' | 'radius' | 'scale' | 'weight' | 'font' | 'density' | 'start' | 'keys', options: readonly { id: T }[], fallback: T) {
   const key = 'plandillo-' + attr
   const [value, setValue] = useState<T>(() => stored(key, options, fallback))
   const set = (v: T) => {

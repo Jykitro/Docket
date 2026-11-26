@@ -95,7 +95,7 @@ export function SearchDialog({ projects, current, onClose, onCreate }: {
     return row(it, (
       <>
         {p && <ProjectTile project={p} size={22} radius={7} />}
-        <span className="font-mono text-[11.5px] text-t3 flex-[0_0_52px]">{h.code}</span>
+        <span className="task-key font-mono text-[11.5px] text-t3 flex-[0_0_52px]">{h.code}</span>
         <span className="flex flex-[1_1_0] flex-col gap-0.5 min-w-0">
           <span className="text-[14px] font-medium leading-[1.35]">{snippet ? h.title : <Highlight text={h.title} q={q} />}</span>
           {snippet && h.snippet && <span className="text-[12.5px] text-t3"><Snippet s={h.snippet} /></span>}

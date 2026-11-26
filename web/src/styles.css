@@ -120,3 +120,5 @@ html[data-density='compact'] .row { min-height: 32px; padding-top: 2px; padding-
 html[data-density='compact'] .row-cell { padding-top: 5px; padding-bottom: 5px; }
 html[data-density='compact'] .row-btn { width: 28px; height: 28px; }
 html[data-density='compact'] .card-pad { padding-top: 6px; padding-bottom: 6px; gap: 4px; }
+/* Settings → Appearance → Task keys: hidden in lists, on cards and in search; the task panel keeps its key. */
+html[data-keys='hide'] .task-key { display: none; }

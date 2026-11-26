@@ -47,7 +47,7 @@ function TaskRow({ t, meta, onCycle }: { t: Task; meta?: Meta; onCycle: (t: Task
     <div className={'row flex items-center gap-3 min-h-[46px] px-4 py-1.5 border-t border-ln no-underline text-inherit hover:bg-sf2' + (fresh ? freshRing : '')}>
       <StatusButton t={t} onCycle={onCycle} />
       <Link to={hrefWith('task', t.code)} className="flex flex-wrap items-center gap-x-3 gap-y-1 flex-1 min-w-0 self-stretch no-underline text-inherit">
-        <span className="font-mono text-[11.5px] text-t3 w-[58px] flex-[0_0_58px]">{t.code}</span>
+        <span className="task-key font-mono text-[11.5px] text-t3 w-[58px] flex-[0_0_58px]">{t.code}</span>
         <span className={'flex-[1_1_200px] min-w-0 wrap-anywhere font-medium' + (done ? ' text-t3 line-through' : '')}>{t.title}</span>
         {isAgent(t.created_by) && <AgentBadge actor={t.created_by} />}
         <AreaDot area={t.area} labels={meta?.labels ?? []} />

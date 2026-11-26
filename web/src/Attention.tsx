@@ -27,7 +27,7 @@ function IssueRow({ task }: { task: AttentionItem }) {
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
       <div className="min-w-0 flex-[1_1_260px]">
         <div className="flex flex-wrap items-center gap-2 text-xs text-t3">
-          <span>{task.project}</span><span className="font-mono">{task.code}</span><PriorityChip p={task.priority} />
+          <span>{task.project}</span><span className="task-key font-mono">{task.code}</span><PriorityChip p={task.priority} />
           <span>{task.status_name}</span>
           {!!task.report_count && <span>{tr('Наблюдений: {n}', { n: task.report_count })}</span>}
         </div>
