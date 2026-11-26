@@ -168,9 +168,11 @@ func TestAnonymousBlocked(t *testing.T) {
 	if rec := s.do("GET", "/healthz", "", nil, nil); rec.Code != 200 {
 		t.Errorf("/healthz: %d", rec.Code)
 	}
-	// The installer holds no secrets and curl has no session, so it is the one public /api path.
-	if rec := s.do("GET", "/api/mcp/install.sh", "", nil, nil); rec.Code != 200 {
-		t.Errorf("install.sh without a session: %d, want 200", rec.Code)
+	// The installers hold no secrets and curl has no session, so they are the only public /api paths.
+	for _, path := range []string{"/api/mcp/install.sh", "/api/cli/install.sh", "/api/cli/install.ps1"} {
+		if rec := s.do("GET", path, "", nil, nil); rec.Code != 200 {
+			t.Errorf("%s without a session: %d, want 200", path, rec.Code)
+		}
 	}
 	if rec := s.do("GET", "/api/projects", "", nil, map[string]string{"Cookie": "plandillo_session=forged"}); rec.Code != 401 {
 		t.Errorf("forged cookie: %d, want 401", rec.Code)

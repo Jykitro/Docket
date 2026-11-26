@@ -330,6 +330,14 @@ func TestPlandilloSkillIsServedAndSentAsInstructions(t *testing.T) {
 	if res.StatusCode != 200 || !strings.HasPrefix(string(body), "#!/bin/sh\n") || !strings.Contains(string(body), "name: plandillo-setup") {
 		t.Fatalf("install.sh: %d %.40q", res.StatusCode, body)
 	}
+	for path, want := range map[string]string{"/api/cli/install.sh": "#!/bin/sh\n", "/api/cli/install.ps1": "# Plandillo: installs plandillo-cli"} {
+		res := do(t, "GET", e.srv.URL+path, "", nil)
+		b, _ := io.ReadAll(res.Body)
+		res.Body.Close()
+		if res.StatusCode != 200 || !strings.HasPrefix(string(b), want) {
+			t.Errorf("%s: %d %.40q", path, res.StatusCode, b)
+		}
+	}
 	result := connect(t, e).InitializeResult()
 	if result.ServerInfo.Name != "plandillo" || result.ServerInfo.Title != "Plandillo" {
 		t.Fatalf("server identity: %+v", result.ServerInfo)

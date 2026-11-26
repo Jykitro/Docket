@@ -21,6 +21,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
+	"plandillo/internal/cli/installer"
 	"plandillo/internal/events"
 	"plandillo/internal/service"
 	"plandillo/internal/store"
@@ -149,6 +150,8 @@ func Router(d Deps) http.Handler {
 		r.Get("/mcp/skill", skill)
 		r.Get("/mcp/skill/{name}", skill)
 		r.Get("/mcp/install.sh", InstallScript)
+		r.Get("/cli/install.sh", CLIInstallScript)
+		r.Get("/cli/install.ps1", CLIInstallScript)
 		r.Get("/mcp/token", a.h(a.mcpToken))
 		r.Post("/mcp/token/rotate", a.h(a.mcpRotate))
 		r.Get("/mcp/calls", a.h(a.mcpCalls))
@@ -174,6 +177,18 @@ func Router(d Deps) http.Handler {
 func InstallScript(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "text/x-shellscript; charset=utf-8")
 	_, _ = io.WriteString(w, skills.InstallScript())
+}
+
+// CLIInstallScript serves the plandillo-cli installers (install.sh, install.ps1). Like InstallScript they hold no
+// secrets, so selfhost serves them without a login too.
+func CLIInstallScript(w http.ResponseWriter, r *http.Request) {
+	if strings.HasSuffix(r.URL.Path, ".ps1") {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		_, _ = io.WriteString(w, installer.Ps1)
+		return
+	}
+	w.Header().Set("Content-Type", "text/x-shellscript; charset=utf-8")
+	_, _ = io.WriteString(w, installer.Sh)
 }
 
 // localBrowserGuard keeps the unauthenticated local UI on its own browser origin.

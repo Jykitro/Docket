@@ -34,7 +34,8 @@ const HOOK = `{
 
 const shellQuote = (value: string) => "'" + value.replaceAll("'", "'\"'\"'") + "'"
 
-const CLIENTS = ['Claude Code', 'Codex', 'Claude Desktop', 'Другой клиент'] as const
+const TERMINAL = 'Терминал: plandillo-cli'
+const CLIENTS = ['Claude Code', 'Codex', 'Claude Desktop', TERMINAL, 'Другой клиент'] as const
 type Client = typeof CLIENTS[number]
 const METHODS = {
   workspace: 'Навыки и MCP этой доски',
@@ -46,7 +47,10 @@ type Method = keyof typeof METHODS
 const repo = 'huntly-digital/plandillo'
 const local = 'http://localhost:7777/mcp' // the plugin's default board, skills/.mcp.json
 
-function installCommand(client: Client, method: Method, address: string) {
+function installCommand(client: Client, method: Method, address: string, windows: boolean) {
+  if (client === TERMINAL) return windows
+    ? `$env:PLANDILLO_URL='${location.origin.replaceAll("'", "''")}'; irm '${location.origin.replaceAll("'", "''")}/api/cli/install.ps1' | iex`
+    : `curl -fsSL ${shellQuote(location.origin + '/api/cli/install.sh')} | PLANDILLO_URL=${shellQuote(location.origin)} sh`
   if (client === 'Другой клиент') return address
   if (client === 'Claude Desktop') return JSON.stringify({ mcpServers: { plandillo: {
     command: 'npx', args: ['-y', 'mcp-remote', address, ...(address.startsWith('http:') ? ['--allow-http'] : [])],
@@ -82,12 +86,14 @@ export function McpAgent() {
   const [method, setMethod] = useState<Method>(location.origin + '/mcp' === local ? 'plugin' : 'workspace')
   const [codeMode, setCodeMode] = useState(false)
   const [agentName, setAgentName] = useState('')
+  const [windows, setWindows] = useState(() => navigator.userAgent.includes('Windows'))
   const cli = client === 'Claude Code' || client === 'Codex'
+  const terminal = client === TERMINAL
   const active = cli ? method : 'mcp'
-  const useBoard = active === 'workspace' || active === 'mcp'
+  const useBoard = !terminal && (active === 'workspace' || active === 'mcp')
   const endpoint = location.origin + (codeMode ? '/mcp/code' : '/mcp')
   const address = client === 'Другой клиент' && agentName.trim() ? endpoint + '?' + new URLSearchParams({ agent: agentName.trim() }) : endpoint
-  const command = installCommand(client, active, address)
+  const command = installCommand(client, active, address, windows)
   const path = client === 'Codex' ? '~/.agents/skills/<name>/SKILL.md' : '~/.claude/skills/<name>/SKILL.md'
   const hookPath = client === 'Codex' ? '~/.codex/hooks.json' : '.claude/settings.json'
 
@@ -117,11 +123,12 @@ export function McpAgent() {
     mcp: client === 'Codex' ? 'Выполните команду и подтвердите доступ в браузере. Если вход не открылся, выполните codex mcp login plandillo.'
       : 'Выполните команды в терминале и подтвердите доступ к пространству в браузере.',
   } as const
-  const help = client === 'Claude Desktop' ? tr('Добавьте запись в mcpServers файла claude_desktop_config.json и перезапустите Claude Desktop. Для запуска npx нужен Node.js.')
+  const help = terminal ? tr('Скрипт скачает plandillo-cli из релиза на GitHub, сверит контрольную сумму и откроет вход в браузере. Агент без MCP вызывает те же инструменты командой plandillo-cli, например plandillo-cli get_today.')
+    : client === 'Claude Desktop' ? tr('Добавьте запись в mcpServers файла claude_desktop_config.json и перезапустите Claude Desktop. Для запуска npx нужен Node.js.')
     : client === 'Другой клиент' ? tr('Вставьте адрес в настройки клиента, выберите Streamable HTTP и подтвердите вход через браузер.')
     : tr(instructions[active], { url: local, board: endpoint })
   const copyLabel = client === 'Claude Desktop' ? tr('Скопировать конфиг') : client === 'Другой клиент' ? tr('Копировать адрес') : tr('Скопировать команду')
-  const stepTitle = cli ? tr('Выполните в терминале') : client === 'Claude Desktop' ? tr('Добавьте конфиг в Claude Desktop') : tr('Вставьте адрес в клиент')
+  const stepTitle = cli || terminal ? tr('Выполните в терминале') : client === 'Claude Desktop' ? tr('Добавьте конфиг в Claude Desktop') : tr('Вставьте адрес в клиент')
   return (
     <section className={PANEL} aria-labelledby="agent-install-title">
       <h2 id="agent-install-title" className="px-4 pt-3.5 pb-1 text-[15px] font-semibold">{tr('Подключить агента')}</h2>
@@ -130,6 +137,7 @@ export function McpAgent() {
           <div className="flex flex-wrap gap-2">
             <Select label={tr('Клиент')} showLabel value={client} options={CLIENTS.map((c) => ({ value: c, label: tr(c) }))} onChange={setClient} />
             {cli && <Select label={tr('Способ установки')} value={active} options={(Object.keys(METHODS) as Method[]).map((m) => ({ value: m, label: tr(METHODS[m]) }))} onChange={setMethod} />}
+            {terminal && <Select label={tr('Система')} showLabel value={windows ? 'windows' : 'unix'} options={[{ value: 'unix', label: 'macOS, Linux' }, { value: 'windows', label: 'Windows (PowerShell)' }]} onChange={(v) => setWindows(v === 'windows')} />}
             {useBoard && <Select label={tr('Режим MCP')} showLabel value={codeMode ? 'code' : 'tools'} options={[{ value: 'tools', label: 'MCP' }, { value: 'code', label: 'Code Mode' }]} onChange={(v) => setCodeMode(v === 'code')} />}
           </div>
           {client === 'Другой клиент' && <label className="flex flex-wrap items-center gap-2 text-[13px] text-t2">{tr('Имя агента')}
@@ -148,7 +156,8 @@ export function McpAgent() {
           {error && <p role="alert" className="text-sm text-rd">{error}</p>}
         </Step>
         {active !== 'skills' && <Step n={3} title={tr('Проверьте подключение')}>
-          <p className="text-[13px] text-t2">{tr('Попросите агента показать проекты этого пространства. Вызов появится в журнале вызовов.')}</p>
+          <p className="text-[13px] text-t2">{terminal ? tr('Выполните plandillo-cli status: появятся доска, способ входа и доступные инструменты. Вызовы попадут в журнал вызовов.')
+            : tr('Попросите агента показать проекты этого пространства. Вызов появится в журнале вызовов.')}</p>
         </Step>}
       </ol>
       <details className="group border-t border-ln px-4 py-2.5 text-[13px]">
