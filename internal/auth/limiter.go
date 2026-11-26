@@ -5,15 +5,23 @@ import (
 	"time"
 )
 
+// maxKeys caps the keys one Limiter tracks, so a flood of distinct usernames or addresses cannot grow memory without bound.
+const maxKeys = 10_000
+
+type stamp struct {
+	key string
+	at  time.Time
+}
+
 // Limiter refuses a key once it has tried max times within window.
 // shortcut: in-memory, resets on restart; move to auth.db if the server runs several replicas.
 type Limiter struct {
-	mu        sync.Mutex
-	max       int
-	window    time.Duration
-	now       func() time.Time
-	fails     map[string][]time.Time
-	lastSweep time.Time
+	mu     sync.Mutex
+	max    int
+	window time.Duration
+	now    func() time.Time
+	fails  map[string][]time.Time
+	queue  []stamp // every recorded attempt in time order, drained as it expires: cleanup is amortized O(1) per attempt
 }
 
 func NewLimiter(max int, window time.Duration) *Limiter {
@@ -42,16 +50,21 @@ func (l *Limiter) recent(key string) []time.Time {
 func (l *Limiter) Attempt(key string) bool {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	if now := l.now(); now.Sub(l.lastSweep) >= time.Minute { // sweep so keys that never return do not accumulate
-		l.lastSweep = now
-		for k := range l.fails {
-			l.recent(k)
-		}
+	now := l.now()
+	for len(l.queue) > 0 && !l.queue[0].at.After(now.Add(-l.window)) {
+		l.recent(l.queue[0].key)
+		l.queue = l.queue[1:]
 	}
-	if len(l.recent(key)) >= l.max {
+	ts := l.recent(key)
+	if len(ts) >= l.max {
 		return false
 	}
-	l.fails[key] = append(l.fails[key], l.now())
+	// Full: refuse a new key instead of evicting a live one, which would reset that key's protection.
+	if _, tracked := l.fails[key]; !tracked && len(l.fails) >= maxKeys {
+		return false
+	}
+	l.fails[key] = append(ts, now)
+	l.queue = append(l.queue, stamp{key, now})
 	return true
 }
 
