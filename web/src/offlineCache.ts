@@ -54,7 +54,11 @@ function createPersister(key: () => string): Persister {
         if (!wiped) void run('readwrite', undefined, s => { s.put(latest, key()) })
       }, WRITE_DELAY)
     },
-    restoreClient: () => run<PersistedClient | undefined>('readonly', undefined, s => s.get(key())),
+    // An IndexedDB that never answers must not keep the app blank: give up after 2.5 s and start without the copy.
+    restoreClient: () => Promise.race([
+      run<PersistedClient | undefined>('readonly', undefined, s => s.get(key())),
+      new Promise<undefined>(resolve => setTimeout(resolve, 2500)),
+    ]),
     removeClient: () => run('readwrite', undefined, s => { s.delete(key()) }),
   }
 }
