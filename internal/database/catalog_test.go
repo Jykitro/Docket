@@ -40,9 +40,10 @@ func eachEngine(t *testing.T, test func(t *testing.T, db *DB, tx *Tx)) {
 	}
 }
 
-// oldCatalog is the catalog as it was before workspace slugs.
+// oldCatalog is the catalog as it was before the numbered migrations (workspace slugs, web push).
 func oldCatalog(db *DB) string {
 	ddl := strings.Replace(strings.Replace(catalogDDL, " slug TEXT NOT NULL DEFAULT '',\n", "", 1), "CREATE UNIQUE INDEX workspaces_slug ON workspaces(owner_user_id,slug);\n", "", 1)
+	ddl = strings.Replace(ddl, pushDDL, "", 1) // migration 2
 	return db.catalogDDL(ddl)
 }
 

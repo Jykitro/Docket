@@ -54,7 +54,9 @@ type Service struct {
 	loc          *time.Location
 	tokenMu      sync.Mutex
 	tokenChanged func(string)
-	envToken     string // PLANDILLO_MCP_TOKEN: wins over the stored token
+	envToken     string           // PLANDILLO_MCP_TOKEN: wins over the stored token
+	push         PushStore        // nil: push notifications are off
+	agentDone    func(store.Task) // after commit, for each task an agent finished
 }
 
 func New(st *store.Store, bus *events.Bus, loc *time.Location) *Service {
@@ -66,9 +68,17 @@ func (s *Service) Today() string { return time.Now().In(s.loc).Format("2006-01-0
 
 // op is one write transaction; events are published only after commit.
 type op struct {
-	tx    *store.Tx
-	actor string
-	evs   []events.Event
+	tx       *store.Tx
+	actor    string
+	evs      []events.Event
+	finished []store.Task // tasks an agent moved into (or created in) a done-category status
+}
+
+// finish records t when an agent, not the owner, has just brought it into a done-category status.
+func (o *op) finish(before string, t store.Task) {
+	if o.actor != ActorDenis && before != "done" && t.StatusCategory == "done" {
+		o.finished = append(o.finished, t)
+	}
 }
 
 type diff map[string][2]any
@@ -117,6 +127,11 @@ func (s *Service) write(ctx context.Context, actor string, fn func(*op) error) e
 	}
 	for _, e := range o.evs {
 		s.bus.Publish(e)
+	}
+	if s.agentDone != nil {
+		for _, t := range o.finished {
+			s.agentDone(t)
+		}
 	}
 	return nil
 }
@@ -817,6 +832,7 @@ func createTasks(o *op, items []NewTask) ([]store.Task, error) {
 			if err := o.log("created", t.ID, t.ProjectID, nil); err != nil {
 				return nil, err
 			}
+			o.finish("", t)
 		}
 		if it.Ref != "" {
 			refs[it.Ref] = t.ID
@@ -1115,8 +1131,11 @@ func apply(o *op, t *store.Task, c Changes) (diff, error) {
 			}
 		}
 	}
-	*t, err = o.tx.GetTask(t.ID)
-	return d, err
+	if *t, err = o.tx.GetTask(t.ID); err != nil {
+		return d, err
+	}
+	o.finish(old.StatusCategory, *t)
+	return d, nil
 }
 
 // moveSubtask carries a subtask along with its epic into another project.

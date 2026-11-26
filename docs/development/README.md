@@ -56,11 +56,12 @@ internal/service    domain rules, validation, activity, events, MCP settings
 internal/httpapi    REST, SSE /api/events, host/origin guard, bearer auth for /mcp, MCP self-check
 internal/mcpserver  MCP tools → service, access policy and call log; Code Mode (/mcp/code, codemode.go)
 internal/events     pub/sub for SSE
+internal/push       Web Push (PLANDILLO_PUSH=on): VAPID key, device subscriptions, agent-finished and morning notices
 internal/web        embedded SPA (dist)
 web/                React + TypeScript + Vite + Tailwind CSS v4 (shadcn-admin look; tokens in web/src/styles.css)
 ```
 
-Layering rule: `httpapi` and `mcpserver` call only `service`; task SQL lives in `store`, auth SQL in `auth`, and connection/dialect code in `database`.
+Layering rule: `httpapi` and `mcpserver` call only `service`; task SQL lives in `store`, auth SQL in `auth`, push subscription SQL in `push`, and connection/dialect code in `database`.
 How the integrations (MCP, Code Mode) work and how to add one: [`docs/integrations.md`](../integrations.md).
 
 See the [REST API reference](rest-api.md) for the HTTP endpoints. When updating the base image in the Dockerfile, verify its pinned manifest supports both Linux architectures.

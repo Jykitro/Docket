@@ -20,6 +20,7 @@ import (
 	"plandillo/internal/events"
 	"plandillo/internal/httpapi"
 	"plandillo/internal/mcpserver"
+	"plandillo/internal/push"
 	"plandillo/internal/selfhost"
 	"plandillo/internal/service"
 	"plandillo/internal/store"
@@ -149,6 +150,15 @@ func runSelfHost(ctx context.Context, cfg config.Config) error {
 	}
 	ws.UseShared(shared, envToken, firstID)
 	defer ws.Close()
+	if cfg.Push {
+		p, err := push.Open(ctx, ad.Connection())
+		if err != nil {
+			return fmt.Errorf("push notifications: %w", err)
+		}
+		ws.UsePush(p)
+		go p.Run(ctx, ws.TodayOpen)
+		slog.Info("push notifications on: sent through the browsers' push services (Google, Apple, Mozilla, Microsoft)")
+	}
 
 	{
 		userCount, err := ad.UserCount()

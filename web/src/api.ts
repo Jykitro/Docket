@@ -56,6 +56,7 @@ export type View = {
 export type NewTask = {
   project: string; title: string; description_md?: string; status?: string; priority?: string; area?: string; planned_for?: string; parent?: string; client_key?: string
 }
+export type PushSettings = { endpoint: string; p256dh: string; auth: string; agent_done: boolean; morning: string; tz: string; lang: string }
 export type Note = { id: number; task_id: number; author: string; body_md: string; created_at: string }
 export type AttentionItem = Pick<Task, 'id' | 'code' | 'title' | 'status_name' | 'status_category' | 'priority' | 'issue_kind' | 'report_count'> & { project: string }
 export type HTMLDocumentInfo = { id: number; title: string; version: number; author: string; created_at: string }
@@ -177,8 +178,10 @@ function leaveWorkspace() {
   if (!sessionRequests.signal.aborted) {
     sessionRequests.abort()
     if ('clearAppBadge' in navigator) void navigator.clearAppBadge().catch(() => {}) // the signed-out app icon keeps no count
+    // This device stops getting the account's notifications: the server drops the subscription on its next send (410).
+    const unsubscribe = navigator.serviceWorker?.getRegistration().then(r => r?.pushManager?.getSubscription()).then(s => s?.unsubscribe()).catch(() => {})
     // The reload must happen even if the wipe fails or hangs.
-    void Promise.race([wipeOfflineCache(), new Promise(r => setTimeout(r, 1000))]).finally(() => location.reload())
+    void Promise.race([Promise.all([wipeOfflineCache(), unsubscribe]), new Promise(r => setTimeout(r, 1000))]).finally(() => location.reload())
   }
 }
 function checkSessionStamp() {
@@ -203,10 +206,10 @@ export function adoptRestoredMe(me: unknown) {
   if (owner === undefined && me && typeof me === 'object') owner = identityOf(me)
 }
 
-async function req<T>(method: string, url: string, body?: unknown, budget?: CollectionBudget): Promise<T> {
+async function req<T>(method: string, url: string, body?: unknown, budget?: CollectionBudget, extra?: Record<string, string>): Promise<T> {
   assertSessionCurrent()
   const started = sessionGeneration
-  const headers = new Headers()
+  const headers = new Headers(extra)
   if (body !== undefined) headers.set('Content-Type', 'application/json')
   if (typeof owner === 'number' && url !== '/api/auth/me') headers.set('X-Docket-User', String(owner))
   const res = await fetch(workspaceApi(url), {
@@ -377,6 +380,10 @@ export const api = {
   deleteAccount: (password: string) => req<void>('DELETE', '/api/auth/account', { password }),
   profile: () => req<Profile>('GET', '/api/profile'),
   setProfile: (name: string) => req<Profile>('PUT', '/api/profile', { name }),
+  // The subscription address goes in a header: it works like a password for the device and stays out of URLs.
+  pushState: (endpoint: string) => req<{ enabled: boolean; public_key?: string; subscription?: PushSettings }>('GET', '/api/push', undefined, undefined, endpoint ? { 'X-Push-Endpoint': endpoint } : undefined),
+  savePush: (b: PushSettings) => req<void>('PUT', '/api/push', b),
+  removePush: (endpoint: string) => req<void>('DELETE', '/api/push', { endpoint }),
   projects: () => listPages<Project>('/api/projects?include_archived=1'),
   // lang names the new project's default statuses in the interface language.
   createProject: (b: { name: string; key?: string; icon?: string; icon_png?: string; color?: string }) => req<Project>('POST', '/api/projects', { ...b, lang: getLang() }),

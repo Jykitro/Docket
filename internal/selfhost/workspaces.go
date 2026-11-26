@@ -18,6 +18,7 @@ import (
 	"plandillo/internal/auth"
 	"plandillo/internal/database"
 	"plandillo/internal/events"
+	"plandillo/internal/push"
 	"plandillo/internal/service"
 	"plandillo/internal/store"
 )
@@ -60,6 +61,7 @@ type Workspaces struct {
 	postgresDSN string
 	loc         *time.Location
 	build       func(context.Context, *service.Service, *events.Bus) http.Handler
+	push        *push.Push // nil unless PLANDILLO_PUSH=on
 
 	tokens  tokenIndex
 	mu      sync.Mutex

@@ -34,6 +34,7 @@ internal/httpapi    REST, SSE /api/events, host/origin guard, bearer auth for /m
 internal/mcpserver  MCP tools -> service, access policy and call log; Code Mode at /mcp/code (codemode.go)
 internal/auth       selfhost users, sessions, password hashing, login rate limiter
 internal/selfhost   private workspace routing by account session or workspace MCP token
+internal/push       Web Push (PLANDILLO_PUSH=on): VAPID key, device subscriptions, agent-finished and morning notices
 internal/events     pub/sub for SSE
 internal/web        embedded SPA (dist)
 skills/             agent skills for users of Plandillo, embedded in the binary (see below)

@@ -90,6 +90,7 @@ Settings are read from `.env` (see [the example settings](../.env.example)). Ins
 | `PLANDILLO_MCP_TOKEN` | empty | Optional. If set, it takes precedence over the token stored in the database and rotating it in the UI is disabled |
 | `PLANDILLO_ALLOWED_HOSTS` | `localhost,127.0.0.1,plandillo.localhost` | Allowed `Host` and `Origin` values |
 | `PLANDILLO_SEED` | empty | Optional initial data file |
+| `PLANDILLO_PUSH` | `off` | `on` enables push notifications: each device turns them on in **Settings → App**. See [Push notifications](#push-notifications) |
 | `TZ` | `Asia/Ho_Chi_Minh` | Time zone used to decide what "today" is |
 
 ### Logs
@@ -198,6 +199,12 @@ Limits:
 | `POST /api/auth/recovery-code`, `POST /api/auth/recover` | Issue a code with the signed-in owner's password, or reset using username, code and new password (`password`). Both return `recovery_code` |
 | `PUT /api/admin/users/{id}/blocked` | Set `{"blocked":true}` or `false` as administrator |
 | `DELETE /api/auth/account` | Delete the signed-in owner's account with `{"password":"…"}` |
+
+### Push notifications
+
+With `PLANDILLO_PUSH=on`, **Settings → App → Notifications** lets each device ask for two notifications: when an agent moves a task to done (or records a finished task), and a morning reminder with the number of open tasks planned for today, at a time set on that device and in its time zone. They arrive even when Plandillo is closed. On iPhone and iPad they work only in Plandillo added to the Home Screen (iOS 16.4 or later).
+
+Web Push goes through the push service of each browser, so the server sends outbound HTTPS requests to `fcm.googleapis.com` (Chrome, Android, Edge), `*.push.apple.com` (Safari, iOS), `updates.push.services.mozilla.com` (Firefox) and `*.notify.windows.com`. It refuses every other address, does not follow redirects, and the content is end-to-end encrypted for the device (RFC 8291): the push service sees only the size and timing. The server creates its VAPID key on first start with push enabled and keeps it in the database. A reminder missed while the server was down is sent up to three hours late, then skipped for that day. Signing out stops notifications on that device. Off by default, push makes no outbound requests.
 
 ### Project icons and installed app
 

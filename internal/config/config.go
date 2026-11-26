@@ -30,6 +30,7 @@ type Config struct {
 	LogJSON        bool       // PLANDILLO_LOG_FORMAT=json: one JSON object per line, for log collectors
 	TLSCert        string     // optional certificate file: serve HTTPS (and so HTTP/2 to browsers) without a proxy
 	TLSKey         string     // its private key; both or neither
+	Push           bool       // PLANDILLO_PUSH=on: Web Push notifications, sent through the browsers' push services
 }
 
 func Load() (Config, error) {
@@ -62,6 +63,13 @@ func Load() (Config, error) {
 		c.LogJSON = true
 	default:
 		return c, fmt.Errorf("PLANDILLO_LOG_FORMAT: unknown format %q (want text or json)", f)
+	}
+	switch v := env("PUSH", "off"); v {
+	case "off":
+	case "on":
+		c.Push = true
+	default:
+		return c, fmt.Errorf("PLANDILLO_PUSH: want on or off, got %q", v)
 	}
 	if (c.TLSCert == "") != (c.TLSKey == "") {
 		return c, fmt.Errorf("PLANDILLO_TLS_CERT and PLANDILLO_TLS_KEY must be set together")

@@ -18,6 +18,7 @@ import (
 // To change the schema: append a step here and make the same change in the baselines.
 var migrations = []migration{
 	{1, "workspace slugs", addSpaceSlugs},
+	{2, "web push", func(tx *Tx) error { _, err := tx.Exec(tx.db.catalogDDL(pushDDL)); return err }},
 }
 
 type migration struct {

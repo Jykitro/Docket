@@ -694,3 +694,48 @@ func TestExportRefreshesAndCapsWriteDeadline(t *testing.T) {
 		t.Fatal(r.deadline, err)
 	}
 }
+
+type memPush map[string]service.PushSubscription
+
+func (m memPush) PublicKey() string { return "BKey" }
+func (m memPush) Get(_ context.Context, e string) (service.PushSubscription, bool, error) {
+	s, ok := m[e]
+	return s, ok, nil
+}
+func (m memPush) Save(_ context.Context, s service.PushSubscription) error { m[s.Endpoint] = s; return nil }
+func (m memPush) Remove(_ context.Context, e string) error                 { delete(m, e); return nil }
+
+func TestPushSubscriptionEndpoints(t *testing.T) {
+	e := newEnv(t)
+	var st service.PushState
+	res := do(t, "GET", e.srv.URL+"/api/push", "", nil)
+	json.NewDecoder(res.Body).Decode(&st)
+	if res.StatusCode != 200 || st.Enabled {
+		t.Fatalf("push off: %d %+v", res.StatusCode, st)
+	}
+	sub := `{"endpoint":"https://fcm.googleapis.com/fcm/send/abc","p256dh":"k","auth":"a","agent_done":true,"morning":"08:30","tz":"Europe/Kyiv","lang":"uk"}`
+	if res := do(t, "PUT", e.srv.URL+"/api/push", sub, nil); res.StatusCode != 400 {
+		t.Fatalf("subscribing with push off: %d, want 400 push_disabled", res.StatusCode)
+	}
+
+	m := memPush{}
+	e.svc.SetPush(m)
+	evil := strings.Replace(sub, "fcm.googleapis.com", "127.0.0.1:9", 1)
+	if res := do(t, "PUT", e.srv.URL+"/api/push", evil, nil); res.StatusCode != 400 || len(m) != 0 {
+		t.Fatalf("an endpoint outside the push services must be refused: %d", res.StatusCode)
+	}
+	if res := do(t, "PUT", e.srv.URL+"/api/push", sub, map[string]string{"Host": "localhost"}); res.StatusCode != 204 {
+		t.Fatalf("subscribe: %d", res.StatusCode)
+	}
+	if s := m["https://fcm.googleapis.com/fcm/send/abc"]; s.Origin != "https://localhost" || !s.AgentDone || s.Morning != "08:30" {
+		t.Fatalf("saved %+v", s)
+	}
+	res = do(t, "GET", e.srv.URL+"/api/push", "", map[string]string{"X-Push-Endpoint": "https://fcm.googleapis.com/fcm/send/abc"})
+	json.NewDecoder(res.Body).Decode(&st)
+	if !st.Enabled || st.PublicKey != "BKey" || st.Subscription == nil || st.Subscription.Lang != "uk" {
+		t.Fatalf("state %+v", st)
+	}
+	if res := do(t, "DELETE", e.srv.URL+"/api/push", `{"endpoint":"https://fcm.googleapis.com/fcm/send/abc"}`, nil); res.StatusCode != 204 || len(m) != 0 {
+		t.Fatalf("unsubscribe: %d, left %v", res.StatusCode, m)
+	}
+}

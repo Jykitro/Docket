@@ -10,9 +10,36 @@ import (
 	"github.com/go-chi/chi/v5"
 	"plandillo/internal/auth"
 	"plandillo/internal/events"
+	"plandillo/internal/push"
 	"plandillo/internal/service"
 	"plandillo/internal/store"
 )
+
+// UsePush turns on push notifications for the workspaces opened after it (call before serving).
+func (w *Workspaces) UsePush(p *push.Push) { w.push = p }
+
+// TodayOpen counts the open tasks planned for date in one workspace, for the morning reminder (push.Today).
+func (w *Workspaces) TodayOpen(ctx context.Context, owner, space int64, date string) (string, int, error) {
+	sp, err := w.shared.Space(ctx, owner, space)
+	if err != nil {
+		return "", 0, err
+	}
+	ws, err := w.openSpace(ctx, sp)
+	if err != nil {
+		return "", 0, err
+	}
+	r, err := ws.Svc.TodayView(ctx, date)
+	if err != nil {
+		return "", 0, err
+	}
+	open := 0
+	for _, t := range r.Tasks {
+		if t.StatusCategory != "done" {
+			open++
+		}
+	}
+	return sp.Slug, open, nil
+}
 
 // UseShared installs the catalog-backed workspace manager before serving requests.
 func (w *Workspaces) UseShared(s *store.Store, envToken string, firstID int64) {
@@ -29,6 +56,10 @@ func (w *Workspaces) openSpace(ctx context.Context, sp store.Space) (*Workspace,
 	st := w.shared.ForOwner(sp.ID, sp.OwnerID)
 	bus := events.NewBus()
 	svc := service.New(st, bus, w.loc)
+	if w.push != nil {
+		svc.SetPush(w.push.For(sp.OwnerID, sp.ID))
+		svc.ObserveAgentDone(func(t store.Task) { w.push.AgentDone(sp.OwnerID, sp.ID, t) })
+	}
 	if sp.ID == w.firstID && w.envToken != "" {
 		svc.SetEnvToken(w.envToken)
 	}

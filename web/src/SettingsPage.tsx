@@ -7,6 +7,7 @@ import { type Me, api, errText, fmtTime, useMe, useProfile } from './api'
 import { AccountSecurity, ProfilePhoto } from './AccountSecurity'
 import { Icon } from './icons'
 import { LANGS, locale, setLang, tr, useLang } from './i18n'
+import { Notifications } from './Notifications'
 import { NAME_MAX } from './Onboarding'
 import { InstallPlandillo } from './Pwa'
 import { Link } from './router'
@@ -360,6 +361,7 @@ function AppInfo() {
           <p className="text-sm text-t2">{tr('Откройте Plandillo в Safari, нажмите «Поделиться» и выберите «На экран Домой».')}</p>
         </SettingsRow>
       </SettingsSection>
+      <Notifications />
       <SettingsSection title={tr('Сервер')}>
         <SettingsRow label={tr('Адрес')}><span className="font-mono text-sm">{location.host}</span></SettingsRow>
         <SettingsRow label={tr('Режим')} hint={me?.mode === 'selfhost' ? tr('Несколько пользователей, вход по паролю.') : tr('Один пользователь, без входа.')}>

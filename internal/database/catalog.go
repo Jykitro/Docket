@@ -49,6 +49,27 @@ CREATE TABLE workspaces(
 );
 CREATE INDEX workspaces_owner ON workspaces(owner_user_id,archived_at,id);
 CREATE UNIQUE INDEX workspaces_slug ON workspaces(owner_user_id,slug);
+` + pushDDL
+
+// Web Push (PLANDILLO_PUSH): the installation's VAPID key and one row per subscribed device. The device belongs
+// to the account that subscribed it last; workspace_id is where its morning reminder looks.
+const pushDDL = `
+CREATE TABLE push_vapid(id INTEGER PRIMARY KEY CHECK(id=1), private_key TEXT NOT NULL);
+CREATE TABLE push_subscriptions(
+ endpoint TEXT PRIMARY KEY,
+ user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+ workspace_id INTEGER NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+ p256dh TEXT NOT NULL,
+ auth TEXT NOT NULL,
+ agent_done INTEGER NOT NULL DEFAULT 1 CHECK(agent_done IN (0,1)),
+ morning TEXT NOT NULL DEFAULT '',
+ tz TEXT NOT NULL,
+ lang TEXT NOT NULL,
+ origin TEXT NOT NULL,
+ last_morning TEXT NOT NULL DEFAULT '',
+ created_at INTEGER NOT NULL
+);
+CREATE INDEX push_subscriptions_user ON push_subscriptions(user_id);
 `
 
 // Codes, access tokens and refresh tokens have independent lifetimes. Only their digests

@@ -961,3 +961,31 @@ func TestProjectStatusesFollowTheCreatorsLanguage(t *testing.T) {
 		t.Fatalf("an unknown language must be rejected, got %v", err)
 	}
 }
+
+func TestAgentDoneFiresOnceForAnAgentsFinish(t *testing.T) {
+	s, ctx := newSvc(t), context.Background()
+	var got []string
+	s.ObserveAgentDone(func(t store.Task) { got = append(got, t.Code) })
+	p, _ := s.CreateProject(ctx, ActorDenis, ProjectInput{Name: "Push", Key: "PU"})
+	ts, err := s.CreateTasks(ctx, ActorDenis, []NewTask{{ProjectID: p.ID, Title: "a"}, {ProjectID: p.ID, Title: "b"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	done := "done"
+	if _, err := s.UpdateTask(ctx, ActorDenis, ts[0].Code, Changes{Status: &done}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.UpdateTask(ctx, ActorClaude, ts[1].Code, Changes{Status: &done}); err != nil {
+		t.Fatal(err)
+	}
+	title := "b, edited"
+	if _, err := s.UpdateTask(ctx, ActorClaude, ts[1].Code, Changes{Title: &title}); err != nil { // already done: no second call
+		t.Fatal(err)
+	}
+	if _, err := s.CreateTasks(ctx, "codex", []NewTask{{ProjectID: p.ID, Title: "c", Status: "done"}}); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(got, ",") != "PU-02,PU-03" {
+		t.Fatalf("agent-done calls %v, want the agent's finish of PU-02 and the task codex created done (PU-03)", got)
+	}
+}

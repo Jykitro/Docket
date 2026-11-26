@@ -155,6 +155,9 @@ func Router(d Deps) http.Handler {
 		r.Delete("/mcp/calls", a.h(a.mcpClearCalls))
 		r.Get("/profile", a.h(a.getProfile))
 		r.Put("/profile", a.h(a.setProfile))
+		r.Get("/push", a.h(a.getPush))
+		r.Put("/push", a.h(a.putPush))
+		r.Delete("/push", a.h(a.deletePush))
 		r.Get("/events", a.events)
 		r.Get("/export", a.export)
 		r.NotFound(func(w http.ResponseWriter, _ *http.Request) { writeError(w, 404, "not_found", "no such endpoint") })
@@ -382,6 +385,31 @@ func (a *api) projectIcon(r *http.Request) (any, error) {
 	}
 	data, err := a.svc.ProjectIcon(r.Context(), id)
 	return projectPNG(data), err
+}
+
+// Push notifications for this device. The subscription address comes in a header, not the URL: it works like a
+// password for the device and must stay out of access logs.
+func (a *api) getPush(r *http.Request) (any, error) {
+	return a.svc.PushState(r.Context(), r.Header.Get("X-Push-Endpoint"))
+}
+
+func (a *api) putPush(r *http.Request) (any, error) {
+	var in service.PushSubscription
+	if err := decode(r, &in); err != nil {
+		return nil, err
+	}
+	in.Origin = "https://" + r.Host // the VAPID contact the push services see: this installation
+	return none{}, a.svc.SavePush(r.Context(), in)
+}
+
+func (a *api) deletePush(r *http.Request) (any, error) {
+	var in struct {
+		Endpoint string `json:"endpoint"`
+	}
+	if err := decode(r, &in); err != nil {
+		return nil, err
+	}
+	return none{}, a.svc.RemovePush(r.Context(), in.Endpoint)
 }
 
 func (a *api) createProject(r *http.Request) (any, error) {

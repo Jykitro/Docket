@@ -182,3 +182,17 @@ func TestDefaultDatabaseKeepsAnOldDocketFile(t *testing.T) {
 		t.Fatalf("plandillo.db must win once it exists, got %q", got)
 	}
 }
+
+func TestPushIsOptIn(t *testing.T) {
+	if c, err := Load(); err != nil || c.Push {
+		t.Fatalf("push must be off by default: %v %v", c.Push, err)
+	}
+	t.Setenv("PLANDILLO_PUSH", "on")
+	if c, err := Load(); err != nil || !c.Push {
+		t.Fatalf("PLANDILLO_PUSH=on: %v %v", c.Push, err)
+	}
+	t.Setenv("PLANDILLO_PUSH", "yes")
+	if _, err := Load(); err == nil {
+		t.Fatal("an unknown PLANDILLO_PUSH value must be refused")
+	}
+}
