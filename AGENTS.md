@@ -27,6 +27,7 @@ Requirements: Go (version in `go.mod`), [Bun](https://bun.sh), `make`, Docker fo
 ```
 landing/            public Plandillo site (its own build and README)
 cmd/plandillo       config, wiring, graceful shutdown, housekeeping (daily backup, call-log cleanup)
+cmd/plandillo-cli   plandillo-cli: board tools from a shell (internal/cli, an MCP client; no server or UI inside)
 internal/database   SQLite/PostgreSQL connections, SQL dialect boundary and schema locks
 internal/store      task queries, SQLite/PostgreSQL migrations and SQLite backups
 internal/service    domain rules, validation, activity log, events, MCP settings

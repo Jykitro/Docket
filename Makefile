@@ -2,7 +2,7 @@
 IMAGE := plandillo:local
 NAME  := plandillo
 
-.PHONY: help install web build test test-postgres typecheck knip i18n check dev-api dev-web image rebuild stop logs clean
+.PHONY: help install web build cli test test-postgres typecheck knip i18n check dev-api dev-web image rebuild stop logs clean
 
 help: ## список целей
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-10s %s\n", $$1, $$2}'
@@ -16,6 +16,9 @@ web: ## фронт: tsc + vite build -> internal/web/dist
 build: web ## бинарь bin/plandillo с вшитым UI
 	CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o bin/plandillo ./cmd/plandillo
 	ln -f bin/plandillo bin/docket
+
+cli: ## bin/plandillo-cli: инструменты доски из shell, без сервера и UI
+	CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o bin/plandillo-cli ./cmd/plandillo-cli
 
 test: ## тесты бэкенда (HTTP-тесты открывают порт на localhost)
 	go test ./...
