@@ -284,10 +284,6 @@ func (d *DB) StartSession(userID int64) (string, []string, error) {
 	return d.StartDeviceSession(userID, "")
 }
 func (d *DB) StartDeviceSession(userID int64, agent string) (string, []string, error) {
-	token, hash, err := newToken()
-	if err != nil {
-		return "", nil, err
-	}
 	tx, err := d.db.Begin()
 	if err != nil {
 		return "", nil, err
@@ -310,7 +306,8 @@ func (d *DB) StartDeviceSession(userID int64, agent string) (string, []string, e
 	if err != nil {
 		return "", nil, err
 	}
-	if _, err = tx.Exec("INSERT INTO sessions(id,token_hash,user_id,created_at,last_seen_at,expires_at,user_agent) VALUES (?,?,?,?,?,?,?)", rand.Text(), hash, userID, now.Unix(), now.Unix(), now.Add(sessionTTL).Unix(), string([]rune(agent)[:min(256, len([]rune(agent)))])); err != nil {
+	token, err := d.insertSession(tx, userID, agent)
+	if err != nil {
 		return "", nil, err
 	}
 	if err = tx.Commit(); err != nil {
@@ -320,6 +317,16 @@ func (d *DB) StartDeviceSession(userID int64, agent string) (string, []string, e
 		d.nextSessionSweep.Store(now.Add(time.Hour).Unix())
 	}
 	return token, ended, nil
+}
+
+func (d *DB) insertSession(tx *database.Tx, userID int64, agent string) (string, error) {
+	token, hash, err := newToken()
+	if err != nil {
+		return "", err
+	}
+	now := d.now()
+	_, err = tx.Exec("INSERT INTO sessions(id,token_hash,user_id,created_at,last_seen_at,expires_at,user_agent) VALUES (?,?,?,?,?,?,?)", rand.Text(), hash, userID, now.Unix(), now.Unix(), now.Add(sessionTTL).Unix(), string([]rune(agent)[:min(256, len([]rune(agent)))]))
+	return token, err
 }
 
 func (d *DB) UserBySession(token string) (User, error) {
@@ -519,56 +526,61 @@ func (d *DB) DeleteUser(id int64, confirmation string) error {
 	return tx.Commit()
 }
 
-// ChangePassword sets a new password and ends every other session of the account, returning their token hashes.
-func (d *DB) ChangePassword(userID int64, oldPw, newPw, keepToken string) (ended []string, err error) {
+// ChangePassword sets a new password, ends every session of the account and starts a new one (see ReplacePassword).
+func (d *DB) ChangePassword(userID int64, oldPw, newPw string) (token string, ended []string, err error) {
 	var username string
 	err = d.db.QueryRow("SELECT username FROM users WHERE id=?", userID).Scan(&username)
 	if errors.Is(err, sql.ErrNoRows) {
-		return nil, ErrNotFound
+		return "", nil, ErrNotFound
 	}
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
 	proof, err := d.VerifyPassword(username, oldPw)
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
 	digest, err := PreparePassword(newPw)
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
-	return d.ReplacePassword(proof, digest, keepToken)
+	return d.ReplacePassword(proof, digest, "")
 }
 
-func (d *DB) ReplacePassword(proof PasswordProof, digest PasswordDigest, keepToken string) (ended []string, err error) {
+// ReplacePassword sets the new password and, in the same transaction, ends every session of the account,
+// the changing one included, and starts a new session for the browser that made the change. It returns
+// the new session token and the ended token hashes so the server can close their open streams.
+func (d *DB) ReplacePassword(proof PasswordProof, digest PasswordDigest, agent string) (token string, ended []string, err error) {
 	userID := proof.User.ID
 	tx, err := d.db.Begin()
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
 	defer tx.Rollback()
 	result, err := tx.Exec(`UPDATE password_credentials SET password_hash = ? WHERE user_id = ? AND password_hash=?`, digest.hash, userID, proof.hash)
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
 	if n, err := result.RowsAffected(); err != nil {
-		return nil, err
+		return "", nil, err
 	} else if n != 1 {
-		return nil, ErrBadCredentials
+		return "", nil, ErrBadCredentials
 	}
 	if _, err = tx.Exec("DELETE FROM totp_challenges WHERE user_id=?", userID); err != nil {
-		return nil, err
+		return "", nil, err
 	}
-	// Every other session of the account ends; the one that made the change stays.
-	rows, err := tx.Query(`DELETE FROM sessions WHERE user_id = ? AND token_hash != ? RETURNING token_hash`, userID, TokenHash(keepToken))
+	// A copied cookie of the changing session must stop working too, so no old token survives.
+	rows, err := tx.Query(`DELETE FROM sessions WHERE user_id = ? RETURNING token_hash`, userID)
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
-	ended, err = sessionHashes(rows)
-	if err != nil {
-		return nil, err
+	if ended, err = sessionHashes(rows); err != nil {
+		return "", nil, err
 	}
-	return ended, tx.Commit()
+	if token, err = d.insertSession(tx, userID, agent); err != nil {
+		return "", nil, err
+	}
+	return token, ended, tx.Commit()
 }
 
 func sessionHashes(rows *sql.Rows) ([]string, error) {

@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"plandillo/internal/testutil"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -344,11 +345,11 @@ func TestDeleteUserKillsSessions(t *testing.T) {
 func TestChangePassword(t *testing.T) {
 	d := openTest(t)
 	u := newInviter(t, d)
-	if _, err := d.ChangePassword(u.ID, "wrong-password", "newlongenough1", ""); err != ErrBadCredentials {
+	if _, _, err := d.ChangePassword(u.ID, "wrong-password", "newlongenough1"); err != ErrBadCredentials {
 		t.Fatalf("wrong old: %v", err)
 	}
 	var ve ValidationError
-	if _, err := d.ChangePassword(u.ID, "longenough1", "short", ""); !errors.As(err, &ve) {
+	if _, _, err := d.ChangePassword(u.ID, "longenough1", "short"); !errors.As(err, &ve) {
 		t.Fatalf("short new: %v", err)
 	}
 	keep, err := d.NewSession(u.ID)
@@ -359,15 +360,17 @@ func TestChangePassword(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ended, err := d.ChangePassword(u.ID, "longenough1", "newlongenough1", keep)
-	if err != nil || len(ended) != 1 || ended[0] != TokenHash(other) {
-		t.Fatalf("ended %v, want [%s]: %v", ended, TokenHash(other), err)
+	token, ended, err := d.ChangePassword(u.ID, "longenough1", "newlongenough1")
+	if err != nil || len(ended) != 2 || !slices.Contains(ended, TokenHash(keep)) || !slices.Contains(ended, TokenHash(other)) {
+		t.Fatalf("ended %v, want both old sessions: %v", ended, err)
 	}
-	if _, err := d.UserBySession(other); err != ErrNotFound {
-		t.Fatalf("other session survived the change: %v", err)
+	for _, old := range []string{keep, other} {
+		if _, err := d.UserBySession(old); err != ErrNotFound {
+			t.Fatalf("old session survived the change: %v", err)
+		}
 	}
-	if got, err := d.UserBySession(keep); err != nil || got.ID != u.ID {
-		t.Fatalf("kept session: %+v %v", got, err)
+	if got, err := d.UserBySession(token); err != nil || got.ID != u.ID {
+		t.Fatalf("rotated session: %+v %v", got, err)
 	}
 	if _, err := d.Authenticate("admin", "longenough1"); err != ErrBadCredentials {
 		t.Fatalf("old password still works: %v", err)

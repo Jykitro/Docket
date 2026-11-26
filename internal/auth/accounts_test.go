@@ -85,13 +85,13 @@ func TestPasswordProofExpiresBeforeCommit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = d.ReplacePassword(proof, next, ""); err != nil {
+	if _, _, err = d.ReplacePassword(proof, next, ""); err != nil {
 		t.Fatal(err)
 	}
 	if err = d.PasswordCurrent(proof); !errors.Is(err, ErrBadCredentials) {
 		t.Fatalf("stale proof: %v", err)
 	}
-	if _, err = d.ReplacePassword(proof, next, ""); !errors.Is(err, ErrBadCredentials) {
+	if _, _, err = d.ReplacePassword(proof, next, ""); !errors.Is(err, ErrBadCredentials) {
 		t.Fatalf("stale update: %v", err)
 	}
 }

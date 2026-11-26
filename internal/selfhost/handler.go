@@ -434,13 +434,13 @@ func (h *handler) changePassword(w http.ResponseWriter, r *http.Request, u auth.
 		digest, err = auth.PreparePassword(in.New)
 		return err
 	}, func(proof auth.PasswordProof) {
-		c, _ := r.Cookie(cookieName)
-		ended, err := h.Auth.ReplacePassword(proof, digest, c.Value)
+		token, ended, err := h.Auth.ReplacePassword(proof, digest, r.UserAgent())
 		if err != nil {
 			credentialError(w, err)
 			return
 		}
-		h.streams.end(ended...)
+		h.streams.end(ended...) // the old token's streams too; the browser reconnects with the new cookie
+		setCookie(w, r, token, cookieAge)
 		w.WriteHeader(http.StatusNoContent)
 	})
 }

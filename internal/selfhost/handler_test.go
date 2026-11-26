@@ -690,20 +690,30 @@ func TestChangePasswordEndpoint(t *testing.T) {
 	if rec := s.do("PUT", "/api/auth/password", jsonBody("old", testPassword, "new", "short"), c, nil); rec.Code != 400 || !strings.Contains(rec.Body.String(), `"validation"`) {
 		t.Fatalf("short new: %d %s", rec.Code, rec.Body)
 	}
-	if rec := s.do("PUT", "/api/auth/password", jsonBody("old", testPassword, "new", newPw), c, nil); rec.Code != 204 {
+	rec = s.do("PUT", "/api/auth/password", jsonBody("old", testPassword, "new", newPw), c, nil)
+	if rec.Code != 204 {
 		t.Fatalf("change: %d %s", rec.Code, rec.Body)
+	}
+	// The browser that changed the password gets a new session cookie with the login's attributes.
+	rotated := sessionCookie(rec)
+	if rotated == nil || rotated.Value == "" || rotated.Value == c.Value || rotated.Path != "/" || !rotated.HttpOnly ||
+		rotated.SameSite != http.SameSiteLaxMode || rotated.MaxAge != cookieAge {
+		t.Fatalf("rotated cookie: %+v", rotated)
 	}
 	if rec := s.do("GET", "/api/projects", "", other, nil); rec.Code != 401 {
 		t.Fatalf("other session after change: %d, want 401", rec.Code)
+	}
+	if rec := s.do("GET", "/api/projects", "", c, nil); rec.Code != 401 {
+		t.Fatalf("old cookie of the changing session: %d, want 401", rec.Code)
+	}
+	if rec := s.do("GET", "/api/projects", "", rotated, nil); rec.Code != 200 {
+		t.Fatalf("rotated session after change: %d", rec.Code)
 	}
 	if rec := s.login("alice", newPw, nil); rec.Code != 200 {
 		t.Fatalf("login with new: %d %s", rec.Code, rec.Body)
 	}
 	if rec := s.login("alice", testPassword, nil); rec.Code != 401 {
 		t.Fatalf("login with old: %d", rec.Code)
-	}
-	if rec := s.do("GET", "/api/projects", "", c, nil); rec.Code != 200 {
-		t.Fatalf("current session after change: %d", rec.Code)
 	}
 }
 
@@ -770,22 +780,24 @@ func TestDeleteUserEndsStream(t *testing.T) {
 	ended(t, done, "after user deletion")
 }
 
-func TestPasswordChangeEndsOtherStreams(t *testing.T) {
+func TestPasswordChangeEndsOldStreams(t *testing.T) {
 	s := streamServer(t)
 	c, _ := s.addUser("alice")
 	other := sessionCookie(s.login("alice", testPassword, nil))
 	mine, theirs := s.stream(c), s.stream(other)
-	if rec := s.do("PUT", "/api/auth/password", jsonBody("old", testPassword, "new", "a-brand-new-password"), c, nil); rec.Code != 204 {
+	rec := s.do("PUT", "/api/auth/password", jsonBody("old", testPassword, "new", "a-brand-new-password"), c, nil)
+	if rec.Code != 204 {
 		t.Fatalf("change: %d %s", rec.Code, rec.Body)
 	}
 	ended(t, theirs, "other session after password change")
-	select {
-	case <-mine:
-		t.Fatal("current session's stream ended")
-	case <-time.After(200 * time.Millisecond):
+	ended(t, mine, "old token of the changing session after password change")
+	rotated := sessionCookie(rec)
+	if rotated == nil {
+		t.Fatal("no rotated cookie")
 	}
-	s.do("POST", "/api/auth/logout", "", c, nil)
-	ended(t, mine, "current session after logout")
+	next := s.stream(rotated)
+	s.do("POST", "/api/auth/logout", "", rotated, nil)
+	ended(t, next, "rotated session after logout")
 }
 
 func TestStreamsRelease(t *testing.T) {
