@@ -62,6 +62,7 @@ const P = {
   shield: 'M12 3L4 6v6c0 5 3.5 8 8 9c4.5-1 8-4 8-9V6zM9 12l2 2 4-4',
   copy: 'M9 9h12v12H9zM5 15V5a2 2 0 0 1 2-2h10',
   download: 'M12 4v11M7 10l5 5 5-5M5 20h14',
+  passkey: 'M9.5 3.5a3.5 3.5 0 1 0 0 7a3.5 3.5 0 0 0 0-7zM3 20.5v-.5a5.5 5.5 0 0 1 5.5-5.5h3M18 7.5a3 3 0 1 0 0 6a3 3 0 0 0 0-6zM18 13.5v8M18 17.5h2.25M18 20h1.5',
 } as const
 
 export const PROJECT_ICONS = ['target', 'clover', 'key', 'stack', 'candle', 'bars', 'board', 'plug', 'flag', 'tag', 'doc', 'cal', 'link', 'spark', 'home', 'cart', 'globe'] as const
