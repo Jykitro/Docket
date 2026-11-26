@@ -12,6 +12,15 @@ builds:
     goos: [linux, darwin, windows]
     goarch: [amd64, arm64]
 
+  - id: plandillo-cli
+    main: ./cmd/plandillo-cli
+    binary: plandillo-cli
+    env: [CGO_ENABLED=0]
+    flags: [-trimpath]
+    ldflags: ["-s -w -X plandillo/internal/cli.Version={{ .Version }}"]
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+
 archives:
   - id: plandillo
     ids: [plandillo]
@@ -21,8 +30,59 @@ archives:
         formats: [zip]
     files: [LICENSE, README.md, .env.example]
 
+  - id: plandillo-cli
+    ids: [plandillo-cli]
+    # No version in the name: the installers fetch releases/latest/download/plandillo-cli_<os>_<arch>.
+    name_template: "plandillo-cli_{{ .Os }}_{{ .Arch }}"
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files: [LICENSE]
+
+# Signs and notarizes the macOS CLI with the Developer ID secrets; without them the release stays unsigned.
+notarize:
+  macos:
+    - enabled: '{{ isEnvSet "MACOS_SIGN_P12" }}'
+      ids: [plandillo-cli]
+      sign:
+        certificate: "{{ .Env.MACOS_SIGN_P12 }}"
+        password: "{{ .Env.MACOS_SIGN_PASSWORD }}"
+      notarize:
+        issuer_id: "{{ .Env.MACOS_NOTARY_ISSUER_ID }}"
+        key_id: "{{ .Env.MACOS_NOTARY_KEY_ID }}"
+        key: "{{ .Env.MACOS_NOTARY_KEY }}"
+        wait: true
+        timeout: 20m
+
+homebrew_casks:
+  - name: plandillo-cli
+    ids: [plandillo-cli]
+    binaries: [plandillo-cli]
+    homepage: https://github.com/huntly-digital/plandillo
+    description: Call the tools of a Plandillo board from a shell
+    repository:
+      owner: huntly-digital
+      name: homebrew-tap
+      token: '{{ envOrDefault "HOMEBREW_TAP_GITHUB_TOKEN" "" }}'
+    # Without the tap token the cask is only written to dist/, so a release never fails on it.
+    skip_upload: '{{ if isEnvSet "HOMEBREW_TAP_GITHUB_TOKEN" }}false{{ else }}true{{ end }}'
+    # An unsigned binary is quarantined by Gatekeeper; a notarized one needs no hook.
+    hooks:
+      post:
+        install_steps: |
+          {{- if not (isEnvSet "MACOS_SIGN_P12") }}
+          on_macos do
+            run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{ .StagedPath }}/plandillo-cli"]
+          end
+          {{- end }}
+
 checksum:
   name_template: checksums.txt
+
+# Tags such as v0.3.0-rc.1 are published as pre-releases; plain v0.x tags are the development releases.
+release:
+  prerelease: auto
 
 changelog:
   sort: asc

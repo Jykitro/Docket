@@ -1,6 +1,7 @@
 name: Release
 
-# Push a tag like v0.1.0 to publish binaries, checksums, release notes and a Docker image.
+# Push a tag like v0.1.0 to publish the server and plandillo-cli binaries, checksums, release notes, the Homebrew
+# cask and a Docker image. v0.x tags are the development releases; a suffix such as -rc.1 marks a pre-release.
 on:
   push:
     tags: ["v*"]
@@ -28,6 +29,14 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Optional: without it the cask is not pushed to huntly-digital/homebrew-tap.
+          HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
+          # Optional: with all five the macOS CLI is signed with Developer ID and notarized.
+          MACOS_SIGN_P12: ${{ secrets.MACOS_SIGN_P12 }}
+          MACOS_SIGN_PASSWORD: ${{ secrets.MACOS_SIGN_PASSWORD }}
+          MACOS_NOTARY_ISSUER_ID: ${{ secrets.MACOS_NOTARY_ISSUER_ID }}
+          MACOS_NOTARY_KEY_ID: ${{ secrets.MACOS_NOTARY_KEY_ID }}
+          MACOS_NOTARY_KEY: ${{ secrets.MACOS_NOTARY_KEY }}
 
   image:
     permissions:
