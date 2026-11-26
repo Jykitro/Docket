@@ -13,7 +13,7 @@
     <!-- Apply the saved theme before the first paint (same rule as src/theme.ts) so there is no flash. -->
     <script>
       try {
-        var p = localStorage.getItem('docket-theme')
+        var p = localStorage.getItem('plandillo-theme')
         var dark = p === 'dark' || (p !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches)
         document.documentElement.dataset.theme = dark ? 'dark' : 'light'
         // Appearance choices (src/theme.ts useLookPref); styles.css reads the data-* attributes.

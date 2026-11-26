@@ -15,7 +15,7 @@ Requirements: Go (version in `go.mod`), [Bun](https://bun.sh), `make`, Docker fo
 | `make typecheck`, `make knip`, `make i18n` | Frontend checks alone; `make i18n` fails on a Russian string without an entry in `web/src/messages.ts` |
 | `make dev-api` | Backend on `:7777` with a separate `./data/dev.db` |
 | `make dev-web` | Vite with hot reload; proxies `/api` to `:7777` |
-| `make web`, `make build` | Frontend build into `internal/web/dist`; `bin/plandillo` with the UI embedded (also available as `bin/docket`) |
+| `make web`, `make build` | Frontend build into `internal/web/dist`; `bin/plandillo` with the UI embedded |
 | `make rebuild`, `make logs`, `make stop` | Docker image and container (data in `./data` is kept) |
 
 - Go tests open a port on localhost (`httptest`). In a sandbox that forbids binding a local port they panic with `bind: operation not permitted`; that is the sandbox, not the code. Run them outside it.

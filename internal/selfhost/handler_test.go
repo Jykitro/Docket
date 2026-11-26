@@ -99,7 +99,7 @@ func (s *server) login(name, pw string, hdr map[string]string) *httptest.Respons
 
 func sessionCookie(rec *httptest.ResponseRecorder) *http.Cookie {
 	for _, c := range rec.Result().Cookies() {
-		if c.Name == "docket_session" {
+		if c.Name == "plandillo_session" {
 			return c
 		}
 	}
@@ -172,7 +172,7 @@ func TestAnonymousBlocked(t *testing.T) {
 	if rec := s.do("GET", "/api/mcp/install.sh", "", nil, nil); rec.Code != 200 {
 		t.Errorf("install.sh without a session: %d, want 200", rec.Code)
 	}
-	if rec := s.do("GET", "/api/projects", "", nil, map[string]string{"Cookie": "docket_session=forged"}); rec.Code != 401 {
+	if rec := s.do("GET", "/api/projects", "", nil, map[string]string{"Cookie": "plandillo_session=forged"}); rec.Code != 401 {
 		t.Errorf("forged cookie: %d, want 401", rec.Code)
 	}
 }

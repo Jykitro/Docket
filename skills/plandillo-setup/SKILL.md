@@ -11,7 +11,7 @@ A new installation needs two things: the planner instructions and a connection t
 
 | Starting point | What to do |
 |---|---|
-| A running board, macOS or Linux | In **Integrations → Agent setup**, select the CLI and **Skills + MCP for this board**. Copy the command into a terminal. It installs all Plandillo skills and registers MCP for that client. Follow the printed login instructions in the browser. Older Docket installations keep their names. |
+| A running board, macOS or Linux | In **Integrations → Agent setup**, select the CLI and **Skills + MCP for this board**. Copy the command into a terminal. It installs all Plandillo skills and registers MCP for that client. Follow the printed login instructions in the browser. |
 | A team using skills.sh | In the target project run `npx skills add huntly-digital/plandillo --skill plandillo plandillo-reference plandillo-setup plandillo-infographics --agent codex claude-code`. Select just one agent if appropriate. Add `-g` for a personal install. |
 | A team using native plugins | Add the repository marketplace and install its Plandillo plugin using the commands below. The plugin includes all Plandillo skills and MCP for a local board at `http://localhost:7777/mcp`. In Claude Code, set `PLANDILLO_URL` to a self-hosted board's `/mcp` URL before starting it. For a self-hosted board in Codex, or Code Mode, use the board installer or skills.sh and register your URL. |
 | An agent with only a shell, a script or CI | Install the skills by any method here, then `plandillo-cli` as in **Use the CLI**. The agent calls the same tools through the shell. |

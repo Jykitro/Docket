@@ -10,7 +10,7 @@ export const LANGS: { id: Lang; name: string }[] = [
   { id: 'ru', name: 'Русский' },
   { id: 'uk', name: 'Українська' },
 ]
-const KEY = 'docket-lang'
+const KEY = 'plandillo-lang'
 const LOCALES: Record<Lang, string> = { en: 'en-GB', ru: 'ru-RU', uk: 'uk-UA' }
 
 const isLang = (v: string | null): v is Lang => LANGS.some((l) => l.id === v)

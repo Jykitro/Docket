@@ -35,7 +35,7 @@ Today a lost connection replaces the whole app with a full-screen "server is not
 ## Constraints
 
 - No outside hosts (AGENTS.md): everything is precached from our own origin.
-- Workspace isolation: one document is bound to one workspace (`workspacePath.ts`); login/logout changes the `docket-auth-change` stamp in localStorage and reloads (`leaveWorkspace` in `api.ts`).
+- Workspace isolation: one document is bound to one workspace (`workspacePath.ts`); login/logout changes the `plandillo-auth-change` stamp in localStorage and reloads (`leaveWorkspace` in `api.ts`).
 - UI strings in Russian, English and Ukrainian together (`messages.ts`); Knip fails on unused code/deps; no frontend test runner, so `tsc` + Knip + manual browser checks are the gate.
 - Service worker runs only in production builds over a secure context (`main.tsx`).
 
@@ -52,7 +52,7 @@ The user picked A.
 ### 1. App shell precache (service worker)
 
 - A small Vite plugin in `web/vite.config.ts` writes the list of every emitted file under `assets/` plus `index.html` into `sw.js` after the build (placeholder replaced in `writeBundle`), together with a build id used as the cache name.
-- `install`: add all listed files to the build's cache (`cache: 'reload'`), then `skipWaiting()`. `activate`: delete every older Plandillo cache (including `plandillo-offline-v1` / `docket-offline-*`), `clients.claim()`. One cache always equals the build the server serves, so builds never mix.
+- `install`: add all listed files to the build's cache (`cache: 'reload'`), then `skipWaiting()`. `activate`: delete every older Plandillo cache (including `plandillo-offline-v1`), `clients.claim()`. One cache always equals the build the server serves, so builds never mix.
 - `fetch`: `/assets/*` → cache first, network fallback. Navigations (outside `/api`, `/mcp`, `/healthz`) → network first, cached `index.html` on failure. Everything else passes through untouched (API, SSE, icons).
 - `offline.html` is no longer needed once the shell is cached; remove it (builder may keep it only as a last-resort fallback if the shell is missing).
 
@@ -66,7 +66,7 @@ The user picked A.
 
 ### 3. Online/offline state
 
-- One source of truth: TanStack `onlineManager`. It already follows the browser `online`/`offline` events; additionally `req()`'s existing `docket:disconnected` event sets it offline. My call: `req()` also fires that event for 502, 503 and 504 (a reverse proxy in front of a stopped server, see `docs/hosting.md`); a 500 stays a server error so real bugs are not hidden behind "no connection". The probe treats the same statuses as down. While offline a probe hits `/healthz` every 5 s (and on the `online` event) and sets it online on success. This is the logic `ConnectionGate` has today, moved out of the full-screen page.
+- One source of truth: TanStack `onlineManager`. It already follows the browser `online`/`offline` events; additionally `req()`'s existing `plandillo:disconnected` event sets it offline. My call: `req()` also fires that event for 502, 503 and 504 (a reverse proxy in front of a stopped server, see `docs/hosting.md`); a 500 stays a server error so real bugs are not hidden behind "no connection". The probe treats the same statuses as down. While offline a probe hits `/healthz` every 5 s (and on the `online` event) and sets it online on success. This is the logic `ConnectionGate` has today, moved out of the full-screen page.
 - Queries keep the default network mode: offline they pause and keep showing cached data instead of turning into errors (several screens render `ErrorState` whenever `isError`, which would hide the cached data).
 - Mutations use `networkMode: 'always'`: offline they fail at once with the existing "no connection" error, optimistic updates roll back via their existing `onError`, and nothing is replayed later. Exception found in review: `patch` in `TaskPanel.tsx` writes the description in `onMutate` without a rollback and relies on a refetch; it gets a proper rollback, otherwise an unsaved edit would stay on screen and be persisted.
 - A `MutationCache` `onError` reports offline failures to the status bar, because many mutations do not render their own error.

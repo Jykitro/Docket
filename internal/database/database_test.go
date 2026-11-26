@@ -191,11 +191,14 @@ func TestSQLiteStatementCache(t *testing.T) {
 }
 
 func TestPostgresSchemaFamily(t *testing.T) {
-	for _, tt := range []struct{ name, setup, family string }{
-		{"new", "", "plandillo"},
-		{"legacy", "CREATE SCHEMA docket_auth", "docket"},
-		{"mixed", "CREATE SCHEMA docket_auth; CREATE SCHEMA plandillo_auth", ""},
-		{"public", "CREATE TABLE public.users(id int); CREATE TABLE public.workspace_bindings(id int)", ""},
+	for _, tt := range []struct {
+		name, setup, family string
+		want                error
+	}{
+		{"new", "", "plandillo", nil},
+		{"retired", "CREATE SCHEMA docket_auth", "", errRetiredSchemas},
+		{"mixed", "CREATE SCHEMA docket_auth; CREATE SCHEMA plandillo_auth", "", errRetiredSchemas},
+		{"public", "CREATE TABLE public.users(id int); CREATE TABLE public.workspace_bindings(id int)", "", errSchemaLayout},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			dsn := testutil.PostgresDSN(t)
@@ -211,9 +214,9 @@ func TestPostgresSchemaFamily(t *testing.T) {
 				}
 			}
 			profile, err := OpenPostgres(dsn, UserSchema(42))
-			if tt.family == "" {
-				if !errors.Is(err, errSchemaLayout) {
-					t.Fatalf("expected layout error, got %v", err)
+			if tt.want != nil {
+				if !errors.Is(err, tt.want) {
+					t.Fatalf("expected %v, got %v", tt.want, err)
 				}
 				return
 			}

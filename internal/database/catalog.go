@@ -113,7 +113,7 @@ func (d *DB) EnsureCatalog(tx *Tx) error {
 		return applyMigrations(tx, false)
 	}
 	if !occupied && d.Postgres && strings.HasSuffix(d.schema, "_auth") {
-		if err := tx.QueryRow("SELECT EXISTS(SELECT 1 FROM pg_catalog.pg_namespace WHERE nspname ~ '^(docket|plandillo)_user_[1-9][0-9]*$')").Scan(&occupied); err != nil {
+		if err := tx.QueryRow("SELECT EXISTS(SELECT 1 FROM pg_catalog.pg_namespace WHERE nspname ~ '^plandillo_user_[1-9][0-9]*$')").Scan(&occupied); err != nil {
 			return err
 		}
 	}

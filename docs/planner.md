@@ -11,7 +11,7 @@
 | Integrations | `/integrations` | MCP or Code Mode: status and self-check, address and token, access mode, tool switches and the call log |
 | Trash | `/trash` | Restore tasks and projects, or empty the trash |
 
-A project whose slug equals a reserved word (`settings`, `trash`, `api` and the other first segments of these addresses) keeps the `/p/:slug` form. Old `/p/:slug` links still open and switch to the short address. Every address starts with the workspace slug, for example `/personal/docket/settings`. The slug is made from the workspace name when the workspace is created and does not change on rename. Old `/w/:id/` links open the same page under the slug.
+A project whose slug equals a reserved word (`settings`, `trash`, `api` and the other first segments of these addresses) keeps the `/p/:slug` form. Old `/p/:slug` links still open and switch to the short address. Every address starts with the workspace slug, for example `/personal/tracker/settings`. The slug is made from the workspace name when the workspace is created and does not change on rename. Old `/w/:id/` links open the same page under the slug.
 
 **Keyboard:** `C` creates a task, `⌘K` / `Ctrl+K` opens search (words, a code like `TRK-07`, or just a number like `7`: that task in every project, the open project's first), `Esc` closes the panel, search and dialogs.
 

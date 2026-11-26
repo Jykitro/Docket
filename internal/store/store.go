@@ -246,7 +246,7 @@ func (s *Store) withTx(ctx context.Context, begin func(context.Context, int64) (
 // BackupKeep is how many automatic SQLite snapshots the server retains.
 const BackupKeep = 14
 
-// Backup writes a VACUUM INTO copy named docket-YYYYMMDD-HHMM.db and keeps the newest `keep` copies.
+// Backup writes a VACUUM INTO copy named plandillo-YYYYMMDD-HHMM.db and keeps the newest `keep` copies.
 func (s *Store) Backup(dir string, keep int, now time.Time) (string, error) {
 	if s.db.Postgres {
 		return "", nil
@@ -258,7 +258,7 @@ func (s *Store) Backup(dir string, keep int, now time.Time) (string, error) {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return "", err
 	}
-	path := filepath.Join(dir, "docket-"+now.Format("20060102-1504")+".db")
+	path := filepath.Join(dir, "plandillo-"+now.Format("20060102-1504")+".db")
 	if err := database.PrivateFile(path, false); err == nil {
 		return path, nil
 	} else if !errors.Is(err, os.ErrNotExist) {
@@ -283,7 +283,7 @@ func (s *Store) Backup(dir string, keep int, now time.Time) (string, error) {
 			return "", err
 		}
 	}
-	old, err := filepath.Glob(filepath.Join(dir, "docket-*.db"))
+	old, err := filepath.Glob(filepath.Join(dir, "plandillo-*.db"))
 	if err != nil {
 		return path, err
 	}

@@ -4,8 +4,8 @@ services:
     extends: {file: compose.selfhost.yml, service: plandillo}
     environment:
       PLANDILLO_MODE: local
-      PLANDILLO_MCP_TOKEN: ${PLANDILLO_MCP_TOKEN:-${DOCKET_MCP_TOKEN:-}}
-      PLANDILLO_SEED: ${PLANDILLO_SEED:-${DOCKET_SEED:-}}
+      PLANDILLO_MCP_TOKEN: ${PLANDILLO_MCP_TOKEN:-}
+      PLANDILLO_SEED: ${PLANDILLO_SEED:-}
   code-runner:
     extends: {file: compose.selfhost.yml, service: code-runner}
 volumes:

@@ -58,7 +58,7 @@ On the first run with an empty database Plandillo asks for your name and a first
 - The port is published on `127.0.0.1` only.
 - Requests with a foreign `Host` get `403`, and write requests to `/api` with a foreign `Origin` also get `403`
   (protection against DNS rebinding and CSRF).
-- Data lives in `./data/plandillo.db` (installations from the Docket days keep `./data/docket.db`). A backup (`VACUUM INTO`) is written at startup and once a day to `./data/backups`;
+- Data lives in `./data/plandillo.db`. A backup (`VACUUM INTO`) is written at startup and once a day to `./data/backups`;
   the last 14 are kept. In selfhost mode an administrator can also make a copy on demand and download any copy in
   **Settings → System → Backups**.
 - Every start applies pending schema migrations on its own; the log names each one. Before migrating SQLite, the
@@ -72,7 +72,7 @@ SQLite creates new database directories with mode 0700 and database, WAL and bac
 
 ## Configuration
 
-Settings are read from `.env` (see [the example settings](../.env.example)). Installations from the Docket days may still use `DOCKET_*` names: each setting falls back to its `DOCKET_` name when the `PLANDILLO_` one is not set, so an existing `.env` keeps working. Rename them when convenient.
+Settings are read from `.env` (see [the example settings](../.env.example)). Only `PLANDILLO_*` names are read. The server refuses to start while a `DOCKET_*` variable is set, a `docket.db` sits in `/data` without `PLANDILLO_DB`, or PostgreSQL holds `docket_` schemas, and its message names the rename to make.
 
 | Variable | Default | Description |
 |---|---|---|
@@ -82,7 +82,7 @@ Settings are read from `.env` (see [the example settings](../.env.example)). Ins
 | `PLANDILLO_LOG_FORMAT` | `text` | `text` for reading in `docker logs`, `json` for log collectors such as Loki or ELK |
 | `PLANDILLO_TLS_CERT`, `PLANDILLO_TLS_KEY` | empty | Optional certificate and key files: serve HTTPS with HTTP/2 directly, without a proxy. Set both or neither. See [HTTP/2 and HTTP/3](#http2-and-http3) |
 | `PLANDILLO_TRUSTED_PROXIES` | empty | Selfhost proxy IPs or CIDRs trusted to append the original client address to X-Forwarded-For |
-| `PLANDILLO_DB` | `/data/plandillo.db`, or `/data/docket.db` if only that exists | SQLite database file (ignored with PostgreSQL) |
+| `PLANDILLO_DB` | `/data/plandillo.db` | SQLite database file (ignored with PostgreSQL) |
 | `PLANDILLO_CODE_SOCKET` | `/run/plandillo-code/runner.sock` | Private Unix socket shared by the Plandillo server and the Code Mode worker |
 | `PLANDILLO_POSTGRES_DSN` | empty | Optional PostgreSQL connection string, requires `PLANDILLO_MODE=selfhost`; empty keeps SQLite |
 | `PLANDILLO_POSTGRES_MAX_CONNS` | `10` | PostgreSQL connections each instance keeps open and reuses between requests (1–500). See [PostgreSQL storage](#postgresql-storage) |
@@ -247,7 +247,7 @@ volume; PostgreSQL has no published host port. Plandillo binds to `127.0.0.1:777
 allowed-host setup described above for remote access. `sslmode=disable` in this example applies only to the private
 Compose network. The password in this example must be hex/alphanumeric so it is valid in the connection URL.
 
-The bootstrap account initializes the cluster. The application receives a separate login and database, both named `plandillo`, with permission to create schemas in that database. A volume created before the rename has them as `docket`: set `PLANDILLO_POSTGRES_ROLE=docket` in `.env` to keep using it. For a fresh installation, use an empty dedicated volume. Restore only snapshots created with the same application storage layout. Keep the previous volume and its matching binary available for rollback.
+The bootstrap account initializes the cluster. The application receives a separate login and database, both named `plandillo`, with permission to create schemas in that database. For a fresh installation, use an empty dedicated volume. Restore only snapshots created with the same application storage layout. Keep the previous volume and its matching binary available for rollback.
 
 Operational details:
 

@@ -148,7 +148,7 @@ export const errText = (e: unknown): string => {
 }
 
 const sessionRequests = new AbortController()
-const changeKey = 'docket-auth-change'
+const changeKey = 'plandillo-auth-change'
 let owner: number | 'guest' | 'setup' | 'local' | undefined
 function sessionStamp() {
   try { return localStorage.getItem(changeKey) } catch { return null }
@@ -211,7 +211,7 @@ async function req<T>(method: string, url: string, body?: unknown, budget?: Coll
   const started = sessionGeneration
   const headers = new Headers(extra)
   if (body !== undefined) headers.set('Content-Type', 'application/json')
-  if (typeof owner === 'number' && url !== '/api/auth/me') headers.set('X-Docket-User', String(owner))
+  if (typeof owner === 'number' && url !== '/api/auth/me') headers.set('X-Plandillo-User', String(owner))
   const res = await fetch(workspaceApi(url), {
     method, headers,
     signal: sessionRequests.signal,

@@ -4,8 +4,19 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
+
+// A developer's shell may still export DOCKET_* names; Load is tested without them.
+func TestMain(m *testing.M) {
+	for _, kv := range os.Environ() {
+		if name, _, _ := strings.Cut(kv, "="); strings.HasPrefix(name, "DOCKET_") {
+			os.Unsetenv(name)
+		}
+	}
+	os.Exit(m.Run())
+}
 
 func TestLoadMode(t *testing.T) {
 	t.Setenv("PLANDILLO_POSTGRES_DSN", "")
@@ -38,14 +49,14 @@ func TestLoadMode(t *testing.T) {
 }
 
 func TestLoadPostgres(t *testing.T) {
-	t.Setenv("PLANDILLO_POSTGRES_DSN", "postgres://user:secret@db/docket")
+	t.Setenv("PLANDILLO_POSTGRES_DSN", "postgres://user:secret@db/plandillo")
 	t.Setenv("PLANDILLO_MODE", "local")
 	if _, err := Load(); err == nil {
 		t.Fatal("PostgreSQL in local mode must fail")
 	}
 	t.Setenv("PLANDILLO_MODE", "selfhost")
 	c, err := Load()
-	if err != nil || c.PostgresDSN != "postgres://user:secret@db/docket" {
+	if err != nil || c.PostgresDSN != "postgres://user:secret@db/plandillo" {
 		t.Fatalf("Postgres configuration: %v", err)
 	}
 }
@@ -147,39 +158,25 @@ func TestDefaultListenAddressIsLoopback(t *testing.T) {
 	}
 }
 
-func TestOlderDocketNamesStillApply(t *testing.T) {
-	t.Setenv("PLANDILLO_MODE", "")
-	t.Setenv("PLANDILLO_POSTGRES_DSN", "")
+// Docket names are no longer read; a start with them must stop instead of silently using defaults.
+func TestRetiredDocketNamesStopTheStart(t *testing.T) {
 	t.Setenv("PLANDILLO_DB", "")
-	t.Setenv("DOCKET_MODE", "selfhost")
-	t.Setenv("DOCKET_DB", "/srv/old/docket.db")
-	c, err := Load()
-	if err != nil || !c.SelfHost || c.DB != "/srv/old/docket.db" {
-		t.Fatalf("an existing .env with DOCKET_* names must keep its mode and database: %+v (%v)", c, err)
-	}
-	t.Setenv("PLANDILLO_DB", "/srv/new/plandillo.db")
-	if c, _ := Load(); c.DB != "/srv/new/plandillo.db" {
-		t.Fatalf("PLANDILLO_DB must win over DOCKET_DB, got %q", c.DB)
-	}
-}
-
-func TestDefaultDatabaseKeepsAnOldDocketFile(t *testing.T) {
 	dir := t.TempDir()
-	if got := defaultDB(dir); got != filepath.Join(dir, "plandillo.db") {
-		t.Fatalf("fresh install uses %q, want plandillo.db", got)
+	if err := retiredNames([]string{"PLANDILLO_ADDR=:7777", "HOME=/root", "DOCKET_SEED="}, dir); err != nil {
+		t.Fatalf("current names rejected: %v", err)
 	}
-	old := filepath.Join(dir, "docket.db")
-	if err := os.WriteFile(old, nil, 0o600); err != nil {
+	if err := retiredNames([]string{"DOCKET_MCP_TOKEN=x"}, dir); err == nil || !strings.Contains(err.Error(), "PLANDILLO_MCP_TOKEN") {
+		t.Fatalf("DOCKET_ variable: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "docket.db"), nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if got := defaultDB(dir); got != old {
-		t.Fatalf("an existing docket.db must stay in use, got %q", got)
+	if err := retiredNames(nil, dir); err == nil || !strings.Contains(err.Error(), "PLANDILLO_DB=") {
+		t.Fatalf("docket.db without PLANDILLO_DB: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "plandillo.db"), nil, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if got := defaultDB(dir); got != filepath.Join(dir, "plandillo.db") {
-		t.Fatalf("plandillo.db must win once it exists, got %q", got)
+	t.Setenv("PLANDILLO_DB", filepath.Join(dir, "docket.db"))
+	if err := retiredNames(nil, dir); err != nil {
+		t.Fatalf("docket.db chosen with PLANDILLO_DB: %v", err)
 	}
 }
 

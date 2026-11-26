@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	cookieName = "docket_session"
+	cookieName = "plandillo_session"
 	cookieAge  = 30 * 24 * 60 * 60 // seconds; matches the auth session TTL
 )
 
@@ -286,7 +286,7 @@ func decode(w http.ResponseWriter, r *http.Request, v any) bool {
 
 // A browser can pin a request to the owner whose data it is displaying during a cross-tab login.
 func matchesWorkspace(w http.ResponseWriter, r *http.Request, u auth.User) bool {
-	if expected := r.Header.Get("X-Docket-User"); expected != "" && expected != strconv.FormatInt(u.ID, 10) {
+	if expected := r.Header.Get("X-Plandillo-User"); expected != "" && expected != strconv.FormatInt(u.ID, 10) {
 		writeError(w, 409, "session_changed", "the signed-in user changed")
 		return false
 	}
@@ -552,7 +552,7 @@ func (h *handler) logout(w http.ResponseWriter, r *http.Request) {
 	h.access.Lock()
 	defer h.access.Unlock()
 	if c, err := r.Cookie(cookieName); err == nil {
-		if r.Header.Get("X-Docket-User") != "" {
+		if r.Header.Get("X-Plandillo-User") != "" {
 			u, ok, err := h.session(r)
 			if err != nil {
 				internalError(w, err)

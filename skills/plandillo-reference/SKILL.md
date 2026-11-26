@@ -5,7 +5,7 @@ description: Use when choosing a Plandillo MCP tool, a plandillo-cli command or 
 
 # Plandillo tools reference
 
-Every tool below works the same over MCP and through `plandillo-cli` (see **Use the CLI**). Use the schema advertised by the connected server. Tool names below are the names on the wire. Clients may prefix them with the connection name, including `docket` on older installations. The workspace selected during OAuth approval, or the workspace that issued a manual token, determines which data you can access. A client label such as `codex` identifies the author in history.
+Every tool below works the same over MCP and through `plandillo-cli` (see **Use the CLI**). Use the schema advertised by the connected server. Tool names below are the names on the wire. Clients may prefix them with the connection name. The workspace selected during OAuth approval, or the workspace that issued a manual token, determines which data you can access. A client label such as `codex` identifies the author in history.
 
 ## Read the right record
 

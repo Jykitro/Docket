@@ -15,7 +15,6 @@ web: ## фронт: tsc + vite build -> internal/web/dist
 
 build: web ## бинарь bin/plandillo с вшитым UI
 	CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o bin/plandillo ./cmd/plandillo
-	ln -f bin/plandillo bin/docket
 
 cli: ## bin/plandillo-cli: инструменты доски из shell, без сервера и UI
 	CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o bin/plandillo-cli ./cmd/plandillo-cli
@@ -52,7 +51,7 @@ image: ## собрать docker-образ plandillo:local
 
 # Сначала собирается образ, и только потом удаляется старый контейнер: если сборка упала, старый продолжает работать.
 rebuild: .env image ## пересобрать образ и пересоздать контейнер (данные в ./data остаются)
-	-docker rm -f $(NAME) docket # docket: the container name before the rename
+	-docker rm -f $(NAME)
 	mkdir -p -m 700 data
 	docker run -d --name $(NAME) --user "$$(id -u):$$(id -g)" --env-file .env -p 127.0.0.1:7777:7777 -v $(CURDIR)/data:/data --restart unless-stopped $(IMAGE)
 

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { workspaceSlug } from './workspacePath'
 
 export type ThemePref = 'light' | 'dark' | 'system'
-const KEY = 'docket-theme'
+const KEY = 'plandillo-theme'
 
 function readPref(): ThemePref {
   try {

@@ -27,7 +27,7 @@ const WIDE = '(min-width: 900px)'
 /** Sidebar state: an icon rail on desktop (remembered), an off-canvas drawer on narrow screens that closes on navigation. */
 function useSidebar(closeOn: string) {
   const [collapsed, setCollapsed] = useState(() => {
-    try { return localStorage.getItem('docket-sidebar') === 'rail' } catch { return false }
+    try { return localStorage.getItem('plandillo-sidebar') === 'rail' } catch { return false }
   })
   const [wide, setWide] = useState(() => matchMedia(WIDE).matches)
   const [open, setOpen] = useState(false)
@@ -41,7 +41,7 @@ function useSidebar(closeOn: string) {
   const toggle = () => {
     if (!wide) return setOpen(!open)
     setCollapsed(!collapsed)
-    try { localStorage.setItem('docket-sidebar', collapsed ? 'open' : 'rail') } catch { /* storage can be blocked: the choice just is not remembered */ }
+    try { localStorage.setItem('plandillo-sidebar', collapsed ? 'open' : 'rail') } catch { /* storage can be blocked: the choice just is not remembered */ }
   }
   return { rail: wide && collapsed, expanded: wide ? !collapsed : open, open, close: () => setOpen(false), toggle }
 }

@@ -11,7 +11,7 @@ in Plandillo. A person uses the web UI over the REST API. An agent connects thro
 | MCP | `/mcp` | 19 tools, one per action (`get_today`, `create_tasks`, …) | [`internal/mcpserver/mcpserver.go`](../internal/mcpserver/mcpserver.go) |
 | Code Mode | `/mcp/code` | One tool, `code`, that runs JavaScript calling the same 19 tools | [`internal/mcpserver/codemode.go`](../internal/mcpserver/codemode.go) |
 
-Both speak MCP over Streamable HTTP, so any MCP client connects to either. A client uses one endpoint at a time. New installations register it as `plandillo`. The installer keeps the existing `docket` registration on upgrades, so switching the endpoint updates that connection.
+Both speak MCP over Streamable HTTP, so any MCP client connects to either. A client uses one endpoint at a time. The installer registers it as `plandillo`, so switching the endpoint updates that connection.
 
 ## How a call flows
 

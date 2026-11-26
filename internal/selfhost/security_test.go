@@ -79,14 +79,14 @@ func TestWorkspaceIdentityHeader(t *testing.T) {
 	s := newServer(t)
 	_, first := s.addUser("first")
 	c, second := s.addUser("second")
-	hdr := map[string]string{"X-Docket-User": strconv.FormatInt(first.ID, 10)}
+	hdr := map[string]string{"X-Plandillo-User": strconv.FormatInt(first.ID, 10)}
 	for _, route := range []struct{ method, path string }{{"GET", "/api/projects"}, {"POST", "/api/auth/recovery-code"}, {"POST", "/api/auth/logout"}} {
 		rec := s.do(route.method, route.path, `{"password":"password-123"}`, c, hdr)
 		if rec.Code != 409 || !strings.Contains(rec.Body.String(), "session_changed") {
 			t.Fatalf("%s returned %d", route.path, rec.Code)
 		}
 	}
-	hdr["X-Docket-User"] = strconv.FormatInt(second.ID, 10)
+	hdr["X-Plandillo-User"] = strconv.FormatInt(second.ID, 10)
 	if rec := s.do("GET", "/api/projects", "", c, hdr); rec.Code != 200 {
 		t.Fatalf("matching user status %d", rec.Code)
 	}

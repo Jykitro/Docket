@@ -16,7 +16,7 @@ import (
 )
 
 // backupName matches the files store.Backup writes; anything else in the directory is never listed or served.
-var backupName = regexp.MustCompile(`^docket-\d{8}-\d{4}\.db$`)
+var backupName = regexp.MustCompile(`^plandillo-\d{8}-\d{4}\.db$`)
 
 type backupFile struct {
 	Name      string    `json:"name"`

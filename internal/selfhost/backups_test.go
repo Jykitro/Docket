@@ -20,7 +20,7 @@ func TestBackupsAdminOnlyListCreateDownload(t *testing.T) {
 		t.Fatal(err)
 	}
 	snapshot := func(now time.Time) (string, error) {
-		path := filepath.Join(dir, "docket-"+now.Format("20060102-1504")+".db")
+		path := filepath.Join(dir, "plandillo-"+now.Format("20060102-1504")+".db")
 		return path, os.WriteFile(path, []byte("sqlite"), 0o600)
 	}
 	s.h = Handler(Options{Auth: s.db, WS: s.ws, Web: http.NotFoundHandler(), AllowedHosts: hosts, BackupDir: dir, Backup: snapshot})
@@ -57,7 +57,7 @@ func TestBackupsAdminOnlyListCreateDownload(t *testing.T) {
 	if rec := s.do("GET", "/api/admin/backups/"+made.Name, "", member, nil); rec.Code != 403 {
 		t.Fatalf("member download: %d, want 403", rec.Code)
 	}
-	for _, name := range []string{"notes.txt", "..%2Fsecret.db", "docket-20990101-0000.db"} {
+	for _, name := range []string{"notes.txt", "..%2Fsecret.db", "plandillo-20990101-0000.db"} {
 		if rec := s.do("GET", "/api/admin/backups/"+name, "", admin, nil); rec.Code != 404 {
 			t.Fatalf("download %q: %d %s, want 404", name, rec.Code, rec.Body)
 		}

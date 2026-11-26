@@ -27,7 +27,7 @@ FROM gcr.io/distroless/static-debian13:nonroot@sha256:8ce6dd87e9823c5b48dcfb2c86
 COPY --from=build --chown=65532:65532 /out-data /data
 COPY --from=build --chown=65532:65532 /out-socket /run/plandillo-code
 COPY --from=build /out/ /app/
-# No PLANDILLO_DB here: the server uses /data/plandillo.db, or an existing /data/docket.db.
+# No PLANDILLO_DB here: the server uses /data/plandillo.db.
 ENV PLANDILLO_ADDR=:7777 \
     PLANDILLO_BACKUP_DIR=/data/backups
 USER 65532:65532

@@ -311,7 +311,7 @@ func TestPlandilloSkillIsServedAndSentAsInstructions(t *testing.T) {
 	if res.StatusCode != 200 || !strings.HasPrefix(string(body), "---\nname: plandillo\n") {
 		t.Fatalf("skill endpoint: %d %.40q", res.StatusCode, body)
 	}
-	for _, name := range []string{"plandillo", "plandillo-reference", "plandillo-setup", "docket", "docket-reference", "docket-setup"} {
+	for _, name := range []string{"plandillo", "plandillo-reference", "plandillo-setup", "plandillo-infographics"} {
 		res := do(t, "GET", e.srv.URL+"/api/mcp/skill/"+name, "", nil)
 		b, _ := io.ReadAll(res.Body)
 		res.Body.Close()
@@ -319,7 +319,7 @@ func TestPlandilloSkillIsServedAndSentAsInstructions(t *testing.T) {
 			t.Errorf("skill %s: %d %.60q", name, res.StatusCode, b)
 		}
 	}
-	for _, name := range []string{"nope", "..%2Fgo.mod", "docket%2Fx"} {
+	for _, name := range []string{"nope", "..%2Fgo.mod", "plandillo%2Fx"} {
 		if res := do(t, "GET", e.srv.URL+"/api/mcp/skill/"+name, "", nil); res.StatusCode != 404 {
 			t.Errorf("skill %q: status %d, want 404", name, res.StatusCode)
 		}
@@ -327,7 +327,7 @@ func TestPlandilloSkillIsServedAndSentAsInstructions(t *testing.T) {
 	res = do(t, "GET", e.srv.URL+"/api/mcp/install.sh", "", nil)
 	body, _ = io.ReadAll(res.Body)
 	res.Body.Close()
-	if res.StatusCode != 200 || !strings.HasPrefix(string(body), "#!/bin/sh\n") || !strings.Contains(string(body), "name: docket-setup") {
+	if res.StatusCode != 200 || !strings.HasPrefix(string(body), "#!/bin/sh\n") || !strings.Contains(string(body), "name: plandillo-setup") {
 		t.Fatalf("install.sh: %d %.40q", res.StatusCode, body)
 	}
 	result := connect(t, e).InitializeResult()

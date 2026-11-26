@@ -101,9 +101,9 @@ type passkeyRequests struct {
 
 // A separate HttpOnly cookie binds even anonymous login challenges to the initiating browser.
 func passkeyCookie(site *webauthn.WebAuthn) *http.Cookie {
-	c := &http.Cookie{Name: "docket_passkey", Path: "/", HttpOnly: true, SameSite: http.SameSiteStrictMode, MaxAge: int(passkeyTTL.Seconds())}
+	c := &http.Cookie{Name: "plandillo_passkey", Path: "/", HttpOnly: true, SameSite: http.SameSiteStrictMode, MaxAge: int(passkeyTTL.Seconds())}
 	if strings.HasPrefix(site.Config.RPOrigins[0], "https://") {
-		c.Name = "__Host-docket_passkey"
+		c.Name = "__Host-plandillo_passkey"
 		c.Secure = true
 	}
 	return c

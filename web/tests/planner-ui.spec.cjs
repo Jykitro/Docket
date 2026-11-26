@@ -290,7 +290,7 @@ test('onboarding and activity use localized names and separate the author', asyn
     ['uk', 'Як до вас звертатися?', 'Створено завдання'],
   ]) {
     await page.goto(planner.url)
-    await page.evaluate(lang => localStorage.setItem('docket-lang', lang), lang)
+    await page.evaluate(lang => localStorage.setItem('plandillo-lang', lang), lang)
     await page.route('**/api/profile', route => route.fulfill({ json: { name: '' } }))
     await page.route('**/api/projects', route => route.fulfill({ json: [] }))
     await page.reload()

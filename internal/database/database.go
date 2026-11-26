@@ -112,6 +112,9 @@ const AuthSchema = "plandillo_auth"
 var schemaName = regexp.MustCompile(`^plandillo_(auth|user_[1-9][0-9]*)$`)
 var errSchemaLayout = errors.New("conflicting Plandillo schemas or application tables in public; reconcile the dedicated database before startup")
 
+// Schemas from the Docket name are no longer opened; starting anyway would begin with empty plandillo_ schemas.
+var errRetiredSchemas = errors.New("docket_ schemas found: rename each to plandillo_ (ALTER SCHEMA docket_auth RENAME TO plandillo_auth, and the same for every docket_user_N) before startup")
+
 func resolveSchema(ctx context.Context, conn *pgx.Conn, name string) (string, error) {
 	var current, legacy, misplaced bool
 	err := conn.QueryRow(ctx, `SELECT
@@ -122,11 +125,11 @@ func resolveSchema(ctx context.Context, conn *pgx.Conn, name string) (string, er
 	if err != nil {
 		return "", err
 	}
-	if misplaced || (current && legacy) {
-		return "", errSchemaLayout
-	}
 	if legacy {
-		return "docket_" + strings.TrimPrefix(name, "plandillo_"), nil
+		return "", errRetiredSchemas
+	}
+	if misplaced {
+		return "", errSchemaLayout
 	}
 	return name, nil
 }

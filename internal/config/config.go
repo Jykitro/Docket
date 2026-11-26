@@ -1,4 +1,4 @@
-// Package config reads the PLANDILLO_* environment. Older installations may still use the DOCKET_* names.
+// Package config reads the PLANDILLO_* environment.
 package config
 
 import (
@@ -34,9 +34,12 @@ type Config struct {
 }
 
 func Load() (Config, error) {
+	if err := retiredNames(os.Environ(), "/data"); err != nil {
+		return Config{}, err
+	}
 	c := Config{
 		Addr:           env("ADDR", "127.0.0.1:7777"),
-		DB:             env("DB", defaultDB("/data")),
+		DB:             env("DB", "/data/plandillo.db"),
 		BackupDir:      env("BACKUP_DIR", "/data/backups"),
 		MCPToken:       env("MCP_TOKEN", ""),
 		RunnerSocket:   env("CODE_SOCKET", "/run/plandillo-code/runner.sock"),
@@ -95,23 +98,24 @@ func Load() (Config, error) {
 	return c, nil
 }
 
-// env reads PLANDILLO_<name>, then the older DOCKET_<name>, so an existing .env keeps its database and settings.
 func env(name, def string) string {
-	for _, prefix := range []string{"PLANDILLO_", "DOCKET_"} {
-		if v := os.Getenv(prefix + name); v != "" {
-			return v
-		}
+	if v := os.Getenv("PLANDILLO_" + name); v != "" {
+		return v
 	}
 	return def
 }
 
-// defaultDB is plandillo.db in dir, except that an installation from the Docket days keeps its docket.db.
-func defaultDB(dir string) string {
-	current, old := filepath.Join(dir, "plandillo.db"), filepath.Join(dir, "docket.db")
-	if _, err := os.Stat(current); os.IsNotExist(err) {
-		if _, err := os.Stat(old); err == nil {
-			return old
+// retiredNames refuses to start when settings or the database still use the Docket names, which are no
+// longer read: starting anyway would ignore the token and hosts and open an empty plandillo.db.
+func retiredNames(environ []string, dataDir string) error {
+	for _, kv := range environ {
+		if name, v, _ := strings.Cut(kv, "="); strings.HasPrefix(name, "DOCKET_") && v != "" {
+			return fmt.Errorf("%s is no longer read: rename it to PLANDILLO_%s", name, strings.TrimPrefix(name, "DOCKET_"))
 		}
 	}
-	return current
+	old := filepath.Join(dataDir, "docket.db")
+	if _, err := os.Stat(old); err == nil && os.Getenv("PLANDILLO_DB") == "" {
+		return fmt.Errorf("%s is no longer opened by default: rename it to plandillo.db or set PLANDILLO_DB=%s", old, old)
+	}
+	return nil
 }

@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "build:vercel": "bun run build --outDir dist && cp dist/plandillo-icon.svg dist/docket-icon-v2.svg && cp dist/plandillo-icon-192.png dist/docket-192.png && cp dist/plandillo-icon-512.png dist/docket-512.png && cp dist/plandillo-maskable.png dist/docket-maskable.png",
+    "build:vercel": "bun run build --outDir dist",
     "typecheck": "tsc --noEmit",
     "i18n": "bun scripts/check-i18n.mjs",
     "knip": "knip"

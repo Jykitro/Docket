@@ -3,8 +3,7 @@ version: 2
 project_name: plandillo
 
 builds:
-  - &native
-    id: plandillo
+  - id: plandillo
     main: ./cmd/plandillo
     binary: plandillo
     env: [CGO_ENABLED=0] # modernc SQLite is pure Go
@@ -13,24 +12,14 @@ builds:
     goos: [linux, darwin, windows]
     goarch: [amd64, arm64]
 
-  - <<: *native
-    id: docket
-    binary: docket
-
 archives:
-  - &archive
-    id: plandillo
+  - id: plandillo
     ids: [plandillo]
     formats: [tar.gz]
     format_overrides:
       - goos: windows
         formats: [zip]
     files: [LICENSE, README.md, .env.example]
-
-  - <<: *archive
-    id: docket
-    ids: [docket]
-    name_template: 'docket_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
 
 checksum:
   name_template: checksums.txt
