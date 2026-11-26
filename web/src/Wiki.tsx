@@ -248,8 +248,11 @@ export function Wiki({ project, pageId }: { project: Project; pageId?: number })
   const c: Ctx = { project, pages, tasks, leave, createByTitle: setDraftTitle }
   const newBtn = <button type="button" className={btnPri} disabled={draftTitle !== null || !pq.isSuccess} onClick={() => newPage()}><Icon name="plus" size={16} sw={2} />{tr('Новая страница')}</button>
   return (
-    <div className="flex flex-col items-start gap-6 px-8 pt-6 pb-8 max-[640px]:px-4 lg:flex-row">
-      <aside className="flex w-full flex-col gap-3 lg:w-[260px] lg:shrink-0">
+    // The tree sits beside the page on a wide window (as lg did) and only if the wiki area itself is wide enough (@3xl, 768px):
+    // the container query follows the page zoom (Appearance → Scale), so at 150 % the tree goes on top instead of squeezing the page.
+    <div className="@container">
+    <div className="flex flex-col items-start gap-6 px-8 pt-6 pb-8 max-[640px]:px-4 min-[900px]:@3xl:flex-row">
+      <aside className="flex w-full flex-col gap-3 min-[900px]:@3xl:w-[260px] min-[900px]:@3xl:shrink-0">
         <span className="flex items-center justify-between gap-2"><span className={cap}>{tr('Страницы')}</span>{newBtn}</span>
         {pq.isPending && <div className="flex flex-col gap-2.5"><Skeleton h={28} /><Skeleton h={28} w="80%" /><Skeleton h={28} w="65%" /></div>}
         {pq.isError && <ErrorState error={pq.error} onRetry={() => pq.refetch()} />}
@@ -267,6 +270,7 @@ export function Wiki({ project, pageId }: { project: Project; pageId?: number })
             <EmptyState icon="doc" title={tr('В вики пока нет страниц')} hint={tr('Создайте первую страницу: заметки, решения, ссылки на задачи.')} action={newBtn} />
           ) : pq.isSuccess && <EmptyState icon="doc" title={tr('Выберите страницу')} hint={tr('Откройте страницу из списка или создайте новую.')} />}
       </section>
+    </div>
     </div>
   )
 }

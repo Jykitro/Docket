@@ -152,7 +152,7 @@ export function WikiTree({ pages, current, project, leave }: { pages: Page[]; cu
   const level = (parent: number | null, depth: number): ReactNode => kids.get(parent)?.map((p) =>
     <li key={p.id}>{row(p, depth)}{kids.has(p.id) && <ul>{level(p.id, depth + 1)}</ul>}</li>)
 
-  return <nav className="max-h-64 overflow-y-auto lg:max-h-none" aria-label={tr('Страницы')}>
+  return <nav className="max-h-64 overflow-y-auto min-[900px]:@3xl:max-h-none" aria-label={tr('Страницы')}>
     {pins.length > 0 && <div className="mb-2 border-b border-ln pb-2">
       <h3 className={cap + ' mb-1 px-2'}>{tr('Закреплённые')}</h3>
       <ul aria-label={tr('Закреплённые')}>{pins.map((p) => <li key={p.id}>{row(p, 0, true)}</li>)}</ul>
