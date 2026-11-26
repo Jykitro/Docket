@@ -103,34 +103,49 @@ function buildCols(tasks: Task[], total: Task[], group: Group, sort: Sort, meta:
 
 // ---- cards ----
 
-type CardProps = { t: Task; labels: Label[]; fields: Field[]; movable: boolean }
+type CardProps = { t: Task; labels: Label[]; fields: Field[]; movable: boolean; who: (actor: string) => string }
 
-function CardContent({ t, labels, fields, movable }: CardProps) {
+/** Author tile: the first two letters of the name, accent-tinted for an agent. */
+function Avatar({ actor, who, size = 18 }: { actor: string; who: (actor: string) => string; size?: number }) {
+  const name = who(actor)
+  return (
+    <span role="img" aria-label={tr('Автор: {name}', { name })} title={tr('Автор: {name}', { name })} style={{ width: size, height: size, fontSize: size / 2 }}
+      className={'inline-grid shrink-0 place-items-center rounded-[5px] font-mono font-semibold leading-none ' + (isAgent(actor) ? 'bg-acs text-act' : 'bg-sk text-t2')}>
+      <span aria-hidden="true">{name.slice(0, 2)}</span>
+    </span>
+  )
+}
+
+function CardContent({ t, labels, fields, movable, who }: CardProps) {
   const done = t.status_category === 'done'
   const today = t.planned_for === todayStr()
   const late = !!t.planned_for && t.planned_for < todayStr() && !done
+  const desc = t.has_description || !!t.description_md
+  const extra = fields.filter((f) => f.show_on_card && t.custom[String(f.id)] !== undefined)
   return (
     <>
       <div className={'flex items-center gap-2' + (movable ? ' pr-7' : '')}>
-        {done && <span className="inline-flex text-dn"><Icon name="check" size={15} sw={2.4} /></span>}
+        {done && <span className="inline-flex text-dn"><Icon name="check" size={14} sw={2.4} /></span>}
         <span className="font-mono grow text-[11.5px] text-t3">{t.code}</span>
-        {isAgent(t.created_by) && <AgentBadge actor={t.created_by} />}
         <PriorityChip p={t.priority} />
+        <Avatar actor={t.created_by} who={who} />
       </div>
-      <div className={'wrap-anywhere text-[14px] font-medium leading-[1.35] ' + (done ? 'text-t2' : '')}>{t.title}</div>
-      <div className="flex flex-wrap items-center gap-3">
-        <AreaDot area={t.area} labels={labels} />
-        {t.planned_for && (
-          <span className={MC + (today ? ' text-act' : late ? ' text-rd' : ' text-t3')}>
-            <Icon name="cal" size={13} sw={1.9} />{fmtDay(t.planned_for)}
-          </span>
-        )}
-        {t.subtask_count > 0 && <span className={MC + ' text-t3 tabular-nums'}><Icon name="subtask" size={13} sw={1.9} />{t.subtask_done}/{t.subtask_count}</span>}
-        {(t.has_description || t.description_md) && <span className={MC + ' text-t3'} title={tr('Есть описание')}><Icon name="doc" size={13} sw={1.9} /></span>}
-        {fields.filter((f) => f.show_on_card && t.custom[String(f.id)] !== undefined).map((f) => (
-          <span key={f.id} className={MC + ' text-t3'}>{f.name}: {String(t.custom[String(f.id)])}</span>
-        ))}
-      </div>
+      <div className={'line-clamp-3 wrap-anywhere text-[14px] font-medium leading-[1.38] ' + (done ? 'text-t2' : '')}>{t.title}</div>
+      {(t.area || t.planned_for || t.subtask_count > 0 || desc || extra.length > 0) && (
+        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+          <AreaDot area={t.area} labels={labels} />
+          {t.planned_for && (
+            <span className={MC + (today ? ' text-act' : late ? ' text-rd' : ' text-t3')}>
+              <Icon name="cal" size={12} sw={2} />{fmtDay(t.planned_for)}
+            </span>
+          )}
+          {t.subtask_count > 0 && <span className={MC + ' text-t3 tabular-nums'}><Icon name="subtask" size={12} sw={2} />{t.subtask_done}/{t.subtask_count}</span>}
+          {desc && <span className={MC + ' text-t3'} title={tr('Есть описание')}><Icon name="doc" size={12} sw={2} /></span>}
+          {extra.map((f) => (
+            <span key={f.id} className={MC + ' text-t3'}>{f.name}: {String(t.custom[String(f.id)])}</span>
+          ))}
+        </div>
+      )}
     </>
   )
 }
@@ -142,7 +157,7 @@ function TaskCard(props: CardProps) {
   return (
     <div ref={sortable.setNodeRef} style={{ transform: CSS.Transform.toString(sortable.transform), transition: sortable.transition }}
       className={'relative rounded-[10px] border ' + (sortable.isDragging ? 'border-dashed border-ac bg-acs' : 'border-ln bg-sf hover:border-ln2') + (fresh ? ' shadow-[inset_0_0_0_2px_var(--ac)]' : '')}>
-      <Link to={hrefWith('task', t.code)} draggable={false} className={'flex flex-col gap-2.5 rounded-[inherit] p-3 no-underline' + (sortable.isDragging ? ' opacity-0' : '')}>
+      <Link to={hrefWith('task', t.code)} draggable={false} className={'flex flex-col gap-1.5 rounded-[inherit] px-3 py-2.5 no-underline' + (sortable.isDragging ? ' opacity-0' : '')}>
         <CardContent {...props} />
       </Link>
       {movable && <button type="button" ref={sortable.setActivatorNodeRef} {...sortable.attributes} {...sortable.listeners}
@@ -154,25 +169,32 @@ function TaskCard(props: CardProps) {
   )
 }
 
-function Column({ col, meta, dnd, adding, onAdd, onStopAdd, onCreate, expanded, onExpand }: {
-  col: Col; meta: Meta; dnd: boolean; adding: boolean; onAdd: () => void; onStopAdd: () => void
+function Column({ col, meta, who, dnd, adding, onAdd, onStopAdd, onCreate, expanded, onExpand }: {
+  col: Col; meta: Meta; who: (actor: string) => string; dnd: boolean; adding: boolean; onAdd: () => void; onStopAdd: () => void
   onCreate: (title: string) => void; expanded: boolean; onExpand: () => void
 }) {
   const drop = useDroppable({ id: 'col:' + col.key, disabled: !dnd })
   const [title, setTitle] = useState('')
+  const empty = col.tasks.length === 0 && !adding
   return (
     <div className={COLBOX + (drop.isOver ? ' bg-acs' : '')} ref={drop.setNodeRef}>
       <div className="flex items-center gap-2 px-1 h-[26px]">
         <span className="inline-block w-[9px] h-[9px] flex-[0_0_9px] rounded-full" style={{ background: col.color }} />
-        <b className="font-semibold text-sm">{col.name}</b>
-        <span className="font-mono grow tabular-nums text-[12px] text-t3">{col.matched === col.total ? col.total : tr('{shown} из {total}', { shown: col.matched, total: col.total })}</span>
+        <h2 className="font-semibold text-[13.5px]">{col.name}</h2>
+        <span className="grow tabular-nums text-[12px] text-t3">{col.matched === col.total ? col.total : tr('{shown} из {total}', { shown: col.matched, total: col.total })}</span>
         {col.canAdd && <button type="button" className="inline-grid place-items-center w-6 h-6 p-0 border-0 rounded-md bg-transparent text-t3 cursor-pointer hover:bg-sk hover:text-tx" aria-label={tr('Добавить задачу в «{name}»', { name: col.name })} onClick={onAdd}><Icon name="plus" size={15} sw={2} /></button>}
       </div>
       <SortableContext items={col.tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
-        <div className="flex flex-col gap-2.5 min-h-2">
-          {col.tasks.map((t) => <TaskCard key={t.id} t={t} labels={meta.labels} fields={meta.fields} movable={dnd} />)}
+        <div className="flex flex-col gap-2 min-h-2">
+          {col.tasks.map((t) => <TaskCard key={t.id} t={t} labels={meta.labels} fields={meta.fields} movable={dnd} who={who} />)}
         </div>
       </SortableContext>
+      {empty && (
+        <div className="flex flex-col items-start gap-2 rounded-[10px] border border-dashed border-ln2 px-3 py-3.5 text-[12.5px] text-t2">
+          <span>{dnd ? tr('Пусто. Перетащите сюда карточку.') : tr('Пусто.')}</span>
+          {col.canAdd && <button type="button" className="h-7 rounded-md border border-ln2 bg-transparent px-2.5 text-[12.5px] text-tx hover:bg-sk" onClick={onAdd}>{tr('Добавить задачу')}</button>}
+        </div>
+      )}
       {col.category === 'done' && !expanded && col.matched > DONE_LIMIT && (
         <button type="button" className={ADDROW} onClick={onExpand}>{tr('Показать все {n}', { n: col.matched })}</button>
       )}
@@ -186,7 +208,7 @@ function Column({ col, meta, dnd, adding, onAdd, onStopAdd, onCreate, expanded, 
               setTitle('')
             }
           }} />
-      ) : (
+      ) : !empty && (
         <button type="button" className={ADDROW} onClick={onAdd}><Icon name="plus" size={14} sw={2} />{tr('Добавить задачу')}</button>
       ))}
     </div>
@@ -195,12 +217,11 @@ function Column({ col, meta, dnd, adding, onAdd, onStopAdd, onCreate, expanded, 
 
 // ---- filter bar ----
 
-function FilterBar({ filter, setFilter, group, setGroup, sort, setSort, meta, tasks, project, layout }: {
+function FilterBar({ filter, setFilter, group, setGroup, sort, setSort, meta, tasks, shown, project, layout, who }: {
   filter: ViewFilter; setFilter: (f: ViewFilter) => void; group: Group; setGroup: (g: Group) => void; sort: Sort; setSort: (s: Sort) => void
-  meta: Meta; tasks: Task[]; project: Project; layout: Layout
+  meta: Meta; tasks: Task[]; shown: number; project: Project; layout: Layout; who: (actor: string) => string
 }) {
   const qc = useQueryClient()
-  const who = useWho()
   const counts = new Map<string, number>()
   for (const { created_by } of tasks) {
     if (isAgent(created_by)) counts.set(created_by, (counts.get(created_by) ?? 0) + 1)
@@ -249,11 +270,6 @@ function FilterBar({ filter, setFilter, group, setGroup, sort, setSort, meta, ta
         <Icon name="sliders" size={14} />{tr('Параметры вида')}{chips.length > 0 && <span className="tabular-nums">{chips.length}</span>}
       </button>
       <div id="board-options" className={'relative w-full flex-wrap items-center gap-2 max-sm:[&>span.relative]:static max-sm:[&_[data-menu]]:inset-x-0 sm:contents ' + (showOptions ? 'flex' : 'hidden')}>
-        {chips.map((c) => (
-          <span key={c.label} className={FC + FC_ON}>{c.label}
-            <button type="button" className="inline-grid place-items-center cursor-pointer" aria-label={tr('Убрать фильтр: {name}', { name: c.label })} onClick={c.clear}><Icon name="x" size={12} sw={2.2} /></button>
-          </span>
-        ))}
         <Menu className={FC_BTN + FC_OFF + ' border-dashed'} label={<><Icon name="plus" size={12} sw={2.2} />{tr('Фильтр')}</>}>
           {() => (
             <>
@@ -274,6 +290,23 @@ function FilterBar({ filter, setFilter, group, setGroup, sort, setSort, meta, ta
             </>
           )}
         </Menu>
+        {counts.size > 0 && (
+          <div role="group" aria-label={tr('Автор')} className="flex h-8 items-center gap-1 rounded-md border border-ln bg-sf pr-1 pl-2.5">
+            <span className="mr-1 text-[12.5px] text-t3">{tr('Автор')}</span>
+            {[...counts.keys()].sort().map((a) => (
+              <button key={a} type="button" aria-pressed={!!filter.author?.includes(a)} onClick={() => toggle('author', a)}
+                className="flex h-6 items-center gap-1.5 rounded-[6px] px-2 text-[12.5px] text-tx hover:bg-sk aria-pressed:bg-acs aria-pressed:text-act">
+                <Avatar actor={a} who={who} size={16} /><span className="max-w-36 truncate">{who(a)}</span><span className="tabular-nums text-t3">{counts.get(a)}</span>
+              </button>
+            ))}
+          </div>
+        )}
+        {chips.map((c) => (
+          <span key={c.label} className={FC + FC_ON}>{c.label}
+            <button type="button" className="inline-grid place-items-center cursor-pointer" aria-label={tr('Убрать фильтр: {name}', { name: c.label })} onClick={c.clear}><Icon name="x" size={12} sw={2.2} /></button>
+          </span>
+        ))}
+        {(chips.length > 0 || filter.q) && <span className="text-[12.5px] text-t3 tabular-nums" aria-live="polite">{tr('Показано {shown} из {total}', { shown, total: tasks.length })}</span>}
         {(chips.length > 0 || filter.q) && (
           <Menu className={FC_BTN + FC_OFF} label={<><Icon name="funnel" size={12} sw={2} />{tr('Сохранить как вид')}</>}>
             {(close) => (
@@ -291,11 +324,6 @@ function FilterBar({ filter, setFilter, group, setGroup, sort, setSort, meta, ta
         <Menu right label={<>{tr('Сортировка')}: {tr(SORTS.find((s) => s[0] === sort)![1])}<Icon name="chevD" size={12} sw={2} /></>}>
           {(close) => SORTS.map(([k, n]) => item(tr(n), k === sort, () => { setSort(k); close() }))}
         </Menu>
-        {authors.filter((a) => counts.has(a)).map((a) => (
-          <button key={a} type="button" className={FC_BTN + (filter.author?.includes(a) ? FC_ON : FC_OFF)} aria-pressed={!!filter.author?.includes(a)} onClick={() => toggle('author', a)}>
-            <Icon name="plug" size={13} sw={2} /><span className="max-w-36 truncate" title={who(a)}>{who(a)}</span> · {counts.get(a)}
-          </button>
-        ))}
       </div>
     </div>
   )
@@ -366,7 +394,12 @@ function ProjectBoard({ project, onNewTask, wiki }: { project: Project; onNewTas
   const meta = useProjectsMeta([pid])[pid]
   const tq = useQuery({ queryKey: ['tasks', pid], queryFn: () => api.tasks(project.key) })
   const vq = useQuery({ queryKey: ['views', pid], queryFn: () => api.views(pid) })
+  const pq = useQuery({ queryKey: ['pages', pid], queryFn: () => api.pages(pid) }) // same key as the wiki
   const tasks = tq.data ?? []
+  const who = useWho()
+  const today = todayStr()
+  const doneCount = tasks.filter((t) => t.status_category === 'done').length
+  const lateCount = tasks.filter((t) => t.planned_for && t.planned_for < today && t.status_category !== 'done').length
 
   const [layout, setLayout] = useState<Layout>('board')
   const [filter, setFilter] = useState<ViewFilter>({})
@@ -390,7 +423,7 @@ function ProjectBoard({ project, onNewTask, wiki }: { project: Project; onNewTas
   const shown = useMemo(() => tasks.filter((t) => matches(t, filter)), [tasks, filter])
   const lang = useLang() // buildCols translates the "no area" column name, so a language change must rebuild the columns
   const cols = useMemo(() => buildCols(shown, tasks, group, sort, meta, layout === 'board' ? expanded : undefined), [shown, tasks, group, sort, meta, layout, expanded, lang])
-  const visibleCount = cols.reduce((sum, col) => sum + col.tasks.length, 0)
+  const visibleCount = cols.reduce((sum, col) => sum + col.tasks.length, 0) // the done column may be cut to DONE_LIMIT
   const noMatches = tasks.length > 0 && (shown.length === 0 || (shown.length < tasks.length && cols.length > 0 && visibleCount === 0))
   const colOf = new Map<number, string>()
   cols.forEach((c) => c.tasks.forEach((t) => colOf.set(t.id, c.key)))
@@ -446,11 +479,12 @@ function ProjectBoard({ project, onNewTask, wiki }: { project: Project; onNewTas
   }
 
   const dragged = tasks.find((t) => t.id === dragId)
-  const tab = (label: string, icon: string, on: boolean, click: () => void) => (
+  const tab = (label: string, icon: string, on: boolean, click: () => void, count?: number) => (
     <button type="button" key={label} className={TAB + (on ? ' text-tx border-b-ac' : ' text-t3 border-b-transparent')} aria-current={on ? 'page' : undefined} onClick={click}>
-      <Icon name={icon} size={15} />{label}
+      <Icon name={icon} size={15} />{label}{count !== undefined && <span className="rounded-full bg-sk px-1.5 text-xs font-normal text-t2 tabular-nums">{count}</span>}
     </button>
   )
+  const metric = (label: string, n: number | string, cls = 'text-tx font-semibold tabular-nums') => <span>{label} <span className={cls}>{n}</span></span>
   const plain = (l: Layout) => { setLayout(l); if (wiki) navigate(`/p/${project.slug}`); else setParam('view', null) }
 
   return (
@@ -458,11 +492,15 @@ function ProjectBoard({ project, onNewTask, wiki }: { project: Project; onNewTas
       <header className="flex flex-col gap-2 px-4 pt-4 sm:gap-3.5 sm:px-7 sm:pt-[22px] border-b border-ln">
         <div className="flex flex-wrap items-center gap-3.5">
           <ProjectTile project={project} size={40} radius={11} />
-          <div className="flex flex-col gap-0.5 flex-[1_1_190px] min-w-0 sm:flex-[1_1_280px]">
-            <h1 className="text-2xl font-bold tracking-tight text-balance">{project.name}</h1>
-            <span className="text-[13px] text-t3">
-              {project.description && <>{project.description} · </>}{tr('ключ')} <span className="font-mono">{project.key}</span> · {tr('{open} открытых, показано {shown} из {total}', { open: project.open, shown: visibleCount, total: tasks.length })}
-            </span>
+          <div className="flex flex-col gap-1 flex-[1_1_190px] min-w-0 sm:flex-[1_1_280px]">
+            <h1 className="text-[22px] leading-tight font-semibold tracking-tight text-balance">{project.name}</h1>
+            {project.description && <p className="text-[13.5px] text-t2">{project.description}</p>}
+            <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1 text-[12.5px] text-t3">
+              {metric(tr('Ключ'), project.key, 'font-mono text-t2')}
+              {metric(tr('Открыто'), project.open)}
+              {tq.isSuccess && metric(tr('Готово'), doneCount)}
+              {tq.isSuccess && metric(tr('Просрочено'), lateCount, 'font-semibold tabular-nums ' + (lateCount ? 'text-rd' : 'text-tx'))}
+            </div>
           </div>
           <Link to={`/p/${project.slug}/settings`} className={BTN_PLAIN + ' h-9'} aria-label={tr('Настройки проекта')}><Icon name="sliders" size={16} />{tr('Настройки')}</Link>
           <button type="button" className={BTN_PRI + ' h-9'} onClick={() => onNewTask({ project })}><Icon name="plus" size={16} sw={2} />{tr('Новая задача')}<span className={KBD_PRI}>C</span></button>
@@ -470,7 +508,7 @@ function ProjectBoard({ project, onNewTask, wiki }: { project: Project; onNewTas
         <nav className="flex overflow-x-auto items-end sm:flex-wrap sm:overflow-visible" aria-label={tr('Виды проекта')}>
           {tab(tr('Доска'), 'board', !wiki && !viewId && layout === 'board', () => plain('board'))}
           {tab(tr('Список'), 'list', !wiki && !viewId && layout === 'list', () => plain('list'))}
-          {tab(tr('Вики'), 'doc', !!wiki, () => navigate(`/p/${project.slug}/wiki`))}
+          {tab(tr('Вики'), 'doc', !!wiki, () => navigate(`/p/${project.slug}/wiki`), pq.data?.length)}
           {(vq.data ?? []).filter((v: View) => v.project_id === pid).map((v) => (
             <Link key={v.id} to={`/p/${project.slug}?view=${v.id}`} className={TAB + (viewId === String(v.id) ? ' text-tx border-b-ac' : ' text-t3 border-b-transparent')}><Icon name="funnel" size={14} />{v.name}</Link>
           ))}
@@ -479,7 +517,7 @@ function ProjectBoard({ project, onNewTask, wiki }: { project: Project; onNewTas
 
       {wiki ? <Wiki project={project} pageId={wiki.id} /> : <>
       <FilterBar filter={filter} setFilter={setFilter} group={group} setGroup={setGroup} sort={sort} setSort={setSort}
-        meta={meta} tasks={tasks} project={project} layout={layout} />
+        meta={meta} tasks={tasks} shown={shown.length} project={project} layout={layout} who={who} />
 
       {tq.isError && <div className={CONTENT}><div className={COL_MAIN}><ErrorState error={tq.error} onRetry={() => tq.refetch()} /></div></div>}
       {tq.isPending && (
@@ -501,15 +539,15 @@ function ProjectBoard({ project, onNewTask, wiki }: { project: Project; onNewTas
           <section className="grow overflow-x-auto px-4 pt-3 pb-7 sm:px-7 sm:pt-[18px]">
             <div className="flex items-start gap-4">
               {cols.map((c) => (
-                <Column key={c.key} col={c} meta={meta} dnd={dnd} adding={adding === c.key} expanded={expanded.has(c.key)}
+                <Column key={c.key} col={c} meta={meta} who={who} dnd={dnd} adding={adding === c.key} expanded={expanded.has(c.key)}
                   onAdd={() => setAdding(c.key)} onStopAdd={() => setAdding(null)}
                   onExpand={() => setExpanded(new Set(expanded).add(c.key))}
                   onCreate={(title) => create.mutate({ title, status: c.key })} />
               ))}
             </div>
           </section>
-          <DragOverlay>{dragged && <div aria-hidden="true" className="flex cursor-grabbing flex-col gap-2.5 rounded-[10px] border border-ac bg-sf p-3 shadow-pop">
-            <CardContent t={dragged} labels={meta.labels} fields={meta.fields} movable />
+          <DragOverlay>{dragged && <div aria-hidden="true" className="flex cursor-grabbing flex-col gap-1.5 rounded-[10px] border border-ac bg-sf px-3 py-2.5 shadow-pop">
+            <CardContent t={dragged} labels={meta.labels} fields={meta.fields} movable who={who} />
           </div>}</DragOverlay>
         </DndContext>
       )}
