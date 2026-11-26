@@ -704,7 +704,7 @@ export const MESSAGES: Record<string, [en: string, uk: string]> = {
   'Наглядные страницы и отчёты: структура, готовность, таблицы и HTML-графики.': ['Clear pages and reports: structure, readiness, tables and HTML charts.', 'Наочні сторінки та звіти: структура, готовність, таблиці та HTML-графіки.'],
   'Строгий режим (необязательно)': ['Strict mode (optional)', 'Суворий режим (необов’язково)'],
   'Скопировать хук': ['Copy hook', 'Скопіювати хук'],
-  'Хуки напоминают агенту про задачу при старте и не дают закончить ход без сверки.': ['Hooks remind the agent about the task at start and keep it from ending a turn without reconciling.', 'Хуки нагадують агентові про задачу на старті й не дають завершити хід без звірки.'],
+  'Хуки напоминают агенту про задачу при старте и не дают закончить ход без сверки. Их выполняет plandillo-cli, поэтому они работают в macOS, Linux и Windows: сначала установите его через «Терминал: plandillo-cli».': ['Hooks remind the agent about the task at startup and do not let it finish a turn without a check. plandillo-cli runs them, so they work on macOS, Linux and Windows: install it first with “Terminal: plandillo-cli”.', 'Хуки нагадують агенту про завдання на старті й не дають завершити хід без звірки. Їх виконує plandillo-cli, тому вони працюють у macOS, Linux і Windows: спочатку встановіть його через «Термінал: plandillo-cli».'],
 
   // MCP self-check texts, written in Russian by internal/httpapi/mcpadmin.go (labels, hints, fixed parts of details)
   'Сервер отвечает': ['Server responds', 'Сервер відповідає'],

@@ -79,16 +79,10 @@ Install hooks only when the user wants reminders for tracked work. Merge these e
 ```json
 {
   "hooks": {
-    "SessionStart": [{ "hooks": [{
-      "type": "command",
-      "command": "echo 'Plandillo: for tracked work, follow the Plandillo workflow. Answer board questions with reads and respect a request to skip tracking.'"
-    }] }],
-    "Stop": [{ "hooks": [{
-      "type": "command",
-      "command": "grep -Eq '\"stop_hook_active\": ?true' && exit 0; echo '{\"decision\":\"block\",\"reason\":\"Plandillo end checklist: tick finished steps, add_note the result, move_tasks to done only if checks passed, record findings with report_issue and list their IDs, check get_board doing and offer the next task by priority. For read-only requests or untracked work, finish without planner writes.\"}'"
-    }] }]
+    "SessionStart": [{ "hooks": [{ "type": "command", "command": "plandillo-cli hook session-start" }] }],
+    "Stop": [{ "hooks": [{ "type": "command", "command": "plandillo-cli hook stop" }] }]
   }
 }
 ```
 
-`SessionStart` supplies a reminder. `Stop` requests a final check once per turn and passes on the second stop. To keep only the startup reminder, remove the Plandillo Stop entry.
+The hooks run `plandillo-cli`, so they work the same on macOS, Linux and Windows; install it first (see **Use the CLI**). They read no board and need no sign-in. `SessionStart` supplies a reminder and says when the installed skills are older than the CLI. `Stop` requests a final check once per turn and passes on the second stop. To keep only the startup reminder, remove the Plandillo Stop entry.

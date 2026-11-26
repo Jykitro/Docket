@@ -39,6 +39,7 @@ Commands:
   code JS                run Code Mode JavaScript (also @file.js or -): 'return await codemode.get_today({})'
   skills [update]        check the Plandillo skills of Claude Code and Codex against this version, or update them;
                          --agent claude-code|codex or --dir DIR installs into a new folder
+  hook session-start|stop the SessionStart and Stop hooks for Claude Code and Codex, on every system
   version
 
 Output is the tool result as JSON on stdout; errors go to stderr as "code: message".
@@ -108,6 +109,8 @@ func (a *app) run(ctx context.Context, cmd string, args []string) error {
 		return a.code(ctx, args)
 	case "skills":
 		return a.skills(args)
+	case "hook":
+		return a.hook(args)
 	}
 	return a.call(ctx, cmd, args)
 }

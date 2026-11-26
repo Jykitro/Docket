@@ -172,3 +172,28 @@ func TestInstallScriptFailsWithoutClient(t *testing.T) {
 		t.Fatalf("want a failure naming the missing clients, got err=%v\n%s", err, out)
 	}
 }
+
+// The hook configuration is copied by hand into the setup skill and the Integrations tab; both must stay identical.
+func TestHookConfigMatchesIntegrations(t *testing.T) {
+	setup, _ := Get("plandillo-setup")
+	start := strings.Index(setup, "```json\n{\n  \"hooks\"")
+	if start < 0 {
+		t.Fatal("no hooks JSON in plandillo-setup")
+	}
+	block := setup[start+len("```json\n"):]
+	block = block[:strings.Index(block, "\n```")]
+	tsx, err := os.ReadFile("../web/src/McpAgent.tsx")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ui := string(tsx)
+	from := strings.Index(ui, "const HOOK = `") + len("const HOOK = `")
+	ui = ui[from : from+strings.Index(ui[from:], "`")]
+	if block != ui {
+		t.Fatalf("hooks differ:\nskill:\n%s\nIntegrations:\n%s", block, ui)
+	}
+	var config map[string]any
+	if err := json.Unmarshal([]byte(block), &config); err != nil || !strings.Contains(block, "plandillo-cli hook stop") {
+		t.Fatalf("hooks JSON: %v", err)
+	}
+}

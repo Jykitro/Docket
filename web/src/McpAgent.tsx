@@ -16,19 +16,13 @@ const SKILLS = [
   ['plandillo-setup', 'Подключение клиентов, установка навыков, хуки и разбор проблем.'],
   ['plandillo-infographics', 'Наглядные страницы и отчёты: структура, готовность, таблицы и HTML-графики.'],
 ] as const
-// One file works for both: Claude Code and Codex share the hooks format and the Stop contract.
-// SessionStart stdout becomes context. Stop blocks the first stop of a turn and lets the second pass (stop_hook_active),
-// so the reminder also lets read-only and untracked work finish.
+// One file works for both: Claude Code and Codex share the hooks format and the Stop contract. plandillo-cli prints the
+// reminder (stdout becomes context) and blocks the first stop of a turn, letting the second pass (stop_hook_active),
+// so read-only and untracked work still finish. Keep in step with skills/plandillo-setup/SKILL.md.
 const HOOK = `{
   "hooks": {
-    "SessionStart": [{ "hooks": [{
-      "type": "command",
-      "command": "echo 'Plandillo: for tracked work, follow the Plandillo workflow. Answer board questions with reads and respect a request to skip tracking.'"
-    }] }],
-    "Stop": [{ "hooks": [{
-      "type": "command",
-      "command": "grep -Eq '\\"stop_hook_active\\": ?true' && exit 0; echo '{\\"decision\\":\\"block\\",\\"reason\\":\\"Plandillo end checklist: tick finished steps, add_note the result, move_tasks to done only if checks passed, record findings with report_issue and list their IDs, check get_board doing and offer the next task by priority. For read-only requests or untracked work, finish without planner writes.\\"}'"
-    }] }]
+    "SessionStart": [{ "hooks": [{ "type": "command", "command": "plandillo-cli hook session-start" }] }],
+    "Stop": [{ "hooks": [{ "type": "command", "command": "plandillo-cli hook stop" }] }]
   }
 }`
 
@@ -186,7 +180,7 @@ export function McpAgent() {
               <Icon name={copied === 'hook' ? 'check' : 'doc'} size={14} />{copied === 'hook' ? tr('Скопировано') : tr('Скопировать хук')}
             </button>
           </div>
-          <p className="mb-2 text-[12px] text-t3">{tr('Хуки напоминают агенту про задачу при старте и не дают закончить ход без сверки.')}</p>
+          <p className="mb-2 text-[12px] text-t3">{tr('Хуки напоминают агенту про задачу при старте и не дают закончить ход без сверки. Их выполняет plandillo-cli, поэтому они работают в macOS, Linux и Windows: сначала установите его через «Терминал: plandillo-cli».')}</p>
           <pre className={PRE}>{HOOK}</pre>
         </details>
       )}

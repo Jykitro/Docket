@@ -343,3 +343,28 @@ func TestSkillsStatusAndUpdate(t *testing.T) {
 		t.Fatalf("unknown agent: exit %d", code)
 	}
 }
+
+// The hooks answer without the board: a reminder (plus stale skills) at start, and one blocking checklist per turn.
+func TestHook(t *testing.T) {
+	t.Chdir(t.TempDir())
+	home := t.TempDir()
+	b := &board{env: map[string]string{"HOME": home}}
+	if code, out, _ := b.run("", "hook", "session-start"); code != exitOK || !strings.HasPrefix(out, startReminder) || strings.Contains(out, "skills update") {
+		t.Fatalf("session-start: exit %d %q", code, out)
+	}
+	os.MkdirAll(filepath.Join(home, ".claude", "skills", "plandillo"), 0o755)
+	os.WriteFile(filepath.Join(home, ".claude", "skills", "plandillo", "SKILL.md"), []byte("old"), 0o644)
+	if _, out, _ := b.run("", "hook", "session-start"); !strings.Contains(out, "plandillo-cli skills update") {
+		t.Fatalf("session-start with stale skills: %q", out)
+	}
+	for stdin, block := range map[string]bool{`{"stop_hook_active":true}`: false, `{"stop_hook_active":false}`: true, ``: true, `not json`: true} {
+		code, out, _ := b.run(stdin, "hook", "stop")
+		var got struct{ Decision, Reason string }
+		if code != exitOK || block != (json.Unmarshal([]byte(out), &got) == nil && got.Decision == "block" && strings.Contains(got.Reason, "report_issue")) || !block && out != "" {
+			t.Errorf("stop with %q: exit %d %q", stdin, code, out)
+		}
+	}
+	if code, _, _ := b.run("", "hook", "pre-tool"); code != exitUsage {
+		t.Fatalf("unknown hook: exit %d", code)
+	}
+}

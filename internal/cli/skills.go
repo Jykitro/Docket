@@ -133,7 +133,7 @@ func (a *app) skills(args []string) error {
 		n, _ := stale(report)
 		b, _ := json.Marshal(map[string]any{"version": Version, "skills": report, "to_update": n})
 		if n > 0 {
-			fmt.Fprintf(a.stderr, "%d skill files are older than this plandillo-cli or missing: run plandillo-cli skills update\n", n)
+			fmt.Fprintf(a.stderr, "Plandillo skills outdated or missing: %d; run plandillo-cli skills update\n", n)
 		}
 		if len(report) == 0 {
 			fmt.Fprintln(a.stderr, "No Plandillo skills found; install them with plandillo-cli skills update --agent claude-code (or codex)")

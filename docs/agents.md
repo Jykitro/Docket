@@ -96,7 +96,7 @@ Plugin 1.1.0 changed the default address from `https://app.plandillo.dev/mcp` to
 
 **Manual installation.** The Integrations tab offers Copy and Download for each SKILL.md. Put each file under its skill name in `~/.claude/skills/` or `~/.agents/skills/` (Codex). The server also serves them at `/api/mcp/skill/<name>` and its shell installer at `/api/mcp/install.sh`. For authenticated self-hosted downloads use the signed-in UI.
 
-**Optional hooks.** The setup skill and Integrations tab provide the same SessionStart and Stop configuration. Install it separately if you want a reminder before the agent finishes a turn.
+**Optional hooks.** The setup skill and Integrations tab provide the same SessionStart and Stop configuration. It calls `plandillo-cli hook session-start` and `plandillo-cli hook stop`, so it works on macOS, Linux and Windows once the CLI is installed. Install it separately if you want a reminder before the agent finishes a turn.
 
 ## Tools
 

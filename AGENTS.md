@@ -77,7 +77,7 @@ Four skills, one `SKILL.md` each, embedded by `skills/skills.go` and served at `
 
 Both native marketplaces point to `./skills` as the plugin root. Edit the public skill files there so the two plugins, skills.sh and the Go embed consume the same instructions. Keep the versions in the two plugin manifests in sync when releasing skill changes. Mark repository-only skills with `metadata.internal: "true"` to keep them out of default skills.sh discovery.
 
-When you change a tool, a limit or a setup step, change the matching skill in the same commit. The hook JSON exists in two places that must stay identical: `skills/plandillo-setup/SKILL.md` and `web/src/McpAgent.tsx`. A new skill is a folder `skills/plandillo-<topic>/SKILL.md` with `name` equal to the folder and a `description` that starts with "Use when" and says only when to use it. The MCP page lists skills from `SKILLS` in `McpAgent.tsx`.
+When you change a tool, a limit or a setup step, change the matching skill in the same commit. The hook JSON exists in two places that must stay identical: `skills/plandillo-setup/SKILL.md` and `web/src/McpAgent.tsx` (`TestHookConfigMatchesIntegrations` enforces it); the hooks run `plandillo-cli hook session-start|stop` (`internal/cli/hook.go`). A new skill is a folder `skills/plandillo-<topic>/SKILL.md` with `name` equal to the folder and a `description` that starts with "Use when" and says only when to use it. The MCP page lists skills from `SKILLS` in `McpAgent.tsx`.
 
 ## If the maintainer uses Plandillo
 
