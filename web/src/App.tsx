@@ -7,7 +7,7 @@ import { NewProjectDialog, NewTaskDialog } from './Dialogs'
 import { useLive } from './live'
 import { tr, useLang } from './i18n'
 import { Header } from './Header'
-import { navigate, useRoute } from './router'
+import { navigate, setParam, useRoute } from './router'
 import { SearchDialog } from './Search'
 import { Sidebar } from './Sidebar'
 import { lastProject, useTheme } from './theme'
@@ -100,6 +100,13 @@ export function App() {
   useEffect(() => {
     if (started.current || !projects.isSuccess) return
     started.current = true
+    // Shortcuts from the installed app's icon menu (manifest.webmanifest): ?open=new-task or ?open=today.
+    const open = params.get('open')
+    if (open) {
+      setParam('open', null)
+      if (open === 'new-task') openNewTask({})
+      return
+    }
     if (path !== '/' || params.toString()) return
     const start = document.documentElement.dataset.start
     const last = lastProject()

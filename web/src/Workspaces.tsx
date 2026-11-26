@@ -3,6 +3,7 @@
 import { type ReactNode, useEffect, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, cacheSpaces, cachedSpaces, errText, type Space, useMe, useProfile } from './api'
+import { useOnline } from './connection'
 import { tr } from './i18n'
 import { Icon } from './icons'
 import { ProjectIconPicker } from './ProjectIconPicker'
@@ -19,19 +20,35 @@ export const useSpaces = () => useQuery({
 const open = (slug: string) => location.assign('/' + slug)
 export const SPACE_NAME_MAX = 80
 
+// The workspace this browser last had open: an address without one (start_url, icon shortcuts) goes back to it.
+const LAST_SPACE = 'plandillo-workspace'
+function lastSpace(slug?: string) {
+  try {
+    if (slug) localStorage.setItem(LAST_SPACE, slug)
+    return localStorage.getItem(LAST_SPACE)
+  } catch { return null } // storage can be blocked: the first workspace then
+}
+
 export function WorkspaceGate({ children }: { children: ReactNode }) {
   const spaces = useSpaces()
-  const first = spaces.data?.find((s) => !s.archived_at)
   const current = spaces.data?.find((s) => s.slug === workspaceSlug && !s.archived_at)
+  const live = spaces.data?.filter((s) => !s.archived_at)
+  const last = lastSpace(current?.slug)
+  const known = live?.find((s) => s.slug === last)
+  const first = known ?? live?.[0]
   const fresh = !spaces.isPlaceholderData // the saved list may be stale: redirect and refuse only on the server's answer
+  // The list restored for "/" dates from the last visit there: one without the last workspace waits for this load's
+  // request (answered or failed), unless offline, before falling back to the first one.
+  const online = useOnline()
+  const settled = spaces.isFetchedAfterMount || !online
   useEffect(() => {
-    if (!fresh) return
+    if (!fresh || (last && !known && !settled)) return
     const rest = location.search + location.hash
-    // An old /w/<id>/… link goes to the same place in that workspace; an address without a workspace, to the first one.
+    // An old /w/<id>/… link goes to the same place in that workspace; an address without a workspace, to the last one opened here.
     const old = /^\/w\/([1-9]\d*)(\/.*)?$/.exec(location.pathname)
     const to = old ? spaces.data?.find((s) => s.id === Number(old[1]) && !s.archived_at) ?? first : first
     if (!workspaceSlug && to) location.replace('/' + to.slug + (old ? old[2] ?? '' : location.pathname.replace(/^\/$/, '')) + rest)
-  }, [first, fresh, spaces.data])
+  }, [first, fresh, settled, spaces.data])
   if (spaces.isError) return <ErrorPage full error={spaces.error} />
   if (!workspaceSlug || !spaces.data) return null
   if (!current && !fresh) return null
