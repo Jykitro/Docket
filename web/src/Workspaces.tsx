@@ -8,7 +8,7 @@ import { Icon } from './icons'
 import { ProjectIconPicker } from './ProjectIconPicker'
 import { Link } from './router'
 import { Dialog, ErrorPage, MENUITEM, MENUSEP, Menu, SettingsRow, SettingsSection, btn, btnPri, cap, textInput } from './ui'
-import { workspaceApi, workspaceId } from './workspacePath'
+import { workspaceApi, workspaceId, workspaceSlug } from './workspacePath'
 
 // Starts from the list saved by the last load (switching reloads the page), then replaces it with the server's answer.
 export const useSpaces = () => useQuery({
@@ -16,24 +16,32 @@ export const useSpaces = () => useQuery({
   queryFn: async () => { const rows = await api.spaces(); cacheSpaces(rows); return rows },
   placeholderData: () => cachedSpaces(),
 })
-const open = (id: number) => location.assign('/w/' + id + '/')
+const open = (slug: string) => location.assign('/' + slug)
 export const SPACE_NAME_MAX = 80
 
 export function WorkspaceGate({ children }: { children: ReactNode }) {
   const spaces = useSpaces()
   const first = spaces.data?.find((s) => !s.archived_at)
-  const current = spaces.data?.find((s) => s.id === workspaceId && !s.archived_at)
+  const named = spaces.data?.find((s) => s.slug === workspaceSlug && !s.archived_at)
+  const current = named?.id === workspaceId ? named : undefined
   const fresh = !spaces.isPlaceholderData // the saved list may be stale: redirect and refuse only on the server's answer
   useEffect(() => {
-    if (!workspaceId && first && fresh) location.replace('/w/' + first.id + location.pathname + location.search + location.hash)
-  }, [first, fresh])
+    if (!fresh) return
+    const rest = location.search + location.hash
+    // An old /w/<id>/… link goes to the same place in that workspace; an address without a workspace, to the first one.
+    const old = /^\/w\/([1-9]\d*)(\/.*)?$/.exec(location.pathname)
+    const to = old ? spaces.data?.find((s) => s.id === Number(old[1]) && !s.archived_at) ?? first : first
+    if (!workspaceSlug && to) location.replace('/' + to.slug + (old ? old[2] ?? '' : location.pathname.replace(/^\/$/, '')) + rest)
+    // The ID came from a list saved by an earlier sign-in or no ID was found before signing in: start again with this one.
+    else if (named && named.id !== workspaceId) location.reload()
+  }, [first, fresh, named, spaces.data])
   if (spaces.isError) return <ErrorPage full error={spaces.error} />
-  if (!workspaceId || !spaces.data) return null
-  if (!current && !fresh) return null
+  if (!workspaceSlug || !spaces.data) return null
+  if (!current && (!fresh || named)) return null
   if (!current)
     return (
       <ErrorPage full kind="forbidden" title={tr('Пространство недоступно')} hint={tr('Его архивировали или у вас нет к нему доступа.')}
-        actions={first && <a className={btnPri} href={'/w/' + first.id + '/'}>{tr('Открыть своё пространство')}</a>} />
+        actions={first && <a className={btnPri} href={'/' + first.slug}>{tr('Открыть своё пространство')}</a>} />
     )
   return <>{children}</>
 }
@@ -75,7 +83,7 @@ export function WorkspaceSwitcher({ rail }: { rail: boolean }) {
             <div className={cap + ' px-2 pt-1 pb-1.5'}>{tr('Пространства')}</div>
             {list.map((s) => (
               <button key={s.id} type="button" role="menuitemradio" aria-checked={s.id === workspaceId} className={MENUITEM + ' h-9'}
-                onClick={() => { close(); if (s.id !== workspaceId) open(s.id) }}>
+                onClick={() => { close(); if (s.id !== workspaceId) open(s.slug) }}>
                 <SpaceIcon space={s} size={22} />
                 <span className="min-w-0 grow truncate">{s.name}</span>
                 {s.id === workspaceId && <Icon name="check" size={14} sw={2.2} />}
@@ -100,7 +108,7 @@ export function WorkspaceSwitcher({ rail }: { rail: boolean }) {
 
 function NewWorkspaceDialog({ onClose }: { onClose: () => void }) {
   const [name, setName] = useState('')
-  const create = useMutation({ mutationFn: () => api.createSpace(name.trim()), onSuccess: (sp) => open(sp.id) })
+  const create = useMutation({ mutationFn: () => api.createSpace(name.trim()), onSuccess: (sp) => open(sp.slug) })
   return (
     <Dialog title={tr('Новое пространство')} onClose={onClose}>
       <form className="flex flex-col gap-4" onSubmit={(e) => { e.preventDefault(); if (name.trim() && !create.isPending) create.mutate() }}>
@@ -205,10 +213,10 @@ export function WorkspaceList() {
             <SpaceIcon space={s} />
             <span className="min-w-0 grow truncate text-sm font-medium">{s.name}</span>
             {s.id === workspaceId ? <span className="rounded-md bg-acs px-2 py-0.5 text-xs font-medium text-act">{tr('Текущее')}</span>
-              : <button type="button" className={btn} onClick={() => open(s.id)}>{tr('Открыть')}</button>}
+              : <button type="button" className={btn} onClick={() => open(s.slug)}>{tr('Открыть')}</button>}
           </div>
         ))}
-        <form className={row + ' rounded-b-xl bg-sf2'} onSubmit={(e) => { e.preventDefault(); change.mutate(async () => open((await api.createSpace(newName.trim())).id)) }}>
+        <form className={row + ' rounded-b-xl bg-sf2'} onSubmit={(e) => { e.preventDefault(); change.mutate(async () => open((await api.createSpace(newName.trim())).slug)) }}>
           <input className={textInput} aria-label={tr('Новое пространство')} placeholder={tr('Новое пространство')} value={newName} required maxLength={SPACE_NAME_MAX} onChange={(e) => setNewName(e.target.value)} />
           <button className={btnPri} disabled={change.isPending || !newName.trim()}><Icon name="plus" size={15} sw={2} />{tr('Создать')}</button>
         </form>

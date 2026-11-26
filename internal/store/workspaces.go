@@ -17,6 +17,7 @@ type Space struct {
 	ID         int64  `json:"id"`
 	OwnerID    int64  `json:"owner_user_id"`
 	Name       string `json:"name"`
+	Slug       string `json:"slug"`
 	Icon       string `json:"icon"`
 	HasIcon    bool   `json:"has_icon"`
 	Generation string `json:"-"`
@@ -28,10 +29,10 @@ type Space struct {
 var ErrSpaceInput = errors.New("invalid workspace name, icon or action")
 var ErrLastSpace = errors.New("keep at least one active workspace")
 
-const spaceColumns = "id,owner_user_id,name,icon,icon_png IS NOT NULL,generation,archived_at,created_at,updated_at"
+const spaceColumns = "id,owner_user_id,name,slug,icon,icon_png IS NOT NULL,generation,archived_at,created_at,updated_at"
 
 func scanSpace(row scanner) (v Space, err error) {
-	err = notFoundIf(row.Scan(&v.ID, &v.OwnerID, &v.Name, &v.Icon, &v.HasIcon, &v.Generation, &v.ArchivedAt, &v.CreatedAt, &v.UpdatedAt))
+	err = notFoundIf(row.Scan(&v.ID, &v.OwnerID, &v.Name, &v.Slug, &v.Icon, &v.HasIcon, &v.Generation, &v.ArchivedAt, &v.CreatedAt, &v.UpdatedAt))
 	return
 }
 func (s *Store) Spaces(ctx context.Context, owner int64) ([]Space, error) {
@@ -100,7 +101,11 @@ func (s *Store) ChangeSpace(ctx context.Context, owner, id int64, in SpaceChange
 		if in.Name == nil || in.Action != "" {
 			return v, ErrSpaceInput
 		}
-		err = tx.QueryRow("INSERT INTO workspaces(owner_user_id,name,generation,created_at,updated_at) VALUES (?,?,?,?,?) RETURNING id", owner, *in.Name, rand.Text(), now, now).Scan(&id)
+		var slug string
+		if slug, err = tx.SpaceSlug(owner, *in.Name); err != nil {
+			return v, err
+		}
+		err = tx.QueryRow("INSERT INTO workspaces(owner_user_id,name,slug,generation,created_at,updated_at) VALUES (?,?,?,?,?,?) RETURNING id", owner, *in.Name, slug, rand.Text(), now, now).Scan(&id)
 		if err != nil {
 			return v, err
 		}
@@ -170,7 +175,7 @@ func EnsureLocalUser(db *database.DB) (int64, error) {
 		now := time.Now().Unix()
 		err = tx.QueryRow("INSERT INTO users(username,name,role,created_at,updated_at) VALUES ('local','','user',?,?) RETURNING id", now, now).Scan(&id)
 		if err == nil {
-			_, err = tx.Exec("INSERT INTO workspaces(owner_user_id,name,generation,created_at,updated_at) VALUES (?,'Personal',?,?,?)", id, rand.Text(), now, now)
+			_, err = tx.Exec("INSERT INTO workspaces(owner_user_id,name,slug,generation,created_at,updated_at) VALUES (?,'Personal','personal',?,?,?)", id, rand.Text(), now, now)
 		}
 	}
 	if err != nil {

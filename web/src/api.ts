@@ -321,7 +321,7 @@ async function wikiPage(id: number) {
   return page
 }
 
-export type Space = { id: number; owner_user_id: number; name: string; icon: string; has_icon: boolean; archived_at: number | null; updated_at: number }
+export type Space = { id: number; owner_user_id: number; name: string; slug: string; icon: string; has_icon: boolean; archived_at: number | null; updated_at: number }
 type SpaceChange = { name?: string; icon?: string; icon_png?: string; action?: 'archive' | 'restore' }
 type Device = { id: string; user_agent: string; current: boolean; created_at: string; last_seen_at: string; expires_at: string }
 export const api = {

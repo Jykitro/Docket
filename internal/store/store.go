@@ -188,7 +188,7 @@ func (s *Store) initialize(verify func(*Tx, bool) error, standalone bool) error 
 			if err = tx.QueryRow("INSERT INTO users(username,name,role,created_at,updated_at) VALUES ('local','','user',?,?) RETURNING id", now, now).Scan(&uid); err != nil {
 				return err
 			}
-			if err = tx.QueryRow("INSERT INTO workspaces(owner_user_id,name,generation,created_at,updated_at) VALUES (?,'Personal',?,?,?) RETURNING id", uid, rand.Text(), now, now).Scan(&s.workspaceID); err != nil {
+			if err = tx.QueryRow("INSERT INTO workspaces(owner_user_id,name,slug,generation,created_at,updated_at) VALUES (?,'Personal','personal',?,?,?) RETURNING id", uid, rand.Text(), now, now).Scan(&s.workspaceID); err != nil {
 				return err
 			}
 		} else if err = tx.QueryRow("SELECT id FROM workspaces ORDER BY id LIMIT 1").Scan(&s.workspaceID); err != nil {

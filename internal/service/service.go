@@ -19,6 +19,7 @@ import (
 	"unicode/utf8"
 
 	"docket/internal/events"
+	"docket/internal/slug"
 	"docket/internal/store"
 )
 
@@ -332,7 +333,7 @@ func deriveKey(tx *store.Tx, slug string) (string, error) {
 }
 
 func slugify(name string) string {
-	if s := asciiSlug(name); s != "" {
+	if s := slug.ASCII(name); s != "" {
 		return s
 	}
 	return "project" // e.g. a Cyrillic-only name

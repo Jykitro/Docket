@@ -7,7 +7,10 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+
+	"docket/internal/slug"
 )
 
 // ErrPreviousLayout is returned before changing application tables.
@@ -32,6 +35,7 @@ CREATE TABLE workspaces(
  id INTEGER PRIMARY KEY AUTOINCREMENT,
  owner_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
  name TEXT NOT NULL,
+ slug TEXT NOT NULL DEFAULT '',
  icon TEXT NOT NULL DEFAULT 'board',
  icon_png BLOB,
  generation TEXT NOT NULL UNIQUE,
@@ -44,6 +48,7 @@ CREATE TABLE workspaces(
  updated_at INTEGER NOT NULL
 );
 CREATE INDEX workspaces_owner ON workspaces(owner_user_id,archived_at,id);
+CREATE UNIQUE INDEX workspaces_slug ON workspaces(owner_user_id,slug);
 `
 
 // Codes, access tokens and refresh tokens have independent lifetimes. Only their digests
@@ -81,6 +86,9 @@ func (d *DB) EnsureCatalog(tx *Tx) error {
 		if version != 2 && (d.Postgres || version != 3) {
 			return ErrPreviousLayout
 		}
+		if err := ensureSpaceSlugs(tx); err != nil {
+			return err
+		}
 		return d.ensureOAuthCatalog(tx)
 	}
 	if !occupied && d.Postgres && strings.HasSuffix(d.schema, "_auth") {
@@ -101,6 +109,74 @@ func (d *DB) EnsureCatalog(tx *Tx) error {
 		return err
 	}
 	return d.ensureOAuthCatalog(tx)
+}
+
+// ensureSpaceSlugs gives workspaces made before addresses used slugs (/w/<id>/) their slug.
+func ensureSpaceSlugs(tx *Tx) error {
+	q := "SELECT EXISTS(SELECT 1 FROM pragma_table_info('workspaces') WHERE name='slug')"
+	if tx.Postgres() {
+		q = "SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=current_schema() AND table_name='workspaces' AND column_name='slug')"
+	}
+	var done bool
+	if err := tx.QueryRow(q).Scan(&done); err != nil || done {
+		return err
+	}
+	if _, err := tx.Exec("ALTER TABLE workspaces ADD COLUMN slug TEXT NOT NULL DEFAULT ''"); err != nil {
+		return err
+	}
+	rows, err := tx.Query("SELECT id,owner_user_id,name FROM workspaces ORDER BY id")
+	if err != nil {
+		return err
+	}
+	type space struct {
+		id, owner int64
+		name      string
+	}
+	var all []space
+	for rows.Next() {
+		var v space
+		if err = rows.Scan(&v.id, &v.owner, &v.name); err != nil {
+			rows.Close()
+			return err
+		}
+		all = append(all, v)
+	}
+	rows.Close()
+	if err = rows.Err(); err != nil {
+		return err
+	}
+	for _, v := range all {
+		s, err := tx.SpaceSlug(v.owner, v.name)
+		if err != nil {
+			return err
+		}
+		if _, err = tx.Exec("UPDATE workspaces SET slug=? WHERE id=?", s, v.id); err != nil {
+			return err
+		}
+	}
+	_, err = tx.Exec("CREATE UNIQUE INDEX workspaces_slug ON workspaces(owner_user_id,slug)")
+	return err
+}
+
+// reservedSlugs are first segments of addresses outside a workspace (server routes, sign-in pages, old /w/<id>/
+// links) and the app's own pages, which an address without a workspace is redirected into.
+var reservedSlugs = map[string]bool{"api": true, "assets": true, "healthz": true, "mcp": true, "oauth": true, "register": true,
+	"recover": true, "invite": true, "w": true, "p": true, "t": true, "attention": true, "integrations": true, "trash": true, "settings": true}
+
+// SpaceSlug is a free address word for a new workspace of owner: its name in a-z0-9 words, then -2, -3… on a clash.
+func (t *Tx) SpaceSlug(owner int64, name string) (string, error) {
+	base := slug.ASCII(name)
+	if base == "" || reservedSlugs[base] {
+		base = strings.TrimSuffix("space-"+base, "-")
+	}
+	s := base
+	for i := 2; ; i++ {
+		var taken bool
+		if err := t.QueryRow("SELECT EXISTS(SELECT 1 FROM workspaces WHERE owner_user_id=? AND slug=?)", owner, s).Scan(&taken); err != nil || !taken {
+			return s, err
+		}
+		s = base + "-" + strconv.Itoa(i)
+	}
 }
 
 func (d *DB) ensureOAuthCatalog(tx *Tx) error {

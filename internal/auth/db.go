@@ -210,7 +210,11 @@ func (d *DB) createUser(tx *database.Tx, username string, digest PasswordDigest,
 		return User{}, err
 	}
 	generation := rand.Text()
-	if _, err = tx.Exec("INSERT INTO workspaces(owner_user_id,name,generation,created_at,updated_at) VALUES (?,?,?,?,?)", id, username, generation, created, created); err != nil {
+	slug, err := tx.SpaceSlug(id, username)
+	if err != nil {
+		return User{}, err
+	}
+	if _, err = tx.Exec("INSERT INTO workspaces(owner_user_id,name,slug,generation,created_at,updated_at) VALUES (?,?,?,?,?,?)", id, username, slug, generation, created, created); err != nil {
 		return User{}, err
 	}
 	if _, err = tx.Exec("INSERT INTO workspace_bindings (user_id,generation) VALUES (?,?)", id, generation); err != nil {
